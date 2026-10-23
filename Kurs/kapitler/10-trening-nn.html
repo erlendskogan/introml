@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 · Trening av nevrale nettverk – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  /* Figurboks uten klassen .card (som flashcard-motoren plukker opp) */
+  figure.fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  figure.fig svg { display: block; margin: 0 auto; width: 100%; height: auto; }
+  .k10-in { fill: color-mix(in srgb, var(--c3) 22%, var(--surface)); stroke: var(--c3); stroke-width: 1.6; }
+  .k10-hid { fill: color-mix(in srgb, var(--c1) 20%, var(--surface)); stroke: var(--c1); stroke-width: 1.6; }
+  .k10-out { fill: color-mix(in srgb, var(--c2) 20%, var(--surface)); stroke: var(--c2); stroke-width: 1.6; }
+  .k10-loss { fill: color-mix(in srgb, var(--c5) 25%, var(--surface)); stroke: var(--c5); stroke-width: 1.6; }
+  .k10-edge { stroke: var(--axis); stroke-width: 1.1; }
+  .k10-small { font-size: 13px; }
+  .k10-muted { fill: var(--muted) !important; }
+  .k10-fwd { fill: var(--c1) !important; }
+  .k10-bwd { fill: var(--c2) !important; }
+  .bp-hl { stroke: var(--c4) !important; stroke-width: 3.5 !important; }
+  .bp-box { background: var(--surface-2); border-radius: 9px; padding: 10px 14px; margin-top: 10px; min-height: 5.2em; font-size: 15.5px; }
+  .bp-box .t { font-weight: 700; color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+  .controls select { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .controls input[type=number] { font: inherit; font-family: var(--mono); font-size: 14px; width: 70px; padding: 3px 6px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .k10-batches { display: flex; gap: 2px; margin: 4px 0 12px; }
+  .k10-batches span { flex: 1; height: 16px; border-radius: 3px; }
+</style>
+</head>
+<body data-chapter="10">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 10 · Del II · Nevrale nettverk</div>
+  <h1>Trening av nevrale nettverk</h1>
+  <p class="lead">Et nevralt nett kan ha millioner av vekter, og de fleste sitter i skjulte lag uten noe «riktig svar». Her lærer du hvordan backpropagation finner gradienten likevel, hvordan (mini-batch) SGD bruker den, og hvordan du bygger, trener og tolker modeller i Keras.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare forward pass og backpropagation intuitivt, og hvorfor «jo større $a$, jo større effekt har $w$»</li>
+    <li>regne backprop for hånd gjennom et lite nett med kjerneregelen, og skille mellom å <em>beregne</em> gradienten (backprop) og å <em>bruke</em> den (gradient descent)</li>
+    <li>sammenligne gradient descent, SGD og mini-batch SGD, og regne ut antall iterasjoner per epoke</li>
+    <li>forklare hvorfor konvekse problemer gir garantert globalt minimum, og hvorfor nevrale nett ikke gjør det</li>
+    <li>bygge, kompilere, trene, evaluere og lagre en modell i Keras, telle parametre og forutsi output-shape</li>
+    <li>velge riktig par av output-aktivering og tapsfunksjon, og tolke trenings- og valideringskurver</li>
+    <li>forklare teknikkene fra prosjekt 3: seeds, optimizers, cosine annealing, early stopping og vanishing gradients</li>
+  </ul>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="forward"><span class="sec">10.1</span>Forward pass og problemet med skjulte lag</h2>
+
+<p>Når et nevralt nett gjør en prediksjon, gjør det en <strong>forward pass</strong>: dataene sendes fra input-laget gjennom alle lagene til output, med formelen fra <a href="09-nevrale-nett.html#formel">kapittel 9</a>, $a^{(l)} = g\big(W^{(l)}a^{(l-1)} + b^{(l)}\big)$, lag for lag.</p>
+<p>Hvis vektene (modellparametrene) har gode verdier, blir avviket mellom output og target lite. Spørsmålet er hvordan vi finner slike verdier. Svaret er det samme som før: <strong>gradient descent</strong>. Vi går i parameterrommet i retningen der tapet minker, altså langs den negative gradienten:</p>
+<div class="eq">
+  $$\theta \leftarrow \theta - \eta\,\nabla_\theta L, \qquad \nabla_\theta L = \Big(\frac{\partial L}{\partial \theta_1},\ \frac{\partial L}{\partial \theta_2},\ \dots,\ \frac{\partial L}{\partial \theta_P}\Big)$$
+</div>
+<p>Gradienten har <strong>like mange elementer som nettet har parametre</strong>, og hvert element sier hvor følsomt tapet er for den parameteren. Formelt er dette det samme som gradient descent for lineær regresjon.</p>
+
+<div class="callout why"><span class="label">Hva er nytt?</span><p>I lineær regresjon er hver vekt direkte koblet til både data og prediksjon, så den deriverte er lett å skrive opp. I et nevralt nett sitter de fleste noder i <strong>skjulte lag</strong>, der vi ikke kjenner den «riktige verdien». De er ikke direkte forbundet med både data og targets. Det var akkurat dette som stoppet perseptronregelen i XOR-nettet. Vi trenger en metode som regner ut gradienten også for disse vektene. Den heter <strong>backpropagation</strong> (tilbakepropagering).</p></div>
+
+<div class="quiz" data-id="10-forward-def">
+  <p class="q">Hva er en forward pass?</p>
+  <ul>
+    <li data-correct>Å sende input gjennom lagene, fra input til output, for å beregne prediksjonen (og eventuelt tapet).</li>
+    <li>Ett steg der vektene oppdateres i retning av negativ gradient.</li>
+    <li>Én hel runde gjennom alle treningsdataene.</li>
+    <li>Å beregne gradienten fra output-laget og bakover.</li>
+  </ul>
+  <div class="explain">Forward pass er beregningen fra data til prediksjon. Oppdateringen er gradient descent-steget, en runde gjennom alle data er en epoke, og å gå bakover med gradienten er backpropagation. Treningen veksler mellom disse: forward → tap → backward → oppdatering.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="backprop"><span class="sec">10.2</span>Backpropagation intuitivt</h2>
+
+<p>Notatene bygger intuisjonen med et konkret eksempel. Tegn gjerne med selv.</p>
+<p>Nettverket har <strong>to input-noder, to skjulte lag med fire noder hver, og tre output-noder</strong> (2–4–4–3). Vi bruker $l=0$ for input, $l=1,2$ for de skjulte lagene og $l=3$ for output. Nettet har predikert $\hat y = (0.1,\ 0.1,\ 0.8)$ for et datapunkt med target $y = (1,\ 0,\ 0)$.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 660 300" role="img" aria-label="Nettverk 2-4-4-3 med prediksjon 0.1, 0.1, 0.8 og target 1, 0, 0. Piler viser at første output skal opp mye, andre ned litt og tredje ned mye.">
+  <defs><marker id="k10a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--c2)"/></marker></defs>
+  <g class="k10-edge">
+    <line x1="70" y1="100" x2="200" y2="50"/><line x1="70" y1="100" x2="200" y2="110"/><line x1="70" y1="100" x2="200" y2="170"/><line x1="70" y1="100" x2="200" y2="230"/>
+    <line x1="70" y1="180" x2="200" y2="50"/><line x1="70" y1="180" x2="200" y2="110"/><line x1="70" y1="180" x2="200" y2="170"/><line x1="70" y1="180" x2="200" y2="230"/>
+    <line x1="200" y1="50" x2="340" y2="50"/><line x1="200" y1="50" x2="340" y2="110"/><line x1="200" y1="50" x2="340" y2="170"/><line x1="200" y1="50" x2="340" y2="230"/>
+    <line x1="200" y1="110" x2="340" y2="50"/><line x1="200" y1="110" x2="340" y2="110"/><line x1="200" y1="110" x2="340" y2="170"/><line x1="200" y1="110" x2="340" y2="230"/>
+    <line x1="200" y1="170" x2="340" y2="50"/><line x1="200" y1="170" x2="340" y2="110"/><line x1="200" y1="170" x2="340" y2="170"/><line x1="200" y1="170" x2="340" y2="230"/>
+    <line x1="200" y1="230" x2="340" y2="50"/><line x1="200" y1="230" x2="340" y2="110"/><line x1="200" y1="230" x2="340" y2="170"/><line x1="200" y1="230" x2="340" y2="230"/>
+    <line x1="340" y1="110" x2="470" y2="80"/><line x1="340" y1="170" x2="470" y2="80"/><line x1="340" y1="230" x2="470" y2="80"/>
+    <line x1="340" y1="50" x2="470" y2="140"/><line x1="340" y1="110" x2="470" y2="140"/><line x1="340" y1="170" x2="470" y2="140"/><line x1="340" y1="230" x2="470" y2="140"/>
+    <line x1="340" y1="50" x2="470" y2="200"/><line x1="340" y1="110" x2="470" y2="200"/><line x1="340" y1="170" x2="470" y2="200"/><line x1="340" y1="230" x2="470" y2="200"/>
+  </g>
+  <g style="stroke:var(--c4);stroke-width:2.6">
+    <line x1="340" y1="50" x2="470" y2="80"/>
+  </g>
+  <circle class="k10-in" cx="70" cy="100" r="18"/><circle class="k10-in" cx="70" cy="180" r="18"/>
+  <circle class="k10-hid" cx="200" cy="50" r="16"/><circle class="k10-hid" cx="200" cy="110" r="16"/><circle class="k10-hid" cx="200" cy="170" r="16"/><circle class="k10-hid" cx="200" cy="230" r="16"/>
+  <circle class="k10-hid" cx="340" cy="50" r="16"/><circle class="k10-hid" cx="340" cy="110" r="16"/><circle class="k10-hid" cx="340" cy="170" r="16"/><circle class="k10-hid" cx="340" cy="230" r="16"/>
+  <circle class="k10-out" cx="470" cy="80" r="20"/><circle class="k10-out" cx="470" cy="140" r="20"/><circle class="k10-out" cx="470" cy="200" r="20"/>
+  <text x="470" y="85" text-anchor="middle" class="k10-small">0.1</text>
+  <text x="470" y="145" text-anchor="middle" class="k10-small">0.1</text>
+  <text x="470" y="205" text-anchor="middle" class="k10-small">0.8</text>
+  <text x="510" y="54" class="k10-small k10-muted">ŷ</text><text x="600" y="54" class="k10-small k10-muted">y</text>
+  <text x="600" y="85" class="k10-small">1</text><text x="600" y="145" class="k10-small">0</text><text x="600" y="205" class="k10-small">0</text>
+  <line x1="545" y1="96" x2="545" y2="64" style="stroke:var(--c2);stroke-width:3" marker-end="url(#k10a)"/>
+  <line x1="545" y1="134" x2="545" y2="148" style="stroke:var(--c2);stroke-width:1.6" marker-end="url(#k10a)"/>
+  <line x1="545" y1="186" x2="545" y2="220" style="stroke:var(--c2);stroke-width:3" marker-end="url(#k10a)"/>
+  <text x="70" y="270" text-anchor="middle" class="k10-small k10-muted">l = 0</text>
+  <text x="200" y="270" text-anchor="middle" class="k10-small k10-muted">l = 1</text>
+  <text x="340" y="270" text-anchor="middle" class="k10-small k10-muted">l = 2</text>
+  <text x="470" y="270" text-anchor="middle" class="k10-small k10-muted">l = 3</text>
+  <line x1="460" y1="290" x2="90" y2="290" style="stroke:var(--c2);stroke-width:2;stroke-dasharray:6 4" marker-end="url(#k10a)"/>
+  <text x="275" y="284" text-anchor="middle" class="k10-small k10-bwd">ønskede endringer samles lag for lag bakover</text>
+</svg>
+<figcaption><b>Figur 10.1</b> Notatenes backprop-eksempel. $\hat y_1$ skal opp mye (0.1 → 1), $\hat y_3$ ned mye (0.8 → 0), og $\hat y_2$ ned litt (0.1 → 0). Den uthevede kanten er $w^{(3)}_{11}$, fra node 1 i lag 2 til output-node 1.</figcaption>
+</figure>
+
+<h3>Ett output-nevron om gangen</h3>
+<p>Se på det første output-nevronet:</p>
+<div class="eq">
+  <p class="eq-note">Likning 102 i notatene: her går $i$ over $1,2,3,4$, $j=1$ og $l=3$.</p>
+  $$\hat y_1 = a^{(3)}_1 = g\big(w^{(3)}_{11}a^{(2)}_1 + w^{(3)}_{21}a^{(2)}_2 + w^{(3)}_{31}a^{(2)}_3 + w^{(3)}_{41}a^{(2)}_4 + b^{(3)}_1\big)$$
+</div>
+<p>Vi vil øke $\hat y_1$. Tre ting kan endres:</p>
+<ol>
+  <li><strong>Biasen</strong> $b^{(3)}_1$, direkte.</li>
+  <li><strong>Vektene</strong> $w^{(3)}_{i1}$, direkte. Effekten av å endre $w^{(3)}_{i1}$ er proporsjonal med $a^{(2)}_i$: hvis $a^{(2)}_i = 0$, gjør vekten ingenting. Vi bør derfor styrke koblingene til de <em>aktive</em> nevronene i lag 2. <strong>Jo større $a$-ene er, jo større effekt har $w$-ene.</strong></li>
+  <li><strong>Aktiveringene</strong> $a^{(2)}_i$, men bare indirekte. Hvis alle $a^{(2)}_i$ som ganges med en positiv $w^{(3)}_{i1}$ ble sterkere, og alle som ganges med en negativ ble svakere, ville $\hat y_1$ øke. Effekten er proporsjonal med vekten: <strong>jo større $w$-ene er, jo større effekt har $a$-ene.</strong></li>
+</ol>
+<p>Vi kan ikke endre $a^{(2)}_i$ direkte. Den eneste måten er å endre parametrene som <em>produserer</em> dem, altså $w^{(2)}_{ij}$ og $b^{(2)}_j$ i lag 2.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Vekt og aktivering er partnere i et produkt $w\cdot a$.</strong> Den deriverte av $w\cdot a$ med hensyn på $w$ er $a$, og med hensyn på $a$ er den $w$. «Jo større $a$, jo større effekt har $w$», og omvendt. Det er hele kjerneregelen i miniatyr.</p></div>
+
+<h3>Alle outputene har meninger, og vi samler dem</h3>
+<p>Vi har bare sett på $\hat y_1$. Men $\hat y_2$ og $\hat y_3$ har også egne ønsker om hvordan lag 2 bør endre seg: $\hat y_3$ vil ned, og det kan kreve helt andre endringer enn det $\hat y_1$ vil. De trenger ikke være enige. Vi <strong>summerer</strong> de ønskede endringene fra alle output-nodene til én liste for lag 2, med størst vekt på de største feilene ($\hat y_1$ og $\hat y_3$), og lite fra $\hat y_2$ som nesten er riktig.</p>
+<p>Listen sier blant annet hvordan aktiveringene $a^{(2)}$ bør endre seg. Da er vi i samme situasjon som da vi visste hvilken vei $\hat y$ skulle, og vi kan gjenta analysen ett lag lenger bak: lag 2 gir en liste over ønskede endringer i lag 1. Deretter er vi ved input-laget, og der stopper vi. Input er data og kan ikke endres.</p>
+
+<div class="chain">
+  <div><b>Output</b>feil: $\hat y - y$</div><div class="arrow">→</div>
+  <div><b>Lag 3</b>gradient for $w^{(3)}, b^{(3)}$ + ønsket endring i $a^{(2)}$</div><div class="arrow">→</div>
+  <div><b>Lag 2</b>gradient for $w^{(2)}, b^{(2)}$ + ønsket endring i $a^{(1)}$</div><div class="arrow">→</div>
+  <div><b>Lag 1</b>gradient for $w^{(1)}, b^{(1)}$. Stopp ved input.</div>
+</div>
+
+<p>Vi har <strong>propagert feilen bakover</strong> fra output, gjennom alle lagene, til input. Underveis har vi fått en liste over hvordan hver parameter bør endre seg. Det er gradienten. Dette er essensen i backpropagation.</p>
+<p>Til slutt: dette må gjøres for <strong>alle datapunktene</strong>. Vi vil ikke at modellen skal lære å alltid si $(1,0,0)$, men å tilpasse prediksjonen til input. Gradientene fra mange datapunkter midles, og som før kjører vi gjerne flere epoker.</p>
+
+<div class="quiz" data-id="10-big-a">
+  <p class="q">I eksempelet vil vi øke $\hat y_1$. Aktiveringene i lag 2 er $a^{(2)} = (0.9,\ 0,\ 0.2,\ 0.05)$. Hvilken vekt inn til $\hat y_1$ har størst effekt på $\hat y_1$ å endre?</p>
+  <ul>
+    <li>$w^{(3)}_{21}$, fordi node 2 er inaktiv og trenger å bli «vekket».</li>
+    <li>Alle fire vektene har like stor effekt, siden de går til samme node.</li>
+    <li>$w^{(3)}_{41}$, fordi små aktiveringer gir størst relativ forbedring.</li>
+    <li data-correct>$w^{(3)}_{11}$, fordi node 1 i lag 2 har størst aktivering.</li>
+  </ul>
+  <div class="explain">Bidraget fra vekt $w^{(3)}_{i1}$ er $w^{(3)}_{i1}a^{(2)}_i$, så den deriverte med hensyn på vekten er $a^{(2)}_i$. Størst aktivering (0.9) gir størst effekt. Å endre $w^{(3)}_{21}$ har ingen effekt i det hele tatt, fordi den ganges med $a^{(2)}_2 = 0$. Vekker vi node 2, skjer det gjennom vektene i lag 2, ikke gjennom $w^{(3)}_{21}$.</div>
+</div>
+
+<div class="calc" data-id="10-ce-example" data-answer="2.303" data-tol="0.005">
+  <p class="q">Bruk categorical cross-entropy $L = -\sum_k y_k \ln \hat y_k$ på notatenes eksempel, $\hat y = (0.1,\,0.1,\,0.8)$ og $y = (1,\,0,\,0)$. Hva er tapet? (Tre desimaler.)</p>
+  <div class="solution">Bare ledd med $y_k = 1$ bidrar: $L = -\ln 0.1 \approx 2.303$. Hadde nettet sagt $\hat y_1 = 0.8$, ville tapet vært $-\ln 0.8 \approx 0.223$. Cross-entropy straffer at sannsynligheten for den riktige klassen er lav.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="kjerneregel"><span class="sec">10.3</span>Kjerneregelen: backprop med tall</h2>
+
+<p>Matematisk er backpropagation <strong>kjerneregelen</strong> (chain rule) brukt systematisk bakover. Nettet er en sammensatt funksjon, $L(\hat y(a^{(2)}(a^{(1)}(x))))$, og den deriverte av en sammensatt funksjon er produktet av de deriverte av leddene:</p>
+<div class="eq">
+  $$\frac{\partial L}{\partial w} = \frac{\partial L}{\partial \hat y}\cdot\frac{\partial \hat y}{\partial h}\cdot\frac{\partial h}{\partial z}\cdot\frac{\partial z}{\partial w}$$
+</div>
+<p>Trikset er å regne <em>bakfra</em> og gjenbruke. Produktet av de første leddene, $\partial L/\partial h$, trengs for alle vekter lenger bak, så vi regner det ut én gang og sender det bakover. Det er derfor backprop er effektivt.</p>
+
+<h3>Et bitte lite nett: 1–1–1</h3>
+<p>Én input, én skjult node med sigmoid og én lineær output (regresjon), med kvadratisk tap:</p>
+<div class="eq">
+  $$z_1 = w_1x + b_1,\qquad h = \sigma(z_1),\qquad \hat y = w_2h + b_2,\qquad L = (\hat y - y)^2$$
+</div>
+<p>Tall: $x = 2$, $y = 2$, $w_1 = 0.5$, $b_1 = -1$, $w_2 = 2$, $b_2 = 0$, $\eta = 0.1$. Husk at $\sigma'(z) = \sigma(z)\big(1-\sigma(z)\big)$.</p>
+
+<details class="steps" open><summary>Steg for steg: forward, backward og oppdatering</summary><div>
+  <p><strong>Forward pass</strong></p>
+  <p>1. $z_1 = 0.5\cdot 2 - 1 = 0$</p>
+  <p>2. $h = \sigma(0) = 0.5$</p>
+  <p>3. $\hat y = 2\cdot 0.5 + 0 = 1$</p>
+  <p>4. $L = (1-2)^2 = 1$</p>
+  <p><strong>Backward pass</strong> (bakfra, gjenbruk forrige resultat)</p>
+  <p>5. $\dfrac{\partial L}{\partial \hat y} = 2(\hat y - y) = 2(1-2) = -2$</p>
+  <p>6. Output-lagets parametre: $\dfrac{\partial L}{\partial w_2} = \dfrac{\partial L}{\partial \hat y}\cdot h = -2\cdot 0.5 = -1$, og $\dfrac{\partial L}{\partial b_2} = \dfrac{\partial L}{\partial \hat y}\cdot 1 = -2$</p>
+  <p>7. Send feilen til det skjulte laget: $\dfrac{\partial L}{\partial h} = \dfrac{\partial L}{\partial \hat y}\cdot w_2 = -2\cdot 2 = -4$</p>
+  <p>8. Gjennom aktiveringen: $\dfrac{\partial L}{\partial z_1} = \dfrac{\partial L}{\partial h}\cdot\sigma'(z_1) = -4\cdot 0.5\cdot(1-0.5) = -4\cdot 0.25 = -1$</p>
+  <p>9. Skjult lags parametre: $\dfrac{\partial L}{\partial w_1} = \dfrac{\partial L}{\partial z_1}\cdot x = -1\cdot 2 = -2$, og $\dfrac{\partial L}{\partial b_1} = -1$</p>
+  <p><strong>Gradient descent-oppdatering</strong> ($\theta \leftarrow \theta - \eta\,\partial L/\partial\theta$)</p>
+  <p>10. $w_2 = 2 + 0.1 = 2.1$, $\;b_2 = 0 + 0.2 = 0.2$, $\;w_1 = 0.5 + 0.2 = 0.7$, $\;b_1 = -1 + 0.1 = -0.9$</p>
+  <p><strong>Sjekk</strong></p>
+  <p>11. Ny forward: $z_1 = 0.7\cdot 2 - 0.9 = 0.5$, $h = \sigma(0.5) \approx 0.6225$, $\hat y = 2.1\cdot 0.6225 + 0.2 \approx 1.507$, $L \approx (1.507-2)^2 \approx 0.243$.</p>
+  <p>Tapet gikk fra 1 til 0.243 etter ett steg. Alle gradientene var negative, så alle parametrene økte, og det dro $\hat y$ opp mot $y = 2$.</p>
+</div></details>
+
+<div class="callout cons"><span class="label">Se mønsteret</span><p>I steg 6 er $\partial L/\partial w_2 = (\text{feil bakfra})\cdot h$: <em>jo større aktivering, jo større effekt har vekten</em>. I steg 7 er $\partial L/\partial h = (\text{feil bakfra})\cdot w_2$: <em>jo større vekt, jo større effekt har aktiveringen</em>. Steg 8 ganger med $\sigma'(z_1) \le 0.25$. Hver sigmoid på veien bakover krymper signalet. Det kommer vi tilbake til under vanishing gradients.</p></div>
+
+<div class="calc" data-id="10-bp-dw2" data-answer="-0.6" data-tol="0.001">
+  <p class="q">Samme nett, men nå med $y = 1.6$ (alt annet likt: $x=2$, $w_1=0.5$, $b_1=-1$, $w_2=2$, $b_2=0$). Hva blir $\partial L/\partial w_2$?</p>
+  <div class="solution">Forward er uendret: $h = 0.5$, $\hat y = 1$. Nå er $\partial L/\partial \hat y = 2(1 - 1.6) = -1.2$, og $\partial L/\partial w_2 = -1.2\cdot 0.5 = -0.6$.</div>
+</div>
+
+<div class="calc" data-id="10-bp-dw1" data-answer="-1.2" data-tol="0.001">
+  <p class="q">Fortsett med $y = 1.6$. Hva blir $\partial L/\partial w_1$?</p>
+  <div class="solution">$\partial L/\partial h = -1.2\cdot w_2 = -2.4$. $\partial L/\partial z_1 = -2.4\cdot\sigma'(0) = -2.4\cdot 0.25 = -0.6$. $\partial L/\partial w_1 = -0.6\cdot x = -1.2$.</div>
+</div>
+
+<div class="calc" data-id="10-bp-newloss" data-answer="0.243" data-tol="0.004">
+  <p class="q">Tilbake til originaleksempelet ($y=2$). Etter én oppdatering med $\eta = 0.1$, hva er det nye tapet? Regn selv, med tre desimaler.</p>
+  <div class="solution">Nye parametre: $w_1 = 0.7$, $b_1 = -0.9$, $w_2 = 2.1$, $b_2 = 0.2$. $z_1 = 0.5$, $h = 1/(1+e^{-0.5}) \approx 0.6225$, $\hat y \approx 1.5072$, $L \approx 0.4928^2 \approx 0.243$.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: backpropagation steg for steg</h4>
+  <div id="bp-svg"></div>
+  <div class="controls">
+    <button class="btn ghost" type="button" id="bp-prev">← Forrige</button>
+    <button class="btn" type="button" id="bp-next">Neste steg →</button>
+    <button class="btn ghost" type="button" id="bp-reset">Start på nytt</button>
+  </div>
+  <div class="controls">
+    <label>x <input type="number" id="bp-x" value="2" step="0.5"></label>
+    <label>y <input type="number" id="bp-y" value="2" step="0.5"></label>
+    <label>w₁ <input type="number" id="bp-w1" value="0.5" step="0.1"></label>
+    <label>b₁ <input type="number" id="bp-b1" value="-1" step="0.1"></label>
+    <label>w₂ <input type="number" id="bp-w2" value="2" step="0.1"></label>
+    <label>b₂ <input type="number" id="bp-b2" value="0" step="0.1"></label>
+    <label>η <input type="number" id="bp-eta" value="0.1" step="0.05"></label>
+  </div>
+  <div class="bp-box" id="bp-box"></div>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Blå tall (forward) fylles inn fra venstre mot høyre, oransje tall (gradienter) fra høyre mot venstre. Hvert oransje tall regnes ut fra tallet til høyre for det, ganget med én lokal derivert. Ingenting regnes ut to ganger. Prøv å sette $w_1 = 3$ og $b_1 = 0$: da er $z_1 = 6$, sigmoid er mettet, $\sigma'(6) \approx 0.0025$, og gradienten til $w_1$ blir nesten null, selv om feilen er stor.</p>
+
+<details class="more"><summary>Fordypning: den generelle backprop-formelen <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+  <p>Definer feilsignalet til node $j$ i lag $l$ som $\delta^{(l)}_j = \partial L/\partial z^{(l)}_j$. Da gjelder</p>
+  <p>$$\delta^{(l)} = \big(W^{(l+1)\top}\delta^{(l+1)}\big)\odot g'\big(z^{(l)}\big), \qquad \frac{\partial L}{\partial w^{(l)}_{ij}} = a^{(l-1)}_i\,\delta^{(l)}_j, \qquad \frac{\partial L}{\partial b^{(l)}_j} = \delta^{(l)}_j.$$</p>
+  <p>Den første formelen er «samle ønskede endringer fra alle nodene i neste lag, vektet med $w$» (jo større $w$, jo større effekt har $a$). Den andre er «jo større $a$, jo større effekt har $w$». For softmax med cross-entropy, eller sigmoid med binær cross-entropy, blir $\delta$ i output-laget ganske enkelt $\hat y - y$.</p>
+</div></details>
+
+<h3>Hva backprop er, og hva det ikke er</h3>
+<p>Backpropagation <strong>beregner gradienten</strong>, altså hvordan tapet endres når hver vekt endres, effektivt ved hjelp av kjerneregelen. Selve <strong>oppdateringen</strong> av vektene gjøres av optimeringsalgoritmen (gradient descent, SGD, Adam …). En treningsiterasjon består av: forward pass → tap → backward pass (backprop) → oppdatering.</p>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 5.4 og 2024 oppg. 19</span><p>2025: «Hva er hovedformålet med backpropagation-algoritmen?» Riktig: <em>Å beregne hvordan endringer i hver vekt påvirker loss ved å bruke kjerneregelen bakover gjennom nettverket.</em><br>2024: Samme spørsmål, men riktig svar var formulert som <em>«Å justere vektene i nettverket for å minimere feilen mellom predikert og faktisk verdi.»</em> Det er en løsere formulering (backprop + GD sammen), men det var det eneste fornuftige alternativet. Feilsvarene var forward pass, å legge til lag og tilfeldig initialisering. Strategi: velg alternativet som handler om gradient/kjerneregel. Finnes det ikke, velg det som handler om å justere vektene for å minke feilen.</p></div>
+
+<div class="quiz" data-id="10-backprop-purpose">
+  <p class="q">Hva er hovedformålet med backpropagation?</p>
+  <ul>
+    <li>Å beregne nettverkets prediksjon fra input-dataene.</li>
+    <li>Å velge hvor mange skjulte lag nettverket bør ha.</li>
+    <li data-correct>Å beregne gradienten av tapet med hensyn på alle vektene effektivt, ved å bruke kjerneregelen bakover gjennom nettet.</li>
+    <li>Å initialisere vektene slik at treningen starter nær et minimum.</li>
+  </ul>
+  <div class="explain">Backprop gir gradienten, og en optimizer bruker den til å oppdatere vektene. Å beregne prediksjonen er forward pass. Antall lag er en hyperparameter som velges av oss. Initialisering skjer én gang før treningen og er tilfeldig.</div>
+</div>
+
+<div class="quiz" data-multi data-id="10-bp-vs-gd">
+  <p class="q">Hvilke utsagn om backpropagation og gradient descent er riktige?</p>
+  <ul>
+    <li data-correct>Backprop krever at aktiveringsfunksjonene (og tapet) er deriverbare.</li>
+    <li data-correct>Læringsraten $\eta$ brukes i oppdateringen, ikke i selve gradientberegningen.</li>
+    <li>Backprop og gradient descent er to navn på samme algoritme.</li>
+    <li>Backprop gir det globale minimumet direkte, uten iterasjon.</li>
+    <li data-correct>Backprop gjenbruker deriverte fra senere lag når den regner ut gradienter for tidligere lag.</li>
+  </ul>
+  <div class="explain">Kjerneregelen trenger deriverte for hvert ledd, og derfor fungerer ikke Heaviside. Backprop beregner gradienten, mens GD (eller en annen optimizer) bruker den sammen med $\eta$. Backprop gir bare gradienten i nåværende punkt. Vi må iterere mange ganger, og det er ingen garanti for globalt minimum. Gjenbruken bakover er det som gjør backprop effektivt.</div>
+</div>
+
+<div class="reflect" data-id="10-why-not-numeric">
+  <p class="q">Man kunne funnet gradienten numerisk: endre hver vekt litt, kjør en forward pass og se hvor mye tapet endrer seg. Hvorfor bruker vi backprop i stedet, for et nett med 100 000 parametre?</p>
+  <div class="answer">Numerisk derivasjon krever minst én ekstra forward pass <em>per parameter</em>, altså rundt 100 000 forward passes for én gradient, og vi trenger tusenvis av gradienter under treningen. Backprop gir hele gradienten med én forward og én backward pass, som koster omtrent det samme som et par forward passes, fordi den gjenbruker de mellomliggende deriverte. I tillegg er backprop eksakt, mens numerisk derivasjon har avrundingsfeil. Numerisk gradient brukes bare til å sjekke at en backprop-implementasjon er riktig.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="sgd"><span class="sec">10.4</span>Gradient descent, SGD og mini-batch</h2>
+
+<p>Tenk på gradient descent som å gå ned fra en fjelltopp i tåke. Du planlegger ikke hele turen, men tar ett skritt om gangen i retningen det heller mest nedover (den negative gradienten). Lengden på skrittet er læringsraten. Spørsmålet er <strong>hvor mange datapunkter vi bruker for å anslå hvilken vei det heller</strong>.</p>
+
+<table>
+  <tr><th>Variant</th><th>Gradient beregnes fra</th><th>Oppdateringer per epoke</th><th>Fordeler</th><th>Ulemper</th></tr>
+  <tr><td><strong>Gradient descent</strong> (full batch)</td><td>gjennomsnittlig tap over <em>alle</em> $N$ treningspunkter</td><td>1</td><td>nøyaktig gradient, jevn bane, færre iterasjoner totalt</td><td>hver iterasjon krever backprop på hele datasettet, så det er tregt og krever mye minne</td></tr>
+  <tr><td><strong>SGD</strong> (ett punkt)</td><td>ett tilfeldig valgt punkt</td><td>$N$</td><td>hver iterasjon er veldig rask, og støyen kan hjelpe ut av dårlige lokale minima</td><td>svært støyete (men forventningsrett) gradient, så det trengs mange flere iterasjoner</td></tr>
+  <tr><td><strong>Mini-batch SGD</strong></td><td>gjennomsnitt over en tilfeldig mini-batch på $B$ punkter</td><td>$N/B$</td><td>balanse mellom presisjon og fart, og passer GPU-er</td><td>batch size må velges (hyperparameter)</td></tr>
+</table>
+<p>SGD har opphav hos Robbins og Monro (1951). Når dyplæringsfolk sier «SGD», mener de nesten alltid <strong>mini-batch SGD</strong>. Batch size er ofte en toerpotens, som 32, 64 eller 128.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Meningsmåling.</strong> Full GD spør hele befolkningen før hvert skritt (nøyaktig, men tregt). SGD spør én tilfeldig person (lynraskt, men upålitelig). Mini-batch spør et utvalg på 64 (godt nok, og raskt). Alle tre svarer i gjennomsnitt det samme, for estimatet er forventningsrett, men spredningen er ulik.</p></div>
+
+<h3 id="epoke">Epoke, iterasjon og batch size</h3>
+<p>En <strong>epoke</strong> er alltid én hel runde gjennom alle treningspunktene, slik at alle har bidratt til gradienten én gang. En <strong>iterasjon</strong> (steg) er én parameteroppdatering. Med $N$ treningspunkter og batch size $B$:</p>
+<div class="eq">
+  $$\text{iterasjoner per epoke} = \frac{N}{B}\quad(\text{rundet opp}),\qquad \text{GD: } B = N \Rightarrow 1,\qquad \text{SGD: } B = 1 \Rightarrow N$$
+</div>
+<figure class="fig">
+  <div class="small"><b>Full batch</b> ($B = N$): 1 oppdatering</div>
+  <div class="k10-batches"><span style="background:var(--c1)"></span></div>
+  <div class="small"><b>Mini-batch</b> ($B = N/8$): 8 oppdateringer</div>
+  <div class="k10-batches"><span style="background:var(--c3)"></span><span style="background:var(--c3);opacity:.7"></span><span style="background:var(--c3)"></span><span style="background:var(--c3);opacity:.7"></span><span style="background:var(--c3)"></span><span style="background:var(--c3);opacity:.7"></span><span style="background:var(--c3)"></span><span style="background:var(--c3);opacity:.7"></span></div>
+  <div class="small"><b>SGD</b> ($B = 1$): $N$ oppdateringer</div>
+  <div class="k10-batches" id="sgd-strip"></div>
+  <figcaption><b>Figur 10.2</b> Samme epoke (alle $N$ punkter), delt opp på tre måter. Hver blokk er én gradientberegning og én oppdatering.</figcaption>
+</figure>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 13 og 14</span><p>Oppg. 13: «Hva angir batch size?» Riktig: <em>Antall treningsdatapunkter som brukes per iterasjon av treningen.</em> Distraktorer: antall oppdateringer per epoke (det er $N/B$), antall ganger modellen trenes på hele datasettet (det er antall epoker) og antall features.<br>Oppg. 14: 10 000 datapunkter og batch size 500 gir $10\,000/500 = $ <strong>20</strong> iterasjoner per epoke.</p></div>
+
+<div class="quiz" data-id="10-batchsize-def">
+  <p class="q">Du setter <code>batch_size=32</code> og <code>epochs=5</code> i <code>model.fit</code>. Hva betyr tallet 32?</p>
+  <ul>
+    <li>Modellen oppdaterer vektene 32 ganger per epoke.</li>
+    <li>Modellen går gjennom hele treningssettet 32 ganger.</li>
+    <li>Nettverket har 32 noder i hvert skjulte lag.</li>
+    <li data-correct>Hver gradient (og oppdatering) beregnes fra 32 treningspunkter.</li>
+  </ul>
+  <div class="explain">Batch size er antall punkter per iterasjon. Antall oppdateringer per epoke er $N/32$, som avhenger av $N$. Antall runder gjennom datasettet er <code>epochs</code> (5). Antall noder er arkitektur og settes i <code>Dense(...)</code>.</div>
+</div>
+
+<div class="calc" data-id="10-iters" data-answer="469" data-tol="0.5">
+  <p class="q">Du har 60 000 treningsbilder og batch size 128. Hvor mange iterasjoner blir det per epoke (Keras tar med den siste, ufullstendige batchen)?</p>
+  <div class="solution">$60\,000/128 = 468.75$. Det blir 468 fulle batcher og én siste batch med $60\,000 - 468\cdot 128 = 96$ bilder, altså 469 iterasjoner. (På eksamen går tallene som regel opp, som $10\,000/500 = 20$.)</div>
+</div>
+
+<div class="calc" data-id="10-updates-total" data-answer="2000" data-tol="0.5">
+  <p class="q">$N = 12\,800$, $B = 64$, og du trener i 10 epoker. Hvor mange parameteroppdateringer gjøres totalt?</p>
+  <div class="solution">$12\,800/64 = 200$ oppdateringer per epoke, og $200\cdot 10 = 2000$ totalt. Med full GD ville det vært 10, og med SGD ($B=1$) 128 000.</div>
+</div>
+
+<div class="quiz" data-id="10-gd-updates">
+  <p class="q">Et treningssett har $N = 1000$ punkter. Hvor mange ganger oppdateres vektene i løpet av én epoke med henholdsvis full-batch GD, SGD med ett punkt og mini-batch med $B = 50$?</p>
+  <ul>
+    <li>1000, 1 og 50</li>
+    <li>1, 1000 og 50</li>
+    <li data-correct>1, 1000 og 20</li>
+    <li>1, 50 og 20</li>
+  </ul>
+  <div class="explain">Full batch: én gradient over alle punktene, altså 1 oppdatering. SGD: én per punkt, 1000. Mini-batch: $N/B = 1000/50 = 20$. Det vanligste feilsvaret er å svare $B$ (50) i stedet for $N/B$.</div>
+</div>
+
+<h3>Støy og læringsrate</h3>
+<p>En liten batch gir en <strong>støyete</strong> gradient. Den peker riktig vei i gjennomsnitt, men varierer mye fra steg til steg. Notatene spør: bør en støyete gradient ha høy eller lav læringsrate?</p>
+<div class="reflect" data-id="10-noise-lr">
+  <p class="q">Bør en støyete gradient (liten batch size) kombineres med høy eller lav læringsrate? Begrunn.</p>
+  <div class="answer">Med lav. Læringsraten bestemmer hvor langt vi stoler på hver gradient. Er gradienten støyete, betyr et langt skritt at vi også tar et langt skritt i feil retning, og banen blir ustabil eller divergerer. Små skritt lar støyen midle seg ut over mange oppdateringer. Med større batch er gradienten mer pålitelig, og vi kan tåle større skritt. En vanlig tommelfingerregel er å skalere læringsraten opp når batch size økes. Derfor brukes også læringsrate-planlegging: større skritt tidlig og mindre mot slutten, når støyen ellers ville fått oss til å «danse» rundt minimumet.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: GD, SGD og mini-batch på en tapsflate</h4>
+  <canvas id="gd" width="640" height="420"></canvas>
+  <div class="controls">
+    <label>η <input type="range" id="gd-lr" min="0.01" max="0.6" step="0.01" value="0.1"><output id="gd-lro">0.1</output></label>
+    <label>batch size B <input type="range" id="gd-b" min="2" max="32" step="1" value="8"><output id="gd-bo">8</output></label>
+    <label>epoker <input type="range" id="gd-e" min="1" max="30" step="1" value="5"><output id="gd-eo">5</output></label>
+    <button class="btn ghost" type="button" id="gd-seed">Ny tilfeldig trekning</button>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="gd-s1" checked> GD (full batch)</label>
+    <label><input type="checkbox" id="gd-s2" checked> mini-batch</label>
+    <label><input type="checkbox" id="gd-s3" checked> SGD (B = 1)</label>
+  </div>
+  <div class="readouts" id="gd-read"></div>
+  <p class="small muted">Lineær regresjon $\hat y = wx + b$ på $N = 64$ punkter, med MSE. Fargene viser tapet (sterkere blåfarge = lavere tap), og krysset er minimumet. Alle tre metodene starter i samme punkt og får like mange epoker.</p>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Med samme antall epoker kommer SGD og mini-batch mye lenger enn GD, fordi de gjør mange flere oppdateringer for samme mengde data. GD-banen er jevn, men tar få steg. SGD-banen er hakkete, og den roer seg ikke ned rundt minimumet, men fortsetter å «danse». Skru opp $\eta$ til over 0.45: GD begynner å sikk-sakke over dalen og divergerer, og SGD blir vill mye tidligere. Mindre batch tåler lavere læringsrate. Flaten er avlang (dårlig kondisjonert), og derfor går GD først raskt ned i dalen og så sakte langs bunnen.</p>
+
+<h3 id="konveks">Konveksitet: når er globalt minimum garantert?</h3>
+<p>En funksjon er <strong>konveks</strong> hvis linjestykket mellom to punkter på grafen aldri ligger under grafen, som en skål. En konveks funksjon har ingen lokale minima som ikke også er globale. Gradient descent med passende læringsrate vil derfor finne det globale minimumet. MSE for lineær regresjon og cross-entropy for logistisk regresjon er konvekse i parametrene.</p>
+<p>Tapsflaten til et <strong>nevralt nett er ikke konveks</strong>. Den har mange lokale minima, sadelpunkter og flate områder. GD finner et minimum, men ingen garanti for at det er det beste. Heldigvis er mange lokale minima i store nett omtrent like gode.</p>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 20</span><p>«I hvilket tilfelle vet vi at gradient descent vil finne et globalt minimum?» Riktig: <em>Konvekse funksjoner.</em> Feilsvar: «Lineær regresjon» (riktignok konveks med MSE, men svaret som gjelder generelt er konveksitet), «Nevrale nettverk» (ikke-konvekse) og «Monotone funksjoner» (en monoton funksjon har gjerne ikke noe minimum i det hele tatt).</p></div>
+
+<div class="quiz" data-id="10-convex">
+  <p class="q">Hvorfor gir ikke gradient descent garanti for globalt minimum når vi trener et MLP?</p>
+  <ul>
+    <li>Fordi backprop bare gir en tilnærming til gradienten.</li>
+    <li data-correct>Fordi tapsfunksjonen som funksjon av vektene ikke er konveks, så den kan ha flere lokale minima og sadelpunkter.</li>
+    <li>Fordi aktiveringsfunksjonene ikke er deriverbare.</li>
+    <li>Fordi læringsraten alltid er for stor i nevrale nett.</li>
+  </ul>
+  <div class="explain">Ikke-lineære aktiveringer i flere lag gjør tapsflaten ikke-konveks. Backprop gir den eksakte gradienten (i punktet), så første alternativ er feil. Sigmoid og ReLU er (nesten overalt) deriverbare. Læringsraten er et valg og ikke grunnen. Selv med perfekt læringsrate kan GD havne i et lokalt minimum.</div>
+</div>
+
+<div class="reflect" data-id="10-nonconvex-why">
+  <p class="q">Et enkelt argument for at et nevralt nett ikke kan ha en konveks tapsflate: Hva skjer med nettets output hvis du bytter plass på to noder i et skjult lag (med alle vektene deres)? Hva betyr det for antall minima?</p>
+  <div class="answer">Output blir nøyaktig det samme, fordi summen i neste lag ikke bryr seg om rekkefølgen. Hvis vektene $\theta^*$ er et minimum, er altså den permuterte vektoren $\theta^{**}$ også et minimum, med samme tap. Men gjennomsnittet $(\theta^* + \theta^{**})/2$ gir to like noder i stedet for to ulike, og det er typisk mye dårligere. I en konveks funksjon kan ikke punktet midt mellom to minima være dårligere enn dem. Altså er flaten ikke konveks, og den har (minst) like mange likeverdige minima som det finnes permutasjoner av nodene.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="live"><span class="sec">10.5</span>Se et nevralt nett lære</h2>
+<p>Widgeten under er et ekte MLP, implementert i JavaScript med forward pass, backprop og oppdatering slik som over. Det er samme type problem som klassifiseringsoppgaven i prosjekt 3: «basically XOR, but with continuous values (and a lot of noise!)». Output er sigmoid med binær cross-entropy.</p>
+
+<div class="widget">
+  <h4>Utforsk: tren et MLP live i nettleseren</h4>
+  <div class="two-col">
+    <canvas id="mlp-a" width="320" height="320"></canvas>
+    <canvas id="mlp-b" width="320" height="320"></canvas>
+  </div>
+  <div class="controls">
+    <button class="btn" type="button" id="mlp-run">▶ Tren</button>
+    <button class="btn ghost" type="button" id="mlp-reset">Ny initialisering</button>
+    <label>Data <select id="mlp-data"><option value="xor">XOR (støyete)</option><option value="circle">sirkel</option><option value="spiral">spiral</option></select></label>
+    <label>Aktivering <select id="mlp-act"><option value="relu">ReLU</option><option value="tanh">tanh</option><option value="sigmoid">sigmoid</option></select></label>
+  </div>
+  <div class="controls">
+    <label>skjulte noder <input type="range" id="mlp-h" min="1" max="16" step="1" value="6"><output id="mlp-ho">6</output></label>
+    <label>skjulte lag <select id="mlp-l"><option>1</option><option selected>2</option></select></label>
+    <label>Optimizer <select id="mlp-opt"><option value="sgd">SGD</option><option value="adam" selected>Adam</option></select></label>
+    <label>η <select id="mlp-lr"><option>0.003</option><option selected>0.01</option><option>0.03</option><option>0.1</option><option>0.3</option><option>1</option></select></label>
+    <label>batch <select id="mlp-bs"><option value="1">1</option><option value="16" selected>16</option><option value="64">64</option><option value="200">200 (full)</option></select></label>
+  </div>
+  <div class="readouts" id="mlp-read"></div>
+  <p class="small muted">Venstre: beslutningsflaten (blå = predikert klasse 1, oransje = klasse 0), treningspunkter fylt og valideringspunkter med hvit kant. Høyre: tap (binær cross-entropy) per epoke for trening (blå) og validering (oransje). Endrer du arkitekturen, startes treningen på nytt.</p>
+</div>
+<p><strong>Ting å prøve:</strong></p>
+<ul>
+  <li><strong>1 skjult node</strong> på XOR: Grensen blir én rett linje, og nettet kommer ikke forbi ca. 75 % accuracy. Med 2 noder eller flere klarer det XOR. Se kapittel 9.</li>
+  <li><strong>Sigmoid mot ReLU</strong> med SGD: Sigmoid står lenge nesten flatt før tapet begynner å falle. Små deriverte ($\le 0.25$) gir små gradienter.</li>
+  <li><strong>Batch 1 mot full batch</strong> med SGD: Batch 1 gir en hakkete tapskurve men mange oppdateringer per epoke, mens full batch gir glatt kurve men treg fremgang per epoke.</li>
+  <li><strong>Mange noder på støyete XOR over lang tid</strong>: Treningstapet fortsetter ned mens valideringstapet flater ut eller stiger. Det er overtilpasning, og det er derfor vi har early stopping.</li>
+  <li><strong>η = 1 med Adam</strong>: Tapet hopper og kan bli verre. For stor læringsrate.</li>
+  <li><strong>Spiral</strong> krever flere noder og lag. Med 1 lag og få noder klarer nettet det ikke.</li>
+</ul>
+
+<!-- ======================================================= -->
+<h2 id="keras"><span class="sec">10.6</span>Bygge modeller i Keras</h2>
+
+<p>I kurset brukes <strong>Keras</strong> (med TensorFlow). Grunnbyggesteinene er Keras-operasjoner på tensorer. Til eksperimentering kan vi lage en tensor med shape $(10, 3)$ fylt med enere, altså 10 instanser med 3 features:</p>
+<pre><code><span class="k">import</span> keras
+<span class="k">from</span> keras <span class="k">import</span> ops
+<span class="k">from</span> keras.layers <span class="k">import</span> Dense
+<span class="k">from</span> keras.models <span class="k">import</span> Sequential
+
+x = ops.ones((10, 3))</code></pre>
+
+<h3>Tre måter å bygge samme modell</h3>
+<p>En modell med to skjulte lag (6 og 7 noder, ReLU) og et output-lag med 2 noder (softmax):</p>
+<pre><code><span class="c"># 1) Tom Sequential + add</span>
+model = Sequential()
+model.add(Dense(6, activation=<span class="s">"relu"</span>, name=<span class="s">"layer1"</span>))
+model.add(Dense(7, activation=<span class="s">"relu"</span>, name=<span class="s">"layer2"</span>))
+model.add(Dense(2, activation=<span class="s">"softmax"</span>, name=<span class="s">"output"</span>))
+model(x)
+
+<span class="c"># 2) Sequential med en liste av lag</span>
+model = Sequential([
+    Dense(6, activation=<span class="s">"relu"</span>, name=<span class="s">"layer1"</span>),
+    Dense(7, activation=<span class="s">"relu"</span>, name=<span class="s">"layer2"</span>),
+    Dense(2, activation=<span class="s">"softmax"</span>, name=<span class="s">"output"</span>),
+])
+model(x)
+
+<span class="c"># 3) Uten Sequential: kall lagene som funksjoner</span>
+layer1 = Dense(6, activation=<span class="s">"relu"</span>, name=<span class="s">"layer1"</span>)
+layer2 = Dense(7, activation=<span class="s">"relu"</span>, name=<span class="s">"layer2"</span>)
+layer3 = Dense(2, activation=<span class="s">"softmax"</span>, name=<span class="s">"output"</span>)
+layer3(layer2(layer1(x)))      <span class="c"># gir et resultat, men ikke noe modell-objekt</span></code></pre>
+<p class="small muted">Notatene har to små trykkfeil her: importen skal være <code>from tensorflow.keras.models import Sequential</code> (uten parenteser), og variant 2 tar en <em>liste</em> av lag, altså med hakeparenteser.</p>
+<ul>
+  <li><strong>Sequential</strong>: lagene kommer i en lineær sekvens, og dataene flyter fra input til output.</li>
+  <li><strong>Dense</strong>: alle noder er koblet til alle i forrige lag (fully connected). Koblingen er så tett (dense) som mulig.</li>
+  <li>Lag oppfører seg som elementer i en liste. <code>model.layers</code> gir listen. Et godt mentalt bilde er lag stablet oppå hverandre (stacked layers).</li>
+  <li>Vektene initialiseres tilfeldig, så <code>model(x)</code> gir en $(10, 2)$-tensor med meningsløse verdier: samme to tall gjentatt 10 ganger, fordi alle radene i $x$ er like.</li>
+</ul>
+
+<h3 id="input-shape">Hvorfor finnes ikke vektene før modellen har sett input?</h3>
+<p>Kaller du <code>model.weights</code> eller <code>model.summary()</code> på en modell du har bygget men aldri kjørt, får du en tom liste <code>[]</code> og «Output shape = ?». Parametrene finnes ikke ennå.</p>
+<div class="reflect" data-id="10-no-weights">
+  <p class="q">Oppgave fra notatene: Hva er grunnen til dette?</p>
+  <div class="answer">Antall vekter i første lag er (antall input-features) × (antall noder) + bias. <code>Dense(6)</code> vet at den skal ha 6 noder, men ikke hvor mange features som kommer inn, så Keras kan ikke vite om kernelen skal være $3\times 6$ eller $784\times 6$. Input er ikke et eget lag i Keras, og <code>Dense</code>-lagene sier ingenting om input-dimensjonen. Først når modellen ser en input-tensor (eller får oppgitt input-shape), kan vektmatrisene opprettes. Og når første lag er bygget, vet neste lag sin input-dimensjon, og så videre.</div>
+</div>
+<p>Vi løser det ved å kjøre modellen på en tensor, eller ved å oppgi input-shape med <code>keras.Input</code>:</p>
+<pre><code>model = keras.Sequential()
+model.add(keras.Input(shape=(3,)))
+model.add(Dense(6, activation=<span class="s">"relu"</span>, name=<span class="s">"layer1"</span>))
+model.summary()      <span class="c"># output shape (None, 6), 24 parametre</span>
+model(x).shape       <span class="c"># TensorShape([10, 6])</span></code></pre>
+<p>24 parametre fordi $3\cdot 6$ vekter $+\ 6$ bias $= 24$. Output-shape er $(10, 6)$: 10 instanser inn gir 10 rader ut, og 6 noder gir 6 kolonner. Det følger vanlig matrisemultiplikasjon: $(10\times 3)\cdot(3\times 6) = 10\times 6$. Shape-en <code>(3,)</code> er per instans. Antall instanser (batch-dimensjonen) står som <code>None</code> i summary, fordi den kan variere.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Output-shape = (antall instanser, antall noder i siste lag).</strong> Første dimensjon følger dataene, andre dimensjon følger modellen.</p></div>
+
+<div class="quiz" data-id="10-keras-noweights">
+  <p class="q">Du bygger <code>Sequential([Dense(6), Dense(2)])</code> og kaller straks <code>model.weights</code>. Du får <code>[]</code>. Hvorfor?</p>
+  <ul>
+    <li>Fordi modellen ikke er kompilert ennå, og vektene opprettes i <code>compile()</code>.</li>
+    <li>Fordi vektene initialiseres til null og derfor ikke vises.</li>
+    <li data-correct>Fordi modellen ikke vet hvor mange features input har, så vektmatrisen i første lag ikke kan opprettes.</li>
+    <li>Fordi <code>Dense</code>-lag ikke har vekter før <code>fit()</code> er kjørt.</li>
+  </ul>
+  <div class="explain">Shapen til første lags kernel er (features inn, 6), og antall features er ukjent til modellen ser en input eller får <code>keras.Input(shape=...)</code>. <code>compile()</code> velger optimizer og tap, men skaper ikke vekter. Vektene initialiseres tilfeldig, ikke til null. <code>fit()</code> vil riktignok bygge modellen, men bare fordi den da ser input. Å kalle <code>model(x)</code> holder.</div>
+</div>
+
+<div class="quiz" data-id="10-output-shape">
+  <p class="q">Med modellen fra notatene (lag med 6, 7 og 2 noder) og <code>x = ops.ones((10, 3))</code>: Hva er shape til <code>model(x)</code>?</p>
+  <ul>
+    <li>$(3, 2)$</li>
+    <li>$(10, 3)$</li>
+    <li data-correct>$(10, 2)$</li>
+    <li>$(2,)$</li>
+  </ul>
+  <div class="explain">Antall rader følger antall instanser (10), og antall kolonner følger antall noder i siste lag (2). Input-shape $(10,3)$ forsvinner ikke, men transformeres: $(10,3)\to(10,6)\to(10,7)\to(10,2)$.</div>
+</div>
+
+<div class="calc" data-id="10-keras-params" data-answer="89" data-tol="0.5">
+  <p class="q">Modellen fra notatene med <code>keras.Input(shape=(3,))</code> foran: <code>Dense(6)</code>, <code>Dense(7)</code>, <code>Dense(2)</code>. Hvor mange trenbare parametre viser <code>model.summary()</code> totalt?</p>
+  <div class="solution">layer1: $3\cdot 6 + 6 = 24$. layer2: $6\cdot 7 + 7 = 49$. output: $7\cdot 2 + 2 = 16$. Totalt $24 + 49 + 16 = 89$.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="trene"><span class="sec">10.7</span>Kompilere, trene, evaluere og lagre</h2>
+
+<p>Når modellen er bygget, <strong>kompilerer</strong> vi den. Da velger vi optimeringsmetode, tapsfunksjon og eventuelle metrikker:</p>
+<pre><code>model.compile(
+    optimizer=keras.optimizers.SGD(learning_rate=0.01),
+    loss=<span class="s">"categorical_crossentropy"</span>,
+    metrics=[<span class="s">"accuracy"</span>],
+)</code></pre>
+<p>Tapsfunksjonen må passe til oppgaven og til output-aktiveringen:</p>
+<table>
+  <tr><th>Oppgave</th><th>Output-lag</th><th>Tapsfunksjon i Keras</th></tr>
+  <tr><td>Binær klassifisering</td><td><code>Dense(1, activation="sigmoid")</code></td><td><code>"binary_crossentropy"</code></td></tr>
+  <tr><td>Multiklasse, one-hot targets</td><td><code>Dense(K, activation="softmax")</code></td><td><code>"categorical_crossentropy"</code></td></tr>
+  <tr><td>Multiklasse, heltalls-targets 0…K−1</td><td><code>Dense(K, activation="softmax")</code></td><td><code>"sparse_categorical_crossentropy"</code></td></tr>
+  <tr><td>Regresjon</td><td><code>Dense(1)</code> (lineær)</td><td><code>"mse"</code></td></tr>
+</table>
+
+<div class="callout warn"><span class="label">Vanlig feil</span><p>Å bruke MSE på sigmoid-output for klassifisering, eller categorical cross-entropy på én sigmoid-node. Den andre gir meningsløse tap. Den første virker, men gir svake gradienter når prediksjonen er helt feil. Husk parene: <strong>sigmoid + binær CE</strong>, <strong>softmax + categorical CE</strong> og <strong>lineær + MSE</strong>. Prosjekt 3-løsningen brukte <code>BCEWithLogitsLoss</code> i PyTorch. Da har siste lag <em>ingen</em> aktivering, og sigmoiden ligger inne i tapsfunksjonen (mer numerisk stabilt). Gjør du begge deler, får du dobbel sigmoid.</p></div>
+
+<div class="quiz" data-id="10-loss-multi">
+  <p class="q">Du skal klassifisere bilder i 5 kategorier, og targets er one-hot-kodet. Hvilken kombinasjon er riktig?</p>
+  <ul>
+    <li>5 output-noder med sigmoid, og MSE</li>
+    <li>1 output-node med lineær aktivering, og categorical cross-entropy</li>
+    <li>5 output-noder med ReLU, og binær cross-entropy</li>
+    <li data-correct>5 output-noder med softmax, og categorical cross-entropy</li>
+  </ul>
+  <div class="explain">Én node per klasse, softmax for sannsynligheter som summerer til 1, og categorical cross-entropy som sammenligner fordelingen med one-hot-target. MSE og sigmoid hver for seg er laget for andre oppgaver. Én lineær node kan ikke representere fem klasser. ReLU-output er ikke sannsynligheter.</div>
+</div>
+
+<div class="quiz" data-id="10-loss-binary">
+  <p class="q">Et nett skal avgjøre om en transaksjon er svindel (ja/nei). Hvilket output-lag og hvilken tapsfunksjon passer?</p>
+  <ul>
+    <li data-correct><code>Dense(1, activation="sigmoid")</code> og binær cross-entropy</li>
+    <li><code>Dense(1)</code> (lineær) og binær cross-entropy</li>
+    <li><code>Dense(2, activation="relu")</code> og MSE</li>
+    <li><code>Dense(1, activation="softmax")</code> og categorical cross-entropy</li>
+  </ul>
+  <div class="explain">Binær klassifisering bruker én sigmoid-node, som gir $P(y=1)$, og binær cross-entropy. En lineær node gir tall utenfor $(0,1)$, og binær CE krever en sannsynlighet. (Unntaket er <code>from_logits=True</code>, der sigmoiden ligger i tapet.) Softmax over én node gir alltid 1, så modellen lærer ingenting. To softmax-noder med categorical CE ville også fungert, og det er ekvivalent med én sigmoid.</div>
+</div>
+
+<div class="calc" data-id="10-bce" data-answer="0.223" data-tol="0.003">
+  <p class="q">Et binært nett gir $\hat y = 0.8$ for et punkt med $y = 1$. Hva er binær cross-entropy, $-\big[y\ln\hat y + (1-y)\ln(1-\hat y)\big]$? (Naturlig logaritme, tre desimaler.)</p>
+  <div class="solution">$-\ln 0.8 \approx 0.223$. Hvis $y$ hadde vært 0, ville tapet vært $-\ln 0.2 \approx 1.609$.</div>
+</div>
+
+<h3>Trene med <code>fit</code></h3>
+<pre><code>history = model.fit(x_train, y_train,
+                    batch_size=64,
+                    epochs=10,
+                    validation_data=(x_val, y_val))</code></pre>
+<p>Hvert steg i SGD bruker 64 punkter, modellen trenes i 10 epoker og evalueres på valideringsdataene etter hver epoke. Metrikkene lagres i <code>history</code>:</p>
+<pre><code>train_losses = history.history[<span class="s">"loss"</span>]
+val_losses = history.history[<span class="s">"val_loss"</span>]
+epochs = np.arange(1, len(train_losses) + 1)
+plt.plot(epochs, train_losses, label=<span class="s">"Train loss"</span>)
+plt.plot(epochs, val_losses, label=<span class="s">"Validation loss"</span>)
+plt.xlabel(<span class="s">"Epochs"</span>); plt.ylabel(<span class="s">"Loss"</span>); plt.legend(); plt.show()</code></pre>
+
+<h3 id="early-stopping">Early stopping</h3>
+<p>Som i <a href="07-generalisering.html">kapittel 7</a>: Stopp når både trenings- og valideringstapet har flatet ut, men før treningstapet blir mye lavere enn valideringstapet, som er et typisk tegn på overtilpasning. Keras har en callback for dette. Vi må angi <em>hva</em> som overvåkes, vanligvis <code>monitor="val_loss"</code>, og hvor <em>tålmodig</em> den skal være (<code>patience</code>, antall epoker uten forbedring før vi stopper):</p>
+<pre><code>stop = keras.callbacks.EarlyStopping(monitor=<span class="s">"val_loss"</span>, patience=10,
+                                     restore_best_weights=True)
+history = model.fit(x_train, y_train, epochs=500, batch_size=64,
+                    validation_data=(x_val, y_val), callbacks=[stop])</code></pre>
+
+<div class="widget">
+  <h4>Utforsk: early stopping og patience</h4>
+  <canvas id="es" width="640" height="320"></canvas>
+  <div class="controls">
+    <label>patience <input type="range" id="es-p" min="0" max="40" step="1" value="10"><output id="es-po">10</output></label>
+    <label>støy i val_loss <input type="range" id="es-n" min="0" max="0.06" step="0.005" value="0.02"><output id="es-no">0.02</output></label>
+    <label><input type="checkbox" id="es-r" checked> restore_best_weights</label>
+  </div>
+  <div class="readouts" id="es-read"></div>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Med patience 0 stopper treningen ved første lille hump i valideringstapet, ofte altfor tidlig, fordi valideringstapet er støyete. Med stor patience trener vi lenger inn i overtilpasningen, og da redder <code>restore_best_weights=True</code> oss ved å hente vektene fra beste epoke. Uten den sitter vi igjen med vektene fra den siste epoken, som er dårligere. Mer støy (mindre valideringssett) krever mer patience.</p>
+
+<div class="quiz" data-id="10-early-monitor">
+  <p class="q">Hvorfor overvåker vi vanligvis <code>val_loss</code> og ikke <code>loss</code> i early stopping?</p>
+  <ul>
+    <li>Fordi <code>loss</code> ikke beregnes når vi bruker mini-batch.</li>
+    <li data-correct>Fordi treningstapet nesten alltid fortsetter å synke, også når modellen overtilpasser. Valideringstapet viser når generaliseringen slutter å bli bedre.</li>
+    <li>Fordi valideringstapet alltid er lavere enn treningstapet.</li>
+    <li>Fordi early stopping bare virker på testdata, og <code>val_loss</code> er testtapet.</li>
+  </ul>
+  <div class="explain">Modellen ser treningsdataene og kan pugge dem, så <code>loss</code> blir stadig lavere. <code>val_loss</code> er beregnet på data modellen ikke trenes på, og begynner å stige når modellen overtilpasser. Det er signalet vi vil stoppe på. Valideringstapet er typisk <em>høyere</em> enn treningstapet. Testdata skal ikke brukes til slike valg i det hele tatt, for da blir testresultatet optimistisk.</div>
+</div>
+
+<h3>Predikere, evaluere, lagre</h3>
+<p>Oppsummert koker treningen av et nevralt nett ned til:</p>
+<pre><code>model.compile(...)                         <span class="c"># velg optimizer, tap, metrikker</span>
+model.fit(...)                             <span class="c"># tren (med early stopping som callback)</span>
+y_prob = model.predict(x_test)             <span class="c"># inferens: prediksjoner (f.eks. sannsynligheter)</span>
+model.evaluate(x_test, y_test)             <span class="c"># tap og metrikker på testdata</span>
+model.save(<span class="s">"sted/for/lagring/navn.keras"</span>)   <span class="c"># når du går hjem for dagen</span>
+model = keras.models.load_model(<span class="s">"sted/for/lagring/navn.keras"</span>)  <span class="c"># neste morgen</span></code></pre>
+
+<div class="quiz" data-id="10-predict-evaluate">
+  <p class="q">Hva er forskjellen på <code>model.predict(x_test)</code> og <code>model.evaluate(x_test, y_test)</code>?</p>
+  <ul>
+    <li><code>predict</code> trener videre på testdata, mens <code>evaluate</code> ikke gjør det.</li>
+    <li>De gir det samme, men <code>evaluate</code> er raskere.</li>
+    <li data-correct><code>predict</code> gir modellens output for hver instans, mens <code>evaluate</code> sammenligner med fasit og gir tap og metrikker.</li>
+    <li><code>evaluate</code> gir output-sannsynligheter, mens <code>predict</code> gir accuracy.</li>
+  </ul>
+  <div class="explain"><code>predict</code> trenger bare input og gir en output per instans. Med softmax er det sannsynligheter, og klassen finner vi med <code>argmax</code>. <code>evaluate</code> trenger også targets og regner ut tapet og metrikkene fra <code>compile</code>. Ingen av dem endrer vektene. Bare <code>fit</code> trener.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="prosjekt3"><span class="sec">10.8</span>Prosjekt 3: teknikker for å trene bedre</h2>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 3, problem 1</span><p>Oppgaven var å trene nevrale nett for binær klassifisering (støyete kontinuerlig XOR, krav ≥ 90 % test-accuracy) og ikke-lineær regresjon (krav RMSE ≤ 0.25), med minst tre teknikker blant: full batch mot mini-batch, læringsrate-planlegging (cosine annealing), hyperparametersøk, optimizers (Adam, RMSprop, SGD), aktiveringsfunksjoner og early stopping. ❓-spørsmålene var: Hvordan sikret du reproduserbarhet? Visualiser arkitekturen. Plott beslutningsgrensen, og ville modellen generalisert til større feature-verdier? Plott trenings- og valideringstap, og er sluttverdiene et godt mål? Hvilke teknikker virket?</p></div>
+
+<h3 id="seeds">Reproduserbarhet: seeds</h3>
+<p>Mye i treningen er tilfeldig: initialisering av vektene, stokking av data i hver epoke, trekning av mini-batcher og oppdelingen i trening og validering. For å få samme resultat ved hver kjøring må alle tilfeldighetskilder få en fast <strong>seed</strong>:</p>
+<pre><code><span class="c"># Keras: setter seed for Python, NumPy og backend på én gang</span>
+keras.utils.set_random_seed(42)
+
+<span class="c"># PyTorch (som i din prosjektløsning)</span>
+random.seed(0); np.random.seed(0); torch.manual_seed(0)
+torch.use_deterministic_algorithms(True)</code></pre>
+<p>Parallelle beregninger, særlig på GPU, kan i tillegg gi små forskjeller i flyttall. Derfor brukte prosjektløsningen deterministiske algoritmer og én tråd.</p>
+
+<div class="quiz" data-multi data-id="10-seed">
+  <p class="q">Hvilke kilder til tilfeldighet må kontrolleres for at treningen av et nevralt nett skal bli reproduserbar?</p>
+  <ul>
+    <li data-correct>Tilfeldig initialisering av vektene</li>
+    <li data-correct>Stokking av treningsdataene og trekning av mini-batcher</li>
+    <li>Læringsraten</li>
+    <li data-correct>Tilfeldig oppdeling i trenings- og valideringssett</li>
+    <li>Antall epoker</li>
+  </ul>
+  <div class="explain">Initialisering, stokking/batching og datasplitt er tilfeldige og trenger seed. Læringsraten og antall epoker er hyperparametre vi setter selv. De er ikke tilfeldige, og er like ved hver kjøring så lenge koden er lik.</div>
+</div>
+
+<h3 id="optimizers">Optimizers</h3>
+<p>Notatene bruker <code>keras.optimizers.SGD()</code>. Prosjektet nevner også disse (bare navn og idé er relevant):</p>
+<ul>
+  <li><strong>SGD</strong>, eventuelt med <em>momentum</em>: hvert steg tar med seg en del av forrige steg, som en ball som ruller. Det demper sikk-sakk og gir fart langs flate daler.</li>
+  <li><strong>RMSprop</strong>: deler steget for hver parameter på et løpende gjennomsnitt av kvadrerte gradienter. Parametre med store gradienter får mindre steg, og parametre med små gradienter får større.</li>
+  <li><strong>Adam</strong>: kombinerer momentum og RMSprop-skalering. Det er et robust standardvalg som ofte trener raskere enn ren SGD med lite tuning.</li>
+</ul>
+
+<div class="quiz" data-id="10-adam">
+  <p class="q">Hva skiller Adam og RMSprop fra vanlig SGD?</p>
+  <ul>
+    <li>De bruker ikke gradienten, men søker tilfeldig i parameterrommet.</li>
+    <li>De beregner gradienten uten backpropagation.</li>
+    <li data-correct>De tilpasser steglengden for hver parameter ut fra historikken til gradientene.</li>
+    <li>De garanterer globalt minimum også for ikke-konvekse tap.</li>
+  </ul>
+  <div class="explain">Adaptive optimizers skalerer steget per parameter med (løpende gjennomsnitt av) kvadrerte gradienter, og Adam legger i tillegg til momentum. De bruker fortsatt gradienten fra backprop. Ingen optimizer kan garantere globalt minimum i et ikke-konvekst landskap.</div>
+</div>
+
+<h3 id="cosine">Læringsrate-planlegging: cosine annealing</h3>
+<p>En fast læringsrate er et kompromiss: stor nok til rask fremgang i starten, men så stor at SGD-støyen hindrer oss i å sette oss pent i minimumet til slutt. <strong>Læringsrate-planlegging</strong> (learning rate scheduling) endrer $\eta$ underveis. Med <strong>cosine annealing</strong> følger læringsraten en halv cosinus fra $\eta_{\max}$ ned til $\eta_{\min}$ over $T$ epoker:</p>
+<div class="eq">
+  $$\eta_t = \eta_{\min} + \tfrac12\big(\eta_{\max} - \eta_{\min}\big)\Big(1 + \cos\frac{\pi t}{T}\Big)$$
+</div>
+<div class="widget">
+  <h4>Utforsk: cosine annealing</h4>
+  <canvas id="cos" width="640" height="240"></canvas>
+  <div class="controls">
+    <label>η<sub>max</sub> <input type="range" id="cos-max" min="0.01" max="0.1" step="0.005" value="0.05"><output id="cos-maxo">0.05</output></label>
+    <label>η<sub>min</sub> <input type="range" id="cos-min" min="0" max="0.02" step="0.001" value="0.001"><output id="cos-mino">0.001</output></label>
+    <label>T (epoker) <input type="range" id="cos-T" min="10" max="200" step="10" value="100"><output id="cos-To">100</output></label>
+  </div>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Læringsraten holder seg høy en stund (rask fremgang), synker raskest i midten og flater ut nær $\eta_{\min}$ på slutten (finjustering med lite støy). I Keras: <code>keras.optimizers.schedules.CosineDecay</code>. I PyTorch: <code>CosineAnnealingLR</code>, som prosjektløsningen brukte.</p>
+
+<div class="quiz" data-id="10-cosine">
+  <p class="q">Hva er hovedpoenget med cosine annealing av læringsraten?</p>
+  <ul>
+    <li data-correct>Å ta store steg tidlig for rask fremgang, og gradvis mindre steg slik at modellen kan sette seg i et minimum uten å hoppe rundt.</li>
+    <li>Å øke læringsraten gradvis slik at modellen lærer raskere mot slutten.</li>
+    <li>Å la læringsraten svinge tilfeldig for å unngå lokale minima.</li>
+    <li>Å erstatte early stopping, fordi læringsraten blir null til slutt.</li>
+  </ul>
+  <div class="explain">Cosinus-planen går jevnt fra høy til lav læringsrate. Store steg tidlig gir fart, og små steg sent demper SGD-støyen. Den øker ikke (bortsett fra varianter med «warm restarts»), og den er deterministisk, ikke tilfeldig. Den erstatter ikke early stopping: prosjektløsningen brukte begge.</div>
+</div>
+
+<h3 id="vanishing">Vanishing gradients: hvorfor ReLU</h3>
+<p>Fra kjerneregelen: gradienten til et tidlig lag er et <strong>produkt</strong> av ett ledd per lag den passerer bakover, omtrent $w\cdot g'(z)$ per lag. For sigmoid er $\sigma'(z) \le 0.25$. Med mange lag ganger vi sammen mange tall som er mindre enn 1, og gradienten krymper eksponentielt. De første lagene lærer nesten ingenting. Det kalles <strong>vanishing gradients</strong>.</p>
+<p>ReLU har derivert nøyaktig 1 for alle aktive noder, så gradienten passerer uten å krympe. Det er hovedgrunnen til at ReLU er standard i skjulte lag.</p>
+
+<div class="calc" data-id="10-vanish" data-answer="0.000977" data-tol="0.00002">
+  <p class="q">Gradienten går bakover gjennom 5 sigmoid-lag. Hvis vi ser bort fra vektene, hva er den <em>største</em> mulige faktoren de fem sigmoid-deriverte kan gi til sammen?</p>
+  <div class="solution">Maks $\sigma'(z) = 0.25$ (i $z=0$), så maks faktor er $0.25^5 \approx 0.000977$, altså under en tusendel. Med 10 lag blir det $0.25^{10} \approx 9.5\cdot 10^{-7}$. Med ReLU er faktoren $1^5 = 1$ for aktive noder.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: gradientstørrelse per lag</h4>
+  <canvas id="van" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>antall lag <input type="range" id="van-L" min="2" max="16" step="1" value="8"><output id="van-Lo">8</output></label>
+    <label><input type="checkbox" id="van-sig" checked> sigmoid</label>
+    <label><input type="checkbox" id="van-tanh" checked> tanh</label>
+    <label><input type="checkbox" id="van-relu" checked> ReLU</label>
+  </div>
+  <p class="small muted">Et tilfeldig initialisert nett med 32 noder per lag (Xavier-initialisering for sigmoid/tanh, He-initialisering for ReLU). Én backward pass på 64 tilfeldige input. Søylene viser gjennomsnittlig $|\partial L/\partial w|$ per lag, på log-skala, med lag 1 (nærmest input) til venstre.</p>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> For sigmoid faller gradienten med omtrent en faktor 4 eller mer per lag bakover. Med 12–16 lag er gradienten i de første lagene flere tierpotenser mindre enn i de siste. tanh krymper mindre (maks derivert 1), og ReLU holder omtrent samme størrelse i alle lag. Dette passer med prosjektløsningen, der sigmoid ga lavest accuracy (89.2 %) og «slow training because of vanishing gradients».</p>
+
+<div class="quiz" data-id="10-vanishing">
+  <p class="q">Hvorfor foretrekkes ReLU fremfor sigmoid i skjulte lag i dype nett?</p>
+  <ul>
+    <li>Fordi ReLU gir output i $(0,1)$, som tolkes som sannsynligheter.</li>
+    <li>Fordi ReLU er lineær, slik at hele nettet blir lineært og lett å trene.</li>
+    <li data-correct>Fordi ReLU har derivert 1 for positive input, så gradienten ikke krymper lag for lag slik den gjør med sigmoid ($\sigma' \le 0.25$).</li>
+    <li>Fordi ReLU er deriverbar overalt, mens sigmoid ikke er det.</li>
+  </ul>
+  <div class="explain">Vanishing gradients kommer av produktet av mange små deriverte. ReLU gir output i $[0,\infty)$, ikke $(0,1)$. Den er stykkevis lineær, men ikke lineær, og nettet forblir ikke-lineært. Det er snudd på hodet med deriverbarheten: sigmoid er glatt overalt, mens ReLU har en knekk i 0.</div>
+</div>
+
+<h3 id="kurver">Tolke trenings- og valideringskurver</h3>
+<table>
+  <tr><th>Hva du ser</th><th>Tolkning</th><th>Hva du gjør</th></tr>
+  <tr><td>Begge synker og flater ut på omtrent samme nivå</td><td>God tilpasning</td><td>Ferdig, eller prøv litt større modell</td></tr>
+  <tr><td>Begge flater ut på et <em>høyt</em> nivå</td><td>Undertilpasning (høy bias)</td><td>Større modell, flere epoker, høyere læringsrate, bedre features</td></tr>
+  <tr><td>Treningstapet synker videre, valideringstapet når et minimum og stiger</td><td>Overtilpasning (høy varians)</td><td>Early stopping, mindre modell, mer data, regularisering</td></tr>
+  <tr><td>Tapet hopper opp og ned eller eksploderer</td><td>For høy læringsrate (eller for liten batch)</td><td>Lavere $\eta$, større batch, læringsrate-planlegging</td></tr>
+  <tr><td>Tapet står nesten stille i mange epoker</td><td>For lav læringsrate, eller forsvinnende gradienter</td><td>Høyere $\eta$, ReLU, Adam</td></tr>
+</table>
+
+<div class="quiz" data-id="10-curve-overfit">
+  <p class="q">Etter 50 epoker er treningstapet 0.05 og fortsatt synkende. Valideringstapet var lavest (0.31) i epoke 18 og er nå 0.45. Hva er den beste tolkningen og det beste tiltaket?</p>
+  <ul>
+    <li>Undertilpasning. Tren flere epoker.</li>
+    <li>Læringsraten er for høy. Halver den, så synker valideringstapet også.</li>
+    <li data-correct>Overtilpasning fra ca. epoke 18. Bruk early stopping (med restore_best_weights) eller en enklere/regularisert modell.</li>
+    <li>Modellen er god, fordi treningstapet er lavt.</li>
+  </ul>
+  <div class="explain">Treningstap som synker mens valideringstapet stiger, er skoleeksempelet på overtilpasning. Modellen lærer støy i treningsdataene. Flere epoker gjør det verre. En for høy læringsrate gir typisk hakkete eller eksploderende tap på <em>begge</em> kurvene, ikke et pent synkende treningstap. Lavt treningstap alene sier ingenting om generalisering.</div>
+</div>
+
+<div class="reflect" data-id="10-final-values">
+  <p class="q">Prosjekt 3 spør: Er sluttverdiene på trenings- og valideringstapet et godt mål på modellens ytelse? Hva svarer du?</p>
+  <div class="answer">Nei, av flere grunner. (1) Siste epoke er ikke nødvendigvis modellen vi bruker. Med early stopping beholder vi beste epoke. (2) Treningstapet er optimistisk, fordi modellen har sett de dataene. (3) Valideringssettet er brukt til å velge epoke og hyperparametre, så det er også litt optimistisk, og er det lite, er kurven støyete. (4) Tapet er ikke nødvendigvis metrikken vi bryr oss om: cross-entropy straffer også usikkerhet, mens oppgaven måles i accuracy eller RMSE. Ved regresjon med mye støy er en stor del av MSE irredusibel støy. Kurvene er best til å velge når vi skal stoppe og å oppdage overtilpasning. Selve ytelsen måles på et separat testsett med riktig metrikk.</div>
+</div>
+
+<div class="callout proj"><span class="label">Generaliserer modellen til større feature-verdier?</span><p>Dette ❓-spørsmålet handler om <strong>ekstrapolering</strong>. Et nevralt nett lærer bare mønsteret der det har sett data. Utenfor treningsområdet finnes det ingenting som tvinger beslutningsgrensen til å følge XOR-strukturen. tanh- eller sigmoid-noder mettes, ReLU-nett fortsetter lineært, og grensen kan drive vilkårlig. Du kan se det i den levende widgeten over: Flaten utenfor datapunktene er bestemt av tilfeldigheter i initialiseringen.</p></div>
+
+<!-- ======================================================= -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Forward pass</strong>: data → lag for lag → prediksjon og tap. <strong>Backpropagation</strong>: kjerneregelen brukt bakover, som gir gradienten for alle parametre effektivt, også i skjulte lag uten targets.</li>
+    <li>Intuisjon: «jo større $a$-ene, jo større effekt har $w$-ene», og omvendt ($\partial(wa)/\partial w = a$). Ønskede endringer fra alle output-nodene samles og sendes lag for lag bakover til input.</li>
+    <li>Backprop <em>beregner</em> gradienten. Gradient descent (eller en annen optimizer) <em>oppdaterer</em> vektene med $\theta \leftarrow \theta - \eta\nabla L$.</li>
+    <li>GD bruker alle $N$ punkter (1 oppdatering per epoke), SGD bruker ett (N per epoke), og mini-batch bruker $B$ ($N/B$ per epoke). Batch size er en hyperparameter. Støyete gradient bør gå med lav læringsrate.</li>
+    <li>Konveks tap gir garantert globalt minimum. Nevrale nett er ikke-konvekse.</li>
+    <li>Keras: <code>Sequential</code> + <code>Dense</code>. Vektene finnes først når input-shape er kjent. <code>keras.Input(shape=(3,))</code> + <code>Dense(6)</code> gir 24 parametre. Output-shape er (instanser, noder i siste lag).</li>
+    <li><code>compile</code> (optimizer, tap, metrikker) → <code>fit</code> (batch_size, epochs, validation_data, early stopping med <code>monitor="val_loss"</code> og <code>patience</code>) → <code>predict</code> / <code>evaluate</code> → <code>save</code> / <code>load_model</code>.</li>
+    <li>Riktige par: sigmoid + binær CE, softmax + categorical CE, lineær + MSE.</li>
+    <li>Prosjekt 3: seeds for reproduserbarhet, Adam/RMSprop/SGD, cosine annealing, ReLU mot vanishing gradients med sigmoid, og kurver til å oppdage overtilpasning, ikke som endelig ytelsesmål.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Formålet med backpropagation</div><div class="back">Beregne gradienten av tapet med hensyn på alle vektene effektivt, med kjerneregelen bakover. Oppdateringen gjøres av GD/optimizer.</div></div>
+  <div class="card"><div class="front">«Jo større a, jo større effekt har w»</div><div class="back">$\partial(w a)/\partial w = a$. Og omvendt: $\partial(wa)/\partial a = w$.</div></div>
+  <div class="card"><div class="front">Kjerneregelen i 1–1–1-nettet</div><div class="back">$\frac{\partial L}{\partial w_1} = \frac{\partial L}{\partial \hat y}\cdot w_2\cdot\sigma'(z_1)\cdot x$</div></div>
+  <div class="card"><div class="front">GD / SGD / mini-batch</div><div class="back">Alle $N$ / ett punkt / $B$ punkter per gradient. 1 / $N$ / $N/B$ oppdateringer per epoke.</div></div>
+  <div class="card"><div class="front">Epoke vs iterasjon</div><div class="back">Epoke: én runde gjennom alle treningsdata. Iterasjon: én oppdatering. $N=10\,000$, $B=500$ gir 20 iterasjoner per epoke.</div></div>
+  <div class="card"><div class="front">Batch size</div><div class="back">Antall treningspunkter per iterasjon. En hyperparameter. Liten gir mer støy og bør gå med lavere $\eta$.</div></div>
+  <div class="card"><div class="front">Når finner GD garantert globalt minimum?</div><div class="back">Når funksjonen er konveks. Nevrale nett er ikke-konvekse.</div></div>
+  <div class="card"><div class="front">Hvorfor er <code>model.weights</code> tom?</div><div class="back">Input-dimensjonen er ukjent, så første lags vektmatrise kan ikke opprettes. Kjør på data eller bruk <code>keras.Input(shape=...)</code>.</div></div>
+  <div class="card"><div class="front"><code>Input(shape=(3,))</code> + <code>Dense(6)</code></div><div class="back">$3\cdot6+6 = 24$ parametre. <code>model(x)</code> med $x$ av shape (10, 3) gir (10, 6).</div></div>
+  <div class="card"><div class="front">Output + tap</div><div class="back">Binær: sigmoid + binær CE. Multiklasse: softmax + categorical CE. Regresjon: lineær + MSE.</div></div>
+  <div class="card"><div class="front">Early stopping</div><div class="back"><code>monitor="val_loss"</code>, <code>patience</code> = antall epoker uten forbedring før stopp. <code>restore_best_weights</code> henter beste epoke.</div></div>
+  <div class="card"><div class="front">Vanishing gradients</div><div class="back">Produkt av mange små deriverte ($\sigma' \le 0.25$) gjør at gradienten forsvinner i tidlige lag. ReLU har derivert 1 for aktive noder.</div></div>
+  <div class="card"><div class="front">Cosine annealing</div><div class="back">$\eta$ følger en halv cosinus fra $\eta_{\max}$ til $\eta_{\min}$: store steg tidlig, små på slutten.</div></div>
+  <div class="card"><div class="front">Reproduserbarhet</div><div class="back">Fast seed for initialisering, stokking/batcher og datasplitt (<code>keras.utils.set_random_seed</code>).</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<!-- ===================== WIDGET-SKRIPT ===================== -->
+<script>
+/* felles hjelpere for kapittel 10 */
+const K10 = {
+  hex(c) { c = c.trim(); if (c[0] === "#") { if (c.length === 4) c = "#" + c[1] + c[1] + c[2] + c[2] + c[3] + c[3]; return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; } const m = c.match(/\d+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128]; },
+  mix(a, b, t) { return "rgb(" + a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",") + ")"; },
+  sig(z) { return 1 / (1 + Math.exp(-z)); }
+};
+
+/* SGD-stripe i figur 10.2 */
+document.addEventListener("DOMContentLoaded", () => {
+  const s = document.getElementById("sgd-strip"); let h = "";
+  for (let i = 0; i < 40; i++) h += `<span style="background:var(--c4);opacity:${i % 2 ? 0.65 : 1}"></span>`;
+  s.innerHTML = h;
+});
+
+/* 1. Backprop steg for steg */
+document.addEventListener("DOMContentLoaded", () => {
+  const host = document.getElementById("bp-svg"), box = document.getElementById("bp-box");
+  const ids = ["x", "y", "w1", "b1", "w2", "b2", "eta"];
+  const inp = {}; ids.forEach(k => inp[k] = document.getElementById("bp-" + k));
+  let step = 0, V = {};
+  const f = v => (Math.abs(v) < 5e-5 ? "0" : (+v.toFixed(4)).toString());
+  function compute() {
+    const p = {}; ids.forEach(k => p[k] = parseFloat(inp[k].value) || 0);
+    const z1 = p.w1 * p.x + p.b1, h = K10.sig(z1), yh = p.w2 * h + p.b2, L = (yh - p.y) ** 2;
+    const dy = 2 * (yh - p.y), dw2 = dy * h, db2 = dy, dh = dy * p.w2, sp = h * (1 - h), dz = dh * sp, dw1 = dz * p.x, db1 = dz;
+    const n = { w1: p.w1 - p.eta * dw1, b1: p.b1 - p.eta * db1, w2: p.w2 - p.eta * dw2, b2: p.b2 - p.eta * db2 };
+    const nz = n.w1 * p.x + n.b1, nh = K10.sig(nz), nyh = n.w2 * nh + n.b2, nL = (nyh - p.y) ** 2;
+    V = Object.assign(p, { z1, h, yh, L, dy, dw2, db2, dh, sp, dz, dw1, db1, n, nz, nh, nyh, nL });
+  }
+  const STEPS = [
+    { t: "Utgangspunkt", hl: [], s: () => `Nettet: $z_1 = w_1x + b_1$, $h = \\sigma(z_1)$, $\\hat y = w_2h + b_2$, $L = (\\hat y - y)^2$. Input $x = ${f(V.x)}$, target $y = ${f(V.y)}$. Trykk «Neste steg» for forward pass.` },
+    { t: "Forward 1: vektet sum", hl: ["e1"], s: () => `$z_1 = w_1x + b_1 = ${f(V.w1)}\\cdot ${f(V.x)} + (${f(V.b1)}) = ${f(V.z1)}$` },
+    { t: "Forward 2: aktivering", hl: ["nh"], s: () => `$h = \\sigma(z_1) = \\sigma(${f(V.z1)}) = ${f(V.h)}$` },
+    { t: "Forward 3: output", hl: ["e2"], s: () => `$\\hat y = w_2h + b_2 = ${f(V.w2)}\\cdot ${f(V.h)} + (${f(V.b2)}) = ${f(V.yh)}$` },
+    { t: "Forward 4: tap", hl: ["nL"], s: () => `$L = (\\hat y - y)^2 = (${f(V.yh)} - ${f(V.y)})^2 = ${f(V.L)}$. Nå snur vi og går bakover.` },
+    { t: "Backward 1: tapets deriverte", hl: ["nL", "ny"], s: () => `$\\dfrac{\\partial L}{\\partial \\hat y} = 2(\\hat y - y) = ${f(V.dy)}$. ${V.dy < 0 ? "Negativ: $\\hat y$ er for liten og bør økes." : (V.dy > 0 ? "Positiv: $\\hat y$ er for stor og bør minkes." : "Null: prediksjonen er perfekt.")}` },
+    { t: "Backward 2: output-lagets parametre", hl: ["e2"], s: () => `$\\dfrac{\\partial L}{\\partial w_2} = \\dfrac{\\partial L}{\\partial \\hat y}\\cdot h = ${f(V.dy)}\\cdot ${f(V.h)} = ${f(V.dw2)}$, og $\\dfrac{\\partial L}{\\partial b_2} = ${f(V.db2)}$. Jo større aktivering $h$, jo større effekt har $w_2$.` },
+    { t: "Backward 3: send feilen til skjult node", hl: ["nh", "e2"], s: () => `$\\dfrac{\\partial L}{\\partial h} = \\dfrac{\\partial L}{\\partial \\hat y}\\cdot w_2 = ${f(V.dy)}\\cdot ${f(V.w2)} = ${f(V.dh)}$. Jo større vekt, jo større effekt har aktiveringen.` },
+    { t: "Backward 4: gjennom sigmoid", hl: ["nh"], s: () => `$\\dfrac{\\partial L}{\\partial z_1} = \\dfrac{\\partial L}{\\partial h}\\cdot \\sigma'(z_1) = ${f(V.dh)}\\cdot ${f(V.sp)} = ${f(V.dz)}$, der $\\sigma'(z_1) = h(1-h) = ${f(V.sp)}$ (maks 0.25).` },
+    { t: "Backward 5: skjult lags parametre", hl: ["e1"], s: () => `$\\dfrac{\\partial L}{\\partial w_1} = \\dfrac{\\partial L}{\\partial z_1}\\cdot x = ${f(V.dz)}\\cdot ${f(V.x)} = ${f(V.dw1)}$, og $\\dfrac{\\partial L}{\\partial b_1} = ${f(V.db1)}$. Nå har vi hele gradienten. Backprop er ferdig.` },
+    { t: "Oppdatering (gradient descent, ikke backprop)", hl: ["e1", "e2"], s: () => `$\\theta \\leftarrow \\theta - \\eta\\,\\partial L/\\partial\\theta$ med $\\eta = ${f(V.eta)}$: $w_1 = ${f(V.n.w1)}$, $b_1 = ${f(V.n.b1)}$, $w_2 = ${f(V.n.w2)}$, $b_2 = ${f(V.n.b2)}$.` },
+    { t: "Sjekk: ny forward pass", hl: ["nL"], s: () => `Med nye parametre: $z_1 = ${f(V.nz)}$, $h = ${f(V.nh)}$, $\\hat y = ${f(V.nyh)}$, $L = ${f(V.nL)}$ (før: ${f(V.L)}). ${V.nL < V.L ? "Tapet gikk ned." : "Tapet gikk ikke ned. Læringsraten er kanskje for stor."}` }
+  ];
+  function svg() {
+    const hl = STEPS[step].hl, H = k => (hl.includes(k) ? " bp-hl" : "");
+    const fw = k => step >= k, bw = k => step >= k;
+    const W = (s, x, y, cls, anchor = "middle") => `<text x="${x}" y="${y}" text-anchor="${anchor}" class="k10-small ${cls}">${s}</text>`;
+    let s = `<svg viewBox="0 0 660 230" role="img" aria-label="Nettverk x til h til y-hat til tap L">`;
+    s += `<line x1="92" y1="100" x2="268" y2="100" class="k10-edge${H("e1")}" style="stroke-width:2"/>`;
+    s += `<line x1="332" y1="100" x2="468" y2="100" class="k10-edge${H("e2")}" style="stroke-width:2"/>`;
+    s += `<line x1="532" y1="100" x2="582" y2="100" class="k10-edge" style="stroke-width:2;stroke-dasharray:4 3"/>`;
+    s += `<circle cx="65" cy="100" r="27" class="k10-in"/><text x="65" y="105" text-anchor="middle">x</text>`;
+    s += `<circle cx="300" cy="100" r="32" class="k10-hid${H("nh")}"/><text x="300" y="98" text-anchor="middle">σ</text><text x="300" y="116" text-anchor="middle" class="k10-small">h</text>`;
+    s += `<circle cx="500" cy="100" r="30" class="k10-out${H("ny")}"/><text x="500" y="105" text-anchor="middle">ŷ</text>`;
+    s += `<rect x="584" y="76" width="60" height="48" rx="8" class="k10-loss${H("nL")}"/><text x="614" y="105" text-anchor="middle">L</text>`;
+    s += W("x = " + f(V.x), 65, 150, "k10-fwd");
+    s += W("w₁ = " + f(V.w1) + ",  b₁ = " + f(V.b1), 180, 90, "");
+    s += W("w₂ = " + f(V.w2) + ",  b₂ = " + f(V.b2), 400, 90, "");
+    s += W("y = " + f(V.y), 614, 150, "k10-muted");
+    if (fw(1)) s += W("z₁ = " + f(V.z1), 300, 50, "k10-fwd");
+    if (fw(2)) s += W("h = " + f(V.h), 300, 150, "k10-fwd");
+    if (fw(3)) s += W("ŷ = " + f(V.yh), 500, 150, "k10-fwd");
+    if (fw(4)) s += W("L = " + f(V.L), 614, 62, "k10-fwd");
+    if (bw(5)) s += W("∂L/∂ŷ = " + f(V.dy), 500, 175, "k10-bwd");
+    if (bw(6)) { s += W("∂L/∂w₂ = " + f(V.dw2), 400, 122, "k10-bwd"); s += W("∂L/∂b₂ = " + f(V.db2), 400, 140, "k10-bwd"); }
+    if (bw(7)) s += W("∂L/∂h = " + f(V.dh), 300, 175, "k10-bwd");
+    if (bw(8)) s += W("∂L/∂z₁ = " + f(V.dz), 300, 30, "k10-bwd");
+    if (bw(9)) { s += W("∂L/∂w₁ = " + f(V.dw1), 180, 122, "k10-bwd"); s += W("∂L/∂b₁ = " + f(V.db1), 180, 140, "k10-bwd"); }
+    s += W("forward →", 200, 215, "k10-fwd"); s += W("← backward", 460, 215, "k10-bwd");
+    s += "</svg>"; host.innerHTML = s;
+  }
+  function render() {
+    compute(); svg();
+    box.innerHTML = `<div class="t">Steg ${step} av ${STEPS.length - 1}: ${STEPS[step].t}</div><div>${STEPS[step].s()}</div>`;
+    if (window.renderMathInElement) renderMathInElement(box, { delimiters: [{ left: "$", right: "$", display: false }], throwOnError: false });
+    document.getElementById("bp-prev").disabled = step === 0;
+    document.getElementById("bp-next").disabled = step === STEPS.length - 1;
+  }
+  document.getElementById("bp-next").onclick = () => { if (step < STEPS.length - 1) step++; render(); };
+  document.getElementById("bp-prev").onclick = () => { if (step > 0) step--; render(); };
+  document.getElementById("bp-reset").onclick = () => { step = 0; render(); };
+  ids.forEach(k => inp[k].addEventListener("input", render));
+  /* KaTeX lastes med defer; vent til auto-render finnes før første tegning med matte */
+  render(); window.addEventListener("load", render);
+  CK.onTheme(svg);
+});
+
+/* 2. GD vs SGD vs mini-batch */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("gd"), { xmin: -1, xmax: 5, ymin: -3, ymax: 5, pad: { l: 40, r: 12, t: 12, b: 34 } });
+  const lr = document.getElementById("gd-lr"), bs = document.getElementById("gd-b"), ep = document.getElementById("gd-e");
+  const show = [document.getElementById("gd-s1"), document.getElementById("gd-s2"), document.getElementById("gd-s3")];
+  const read = document.getElementById("gd-read");
+  const N = 64, r0 = CK.rng(21), X = [], Y = [];
+  for (let i = 0; i < N; i++) { const x = r0.normal(1, 0.6); X.push(x); Y.push(2 * x + 1 + r0.normal(0, 0.5)); }
+  const loss = (w, b) => { let s = 0; for (let i = 0; i < N; i++) { const e = w * X[i] + b - Y[i]; s += e * e; } return s / N; };
+  /* minimum via normallikninger */
+  let sx = 0, sy = 0, sxx = 0, sxy = 0; for (let i = 0; i < N; i++) { sx += X[i]; sy += Y[i]; sxx += X[i] * X[i]; sxy += X[i] * Y[i]; }
+  const wopt = (N * sxy - sx * sy) / (N * sxx - sx * sx), bopt = (sy - wopt * sx) / N, Lmin = loss(wopt, bopt);
+  let seed = 1;
+  function run(B, eta, E) {
+    const r = CK.rng(seed * 97 + B), path = [{ x: -0.5, y: 4 }]; let w = -0.5, b = 4, updates = 0, div = false;
+    const idx = [...Array(N).keys()];
+    for (let e = 0; e < E && !div; e++) {
+      for (let i = N - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+      for (let s = 0; s < N; s += B) {
+        let gw = 0, gb = 0; const end = Math.min(N, s + B);
+        for (let k = s; k < end; k++) { const i = idx[k], er = w * X[i] + b - Y[i]; gw += 2 * er * X[i]; gb += 2 * er; }
+        const m = end - s; w -= eta * gw / m; b -= eta * gb / m; updates++;
+        if (!isFinite(w) || Math.abs(w) > 1e3 || Math.abs(b) > 1e3) { div = true; break; }
+        path.push({ x: w, y: b });
+      }
+    }
+    return { path, updates, L: div ? Infinity : loss(w, b), div };
+  }
+  let bg = null;
+  function surface() {
+    const c = document.createElement("canvas"), n = 120; c.width = n; c.height = n; const cx = c.getContext("2d");
+    const lo = K10.hex(P.col("surface")), hi = K10.hex(P.col("c1"));
+    const lmin = Math.log(Lmin), lmax = Math.log(loss(-1, 5) + 5);
+    for (let a = 0; a < n; a++) for (let q = 0; q < n; q++) {
+      const w = -1 + 6 * (a + 0.5) / n, b = 5 - 8 * (q + 0.5) / n;
+      let t = (Math.log(loss(w, b)) - lmin) / (lmax - lmin); t = Math.max(0, Math.min(1, t));
+      const band = Math.floor(t * 14) / 14;
+      cx.fillStyle = K10.mix(lo, hi, 0.55 * (1 - band)); cx.fillRect(a, q, 1, 1);
+    }
+    bg = c;
+  }
+  function draw() {
+    const eta = +lr.value, B = +bs.value, E = +ep.value;
+    document.getElementById("gd-lro").textContent = eta; document.getElementById("gd-bo").textContent = B; document.getElementById("gd-eo").textContent = E;
+    P.clear();
+    if (!bg) surface();
+    P.ctx.imageSmoothingEnabled = true;
+    P.ctx.drawImage(bg, P.X(-1), P.Y(5), P.X(5) - P.X(-1), P.Y(-3) - P.Y(5));
+    P.axes({ xlabel: "w", ylabel: "b", frame: true });
+    const runs = [
+      { lab: "GD", B: N, col: P.col("c2"), wd: 3 },
+      { lab: "mini-batch B=" + B, B: B, col: P.col("c3"), wd: 1.8 },
+      { lab: "SGD", B: 1, col: P.col("c4"), wd: 1 }
+    ];
+    let html = "";
+    runs.forEach((R, k) => {
+      const res = run(R.B, eta, E);
+      if (show[k].checked) {
+        const pts = res.path.map(p => ({ x: Math.max(-3, Math.min(7, p.x)), y: Math.max(-5, Math.min(7, p.y)) }));
+        P.ctx.save(); P.ctx.beginPath(); P.ctx.rect(P.pad.l, P.pad.t, P.W - P.pad.l - P.pad.r, P.H - P.pad.t - P.pad.b); P.ctx.clip();
+        P.path(pts, { color: R.col, width: R.wd });
+        if (k === 0) P.points(pts, { color: R.col, r: 3.5 });
+        P.ctx.restore();
+      }
+      html += `<span class="readout" style="border-left:4px solid ${R.col}">${R.lab}: ${res.updates} oppdateringer, tap ${res.div ? "divergerte!" : res.L.toFixed(3)}</span>`;
+    });
+    P.points([{ x: -0.5, y: 4 }], { color: P.col("text"), r: 5 });
+    const ctx = P.ctx; ctx.save(); ctx.strokeStyle = P.col("text"); ctx.lineWidth = 2.5; const ox = P.X(wopt), oy = P.Y(bopt);
+    ctx.beginPath(); ctx.moveTo(ox - 7, oy - 7); ctx.lineTo(ox + 7, oy + 7); ctx.moveTo(ox + 7, oy - 7); ctx.lineTo(ox - 7, oy + 7); ctx.stroke(); ctx.restore();
+    P.text("start", -0.42, 4.25, { size: 12, color: P.col("text-soft") });
+    read.innerHTML = html + `<span class="readout">minimum: tap ${Lmin.toFixed(3)}</span>`;
+  }
+  [lr, bs, ep].forEach(e => e.oninput = draw); show.forEach(c => c.onchange = draw);
+  document.getElementById("gd-seed").onclick = () => { seed++; draw(); };
+  CK.live(draw); CK.onTheme(() => { bg = null; draw(); });
+});
+
+/* 3. Live MLP */
+document.addEventListener("DOMContentLoaded", () => {
+  const A = CK.plot(document.getElementById("mlp-a"), { xmin: -1.5, xmax: 1.5, ymin: -1.5, ymax: 1.5, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  const B = CK.plot(document.getElementById("mlp-b"), { xmin: 0, xmax: 100, ymin: 0, ymax: 0.8, pad: { l: 40, r: 10, t: 14, b: 30 } });
+  const $ = id => document.getElementById(id);
+  const runBtn = $("mlp-run"), read = $("mlp-read");
+  let net, train, val, hist, epoch, running = false, seed = 1, dataSeed = 1, opt;
+  const ACT = {
+    relu: { f: z => (z > 0 ? z : 0), d: (z, a) => (z > 0 ? 1 : 0) },
+    tanh: { f: Math.tanh, d: (z, a) => 1 - a * a },
+    sigmoid: { f: K10.sig, d: (z, a) => a * (1 - a) }
+  };
+  function makeData() {
+    const r = CK.rng(40 + dataSeed), kind = $("mlp-data").value, pts = [];
+    for (let i = 0; i < 300; i++) {
+      let x, y, c;
+      if (kind === "xor") { x = r() * 2.4 - 1.2; y = r() * 2.4 - 1.2; c = x * y < 0 ? 1 : 0; if (r() < 0.08) c = 1 - c; }
+      else if (kind === "circle") { x = r() * 2.4 - 1.2; y = r() * 2.4 - 1.2; c = (x * x + y * y < 0.5) ? 1 : 0; x += r.normal(0, 0.06); y += r.normal(0, 0.06); }
+      else { c = i % 2; const t = r() * 1.0, ang = t * 3.2 * Math.PI + c * Math.PI, rad = 0.12 + t * 1.0; x = rad * Math.cos(ang) + r.normal(0, 0.05); y = rad * Math.sin(ang) + r.normal(0, 0.05); }
+      pts.push({ x, y, c });
+    }
+    train = pts.slice(0, 200); val = pts.slice(200);
+  }
+  function init() {
+    const h = +$("mlp-h").value, L = +$("mlp-l").value, act = $("mlp-act").value, r = CK.rng(1000 + seed);
+    const sizes = [2]; for (let i = 0; i < L; i++) sizes.push(h); sizes.push(1);
+    net = { sizes, act, W: [], b: [] };
+    for (let l = 1; l < sizes.length; l++) {
+      const fanIn = sizes[l - 1], sd = (act === "relu" && l < sizes.length - 1) ? Math.sqrt(2 / fanIn) : Math.sqrt(1 / fanIn);
+      net.W.push(Array.from({ length: sizes[l] }, () => Array.from({ length: fanIn }, () => r.normal(0, sd))));
+      net.b.push(new Array(sizes[l]).fill(0));
+    }
+    opt = { t: 0, mW: net.W.map(M => M.map(row => row.map(() => 0))), vW: net.W.map(M => M.map(row => row.map(() => 0))), mb: net.b.map(v => v.map(() => 0)), vb: net.b.map(v => v.map(() => 0)) };
+    hist = { tr: [], va: [] }; epoch = 0;
+  }
+  function forward(x, y, keep) {
+    let a = [x, y]; const Z = [], Aa = [a]; const g = ACT[net.act];
+    for (let l = 0; l < net.W.length; l++) {
+      const W = net.W[l], bb = net.b[l], last = l === net.W.length - 1, z = new Array(W.length), out = new Array(W.length);
+      for (let j = 0; j < W.length; j++) { let s = bb[j]; const row = W[j]; for (let i = 0; i < row.length; i++) s += row[i] * a[i]; z[j] = s; out[j] = last ? K10.sig(s) : g.f(s); }
+      if (keep) { Z.push(z); Aa.push(out); }
+      a = out;
+    }
+    return keep ? { Z, A: Aa, p: a[0] } : a[0];
+  }
+  function bce(set) { let s = 0, acc = 0; for (const p of set) { const q = Math.min(1 - 1e-7, Math.max(1e-7, forward(p.x, p.y))); s += -(p.c * Math.log(q) + (1 - p.c) * Math.log(1 - q)); if ((q > 0.5 ? 1 : 0) === p.c) acc++; } return [s / set.length, acc / set.length]; }
+  function trainEpoch() {
+    const bsz = +$("mlp-bs").value, eta = +$("mlp-lr").value, adam = $("mlp-opt").value === "adam", g = ACT[net.act];
+    const r = CK.rng(5000 + seed * 31 + epoch), idx = [...train.keys()];
+    for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    for (let s = 0; s < idx.length; s += bsz) {
+      const gW = net.W.map(M => M.map(row => row.map(() => 0))), gb = net.b.map(v => v.map(() => 0));
+      const end = Math.min(idx.length, s + bsz), m = end - s;
+      for (let k = s; k < end; k++) {
+        const p = train[idx[k]], F = forward(p.x, p.y, true);
+        let delta = [F.p - p.c];
+        for (let l = net.W.length - 1; l >= 0; l--) {
+          const aPrev = F.A[l];
+          for (let j = 0; j < delta.length; j++) { gb[l][j] += delta[j]; for (let i = 0; i < aPrev.length; i++) gW[l][j][i] += delta[j] * aPrev[i]; }
+          if (l > 0) {
+            const nd = new Array(aPrev.length).fill(0);
+            for (let i = 0; i < aPrev.length; i++) { let s2 = 0; for (let j = 0; j < delta.length; j++) s2 += net.W[l][j][i] * delta[j]; nd[i] = s2 * g.d(F.Z[l - 1][i], aPrev[i]); }
+            delta = nd;
+          }
+        }
+      }
+      opt.t++;
+      const b1 = 0.9, b2 = 0.999, c1 = 1 - Math.pow(b1, opt.t), c2 = 1 - Math.pow(b2, opt.t);
+      const upd = (val, grad, mArr, vArr, i) => {
+        if (!adam) return val - eta * grad;
+        mArr[i] = b1 * mArr[i] + (1 - b1) * grad; vArr[i] = b2 * vArr[i] + (1 - b2) * grad * grad;
+        return val - eta * (mArr[i] / c1) / (Math.sqrt(vArr[i] / c2) + 1e-8);
+      };
+      for (let l = 0; l < net.W.length; l++) for (let j = 0; j < net.W[l].length; j++) {
+        for (let i = 0; i < net.W[l][j].length; i++) net.W[l][j][i] = upd(net.W[l][j][i], gW[l][j][i] / m, opt.mW[l][j], opt.vW[l][j], i);
+        net.b[l][j] = upd(net.b[l][j], gb[l][j] / m, opt.mb[l], opt.vb[l], j);
+      }
+    }
+    epoch++;
+    const [tl, ta] = bce(train), [vl, vaa] = bce(val);
+    hist.tr.push(tl); hist.va.push(vl); hist.ta = ta; hist.vaa = vaa;
+  }
+  function nParams() { let s = 0; for (let l = 1; l < net.sizes.length; l++) s += net.sizes[l - 1] * net.sizes[l] + net.sizes[l]; return s; }
+  function draw() {
+    const c1 = K10.hex(A.col("c1")), c2 = K10.hex(A.col("c2")), sf = K10.hex(A.col("surface"));
+    A.clear(); const n = 46, ctx = A.ctx, d = 3 / n;
+    for (let a = 0; a < n; a++) for (let q = 0; q < n; q++) {
+      const x = -1.5 + (a + 0.5) * d, y = -1.5 + (q + 0.5) * d, p = forward(x, y);
+      const base = p > 0.5 ? c1 : c2, t = Math.min(1, Math.abs(p - 0.5) * 2);
+      ctx.fillStyle = K10.mix(sf, base, 0.12 + 0.38 * t);
+      ctx.fillRect(A.X(-1.5 + a * d) - 0.5, A.Y(-1.5 + (q + 1) * d) - 0.5, A.X(d) - A.X(0) + 1, A.Y(0) - A.Y(d) + 1);
+    }
+    A.points(train.map(p => ({ x: p.x, y: p.y, color: p.c ? A.col("c1") : A.col("c2") })), { r: 3.2, stroke: false, alpha: 0.95 });
+    A.points(val.map(p => ({ x: p.x, y: p.y, color: p.c ? A.col("c1") : A.col("c2") })), { r: 3.6, strokeColor: "#ffffff", alpha: 0.95 });
+    const xmax = Math.max(100, Math.ceil(epoch / 100) * 100), ymax = Math.max(0.8, Math.min(2, Math.max(...hist.tr.slice(0, 3), ...hist.va.slice(0, 3), 0) * 1.05));
+    B.setView({ xmax, ymax });
+    B.clear().grid().axes({ xlabel: "epoke", ylabel: "tap (BCE)", frame: true });
+    if (hist.tr.length) {
+      B.path(hist.tr.map((v, i) => ({ x: i + 1, y: Math.min(v, ymax) })), { color: B.col("c1"), width: 2 });
+      B.path(hist.va.map((v, i) => ({ x: i + 1, y: Math.min(v, ymax) })), { color: B.col("c2"), width: 2 });
+    }
+    B.legend([{ color: B.col("c1"), label: "trening" }, { color: B.col("c2"), label: "validering" }], { x: B.W - 120 });
+    const last = hist.tr.length ? `tap trening ${hist.tr.at(-1).toFixed(3)} · validering ${hist.va.at(-1).toFixed(3)} · accuracy trening ${(100 * hist.ta).toFixed(0)} % · validering ${(100 * hist.vaa).toFixed(0)} %` : "ikke trent ennå";
+    read.innerHTML = `<span class="readout">arkitektur ${net.sizes.join("–")} · ${nParams()} parametre</span><span class="readout">epoke ${epoch}</span><span class="readout">${last}</span>`;
+  }
+  function loop() {
+    if (!running) return;
+    const bsz = +$("mlp-bs").value, reps = bsz >= 64 ? 3 : 1;
+    for (let k = 0; k < reps; k++) trainEpoch();
+    draw();
+    if (epoch >= 1500) { running = false; runBtn.textContent = "▶ Tren"; return; }
+    requestAnimationFrame(loop);
+  }
+  runBtn.onclick = () => { running = !running; runBtn.textContent = running ? "❚❚ Pause" : "▶ Tren"; if (running) requestAnimationFrame(loop); };
+  $("mlp-reset").onclick = () => { seed++; init(); draw(); };
+  ["mlp-h", "mlp-l", "mlp-act"].forEach(id => $(id).addEventListener("input", () => { $("mlp-ho").textContent = $("mlp-h").value; init(); draw(); }));
+  $("mlp-data").onchange = () => { makeData(); init(); draw(); };
+  ["mlp-opt", "mlp-lr", "mlp-bs"].forEach(id => $(id).addEventListener("change", () => draw()));
+  makeData(); init();
+  CK.live(draw);
+});
+
+/* 4. Early stopping */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("es"), { xmin: 0, xmax: 100, ymin: 0, ymax: 1, pad: { l: 44, r: 12, t: 14, b: 32 } });
+  const pat = document.getElementById("es-p"), noi = document.getElementById("es-n"), rest = document.getElementById("es-r"), read = document.getElementById("es-read");
+  function draw() {
+    const p = +pat.value, nz = +noi.value; document.getElementById("es-po").textContent = p; document.getElementById("es-no").textContent = nz;
+    const r = CK.rng(9), E = 100, tr = [], va = [];
+    for (let e = 1; e <= E; e++) {
+      const t = 0.75 * Math.exp(-e / 12) + 0.12 - 0.0006 * e;
+      tr.push(Math.max(0.03, t + r.normal(0, 0.004)));
+      const ov = 0.00012 * Math.max(0, e - 22) ** 2;
+      va.push(0.78 * Math.exp(-e / 12) + 0.2 + ov + r.normal(0, nz));
+    }
+    /* samme logikk som keras.callbacks.EarlyStopping: wait teller epoker uten forbedring */
+    let best = 0, stop = E - 1, wait = 0;
+    for (let e = 1; e < E; e++) {
+      if (va[e] < va[best]) { best = e; wait = 0; }
+      else { wait++; if (wait >= Math.max(1, p)) { stop = e; break; } }
+    }
+    P.clear().grid().axes({ xlabel: "epoke", ylabel: "tap", frame: true });
+    P.rect(stop + 1, 0, 100, 1, { fill: P.col("muted"), alpha: 0.12 });
+    P.path(tr.map((v, i) => ({ x: i + 1, y: v })), { color: P.col("c1"), width: 2.2 });
+    P.path(va.map((v, i) => ({ x: i + 1, y: v })), { color: P.col("c2"), width: 2.2 });
+    P.line(best + 1, 0, best + 1, 1, { color: P.col("c3"), width: 2, dash: [5, 4] });
+    P.line(stop + 1, 0, stop + 1, 1, { color: P.col("text"), width: 2 });
+    P.text("beste", best + 2, 0.93, { color: P.col("c3"), size: 12 });
+    P.text("stopp", stop + 2, 0.85, { size: 12 });
+    P.legend([{ color: P.col("c1"), label: "loss (trening)" }, { color: P.col("c2"), label: "val_loss" }], { x: P.W - 150 });
+    const used = rest.checked ? best : stop;
+    read.innerHTML = `<span class="readout">beste val_loss i epoke ${best + 1}: ${va[best].toFixed(3)}</span><span class="readout">stopper etter epoke ${stop + 1}</span><span class="readout">vektene som brukes: epoke ${used + 1}, val_loss ${va[used].toFixed(3)}</span>`;
+  }
+  pat.oninput = noi.oninput = draw; rest.onchange = draw;
+  CK.live(draw);
+});
+
+/* 5. Cosine annealing */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("cos"), { xmin: 0, xmax: 100, ymin: 0, ymax: 0.11, pad: { l: 52, r: 12, t: 12, b: 32 } });
+  const mx = document.getElementById("cos-max"), mn = document.getElementById("cos-min"), T = document.getElementById("cos-T");
+  function draw() {
+    const a = +mx.value, b = Math.min(+mn.value, a), t = +T.value;
+    document.getElementById("cos-maxo").textContent = a; document.getElementById("cos-mino").textContent = b; document.getElementById("cos-To").textContent = t;
+    P.setView({ xmax: t });
+    P.clear().grid().axes({ xlabel: "epoke t", ylabel: "η", frame: true });
+    P.fn(x => a, { color: P.col("axis"), width: 1.5, dash: [5, 4] });
+    P.fn(x => b + 0.5 * (a - b) * (1 + Math.cos(Math.PI * x / t)), { color: P.col("c1"), width: 2.8 });
+    P.legend([{ color: P.col("c1"), label: "cosine annealing" }, { color: P.col("axis"), label: "konstant η = ηmax" }], { x: P.W - 200 });
+  }
+  mx.oninput = mn.oninput = T.oninput = draw;
+  CK.live(draw);
+});
+
+/* 6. Vanishing gradients */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("van"), { xmin: 0.4, xmax: 8.6, ymin: -8, ymax: 0, pad: { l: 52, r: 12, t: 14, b: 34 } });
+  const Ls = document.getElementById("van-L"), chk = { sigmoid: document.getElementById("van-sig"), tanh: document.getElementById("van-tanh"), relu: document.getElementById("van-relu") };
+  const G = {
+    sigmoid: { f: K10.sig, d: a => a * (1 - a) },
+    tanh: { f: Math.tanh, d: a => 1 - a * a },
+    relu: { f: z => Math.max(0, z), d: a => (a > 0 ? 1 : 0) }
+  };
+  const cache = {};
+  function grads(act, L) {
+    const key = act + L; if (cache[key]) return cache[key];
+    const r = CK.rng(77), n = 32, Bn = 64;
+    const W = []; for (let l = 0; l < L; l++) { const sd = act === "relu" ? Math.sqrt(2 / n) : Math.sqrt(1 / n); W.push(Array.from({ length: n }, () => Array.from({ length: n }, () => r.normal(0, sd)))); }
+    const acc = new Array(L).fill(0);
+    for (let s = 0; s < Bn; s++) {
+      const As = [Array.from({ length: n }, () => r.normal(0, 1))];
+      for (let l = 0; l < L; l++) { const a = As[l], out = new Array(n); for (let j = 0; j < n; j++) { let z = 0; for (let i = 0; i < n; i++) z += W[l][j][i] * a[i]; out[j] = G[act].f(z); } As.push(out); }
+      let up = Array.from({ length: n }, () => r.normal(0, 1)); /* dL/da i siste lag */
+      for (let l = L - 1; l >= 0; l--) {
+        const a = As[l + 1], delta = up.map((u, j) => u * G[act].d(a[j]));
+        let sm = 0; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) sm += Math.abs(delta[j] * As[l][i]);
+        acc[l] += sm / (n * n);
+        const nu = new Array(n).fill(0); for (let i = 0; i < n; i++) { let t = 0; for (let j = 0; j < n; j++) t += W[l][j][i] * delta[j]; nu[i] = t; }
+        up = nu;
+      }
+    }
+    return (cache[key] = acc.map(v => v / Bn));
+  }
+  function draw() {
+    const L = +Ls.value; document.getElementById("van-Lo").textContent = L;
+    P.setView({ xmin: 0.4, xmax: L + 0.6 });
+    const acts = Object.keys(chk).filter(k => chk[k].checked);
+    const cols = { sigmoid: P.col("c2"), tanh: P.col("c4"), relu: P.col("c3") };
+    const data = {}; let lo = 0;
+    acts.forEach(a => { data[a] = grads(a, L).map(v => Math.log10(Math.max(v, 1e-12))); lo = Math.min(lo, ...data[a]); });
+    const ymin = Math.min(-3, Math.floor(lo) - 0.5);
+    P.setView({ ymin, ymax: 1.6 });
+    const yt = []; for (let v = Math.ceil(ymin); v <= 0; v++) yt.push(v);
+    P.clear().grid({ xticks: [...Array(L).keys()].map(i => i + 1), yticks: yt }).axes({ xlabel: "lag (1 = nærmest input)", ylabel: "log₁₀ |∂L/∂w|", frame: true, xticks: false, yticks: yt, fmt: v => (v === 0 ? "1" : "1e" + v) });
+    for (let l = 1; l <= L; l++) P.text(String(l), P.X(l), P.Y(ymin) + 6, { px: true, align: "center", baseline: "top", size: 12, color: P.col("muted") });
+    const wBar = 0.8 / Math.max(1, acts.length);
+    acts.forEach((a, k) => data[a].forEach((v, l) => { const x0 = l + 1 - 0.4 + k * wBar; P.rect(x0, ymin, x0 + wBar * 0.9, v, { fill: cols[a], alpha: 0.85 }); }));
+    P.legend(acts.map(a => ({ color: cols[a], label: a })), { x: P.W - 110 });
+  }
+  Ls.oninput = draw; Object.values(chk).forEach(c => c.onchange = draw);
+  CK.live(draw);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 · Lineær og polynomisk regresjon – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+  .fig-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: end; }
+  .fig-row img, .fig-row3 img { width: 100%; height: auto; }
+  .fig-row .sub, .fig-row3 .sub { text-align: center; font-size: 13px; color: var(--muted); }
+  @media (max-width: 600px) { .fig-row3 { grid-template-columns: 1fr; } .fig-row { grid-template-columns: 1fr; } }
+  .w-note { font-size: 14.5px; color: var(--text-soft); margin: 10px 0 0; }
+  .grad-pos { color: var(--bad); font-weight: 600; }
+  .grad-neg { color: var(--ok); font-weight: 600; }
+  .controls select { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+</style>
+</head>
+<body data-chapter="06">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 06 · Veiledet læring</div>
+  <h1>Lineær og polynomisk regresjon</h1>
+  <p class="lead">Nå skal vi predikere tall i stedet for klasser. Det krever en ny tapsfunksjon (MSE), nye gradienter og et triks som lar en «lineær» modell tegne kurver. Mye kjenner du igjen fra logistisk regresjon, og det er nettopp poenget.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>skille regresjon fra klassifisering og tolke $\beta_0$ og $\beta_1$ i en lineær modell</li>
+    <li>forklare hvorfor vi bruker MSE, hva faktoren $\tfrac12$ gjør, og hvorfor kvadratet er naturlig (maksimal likelihood under gaussisk støy)</li>
+    <li>utlede $\partial L/\partial\beta_0$ og $\partial L/\partial\beta_1$, og regne ut gradienter og oppdaterte parametre for hånd</li>
+    <li>bruke kontrollspørsmål til å sjekke fortegnet på gradienten</li>
+    <li>forklare polynomisk regresjon som feature engineering, og hvorfor modellen fortsatt er lineær</li>
+    <li>se på polynomgraden som en hyperparameter som styrer under- og overtilpasning</li>
+    <li>svare på prosjekt 1-spørsmålene om formel, feilfordeling, forventningsrette estimatorer og gradienter nær null</li>
+  </ul>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="regresjon"><span class="sec">6.1</span>Fra klasser til tall</h2>
+
+<p>Hittil har target $y$ vært en kategori: overlevde eller ikke, syk eller frisk. Se på datasettet i figur 6.1. Her er $y$ fortsatt «riktig svar», så vi er fortsatt i veiledet læring. Men $y$ tilhører ingen forhåndsdefinerte kategorier. Det er et <strong>kontinuerlig</strong> tall.</p>
+
+<div class="callout def"><span class="label">Definisjon</span>
+<p><strong>Regresjon</strong> er veiledet læring der target er kontinuerlig. Modellen skal estimere én (eller flere) kontinuerlige verdier. <strong>Klassifisering</strong> er veiledet læring der target er en kategori.</p></div>
+
+<p>Eksempler fra forelesningen: predikere skåren til en film, estimere verdien til en bolig, forutsi sykefraværet til en ansatt. Andre eksempler: temperatur i morgen, strømforbruket til et datasenter (prosjekt 1), levetiden til et batteri.</p>
+
+<figure class="card">
+  <div class="fig-row">
+    <div><img src="../assets/fig/notater/s22_1.png" alt="Spredningsplott av datasett til lineær regresjon"><div class="sub">(a) datasettet</div></div>
+    <div><img src="../assets/fig/notater/s22_2.png" alt="En regresjonslinje som ligger over nesten alle punktene"><div class="sub">(b) en modell som bommer systematisk</div></div>
+  </div>
+  <figcaption><b>Figur 6.1</b> (Figur 10 i notatene.) (a) Et datasett for regresjon med én feature $x_1$ (tabell 7 i notatene). (b) En lineær modell som ligger over nesten alle punktene. Den overestimerer for alle $x_1$. Hold på dette bildet, for vi kommer tilbake til det i 6.4.</figcaption>
+</figure>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p>«Logistisk <em>regresjon</em>» er en <strong>klassifiseringsmetode</strong>, selv om den har «regresjon» i navnet. Den gir ut en sannsynlighet, men den brukes til å velge klasse. Avgjørende er hva target er: kategori → klassifisering, kontinuerlig tall → regresjon.</p></div>
+
+<div class="quiz" data-multi data-id="06-reg-vs-klass">
+  <p class="q">Hvilke av disse er regresjonsoppgaver?</p>
+  <ul>
+    <li>Avgjøre om en e-post er spam eller ikke</li>
+    <li data-correct>Estimere salgsprisen til en leilighet i kroner</li>
+    <li>Bruke logistisk regresjon til å avgjøre om en svulst er ondartet</li>
+    <li data-correct>Forutsi hvor mange sykedager en ansatt får neste år</li>
+    <li data-correct>Predikere gjennomsnittlig terningkast en film får på IMDb-skalaen 1–10</li>
+    <li>Gjenkjenne hvilket siffer (0–9) som står på et bilde</li>
+  </ul>
+  <div class="explain">Pris, sykedager og filmskår er tall der avstanden betyr noe: å bomme med 0,2 er bedre enn å bomme med 3. Det er regresjon. Spam og svulst er binær klassifisering. At metoden heter logistisk <em>regresjon</em>, endrer ikke det. Siffergjenkjenning ser numerisk ut, men sifrene er kategorier: å gjette 7 når svaret er 8 er ikke «nesten riktig». Det er klassifisering med ti klasser.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="lineaer-modell"><span class="sec">6.2</span>Den lineære modellen</h2>
+
+<p>Den enkleste regresjonsmodellen er en lineær modell:</p>
+<div class="eq">
+  <p class="eq-note">Lineær regresjonsmodell (likning 51 i notatene)</p>
+  $$f(x)=\beta_0+\beta_1x_1+\beta_2x_2+\dots+\beta_nx_n = \beta_0 + \sum_{i=1}^{n}\beta_i x_i$$
+</div>
+<p>Modellen har én parameter $\beta_i$ per feature $x_i$ (én per kolonne i datasettet) og i tillegg $\beta_0$, som kalles <strong>bias</strong> eller skjæringspunkt (intercept). Med $n$ features får vi altså $n+1$ parametre. Formen er den samme som $z=w^\top x+b$ i logistisk regresjon. Notatene bytter bare navn til $\beta$ for å skille de to tilfellene.</p>
+
+<p>Med bare én feature blir modellen en rett linje:</p>
+<div class="eq">$$f(x)=\beta_0+\beta_1x_1$$</div>
+
+<figure class="card">
+<svg viewBox="0 0 520 280" role="img" aria-label="Linje med skjæringspunkt beta0 og stigningstall beta1">
+  <g style="stroke:var(--axis)" stroke-width="1.3">
+    <line x1="60" y1="240" x2="500" y2="240"/><line x1="140" y1="20" x2="140" y2="260"/>
+  </g>
+  <text x="496" y="258" font-size="13" text-anchor="end" style="fill:var(--muted)">x₁</text>
+  <text x="128" y="30" font-size="13" text-anchor="end" style="fill:var(--muted)">y</text>
+  <line x1="60" y1="210" x2="480" y2="50" style="stroke:var(--c1)" stroke-width="3"/>
+  <circle cx="140" cy="179.5" r="5" style="fill:var(--c2)"/>
+  <text x="150" y="196" font-size="14" style="fill:var(--c2)">β₀ = f(0): skjæringspunktet</text>
+  <!-- slope triangle -->
+  <line x1="300" y1="118.6" x2="380" y2="118.6" style="stroke:var(--c3)" stroke-width="2" stroke-dasharray="5 3"/>
+  <line x1="380" y1="118.6" x2="380" y2="88.1" style="stroke:var(--c3)" stroke-width="2" stroke-dasharray="5 3"/>
+  <text x="340" y="136" font-size="13" text-anchor="middle" style="fill:var(--c3)">+1 i x₁</text>
+  <text x="388" y="108" font-size="13" style="fill:var(--c3)">+β₁ i y</text>
+  <!-- data point with residual -->
+  <circle cx="230" cy="185" r="5" style="fill:var(--c4)"/>
+  <line x1="230" y1="185" x2="230" y2="145.2" style="stroke:var(--c4)" stroke-width="2"/>
+  <circle cx="230" cy="145.2" r="3" style="fill:var(--c1)"/>
+  <text x="222" y="205" font-size="13" text-anchor="end" style="fill:var(--c4)">datapunkt (x⁽ⁱ⁾, y⁽ⁱ⁾)</text>
+  <text x="238" y="170" font-size="13" style="fill:var(--c4)">residual f(x⁽ⁱ⁾) − y⁽ⁱ⁾</text>
+</svg>
+<figcaption><b>Figur 6.2</b> Anatomien til $f(x)=\beta_0+\beta_1x_1$. $\beta_0$ er funksjonsverdien i $x_1=0$, altså der linja krysser $y$-aksen. $\beta_1$ er stigningstallet: hvor mye prediksjonen endrer seg når $x_1$ øker med én. Avstanden fra punkt til linje kalles residualen.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>$\beta_0$ (bias, baseline):</strong> forflytter <em>alle</em> prediksjonene med en konstant. Tenk på den som en grunnverdi modellen gir før den har sett på noen features. Med $x_1=0$ er prediksjonen $\beta_0$.</li>
+  <li><strong>$\beta_1$ (stigningstall):</strong> justerer grunnverdien ut fra featureverdien. Er $\beta_1=3$, øker prediksjonen med 3 for hver enhet $x_1$ øker.</li>
+</ul>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Taxiprisen:</strong> startgebyr + pris per km · antall km. Startgebyret er $\beta_0$ (du betaler det selv om du kjører 0 km), og kilometerprisen er $\beta_1$. Flere features, som minuttpris og nattillegg, gir flere $\beta$-er som hver legger til sitt bidrag.</p></div>
+
+<div class="callout why"><span class="label">Hvorfor en lineær modell?</span>
+<p>Den er enkel, rask å trene og lett å tolke: $\beta_i$ sier direkte hvor mye feature $x_i$ betyr (hvis featurene er på samme skala). Prisen er en sterk <strong>induktiv bias</strong>: modellen antar at hver feature bidrar additivt og med et fast stigningstall. Den antar også at featurene ikke påvirker hverandres effekt, altså at det ikke finnes <em>vekselvirkninger</em>.</p></div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 1</span>
+<p>«Hvilken antakelse gjør en lineær modell $y=w_1x_1+w_2x_2+w_3x_3+b$?» Riktig svar var at det <strong>ikke er vekselvirkninger mellom features</strong>. Effekten av $x_1$ er alltid $w_1$, uansett hva $x_2$ er.</p></div>
+
+<div class="quiz" data-id="06-n-params">
+  <p class="q">Et datasett for boligpriser har 5 features (areal, antall rom, byggeår, avstand til sentrum, etasje). Hvor mange parametre har en lineær regresjonsmodell for dette datasettet?</p>
+  <ul>
+    <li>5</li>
+    <li data-correct>6</li>
+    <li>10</li>
+    <li>25</li>
+  </ul>
+  <div class="explain">Én $\beta_i$ per feature (5 stykker) pluss biasleddet $\beta_0$ gir $n+1=6$. Svaret 5 glemmer $\beta_0$. 10 og 25 kunne vært riktig hvis vi hadde laget nye features (kryssledd eller kvadrater), men det er ikke en vanlig lineær modell på de opprinnelige featurene.</div>
+</div>
+
+<div class="quiz" data-id="06-beta-tolk">
+  <p class="q">En modell for strømforbruk (kWh) er $f(x)=120+0{,}8x$, der $x$ er antall aktive servere. Hva betyr tallet 120?</p>
+  <ul>
+    <li data-correct>Predikert forbruk når det er null aktive servere, altså grunnforbruket som alle prediksjoner bygger på</li>
+    <li>Forbruket øker med 120 kWh for hver ekstra server</li>
+    <li>Modellen har 120 parametre</li>
+    <li>Gjennomsnittlig avvik mellom modell og data</li>
+  </ul>
+  <div class="explain">120 er $\beta_0$, altså skjæringspunktet: $f(0)=120$. Den forskyver alle prediksjoner med en konstant. Økningen per server er stigningstallet $\beta_1=0{,}8$, så alternativet om 120 kWh per server blander de to. 120 er heller ikke antall parametre (det er to) eller et feilmål.</div>
+</div>
+
+<div class="quiz" data-id="06-interaksjon">
+  <p class="q">Du modellerer avlingen til en åker som $f(x)=\beta_0+\beta_1\cdot\text{vann}+\beta_2\cdot\text{gjødsel}$. En agronom sier at gjødsel bare hjelper når det er nok vann. Hva er problemet?</p>
+  <ul>
+    <li>Modellen har for høy varians</li>
+    <li data-correct>Modellen antar at effekten av gjødsel er den samme uansett vannmengde, altså ingen vekselvirkning</li>
+    <li>Modellen antar at gjødsel og vann er like viktige</li>
+    <li>Ingenting. En lineær modell fanger slike sammenhenger automatisk</li>
+  </ul>
+  <div class="explain">I modellen øker avlingen med $\beta_2$ per enhet gjødsel uansett vann. Det agronomen beskriver er en vekselvirkning, og den fanges ikke. (Du kan løse det med feature engineering: legg til featuren vann·gjødsel, se 6.5.) Modellen antar ikke at featurene er like viktige, for $\beta_1$ og $\beta_2$ læres hver for seg. Problemet handler om modellform og bias, ikke varians.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="mse"><span class="sec">6.3</span>Tapsfunksjonen: mean squared error</h2>
+
+<p>Vi trener modellen på samme måte som før, med <strong>gradient descent</strong>, og mye av koden fra <a href="02-logistisk.html">logistisk regresjon</a> kan gjenbrukes. Notatene spør hva vi <em>ikke</em> kan gjenbruke.</p>
+
+<div class="callout why"><span class="label">Hva kan vi ikke gjenbruke?</span>
+<p><strong>Tapsfunksjonen.</strong> Cross-entropy (log loss) måler hvor god en <em>sannsynlighet</em> for riktig klasse er, og forutsetter $y\in\{0,1\}$ og $\hat y\in(0,1)$. Nå er $y$ et vilkårlig tall, for eksempel $-6{,}4$ eller $98{,}7$, og $\log(\hat y)$ gir ikke mening. Vi trenger et nytt mål på avstanden mellom prediksjon og fasit. Modellen, gradient descent og treningsløkka kan gjenbrukes.</p></div>
+
+<p>Den vanligste tapsfunksjonen (loss function) for regresjon er <strong>mean squared error</strong>:</p>
+<div class="eq">
+  <p class="eq-note">MSE (likning 52 i notatene)</p>
+  $$L = \text{MSE}=\frac{1}{2N}\sum_{i=1}^{N}\Big(y^{(i)}-f\big(x^{(i)}\big)\Big)^2$$
+</div>
+<p>Summen går over alle $N$ datapunktene (radene). For hvert punkt regner vi avviket mellom fasit og prediksjon, kvadrerer det og tar gjennomsnittet. MSE er liten når prediksjonene ligger nær fasit og stor når de bommer.</p>
+
+<h3>Faktoren ½</h3>
+<p>Faktoren $\tfrac12$ er bare for bekvemmelighet (convenience). Når vi deriverer $(\dots)^2$, kommer det ned en 2-er som kansellerer $\tfrac12$, og gradienten blir penere. Den endrer ikke <em>hvor</em> minimum ligger, for å gange en funksjon med en positiv konstant flytter ikke bunnpunktet. Mange definisjoner (blant annet <code>sklearn.metrics.mean_squared_error</code>) har den ikke med. Sjekk derfor alltid hvilken definisjon oppgaven bruker. Uten $\tfrac12$ blir tallet dobbelt så stort.</p>
+
+<h3>Hvorfor akkurat kvadratet?</h3>
+<p>Vi kunne brukt absoluttverdien $|y-f(x)|$ eller fjerde potens. Kvadratet har tre gode grunner:</p>
+<div class="chain">
+  <div><b>1 · Straffer store feil</b>Et avvik på 4 koster 16, mens to avvik på 2 koster 4+4=8. Modellen prioriterer å unngå store bom.</div><div class="arrow">+</div>
+  <div><b>2 · Deriverbar overalt</b>Glatt parabel uten knekk (i motsetning til $|\cdot|$ i 0). Gradient descent får en gradient overalt, og for lineære modeller er tapet konvekst.</div><div class="arrow">+</div>
+  <div><b>3 · Statistisk begrunnet</b>Å minimere MSE er det samme som å maksimere likelihood når støyen er gaussisk.</div>
+</div>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Kvadratet gjør MSE <strong>følsom for uteliggere (outliers)</strong>. Ett punkt som ligger 20 enheter unna, bidrar med 400, og det kan dra linja mot seg. Det er prisen for punkt 1. Hvis datasettet har mange uteliggere, kan absolutt feil (MAE) være bedre.</p></div>
+
+<h3 id="mle">MSE = maksimal likelihood under gaussisk støy</h3>
+<p><strong>Intuisjonen:</strong> Anta at data kommer fra en sann linje pluss tilfeldig støy, $y=f(x)+\varepsilon$, der $\varepsilon$ er normalfordelt med forventning 0. En normalfordeling gjør små avvik vanlige og store avvik svært sjeldne, og sannsynlighetstettheten faller som $e^{-(\text{avvik})^2}$. Den mest sannsynlige modellen er den som gjør de observerte avvikene minst mulig «overraskende». Det betyr å minimere summen av kvadrerte avvik. Kvadratet i MSE er rett og slett kvadratet i eksponenten til normalfordelingen.</p>
+
+<details class="steps"><summary>Vis den korte matematiske begrunnelsen</summary><div>
+<p>Med gaussisk støy med varians $\sigma^2$ er sannsynlighetstettheten for én observasjon</p>
+$$p\big(y^{(i)}\mid x^{(i)}\big)=\frac{1}{\sqrt{2\pi\sigma^2}}\exp\!\left(-\frac{\big(y^{(i)}-f(x^{(i)})\big)^2}{2\sigma^2}\right).$$
+<p>Datapunktene er uavhengige, så likelihooden er produktet. Vi tar logaritmen, som gjør produktet til en sum:</p>
+$$\log \mathcal{L}=\sum_{i=1}^N \log p\big(y^{(i)}\mid x^{(i)}\big) = -N\log\sqrt{2\pi\sigma^2}\;-\;\frac{1}{2\sigma^2}\sum_{i=1}^N\big(y^{(i)}-f(x^{(i)})\big)^2 .$$
+<p>Første ledd avhenger ikke av $\beta$. I andre ledd står det minus en positiv konstant ganger kvadratsummen. Å <strong>maksimere</strong> $\log\mathcal L$ er derfor det samme som å <strong>minimere</strong> $\sum (y-f(x))^2$, altså MSE. Konstanten $\tfrac{1}{2N}$ foran spiller ingen rolle for hvor minimum ligger.</p>
+<p>Sammenlign med logistisk regresjon: Der antok vi at $y$ var Bernoulli-fordelt, og maksimal likelihood ga cross-entropy. Samme oppskrift, ny fordeling, ny tapsfunksjon.</p>
+</div></details>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 4.1</span>
+<p>«Hvorfor er MSE et naturlig valg under standardantakelsene for lineær regresjon?» Riktig: <strong>fordi å minimere MSE tilsvarer å maksimere likelihood under gaussisk støy</strong>. Distraktorene var at man slipper deriverte (feil, vi deriverer MSE), at MSE gir sparse parametre (det gjør L1/Lasso) og at uteliggere får liten innflytelse (motsatt, de får stor innflytelse).</p></div>
+
+<div class="quiz" data-id="06-not-reuse">
+  <p class="q">Du har kode for logistisk regresjon med gradient descent og vil tilpasse den til lineær regresjon. Hva <em>må</em> endres?</p>
+  <ul>
+    <li>Gradient descent må byttes ut med en annen optimeringsmetode</li>
+    <li data-correct>Tapsfunksjonen (og dermed gradientene), og sigmoid fjernes fra prediksjonen</li>
+    <li>Ingenting. Koden fungerer direkte på kontinuerlige targets</li>
+    <li>Antall parametre må dobles</li>
+  </ul>
+  <div class="explain">Cross-entropy forutsetter at $y$ er 0 eller 1 og at prediksjonen er en sannsynlighet. For kontinuerlige targets bytter vi til MSE og dropper sigmoid, så $f(x)=\beta_0+\sum\beta_ix_i$ kan gi alle reelle tall. Gradient descent brukes fortsatt. Antall parametre er det samme ($n+1$). Morsomt nok får gradienten nøyaktig samme form, $\tfrac1N\sum(f(x^{(i)})-y^{(i)})\,x^{(i)}$, men med en annen $f$.</div>
+</div>
+
+<div class="quiz" data-id="06-half">
+  <p class="q">Hva er hensikten med faktoren $\tfrac12$ i $\text{MSE}=\frac{1}{2N}\sum(y^{(i)}-f(x^{(i)}))^2$?</p>
+  <ul>
+    <li>Den halverer straffen for store avvik, så modellen blir mer robust mot uteliggere</li>
+    <li>Den sørger for at MSE alltid ligger mellom 0 og 1</li>
+    <li>Den kompenserer for at vi har to parametre, $\beta_0$ og $\beta_1$</li>
+    <li data-correct>Den kansellerer 2-eren fra derivasjonen av kvadratet, så gradienten blir enklere. Minimum flyttes ikke</li>
+  </ul>
+  <div class="explain">$\frac{d}{d\beta}\tfrac12(\cdot)^2=(\cdot)\cdot\frac{d(\cdot)}{d\beta}$. Faktoren er ren bekvemmelighet. Å gange med en konstant endrer ikke hvilke parametre som gir minimum, og heller ikke den relative straffen mellom små og store avvik. MSE er ikke begrenset til $[0,1]$. Den har samme enhet som $y^2$. Antall parametre har ingenting med saken å gjøre.</div>
+</div>
+
+<div class="quiz" data-multi data-id="06-why-square">
+  <p class="q">Hvilke er gode grunner til å kvadrere avvikene i MSE?</p>
+  <ul>
+    <li data-correct>Store avvik straffes uforholdsmessig mye</li>
+    <li>Det gjør modellen robust mot uteliggere</li>
+    <li data-correct>Tapet blir deriverbart overalt, noe gradient descent trenger</li>
+    <li data-correct>Å minimere kvadratsummen er maksimal likelihood når støyen er gaussisk</li>
+    <li>Det gjør at mange parametre blir nøyaktig 0</li>
+  </ul>
+  <div class="explain">De tre riktige er grunnene i 6.3. Robusthet mot uteliggere er det <em>motsatte</em> av sannheten: et avvik på 20 gir bidraget 400. «Mange parametre blir 0» (sparsity) er en egenskap ved L1-regularisering (Lasso), ikke ved kvadratisk tap.</div>
+</div>
+
+<div class="calc" data-id="06-mse-calc" data-answer="0.1667" data-tol="0.002">
+  <p class="q">Modellen $f(x)=1+2x$ testes på tre punkter: $(0,\,1)$, $(1,\,2)$ og $(2,\,5)$. Regn ut MSE med definisjonen $\frac{1}{2N}\sum(y-f(x))^2$. Oppgi med fire desimaler.</p>
+  <div class="solution">Prediksjoner: $f(0)=1$, $f(1)=3$, $f(2)=5$. Avvik $y-f$: $0,\,-1,\,0$. Kvadrater: $0,\,1,\,0$, med sum 1.<br>$\text{MSE}=\frac{1}{2\cdot 3}\cdot 1=\frac16\approx 0{,}1667$. (Uten $\tfrac12$ ville svaret vært $\tfrac13\approx0{,}333$.)</div>
+</div>
+
+<h3>Er MSE = 960 høyt?</h3>
+<p>Notatene stiller spørsmålet etter å ha tilpasset en rett linje til parabeldata (figur 6.5 under): «Min modells MSE ligger rundt 960. Er det høyt eller lavt?» Svaret er at <strong>MSE i seg selv ikke har noen absolutt skala</strong>. Den har enheten til $y$ <em>i annen</em>. Måler du priser i kroner i stedet for millioner, blir MSE $10^{12}$ ganger større uten at modellen er dårligere.</p>
+<p>For å tolke tallet sammenligner vi med størrelsen på targets. Ta kvadratroten, så du er tilbake i samme enhet som $y$. Det kalles <strong>RMSE</strong> (root mean squared error):</p>
+<div class="eq">$$\text{RMSE}=\sqrt{\tfrac1N\textstyle\sum (y^{(i)}-f(x^{(i)}))^2}\qquad\sqrt{960}\approx 31$$</div>
+<p>I notatenes eksempel er gjennomsnittet av targets omtrent 28 og gjennomsnittet av prediksjonene omtrent 32. Et typisk avvik på rundt 30 er altså like stort som verdiene selv ($30^2=900$). Det er et <strong>stort</strong> tap. Modellen er nesten ubrukelig.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>MSE er i «kvadratkroner», RMSE er i kroner.</strong> Vil du vite om en feil er stor, må den uttrykkes i samme enhet som det du predikerer, og sammenlignes med hvor store og hvor spredte targets er. Et nyttig referansepunkt er modellen som bare predikerer gjennomsnittet av $y$. Dens MSE er variansen til $y$. En modell som ikke slår den, har ikke lært noe.</p></div>
+
+<div class="calc" data-id="06-rmse" data-answer="0.5" data-tol="0.01" data-unit="mill. kr">
+  <p class="q">En boligprismodell har MSE (uten $\tfrac12$) lik $0{,}25$ når prisene måles i millioner kroner. Hvor stor er RMSE, i millioner kroner?</p>
+  <div class="solution">$\text{RMSE}=\sqrt{0{,}25}=0{,}5$ millioner kroner. Typisk bommer modellen med rundt en halv million. Om det er bra eller dårlig, avhenger av at boligene koster 2–8 millioner (ganske greit) eller 0,5–1 million (elendig).</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: tilpass linjen selv</h4>
+  <canvas id="fitCanvas" width="680" height="360"></canvas>
+  <div class="controls">
+    <label>β₀ <input type="range" id="fitB0" min="-6" max="6" step="0.05" value="4"><output id="fitB0o">4</output></label>
+    <label>β₁ <input type="range" id="fitB1" min="-1" max="2.5" step="0.01" value="0.4"><output id="fitB1o">0.4</output></label>
+    <button class="btn ghost" type="button" id="fitBest">Vis beste linje</button>
+  </div>
+  <div class="readouts" id="fitRead"></div>
+  <p class="w-note">Dataene er tabell 7 i notatene. Hver rute har sidelengde lik residualen, så <em>arealet</em> er det kvadrerte avviket, og MSE er gjennomsnittsarealet (delt på 2). Prøv å gjøre det samlede arealet minst mulig. Legg merke til at én stor rute koster mer enn mange små. Følg også med på fortegnet til gradientene: når linja ligger for høyt, er $\partial L/\partial\beta_0>0$, og gradient descent ville senket $\beta_0$.</p>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="gradient"><span class="sec">6.4</span>Gradientene og oppdateringsreglene</h2>
+
+<p>For å bruke gradient descent trenger vi de partiellderiverte av tapet med hensyn på hver parameter. Med én feature er $f(x)=\beta_0+\beta_1x$ og</p>
+<div class="eq">$$L(\beta_0,\beta_1)=\frac{1}{2N}\sum_{i=1}^{N}\big(y^{(i)}-\beta_1x^{(i)}-\beta_0\big)^2 .$$</div>
+
+<details class="steps" open><summary>Utledning av $\partial L/\partial\beta_0$ og $\partial L/\partial\beta_1$, steg for steg</summary><div>
+<p><strong>Steg 1: Derivasjon er lineær.</strong> Den deriverte av en sum er summen av de deriverte, og konstanten $\tfrac{1}{2N}$ blir stående:</p>
+$$\frac{\partial L}{\partial\beta_0}=\frac{1}{2N}\sum_{i=1}^{N}\frac{\partial}{\partial\beta_0}\big(y^{(i)}-\beta_1x^{(i)}-\beta_0\big)^2 .$$
+<p><strong>Steg 2: Kjerneregelen.</strong> Kall det indre uttrykket $u=y^{(i)}-\beta_1x^{(i)}-\beta_0$. Da er $\frac{\partial}{\partial\beta_0}u^2=2u\cdot\frac{\partial u}{\partial\beta_0}$, og $\frac{\partial u}{\partial\beta_0}=-1$.</p>
+$$\frac{\partial}{\partial\beta_0}u^2=2\big(y^{(i)}-\beta_1x^{(i)}-\beta_0\big)\cdot(-1)=2\big(\beta_1x^{(i)}+\beta_0-y^{(i)}\big).$$
+<p><strong>Steg 3: Sett inn.</strong> 2-eren kansellerer $\tfrac12$. Det er derfor faktoren er der:</p>
+$$\boxed{\frac{\partial L}{\partial\beta_0}=\frac1N\sum_{i=1}^{N}\big(\beta_1x^{(i)}+\beta_0-y^{(i)}\big)=\frac1N\sum_{i=1}^{N}\big(f(x^{(i)})-y^{(i)}\big)}$$
+<p><strong>Steg 4: Samme for $\beta_1$.</strong> Nå er $\frac{\partial u}{\partial\beta_1}=-x^{(i)}$, så vi får en ekstra faktor $x^{(i)}$:</p>
+$$\boxed{\frac{\partial L}{\partial\beta_1}=\frac1N\sum_{i=1}^{N}x^{(i)}\big(\beta_1x^{(i)}+\beta_0-y^{(i)}\big)=\frac1N\sum_{i=1}^{N}x^{(i)}\big(f(x^{(i)})-y^{(i)}\big)}$$
+<p><strong>Tolkning:</strong> $f(x^{(i)})-y^{(i)}$ er feilen (residualen) for punkt $i$. Gradienten for $\beta_0$ er gjennomsnittsfeilen. Gradienten for $\beta_1$ er gjennomsnittsfeilen <em>vektet med $x$</em>. Punkter med stor $|x|$ har mest å si for stigningstallet.</p>
+</div></details>
+
+<p>Gradient descent går et steg med lengde $\eta$ (læringsraten) mot gradienten:</p>
+<div class="eq">
+  <p class="eq-note">Oppdateringsregler (likning 57 i notatene)</p>
+  $$\beta_0\leftarrow\beta_0-\eta\,\frac1N\sum_{i=1}^{N}\big(f(x^{(i)})-y^{(i)}\big)\qquad
+    \beta_1\leftarrow\beta_1-\eta\,\frac1N\sum_{i=1}^{N}x^{(i)}\big(f(x^{(i)})-y^{(i)}\big)$$
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>«Feil ganger input».</strong> Gradienten for en vekt er alltid (prediksjon − fasit) · (det vekten ganges med). For $\beta_0$ ganges den med 1, for $\beta_1$ med $x$. Den samme formen dukker opp i logistisk regresjon og i det siste laget av et nevralt nett. Kan du den, kan du regne alle eksamensoppgaver av denne typen.</p></div>
+
+<h3>Kontrollspørsmål: gir fortegnet mening?</h3>
+<p>Se igjen på figur 6.1b. Modellen overestimerer konsekvent for alle $x_1$. Tenk selv før du åpner svaret: Er $\beta_0$ for høy eller for lav? Er $\partial L/\partial\beta_0$ større eller mindre enn 0?</p>
+
+<div class="quiz" data-id="06-overest-b0">
+  <p class="q">Modellen i figur 6.1b ligger over nesten alle datapunktene. Hva gjelder for $\beta_0$ og $\partial L/\partial\beta_0$?</p>
+  <ul>
+    <li>$\beta_0$ er for lav, og $\partial L/\partial\beta_0\lt 0$</li>
+    <li>$\beta_0$ er for høy, og $\partial L/\partial\beta_0\lt 0$</li>
+    <li data-correct>$\beta_0$ er for høy, og $\partial L/\partial\beta_0\gt 0$</li>
+    <li>$\beta_0$ er riktig, det er bare $\beta_1$ som er feil</li>
+  </ul>
+  <div class="explain">Overestimering betyr $f(x^{(i)})-y^{(i)}\gt 0$ for nesten alle $i$, så gjennomsnittet $\partial L/\partial\beta_0=\frac1N\sum(f-y)$ er positivt. Positiv gradient betyr at tapet <em>øker</em> når $\beta_0$ øker, altså er $\beta_0$ for stor. Oppdateringen $\beta_0\leftarrow\beta_0-\eta\cdot(\text{positivt})$ senker den, slik den skal. Alternativ to har riktig diagnose, men feil fortegn. Da ville gradient descent økt $\beta_0$ og gjort det verre.</div>
+</div>
+
+<div class="reflect" data-id="06-b1-check">
+  <p class="q">Notatene spør: «Hvilken tilsvarende sjekk kan vi gjøre for $\beta_1$?» Beskriv en situasjon der $\beta_1$ åpenbart er for stor, og forklar hvilket fortegn $\partial L/\partial\beta_1$ da får.</p>
+  <div class="answer">Tenk deg at linja er for <strong>bratt</strong>, men treffer riktig rundt $x=0$. For positive $x$ overestimerer den ($f-y\gt0$), og for negative $x$ underestimerer den ($f-y\lt0$). I $\partial L/\partial\beta_1=\frac1N\sum x^{(i)}(f(x^{(i)})-y^{(i)})$ er begge typer ledd positive: positiv ganger positiv og negativ ganger negativ. Gradienten blir altså $\gt0$, og $\beta_1$ senkes. Linja blir slakere, som den skal. Omvendt gir en for slak linje $\partial L/\partial\beta_1\lt0$.<br><br>En nyanse: Hvis modellen overestimerer like mye overalt, og $x$-verdiene er symmetriske rundt 0 (som i figur 6.1), blir $\sum x(f-y)\approx 0$. Da er det bare $\beta_0$ som korrigeres. Hvis alle $x$ er positive, vil en ren forskyvning også gi $\partial L/\partial\beta_1\gt0$. Parametrene «deler på skylden», og det er en grunn til at det hjelper å sentrere eller standardisere features.</div>
+</div>
+
+<h3>Regneeksempel med tall (eksamensformat)</h3>
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 2</span>
+<p>Modell $f(x)=wx+b$, tap $\mathcal L=\tfrac12(y-f(x))^2$ for <em>ett</em> datapunkt, startverdier $w=1$, $b=0$, punkt $x=2$, $y=4$, læringsrate $\alpha=0{,}1$. Beregn gradientene og de oppdaterte parametrene. Her er $w=\beta_1$ og $b=\beta_0$.</p></div>
+
+<details class="steps"><summary>Løsning av eksamensoppgaven</summary><div>
+<p>Prediksjon: $f(2)=1\cdot2+0=2$. Feil: $f-y=2-4=-2$.</p>
+<p>$\dfrac{\partial\mathcal L}{\partial w}=x\,(f-y)=2\cdot(-2)=-4$, og $\dfrac{\partial\mathcal L}{\partial b}=f-y=-2$.</p>
+<p>Oppdatering: $w\leftarrow 1-0{,}1\cdot(-4)=1{,}4$ og $b\leftarrow 0-0{,}1\cdot(-2)=0{,}2$.</p>
+<p><strong>Sjekk med sunn fornuft:</strong> Modellen <em>under</em>estimerte (2 mot 4), så begge gradientene er negative og begge parametrene økes. Ny prediksjon: $1{,}4\cdot2+0{,}2=3{,}0$, nærmere 4. Distraktorene på eksamen var fortegnsfeil ($+4$, $+2$), å glemme faktoren $x$ ($\partial\mathcal L/\partial w=-2$) og å oppdatere i feil retning ($w=0{,}6$, $b=-0{,}2$).</p>
+</div></details>
+
+<div class="calc" data-id="06-gd1-dw" data-answer="9" data-tol="0.01">
+  <p class="q">Ny modell: $f(x)=\beta_0+\beta_1x$ med $\beta_0=1$, $\beta_1=2$. Tapet er $L=\tfrac12(y-f(x))^2$ for ett datapunkt $x=3$, $y=4$. Hva er $\partial L/\partial\beta_1$?</p>
+  <div class="solution">$f(3)=1+2\cdot3=7$. Feil $f-y=7-4=3$.<br>$\partial L/\partial\beta_1=x\,(f-y)=3\cdot3=9$. (Og $\partial L/\partial\beta_0=3$.) Positivt fortegn, fordi modellen overestimerer.</div>
+</div>
+
+<div class="calc" data-id="06-gd1-b0" data-answer="0.7" data-tol="0.005">
+  <p class="q">Fortsett med samme punkt og læringsrate $\eta=0{,}1$. Hva blir den oppdaterte verdien av $\beta_0$?</p>
+  <div class="solution">$\beta_0\leftarrow 1-0{,}1\cdot3=0{,}7$. (Og $\beta_1\leftarrow 2-0{,}1\cdot9=1{,}1$.) Ny prediksjon: $0{,}7+1{,}1\cdot3=4{,}0$. Det traff akkurat. Det er tilfeldig, men det viser at steget gikk i riktig retning.</div>
+</div>
+
+<div class="calc" data-id="06-gd2-b1" data-answer="1.1" data-tol="0.005">
+  <p class="q">Start i $\beta_0=0$, $\beta_1=0{,}5$. Datapunkt $x=4$, $y=5$, tap $\tfrac12(y-f)^2$, læringsrate $\eta=0{,}05$. Hva blir oppdatert $\beta_1$?</p>
+  <div class="solution">$f(4)=0+0{,}5\cdot4=2$, så $f-y=-3$.<br>$\partial L/\partial\beta_1=4\cdot(-3)=-12$, og $\beta_1\leftarrow0{,}5-0{,}05\cdot(-12)=0{,}5+0{,}6=1{,}1$.<br>(Tilsvarende $\partial L/\partial\beta_0=-3$ og $\beta_0\leftarrow0+0{,}15=0{,}15$.)</div>
+</div>
+
+<div class="calc" data-id="06-gd-batch" data-answer="-2" data-tol="0.01">
+  <p class="q">Nå med hele datasettet (batch). To punkter: $(x,y)=(1,\,3)$ og $(3,\,5)$. Modell $\beta_0=1$, $\beta_1=1$, tap $L=\frac{1}{2N}\sum(y-f)^2$. Hva er $\partial L/\partial\beta_1$?</p>
+  <div class="solution">Prediksjoner: $f(1)=2$, $f(3)=4$. Feil $f-y$: $-1$ og $-1$.<br>$\partial L/\partial\beta_1=\frac12\big(1\cdot(-1)+3\cdot(-1)\big)=\frac{-4}{2}=-2$.<br>$\partial L/\partial\beta_0=\frac12(-1-1)=-1$. Med $\eta=0{,}1$: $\beta_0=1{,}1$ og $\beta_1=1{,}2$. Legg merke til at vi tar <em>gjennomsnittet</em> over punktene, slik formelen sier.</div>
+</div>
+
+<div class="quiz" data-id="06-update-dir">
+  <p class="q">I et treningssteg er $\partial L/\partial\beta_1=-4$ og $\eta=0{,}1$. Hva skjer med $\beta_1$?</p>
+  <ul>
+    <li>Den synker med 0,4</li>
+    <li data-correct>Den øker med 0,4</li>
+    <li>Den øker med 4</li>
+    <li>Den blir $-0{,}4$</li>
+  </ul>
+  <div class="explain">$\beta_1\leftarrow\beta_1-\eta\cdot(-4)=\beta_1+0{,}4$. Negativ gradient betyr at tapet synker når $\beta_1$ øker, så vi går den veien. «Synker med 0,4» er den klassiske fortegnsfeilen. «Øker med 4» glemmer læringsraten. «Blir $-0{,}4$» forveksler steget med den nye verdien.</div>
+</div>
+
+<h3>Gradient descent i parameterrommet</h3>
+<p>Tapet $L(\beta_0,\beta_1)$ er en funksjon av to variabler, en «skål» over $(\beta_0,\beta_1)$-planet. For lineær regresjon med MSE er skålen en ekte paraboloide: <strong>konveks</strong>, med ett eneste minimum. Det betyr at gradient descent, med passe liten læringsrate, alltid finner det globale minimumet.</p>
+
+<div class="widget">
+  <h4>Utforsk: gradient descent i parameterrom og datarom</h4>
+  <div class="two-col">
+    <canvas id="gdParam" width="380" height="330"></canvas>
+    <canvas id="gdData" width="380" height="330"></canvas>
+  </div>
+  <div class="controls">
+    <label>log₁₀ η <input type="range" id="gdEta" min="-3" max="0.4" step="0.05" value="-1.5"><output id="gdEtaO"></output></label>
+    <label><input type="checkbox" id="gdStd"> standardiser x</label>
+    <button class="btn" type="button" id="gdStep">Ett steg</button>
+    <button class="btn" type="button" id="gdRun">Kjør</button>
+    <button class="btn ghost" type="button" id="gdReset">Nullstill</button>
+  </div>
+  <div class="readouts" id="gdRead"></div>
+  <p class="w-note">Venstre: konturplott av MSE over $(\beta_0,\beta_1)$, der mørkere betyr lavere tap og + er minimum. Klikk i plottet for å velge startpunkt. Høyre: de samme parametrene som linjer i datarommet. <strong>Legg merke til:</strong> (1) Med rå $x\in[-10,10]$ er skålen en smal dal. $\beta_1$-retningen er ca. 33 ganger brattere enn $\beta_0$-retningen. Over $\eta\approx0{,}06$ divergerer det, og under det kryper $\beta_0$ sakte. (2) Kryss av for «standardiser x». Da blir konturene nesten sirkler, du kan bruke $\eta$ rundt 0,5–1, og det konvergerer på noen få steg. (3) Over $\eta=2$ divergerer også den standardiserte versjonen.</p>
+</div>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Features på ulik skala gir avlange konturer. Læringsraten må velges etter den bratteste retningen, så den slake retningen går nesten ikke framover. Det er derfor <a href="01-grunnlag.html">skalering</a> av features er viktig for gradientbaserte modeller (og ikke for trær, se tabell 8 i <a href="07-generalisering.html#regresjonstraer">kapittel 7</a>).</p></div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 20</span>
+<p>«I hvilket tilfelle vet vi at gradient descent vil finne et globalt minimum?» Riktig: <strong>konvekse funksjoner</strong>. «Lineær regresjon» var en distraktor. MSE for lineær regresjon <em>er</em> konveks, men det er konveksiteten som er grunnen, og også da kreves en passende læringsrate.</p></div>
+
+<div class="quiz" data-id="06-diverge">
+  <p class="q">Du trener lineær regresjon med gradient descent på rå data der $x$ går fra $-10$ til $10$. Med $\eta=0{,}08$ vokser tapet for hver epoke og eksploderer. Hva er den beste forklaringen?</p>
+  <ul>
+    <li data-correct>Læringsraten er for stor for den bratteste retningen (styrt av $x^2$), så stegene skyter over og vokser</li>
+    <li>MSE har flere lokale minima, og algoritmen havnet i feil minimum</li>
+    <li>Læringsraten er for liten, så algoritmen står stille</li>
+    <li>Modellen har for få parametre til å tilpasse dataene</li>
+  </ul>
+  <div class="explain">Krumningen i $\beta_1$-retningen er omtrent $\frac1N\sum x^2\approx33$. Gradient descent er stabil bare for $\eta\lt 2/33\approx0{,}06$. Over det overskyter hvert steg mer enn det forrige. MSE for lineær regresjon er konveks og har ingen lokale minima. For liten læringsrate gir langsom konvergens, ikke eksplosjon. Få parametre gir undertilpasning, ikke et voksende tap.</div>
+</div>
+
+<div class="quiz" data-id="06-convex">
+  <p class="q">Hvorfor er vi trygge på at gradient descent for lineær regresjon med MSE ender i det globale minimumet (med passende $\eta$)?</p>
+  <ul>
+    <li data-correct>Fordi MSE er en konveks funksjon av $\beta$-ene, en skål med ett bunnpunkt</li>
+    <li>Fordi vi starter med $\beta=0$</li>
+    <li>Fordi faktoren $\tfrac12$ garanterer det</li>
+    <li>Fordi gradienten alltid er positiv</li>
+  </ul>
+  <div class="explain">Kvadratet av en lineær funksjon av $\beta$ er konveks, og en sum av konvekse funksjoner er konveks. Da er hvert lokalt minimum globalt. Startpunktet spiller ingen rolle for <em>hvor</em> vi ender (bare for hvor lang tid det tar). $\tfrac12$ skalerer bare. Gradienten skifter fortegn rundt minimum, ellers kunne vi aldri stoppet der.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="polynom"><span class="sec">6.5</span>Polynomisk regresjon og feature engineering</h2>
+
+<p>Se på figur 6.5a. Den oransje kurven er den sanne fordelingen, en parabel, og de blå punktene er trukket fra den med gaussisk støy.</p>
+
+<figure class="card">
+  <div class="fig-row">
+    <div><img src="../assets/fig/notater/s25_1.png" alt="Parabeldata med gaussisk støy"><div class="sub">(a) data fra $y=x^2+2x$ med støy</div></div>
+    <div><img src="../assets/fig/notater/s25_2.png" alt="Rett linje tilpasset parabeldata"><div class="sub">(b) lineær regresjon tilpasset dataene</div></div>
+  </div>
+  <figcaption><b>Figur 6.5</b> (Figur 11 i notatene.) En rett linje ($\beta_0=31{,}16$, $\beta_1=0{,}52$) kan ikke følge en parabel. Den bommer systematisk: for høyt i midten, for lavt i endene. Det er her MSE ≈ 960 kommer fra.</figcaption>
+</figure>
+
+<div class="reflect" data-id="06-lin-parabel">
+  <p class="q">Notatene spør: Hvor godt vil lineær regresjon fungere for å predikere $y$ for nye $x$ i figur 6.5a? Formuler svaret ved hjelp av antakelsen som ligger i lineær regresjon.</p>
+  <div class="answer">Dårlig. Lineær regresjon antar at $y$ endrer seg med et <strong>konstant stigningstall</strong> i $x$, altså at sammenhengen er en rett linje. Dataene har et stigningstall som skifter fortegn (synker til venstre, stiger til høyre). Ingen rett linje kan fange det, uansett hvor lenge vi trener. Det er en feil i <em>modellformen</em>, ikke i optimeringen. Det gir høy bias og undertilpasning (se <a href="07-generalisering.html#bias-varians">kapittel 7</a>). Mer data eller lengre trening hjelper ikke.</div>
+</div>
+
+<h3>Trikset: lag en ny feature</h3>
+<p>Ved å plotte dataene ser vi at de ligner et andregradspolynom. Den enkleste løsningen er å <strong>lage en ny feature</strong> ved å transformere $x$ polynomisk: $x\to x^2$. Det kalles <strong>feature engineering</strong>. Nå har vi to features $\{x_1,x_2\}=\{x,\,x^2\}$, og vi gjør vanlig lineær regresjon med to features:</p>
+<div class="eq">
+  <p class="eq-note">Likning 58 i notatene</p>
+  $$y=\beta_0+\beta_1x_1+\beta_2x_2=\beta_0+\beta_1x+\beta_2x^2$$
+</div>
+
+<div class="callout why"><span class="label">Hvorfor er dette fortsatt «lineær» regresjon?</span>
+<p>«Lineær» betyr <strong>lineær i parametrene</strong>. Prediksjonen er en vektet sum $\beta_0\cdot1+\beta_1\cdot x_1+\beta_2\cdot x_2$. At $x_2$ tilfeldigvis er $x^2$, vet ikke modellen noe om. For den er $x_2$ bare én kolonne til. MSE er fortsatt konveks i $\beta$, gradientene har samme «feil ganger input»-form, og all koden fungerer uendret. Kurven er krum i $x$, men flaten er flat i $(x_1,x_2)$-rommet.</p></div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Modellen er lineær, men brillene er krumme.</strong> Vi gir den lineære modellen et par briller ($x\mapsto(x,x^2,\dots)$) som bøyer verden slik at sammenhengen blir rett. Modellen gjør det den alltid har gjort. Det er dataene vi har forvandlet.</p></div>
+
+<p>Generelt kan ett input $x$ utvides til et polynom av grad $M$:</p>
+<div class="eq">
+  <p class="eq-note">Likning 59 i notatene</p>
+  $$f(x)=\beta_0+\beta_1x+\beta_2x^2+\dots+\beta_Mx^M\qquad(M+1\text{ parametre})$$
+</div>
+
+<h3>PolynomialFeatures: fit på trening, transform på test</h3>
+<p>I sklearn gjøres transformasjonen med <code>PolynomialFeatures(degree=M)</code>. Regelen er den samme som for skalering:</p>
+
+<figure class="card">
+<svg viewBox="0 0 600 210" role="img" aria-label="Pipeline: fit_transform på trening, transform på test">
+  <defs><marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"/></marker></defs>
+  <g font-size="13">
+    <rect x="10" y="25" width="120" height="50" rx="8" style="fill:var(--accent-soft);stroke:var(--c1)"/>
+    <text x="70" y="55" text-anchor="middle">X_train</text>
+    <rect x="200" y="25" width="190" height="50" rx="8" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <text x="295" y="46" text-anchor="middle" font-weight="600">poly.fit_transform</text>
+    <text x="295" y="64" text-anchor="middle" style="fill:var(--muted)" font-size="12">lærer oppsettet, lager x, x², …</text>
+    <rect x="460" y="25" width="130" height="50" rx="8" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <text x="525" y="55" text-anchor="middle">model.fit</text>
+    <line x1="130" y1="50" x2="198" y2="50" style="stroke:var(--muted)" stroke-width="1.6" marker-end="url(#ar6)"/>
+    <line x1="390" y1="50" x2="458" y2="50" style="stroke:var(--muted)" stroke-width="1.6" marker-end="url(#ar6)"/>
+
+    <rect x="10" y="135" width="120" height="50" rx="8" style="fill:var(--cons-bg);stroke:var(--c2)"/>
+    <text x="70" y="165" text-anchor="middle">X_test</text>
+    <rect x="200" y="135" width="190" height="50" rx="8" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <text x="295" y="156" text-anchor="middle" font-weight="600">poly.transform</text>
+    <text x="295" y="174" text-anchor="middle" style="fill:var(--muted)" font-size="12">bruker samme oppsett, ingen ny fit</text>
+    <rect x="460" y="135" width="130" height="50" rx="8" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <text x="525" y="165" text-anchor="middle">model.predict</text>
+    <line x1="130" y1="160" x2="198" y2="160" style="stroke:var(--muted)" stroke-width="1.6" marker-end="url(#ar6)"/>
+    <line x1="390" y1="160" x2="458" y2="160" style="stroke:var(--muted)" stroke-width="1.6" marker-end="url(#ar6)"/>
+    <line x1="295" y1="77" x2="295" y2="133" style="stroke:var(--c3)" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar6)"/>
+    <line x1="525" y1="77" x2="525" y2="133" style="stroke:var(--c3)" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar6)"/>
+    <text x="303" y="110" font-size="12" style="fill:var(--c3)">gjenbrukes</text>
+    <text x="533" y="110" font-size="12" style="fill:var(--c3)">gjenbrukes</text>
+  </g>
+</svg>
+<figcaption><b>Figur 6.6</b> Transformasjonen lages og brukes på treningsdataene, og den samme brukes deretter på testdataene. Vi kaller aldri <code>.fit</code> på testdata, fordi hele analysen skal være uavhengig av testdataene.</figcaption>
+</figure>
+
+<pre><code><span class="k">from</span> sklearn.preprocessing <span class="k">import</span> PolynomialFeatures
+<span class="k">from</span> sklearn.linear_model <span class="k">import</span> LinearRegression
+
+poly = PolynomialFeatures(degree=2)
+X_train_p = poly.fit_transform(X_train)   <span class="c"># kolonner: 1, x, x²</span>
+X_test_p  = poly.transform(X_test)        <span class="c"># IKKE fit_transform her</span>
+
+model = LinearRegression().fit(X_train_p, y_train)
+y_pred = model.predict(X_test_p)</code></pre>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p>Å kalle <code>fit_transform</code> på testdata. For ren <code>PolynomialFeatures</code> på én kolonne gir det tilfeldigvis samme tall, men vanen er farlig. For skalering, PCA og lignende «lærer» <code>.fit</code> noe fra dataene (gjennomsnitt, standardavvik, retninger). Gjør du det på testdata, lekker informasjon fra testsettet inn i modellen, og testresultatet blir for optimistisk. (Eksamen 2024 oppg. 4 spurte om nettopp dette for en scaler: riktig var <code>Scaler.transform(x_test)</code> med en scaler tilpasset på treningsdataene.)</p></div>
+
+<h3>Tre typer feature engineering</h3>
+<p>Feature engineering er alle operasjoner vi gjør på datasettet før læringen. Det gjelder ikke bare regresjon og ikke bare veiledet læring. Notatene deler det i tre:</p>
+<table>
+  <tr><th>Type</th><th>Hva</th><th>Eksempel fra kurset</th></tr>
+  <tr><td><strong>Feature selection</strong> (utvelgelse)</td><td>Velge hvilke kolonner som skal være med</td><td>Droppe «Name» i Titanic-dataene</td></tr>
+  <tr><td><strong>Feature preprocessing</strong> (preprosessering)</td><td>Endre skala eller representasjon av eksisterende features</td><td>Skalere «Age» til $(0,1)$</td></tr>
+  <tr><td><strong>Feature extraction</strong> (utvinning)</td><td>Lage <em>nye</em> features fra eksisterende, også ved å kombinere flere</td><td>Lage $x^2$ fra $x$, eller BMI fra høyde og vekt</td></tr>
+</table>
+
+<div class="quiz" data-id="06-still-linear">
+  <p class="q">Modellen $f(x)=\beta_0+\beta_1x+\beta_2x^2+\beta_3x^3$ kalles fortsatt lineær regresjon. Hvorfor?</p>
+  <ul>
+    <li>Fordi kurven er tilnærmet rett for små $x$</li>
+    <li data-correct>Fordi prediksjonen er en lineær kombinasjon av parametrene. Potensene av $x$ er bare nye features</li>
+    <li>Fordi vi bare bruker én feature $x$</li>
+    <li>Det er en misforståelse. Den er ikke-lineær regresjon og krever en annen tapsfunksjon</li>
+  </ul>
+  <div class="explain">«Lineær» refererer til parametrene: $f=\sum\beta_j\,\phi_j(x)$ med $\phi_j(x)=x^j$. Gradientene, konveksiteten og koden er de samme som før. Kurven er tydelig krum i $x$, og at den ser rett ut lokalt, er ikke definisjonen. Etter transformasjonen har vi faktisk tre features, ikke én. Vi bruker fortsatt MSE.</div>
+</div>
+
+<div class="quiz" data-id="06-poly-test">
+  <p class="q">Du har laget <code>poly = PolynomialFeatures(degree=3)</code>. Hva er riktig prosedyre?</p>
+  <ul>
+    <li><code>poly.fit_transform</code> på hele datasettet før <code>train_test_split</code>, så trening og test får samme transformasjon</li>
+    <li><code>poly.fit_transform</code> på treningsdata og en ny <code>PolynomialFeatures(3).fit_transform</code> på testdata</li>
+    <li>Transformere bare treningsdataene. Modellen lærer selv å håndtere rå testdata</li>
+    <li data-correct><code>poly.fit_transform(X_train)</code>, og deretter <code>poly.transform(X_test)</code> med det samme objektet</li>
+  </ul>
+  <div class="explain">Transformasjonen lages på trening og anvendes uendret på test. Å fitte på hele datasettet før splitten (alternativ 1) lar testdata påvirke preprosesseringen. Det er ofte harmløst for rene potenser, men galt prinsipp, og ødeleggende for skalering. Å fitte et nytt objekt på test (alternativ 2) er samme feil. Rå testdata (alternativ 3) har feil antall kolonner, og modellen vil feile.</div>
+</div>
+
+<div class="calc" data-id="06-poly-count" data-answer="6" data-tol="0">
+  <p class="q">Du har to features $x_1$ og $x_2$ og bruker <code>PolynomialFeatures(degree=2)</code> (med biaskolonnen). Hvor mange kolonner, og dermed parametre i den lineære modellen, får du?</p>
+  <div class="solution">Alle monomer av grad ≤ 2: $1,\;x_1,\;x_2,\;x_1^2,\;x_1x_2,\;x_2^2$, altså <strong>6</strong>. Legg merke til kryssleddet $x_1x_2$. Det er nettopp en vekselvirkning, så polynomiske features kan løse problemet fra 6.2.</div>
+</div>
+
+<div class="quiz" data-id="06-fe-types">
+  <p class="q">Du lager featuren «areal per rom» ved å dele boligareal på antall rom. Hvilken type feature engineering er dette?</p>
+  <ul>
+    <li>Feature selection</li>
+    <li>Feature preprocessing</li>
+    <li data-correct>Feature extraction</li>
+    <li>Det er ikke feature engineering, siden ingen kolonner fjernes</li>
+  </ul>
+  <div class="explain">En <em>ny</em> feature laget ved å kombinere eksisterende features er feature extraction, akkurat som $x^2$ fra $x$. Selection er å velge ut eller fjerne kolonner. Preprocessing er å endre skala eller representasjon av én eksisterende feature (som skalering eller one-hot-koding). Feature engineering trenger ikke fjerne noe.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="grad"><span class="sec">6.6</span>Polynomgraden: hvor krum skal modellen være?</h2>
+
+<p>Figur 6.7 viser data fra et polynom av <em>ukjent</em> grad, med gaussisk støy. Hvilken grad bør vi velge?</p>
+
+<figure class="card">
+  <img src="../assets/fig/notater/s26_1.png" alt="Data fra polynom av ukjent grad" width="420">
+  <figcaption><b>Figur 6.7</b> (Figur 12 i notatene.) Datasett generert fra et polynom av ukjent grad, med gaussisk støy.</figcaption>
+</figure>
+
+<div class="reflect" data-id="06-see-degree">
+  <p class="q">Er det mulig å se fra dataene i figur 6.7 hvilken grad vi bør generere features til?</p>
+  <div class="answer">Bare grovt. Du kan telle «svinger»: et polynom av grad $M$ har høyst $M-1$ topp- og bunnpunkter, så du kan gjette en nedre grense. Men støyen gjør det umulig å skille ekte svinger fra tilfeldige hopp. Ser du nøye nok etter, kan du «se» mønstre i støyen også. Den riktige måten er å <strong>prøve flere grader og måle feilen på data modellen ikke er trent på</strong> (validering, kapittel 7). Det er også derfor graden er en hyperparameter.</div>
+</div>
+
+<figure class="card">
+  <div class="fig-row3">
+    <div><img src="../assets/fig/notater/s26_2.png" alt="Lineær regresjon"><div class="sub">(a) grad 1</div></div>
+    <div><img src="../assets/fig/notater/s26_3.png" alt="Polynom grad 3"><div class="sub">(b) grad 3</div></div>
+    <div><img src="../assets/fig/notater/s26_4.png" alt="Polynom grad 15"><div class="sub">(c) grad 15</div></div>
+  </div>
+  <figcaption><b>Figur 6.8</b> (Figur 13 i notatene.) Blå = trening, grønn = test, rød = prediksjon på test. (a) Grad 1 er nesten en flat linje som ikke fanger noe (<strong>undertilpasning</strong>). (b) Grad 3 følger hovedtrenden. (c) Grad 15 svinger vilt for å treffe hvert treningspunkt, og predikerer elendig på testpunktene (<strong>overtilpasning</strong>).</figcaption>
+</figure>
+
+<p>Høyere grad gir alltid lavere (eller lik) MSE på <em>treningsdataene</em>, fordi en modell med flere ledd kan gjøre alt en enklere modell kan, og mer. Men MSE på <em>nye</em> data blir først bedre og deretter verre. Både for lav og for høy kompleksitet er et problem.</p>
+
+<div class="widget">
+  <h4>Utforsk: polynomgrad 1–15, trenings- og test-MSE</h4>
+  <canvas id="polyFit" width="680" height="320"></canvas>
+  <canvas id="polyErr" width="680" height="200" style="margin-top:8px"></canvas>
+  <div class="controls">
+    <label>grad $M$ <input type="range" id="polyDeg" min="1" max="15" step="1" value="1"><output id="polyDegO">1</output></label>
+    <label>data <select id="polySet"><option value="ukjent">ukjent polynom (som fig. 12)</option><option value="parabel">parabel (som fig. 11)</option></select></label>
+    <button class="btn ghost" type="button" id="polyNew">Ny trekning</button>
+  </div>
+  <div class="readouts" id="polyRead"></div>
+  <p class="w-note">Blå punkter er trening (brukes til å finne $\beta$ med minste kvadraters metode), oransje er test. Den stiplede kurven er den sanne funksjonen. Nederst: MSE for alle grader, på logaritmisk skala. <strong>Legg merke til:</strong> trenings-MSE (blå) synker hele veien, mens test-MSE (oransje) har en dal. For parabelen er den laveste test-MSE-en rundt grad 2. Over ca. grad 10 begynner kurven å svinge mellom treningspunktene, særlig i kantene. Trykk «Ny trekning» og se hvor mye grad 15-kurven endrer seg fra trekning til trekning. Det er <em>varians</em>.</p>
+</div>
+
+<div class="quiz" data-id="06-degree-hyper">
+  <p class="q">Notatene spør: Er graden $M$ på polynomet vi transformerer features til en modellparameter, en hyperparameter eller en feature?</p>
+  <ul>
+    <li>En modellparameter, fordi den bestemmer formen på $f(x)$</li>
+    <li data-correct>En hyperparameter, fordi den velges før treningen og ikke læres av gradient descent</li>
+    <li>En feature, fordi den lager nye kolonner i datasettet</li>
+    <li>En testparameter, fordi den velges ut fra test-MSE</li>
+  </ul>
+  <div class="explain">Modellparametrene er $\beta_0,\dots,\beta_M$, og de læres fra dataene. $M$ bestemmer <em>hvor mange</em> parametre og features det finnes, men selve verdien av $M$ settes utenfra og justeres ved å sammenligne valideringsfeil. Derfor er den en hyperparameter, som læringsraten (eksamen 2024 oppg. 12). Featurene er $x, x^2,\dots,x^M$, ikke $M$. «Testparameter» finnes ikke, og vi skal nettopp <em>ikke</em> velge $M$ med testdata (kapittel 7).</div>
+</div>
+
+<div class="quiz" data-id="06-deg-fit">
+  <p class="q">Du tilpasser polynomer av grad 1, 3 og 15 til 30 treningspunkter med støy. Hvilket utsagn stemmer best?</p>
+  <ul>
+    <li>Grad 15 har lavest MSE både på trening og test, siden den er mest fleksibel</li>
+    <li>Grad 1 har lavest trenings-MSE, fordi enkle modeller er mest stabile</li>
+    <li>Alle tre gir omtrent samme test-MSE, siden de er trent med samme tapsfunksjon</li>
+    <li data-correct>Grad 15 har lavest trenings-MSE, men trolig høyest test-MSE. Grad 1 har høy feil på begge</li>
+  </ul>
+  <div class="explain">Flere ledd kan aldri gi høyere trenings-MSE (de nye $\beta$-ene kan settes til 0). Grad 15 har derfor lavest treningsfeil, men den har tilpasset seg støyen og generaliserer dårlig, altså overtilpasning. Grad 1 er for stiv og har høy feil på både trening og test, altså undertilpasning. Grad 3 ligger i balansepunktet. Fleksibilitet gir ikke automatisk lav testfeil.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="prosjekt1"><span class="sec">6.7</span>Prosjekt 1: strømforbruk og nettverksaktivitet</h2>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 1</span>
+<p>Oppgaven var å implementere <code>LinearRegression</code> fra bunnen med gradient descent og predikere <strong>Energy</strong> fra <strong>Net_Activity</strong>. ❓-spørsmålene: Er tapskurven stabil? Utled formelen for energiforbruket. Analyser fordelingen av prediksjonsfeil, og hva er en forventningsrett estimator? Hva betyr det når gradienten i SGD er nær null?</p></div>
+
+<h3>Formelen</h3>
+<p>Datasettet har 1000 punkter med Net_Activity mellom 10 og 30. Minste kvadraters løsning (som gradient descent skal konvergere mot) er omtrent</p>
+<div class="eq">$$\widehat{\text{Energy}}\approx 4{,}89+3{,}01\cdot\text{Net\_Activity}$$</div>
+<p>Tolkning: Grunnforbruket er ca. 4,9 enheter, og hver ekstra enhet nettverksaktivitet koster ca. 3,0 enheter energi. Residualene har standardavvik ca. 2,0, så RMSE ≈ 2,0. Med targets mellom ca. 33 og 99 er det en god modell.</p>
+
+<div class="calc" data-id="06-energy" data-answer="65.09" data-tol="0.05">
+  <p class="q">Bruk formelen $\widehat{\text{Energy}}=4{,}89+3{,}01\cdot\text{Net\_Activity}$. Hva er predikert energiforbruk når Net_Activity = 20?</p>
+  <div class="solution">$4{,}89+3{,}01\cdot20=4{,}89+60{,}2=65{,}09$.</div>
+</div>
+
+<h3>Er tapskurven stabil?</h3>
+<p>Med rå Net_Activity (verdier 10–30) må læringsraten være liten, ellers oscillerer eller divergerer tapet (samme fenomen som i widgeten i 6.4). Med passende $\eta$, og gjerne standardiserte features, synker tapet monotont og flater ut. Det er en stabil kurve. Bruker du stokastisk eller mini-batch gradient descent, vil kurven ha litt støy, men trenden skal være nedadgående og flate ut.</p>
+
+<h3>Fordelingen av prediksjonsfeil og forventningsrette estimatorer</h3>
+<div class="callout def"><span class="label">Definisjon</span>
+<p>En estimator $\hat\theta$ for en størrelse $\theta$ er <strong>forventningsrett</strong> (unbiased) hvis $\mathbb E[\hat\theta]=\theta$. I gjennomsnitt, over mange tenkte gjentakelser, bommer den ikke systematisk i noen retning. For en prediksjonsmodell betyr det at prediksjonsfeilen $y-\hat y$ har forventning 0.</p></div>
+
+<p>Hvis du lager et histogram over residualene $y^{(i)}-\hat y^{(i)}$ i prosjekt 1, ser du en klokkeformet fordeling sentrert rundt 0 med standardavvik ca. 2. Det passer med antakelsen om gaussisk støy (6.3). Sentreringen rundt 0 er ikke tilfeldig:</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>$\partial L/\partial\beta_0$ er gjennomsnittsfeilen.</strong> Når gradient descent har konvergert, er $\frac{\partial L}{\partial\beta_0}=\frac1N\sum(f(x^{(i)})-y^{(i)})=0$. Gjennomsnittlig residual på treningsdataene er da <em>nøyaktig</em> null. En modell med bias-ledd som er trent til minimum, er forventningsrett på treningsdataene.</p></div>
+
+<div class="widget">
+  <h4>Utforsk: residualfordeling og forventningsretthet</h4>
+  <div class="two-col">
+    <canvas id="resData" width="380" height="300"></canvas>
+    <canvas id="resHist" width="380" height="300"></canvas>
+  </div>
+  <div class="controls">
+    <label>Δβ₀ <input type="range" id="resD0" min="-6" max="6" step="0.1" value="0"><output id="resD0o">0</output></label>
+    <label>Δβ₁ <input type="range" id="resD1" min="-0.3" max="0.3" step="0.01" value="0"><output id="resD1o">0</output></label>
+  </div>
+  <div class="readouts" id="resRead"></div>
+  <p class="w-note">Syntetiske data som ligner prosjekt 1. Med Δ = 0 er modellen minste kvadraters løsning: histogrammet er sentrert i 0 og gradientene er null. Flytt Δβ₀, og hele fordelingen forskyves. Gjennomsnittsfeilen (og $\partial L/\partial\beta_0$) blir ulik 0, og modellen er ikke lenger forventningsrett. Endrer du Δβ₁, blir fordelingen bredere, og feilen avhenger systematisk av $x$ (se fargen på punktene).</p>
+</div>
+
+<h3>Hva betyr det at gradienten er nær null?</h3>
+<p>Gradienten måler hvor mye tapet endrer seg når vi justerer parametrene. Er den nær null, gir små endringer ingen forbedring, og vi står i (nærheten av) et <strong>stasjonært punkt</strong>. For lineær regresjon med MSE er tapet konvekst, så det eneste stasjonære punktet er det globale minimumet. Modellen har konvergert, og videre trening hjelper ikke.</p>
+<p>To forbehold: (1) I <strong>stokastisk</strong> gradient descent beregnes gradienten på ett punkt eller en mini-batch, så den varierer fra steg til steg selv i minimum. Se på gjennomsnittet over mange steg eller på full-batch-gradienten. (2) For ikke-konvekse modeller, som nevrale nett, kan en liten gradient også bety et lokalt minimum, et sadelpunkt eller et flatt platå. Liten gradient betyr ikke nødvendigvis «ferdig og optimalt», bare at tapet ikke endrer seg lokalt.</p>
+
+<div class="quiz" data-id="06-unbiased">
+  <p class="q">Hva betyr det at en estimator er forventningsrett (unbiased)?</p>
+  <ul>
+    <li>Den har lavest mulig varians blant alle estimatorer</li>
+    <li>Den har ikke noe biasledd $\beta_0$</li>
+    <li>Den gir nøyaktig riktig svar for hvert datapunkt</li>
+    <li data-correct>Forventningsverdien til estimatet er lik den sanne verdien, så den bommer ikke systematisk i én retning</li>
+  </ul>
+  <div class="explain">Forventningsrett: $\mathbb E[\hat\theta]=\theta$. Enkeltestimater kan godt bomme, men feilene sentrerer rundt 0. Lav varians er en annen egenskap. En estimator kan være forventningsrett og likevel ha stor spredning. Biasleddet $\beta_0$ er noe helt annet. Faktisk er det å ha med $\beta_0$ det som sikrer at gjennomsnittlig residual blir 0. «Nøyaktig riktig for hvert punkt» er umulig med støy.</div>
+</div>
+
+<div class="quiz" data-id="06-grad-zero">
+  <p class="q">Under trening av lineær regresjon (full batch, MSE) blir $\|\nabla L\|$ svært liten og holder seg der. Hva er den beste tolkningen?</p>
+  <ul>
+    <li data-correct>Parametrene er nær minimum av tapet. Siden MSE er konveks, er det det globale minimumet, og videre trening endrer lite</li>
+    <li>Modellen har overtilpasset og må stoppes</li>
+    <li>Læringsraten er for stor</li>
+    <li>Tapet er null, så modellen predikerer perfekt</li>
+  </ul>
+  <div class="explain">Liten gradient betyr at tapet er flatt rundt de nåværende parametrene, altså nær et stasjonært punkt. Det er minimum for en konveks MSE. Det sier ingenting om overtilpasning, som må sjekkes med valideringsdata. For stor læringsrate gir svingninger eller divergens, ikke en stabil liten gradient. Minimumstapet er normalt ikke null, fordi støyen ($\sigma^2$) ikke kan fjernes.</div>
+</div>
+
+<div class="quiz" data-id="06-rmse-unit">
+  <p class="q">Modell A predikerer temperatur i °C med MSE = 4. Modell B predikerer samme temperatur i °F og har MSE = 12. Hva kan du konkludere?</p>
+  <ul>
+    <li>A er tre ganger bedre enn B</li>
+    <li data-correct>Du må gjøre om til samme enhet før du sammenligner. RMSE er 2 °C for A og ca. 3,5 °F ≈ 1,9 °C for B, så de er omtrent like gode</li>
+    <li>B er bedre, fordi høyere MSE betyr mer informasjon</li>
+    <li>MSE kan ikke brukes for temperatur</li>
+  </ul>
+  <div class="explain">MSE har enheten til $y^2$ og avhenger av skalaen. $\sqrt{12}\approx3{,}46\,{}^\circ\text{F}$, og siden $1\,{}^\circ\text{C}=1{,}8\,{}^\circ\text{F}$, tilsvarer det $3{,}46/1{,}8\approx1{,}92\,{}^\circ\text{C}$. A har RMSE $=2\,{}^\circ\text{C}$. B er altså så vidt bedre. Å sammenligne rå MSE-tall på tvers av enheter er meningsløst.</div>
+</div>
+
+<div class="reflect" data-id="06-loss-stable">
+  <p class="q">Du implementerer gradient descent i prosjekt 1 uten å skalere Net_Activity (10–30), og tapskurven hopper opp og ned og stiger etter hvert. Forklar hva som skjer og to måter å fikse det på.</p>
+  <div class="answer">Krumningen i $\beta_1$-retningen er $\frac1N\sum x^2\approx 400$ (siden $x\approx20$), mens den er 1 i $\beta_0$-retningen. Læringsraten er for stor for den bratte retningen, så stegene overskyter, og tapet oscillerer og divergerer. <strong>Fiks 1:</strong> Senk $\eta$ til under $2/400=0{,}005$. Ulempen er at $\beta_0$ da konvergerer ekstremt sakte. <strong>Fiks 2 (bedre):</strong> Standardiser $x$ (trekk fra gjennomsnittet, del på standardavviket, fitt på trening). Da blir skålen rund, og en stor $\eta$ konvergerer raskt. Husk å regne parametrene tilbake til opprinnelig skala når du skal skrive opp formelen.</div>
+</div>
+
+<!-- ===================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Regresjon</strong> = veiledet læring med kontinuerlig target. Lineær modell $f(x)=\beta_0+\sum\beta_ix_i$ har $n+1$ parametre. $\beta_0$ er skjæringspunktet (baseline), og $\beta_i$ er stigningstall.</li>
+    <li>Tapsfunksjonen må byttes: <strong>MSE</strong> $=\frac1{2N}\sum(y-f(x))^2$. $\tfrac12$ er for bekvemmelighet. Kvadratet straffer store feil, er deriverbart og gir maksimal likelihood under gaussisk støy (eksamen 2025). Det gjør MSE følsom for uteliggere.</li>
+    <li>MSE har enheten $y^2$. Tolk den via <strong>RMSE</strong> sammenlignet med størrelsen på $y$. MSE ≈ 960 med targets rundt 28 er stort.</li>
+    <li>Gradienter: $\partial L/\partial\beta_0=\frac1N\sum(f-y)$ og $\partial L/\partial\beta_1=\frac1N\sum x(f-y)$, altså «feil ganger input». Overestimering gir $\partial L/\partial\beta_0\gt0$, og $\beta_0$ senkes.</li>
+    <li>MSE for lineær regresjon er <strong>konveks</strong>, så GD finner globalt minimum med passende $\eta$. Uskalerte features gir avlange konturer og krever liten $\eta$.</li>
+    <li><strong>Polynomisk regresjon</strong> = feature extraction ($x\to x,x^2,\dots,x^M$) etterfulgt av vanlig lineær regresjon. Modellen er lineær i parametrene. <code>fit</code> transformasjonen på trening, <code>transform</code> test.</li>
+    <li>Feature engineering: selection, preprocessing, extraction.</li>
+    <li><strong>Polynomgraden er en hyperparameter.</strong> Grad 1 undertilpasser, grad 15 overtilpasser. Trenings-MSE synker alltid med graden, men test-MSE har en dal.</li>
+    <li>Forventningsrett estimator: $\mathbb E[\hat\theta]=\theta$. Når $\partial L/\partial\beta_0=0$, er gjennomsnittlig residual null. Gradient nær null betyr nær et stasjonært punkt, som for konveks MSE er minimum.</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="front">Regresjon vs klassifisering</div><div class="back">Regresjon: kontinuerlig target (pris, temperatur). Klassifisering: kategori (spam/ikke spam). Logistisk regresjon er klassifisering.</div></div>
+  <div class="card"><div class="front">$\beta_0$ og $\beta_1$</div><div class="back">$\beta_0$: skjæringspunkt, $f(0)$, forskyver alle prediksjoner (baseline). $\beta_1$: stigningstall, endring i $f$ per enhet $x$.</div></div>
+  <div class="card"><div class="front">MSE</div><div class="back">$\frac{1}{2N}\sum (y^{(i)}-f(x^{(i)}))^2$. $\tfrac12$ kansellerer 2-eren ved derivasjon. Enhet: $y^2$.</div></div>
+  <div class="card"><div class="front">Hvorfor kvadrat?</div><div class="back">Straffer store avvik, deriverbar overalt (konveks for lineære modeller), og maksimal likelihood under gaussisk støy. Ulempe: følsom for uteliggere.</div></div>
+  <div class="card"><div class="front">$\partial L/\partial\beta_0$</div><div class="back">$\frac1N\sum(f(x^{(i)})-y^{(i)})$, altså gjennomsnittsfeilen. Overestimering gir positiv gradient, og $\beta_0$ senkes.</div></div>
+  <div class="card"><div class="front">$\partial L/\partial\beta_1$</div><div class="back">$\frac1N\sum x^{(i)}(f(x^{(i)})-y^{(i)})$, «feil ganger input». For bratt linje gir positiv gradient.</div></div>
+  <div class="card"><div class="front">Oppdateringsregel</div><div class="back">$\beta_j\leftarrow\beta_j-\eta\,\partial L/\partial\beta_j$. Gå mot gradienten, med steglengde $\eta$.</div></div>
+  <div class="card"><div class="front">RMSE</div><div class="back">$\sqrt{\text{MSE}}$ (uten ½), i samme enhet som $y$. Sammenlign med størrelsen og spredningen til $y$.</div></div>
+  <div class="card"><div class="front">Polynomisk regresjon</div><div class="back">Lag features $x,x^2,\dots,x^M$ og gjør lineær regresjon. Lineær i parametrene. $M+1$ parametre.</div></div>
+  <div class="card"><div class="front">Feature engineering</div><div class="back">Selection (velge kolonner), preprocessing (skalere eller kode om), extraction (lage nye features, f.eks. $x^2$ eller BMI).</div></div>
+  <div class="card"><div class="front">Polynomgrad</div><div class="back">Hyperparameter. For lav gir undertilpasning, for høy gir overtilpasning. Velges med valideringsdata.</div></div>
+  <div class="card"><div class="front">Forventningsrett estimator</div><div class="back">$\mathbb E[\hat\theta]=\theta$: ingen systematisk feil. Residualene sentrerer rundt 0.</div></div>
+  <div class="card"><div class="front">Gradient ≈ 0</div><div class="back">Nær et stasjonært punkt. For konveks MSE er det globalt minimum, og modellen har konvergert. I SGD er gradienten støyete.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+/* ---------- felles hjelpere for kapittel 6 ---------- */
+window.K6 = (function () {
+  const T7y = [-6.359354964838024,-4.206219476164554,-11.127060105339346,-7.771131386305228,-8.124549343247278,-7.182177496316401,-6.037172478551233,-2.504149653937351,-5.026172414497464,-2.950079094157873,-1.4507431897248368,-5.336622551581822,-4.059330972662908,-4.327888761967305,-1.0623486580711823,-4.409261395640257,2.9475603563217945,-1.5395408141822513,2.4622402587375745,2.642472707669069,2.31891903693072,3.2425842723044016,3.537834860795493,0.3798562973180845,4.140802310836296,1.9614206593287309,5.162903327838864,3.5197438184133043,6.243395322509395,5.141524420933673,5.370176682456397,10.254373431713347,5.43525345790149,5.159899203707566,8.114723631612268,10.611562465835878,4.08003418246534,12.898017911956575,10.838245427992971,9.886185758809033];
+  const table7 = T7y.map((y, i) => ({ x: -10 + 0.5 * i, y }));
+  /* enkel lineær regresjon (lukket form) */
+  function ols(pts) {
+    const n = pts.length; let mx = 0, my = 0; pts.forEach(p => { mx += p.x; my += p.y; }); mx /= n; my /= n;
+    let sxy = 0, sxx = 0; pts.forEach(p => { sxy += (p.x - mx) * (p.y - my); sxx += (p.x - mx) ** 2; });
+    const b1 = sxy / sxx; return { b0: my - b1 * mx, b1 };
+  }
+  /* Legendre-basis på t i [-1,1] */
+  function legendre(t, M) {
+    const out = [1]; if (M >= 1) out.push(t);
+    for (let k = 1; k < M; k++) out.push(((2 * k + 1) * t * out[k] - k * out[k - 1]) / (k + 1));
+    return out;
+  }
+  /* minste kvadrater via Householder-QR, med liten ridge for stabilitet */
+  function lstsq(A, y, ridge = 1e-9) {
+    const n = A[0].length;
+    const R = A.map(r => r.slice()), b = y.slice();
+    for (let j = 0; j < n; j++) { const row = new Array(n).fill(0); row[j] = Math.sqrt(ridge); R.push(row); b.push(0); }
+    const m = R.length;
+    for (let k = 0; k < n; k++) {
+      let norm = 0; for (let i = k; i < m; i++) norm += R[i][k] ** 2; norm = Math.sqrt(norm);
+      if (norm < 1e-300) continue;
+      const alpha = R[k][k] > 0 ? -norm : norm;
+      const v = new Array(m).fill(0); for (let i = k; i < m; i++) v[i] = R[i][k]; v[k] -= alpha;
+      let vn = 0; for (let i = k; i < m; i++) vn += v[i] ** 2; if (vn < 1e-300) continue;
+      for (let j = k; j < n; j++) { let s = 0; for (let i = k; i < m; i++) s += v[i] * R[i][j]; s = 2 * s / vn; for (let i = k; i < m; i++) R[i][j] -= s * v[i]; }
+      let s = 0; for (let i = k; i < m; i++) s += v[i] * b[i]; s = 2 * s / vn; for (let i = k; i < m; i++) b[i] -= s * v[i];
+    }
+    const c = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) { let s = b[i]; for (let j = i + 1; j < n; j++) s -= R[i][j] * c[j]; c[i] = Math.abs(R[i][i]) < 1e-300 ? 0 : s / R[i][i]; }
+    return c;
+  }
+  /* tilpass polynom av grad M; x normaliseres til [-1,1] med gitt [lo,hi] */
+  function polyfit(pts, M, lo, hi) {
+    const tf = x => 2 * (x - lo) / (hi - lo) - 1;
+    const A = pts.map(p => legendre(tf(p.x), M)), y = pts.map(p => p.y);
+    const c = lstsq(A, y);
+    return x => { const phi = legendre(tf(x), M); let s = 0; for (let j = 0; j <= M; j++) s += c[j] * phi[j]; return s; };
+  }
+  const mse = (pts, f) => pts.reduce((s, p) => s + (p.y - f(p.x)) ** 2, 0) / pts.length;
+  const fmt = (v, d = 3) => (Math.abs(v) >= 1e4 ? v.toExponential(2) : v.toFixed(d)).replace("-", "−");
+  return { table7, ols, legendre, lstsq, polyfit, mse, fmt };
+})();
+</script>
+
+<script>
+/* ---------- Widget 1: tilpass linjen selv ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const cv = document.getElementById("fitCanvas");
+  const P = CK.plot(cv, { xmin: -11, xmax: 11, ymin: -16, ymax: 16, pad: { l: 40, r: 12, t: 12, b: 34 } });
+  const data = K6.table7, best = K6.ols(data);
+  const s0 = document.getElementById("fitB0"), s1 = document.getElementById("fitB1");
+  const read = document.getElementById("fitRead");
+  function draw() {
+    const b0 = +s0.value, b1 = +s1.value;
+    document.getElementById("fitB0o").textContent = b0.toFixed(2);
+    document.getElementById("fitB1o").textContent = b1.toFixed(2);
+    P.clear().grid().axes({ xlabel: "x₁", ylabel: "y" });
+    const ctx = P.ctx;
+    let sse = 0, g0 = 0, g1 = 0;
+    data.forEach(p => {
+      const f = b0 + b1 * p.x, r = f - p.y; sse += r * r; g0 += r; g1 += p.x * r;
+      const py = P.Y(p.y), pf = P.Y(f), side = Math.abs(pf - py);
+      ctx.save(); ctx.fillStyle = r > 0 ? P.col("c2") : P.col("c4"); ctx.globalAlpha = 0.13;
+      const left = P.X(p.x);
+      ctx.fillRect(left, Math.min(py, pf), side * (p.x > 8 ? -1 : 1), side);
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 1;
+      ctx.strokeRect(left, Math.min(py, pf), side * (p.x > 8 ? -1 : 1), side); ctx.restore();
+    });
+    P.fn(x => b0 + b1 * x, { color: P.col("c1"), width: 2.5 });
+    P.points(data, { color: P.col("text"), r: 3.5 });
+    const n = data.length, L = sse / (2 * n); g0 /= n; g1 /= n;
+    const Lb = K6.mse(data, x => best.b0 + best.b1 * x) / 2;
+    const sg = (g, name) => `<span class="readout">∂L/∂${name} = <span class="${g > 0 ? "grad-pos" : "grad-neg"}">${K6.fmt(g, 2)}</span> → ${Math.abs(g) < 0.05 ? "nær null" : (g > 0 ? "senk " : "øk ") + name}</span>`;
+    read.innerHTML = `<span class="readout">MSE (½) = ${K6.fmt(L, 2)}</span><span class="readout">beste mulige = ${K6.fmt(Lb, 2)}</span>` + sg(g0, "β₀") + sg(g1, "β₁");
+  }
+  s0.oninput = s1.oninput = draw;
+  document.getElementById("fitBest").onclick = () => { s0.value = best.b0.toFixed(2); s1.value = best.b1.toFixed(2); draw(); };
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget 2: gradient descent i parameter- og datarom ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const raw = K6.table7;
+  const mean = raw.reduce((s, p) => s + p.x, 0) / raw.length;
+  const sd = Math.sqrt(raw.reduce((s, p) => s + (p.x - mean) ** 2, 0) / raw.length);
+  const etaS = document.getElementById("gdEta"), stdC = document.getElementById("gdStd"), read = document.getElementById("gdRead");
+  const PP = CK.plot(document.getElementById("gdParam"), { pad: { l: 44, r: 10, t: 10, b: 34 } });
+  const PD = CK.plot(document.getElementById("gdData"), { xmin: -11, xmax: 11, ymin: -16, ymax: 16, pad: { l: 36, r: 10, t: 10, b: 34 } });
+  let pts, S, view, path, timer = null, diverged = false;
+  const views = {
+    raw: { xmin: -8, xmax: 8, ymin: -2, ymax: 3, start: [-6, -1.5] },
+    std: { xmin: -8, xmax: 8, ymin: -4, ymax: 10, start: [-6, -3] }
+  };
+  function setup() {
+    const std = stdC.checked;
+    pts = raw.map(p => ({ x: std ? (p.x - mean) / sd : p.x, y: p.y }));
+    const n = pts.length; S = { mx: 0, mxx: 0, my: 0, mxy: 0, myy: 0 };
+    pts.forEach(p => { S.mx += p.x / n; S.mxx += p.x * p.x / n; S.my += p.y / n; S.mxy += p.x * p.y / n; S.myy += p.y * p.y / n; });
+    view = views[std ? "std" : "raw"]; PP.setView(view);
+    path = [view.start.slice()]; diverged = false; heat = null;
+  }
+  const loss = (b0, b1) => 0.5 * (b0 * b0 + 2 * b0 * b1 * S.mx + b1 * b1 * S.mxx - 2 * b0 * S.my - 2 * b1 * S.mxy + S.myy);
+  const grad = (b0, b1) => [b0 + b1 * S.mx - S.my, b0 * S.mx + b1 * S.mxx - S.mxy];
+  const opt = () => { const det = S.mxx - S.mx * S.mx; const b1 = (S.mxy - S.mx * S.my) / det; return [S.my - b1 * S.mx, b1]; };
+  let heat = null;
+  function buildHeat() {
+    const c = document.createElement("canvas"); const W = PP.W, H = PP.H; c.width = W; c.height = H;
+    const ctx = c.getContext("2d"); const cell = 4; let lo = Infinity, hi = -Infinity; const vals = [];
+    for (let py = PP.pad.t; py < H - PP.pad.b; py += cell) for (let px = PP.pad.l; px < W - PP.pad.r; px += cell) {
+      const v = Math.log(loss(PP.invX(px + cell / 2), PP.invY(py + cell / 2))); vals.push([px, py, v]); lo = Math.min(lo, v); hi = Math.max(hi, v);
+    }
+    ctx.fillStyle = PP.col("c1");
+    vals.forEach(([px, py, v]) => { const s = Math.floor((v - lo) / (hi - lo) * 14) / 14; ctx.globalAlpha = 0.06 + 0.6 * (1 - s) ** 1.5; ctx.fillRect(px, py, cell, cell); });
+    heat = c;
+  }
+  function draw() {
+    const eta = Math.pow(10, +etaS.value);
+    document.getElementById("gdEtaO").textContent = "η = " + (eta < 0.01 ? eta.toFixed(4) : eta.toFixed(3));
+    if (!heat) buildHeat();
+    PP.clear(); PP.ctx.drawImage(heat, 0, 0, PP.W, PP.H);
+    PP.axes({ frame: true, xlabel: stdC.checked ? "β₀ (std. x)" : "β₀", ylabel: stdC.checked ? "β₁ (std. x)" : "β₁" });
+    const o = opt();
+    PP.text("+", o[0], o[1], { align: "center", size: 20, bold: true, color: PP.col("c3") });
+    const vis = path.map(p => ({ x: Math.max(view.xmin - 50, Math.min(view.xmax + 50, p[0])), y: Math.max(view.ymin - 50, Math.min(view.ymax + 50, p[1])) }));
+    PP.ctx.save(); PP.ctx.beginPath(); PP.ctx.rect(PP.pad.l, PP.pad.t, PP.W - PP.pad.l - PP.pad.r, PP.H - PP.pad.t - PP.pad.b); PP.ctx.clip();
+    PP.path(vis, { color: PP.col("c2"), width: 2 });
+    PP.points(vis.slice(-1), { color: PP.col("c2"), r: 5 });
+    PP.points(vis.slice(0, -1), { color: PP.col("c2"), r: 2.5 });
+    PP.ctx.restore();
+    // datarom
+    PD.clear().grid().axes({ xlabel: "x₁ (opprinnelig skala)", ylabel: "y" });
+    PD.points(raw, { color: PD.col("text"), r: 3 });
+    const toRaw = (b) => stdC.checked ? [b[0] - b[1] * mean / sd, b[1] / sd] : b;
+    const k = Math.max(0, path.length - 8);
+    path.slice(k, -1).forEach((b, i) => { const r = toRaw(b); if (isFinite(r[0]) && isFinite(r[1])) PD.fn(x => r[0] + r[1] * x, { color: PD.col("c2"), width: 1, dash: [3, 3], samples: 2 }); });
+    const cur = path[path.length - 1], cr = toRaw(cur);
+    if (isFinite(cr[0]) && isFinite(cr[1])) PD.fn(x => cr[0] + cr[1] * x, { color: PD.col("c2"), width: 2.5, samples: 2 });
+    const L = loss(cur[0], cur[1]);
+    read.innerHTML = `<span class="readout">iterasjon ${path.length - 1}</span><span class="readout">β₀ = ${K6.fmt(cur[0], 3)}</span><span class="readout">β₁ = ${K6.fmt(cur[1], 3)}</span><span class="readout">MSE (½) = ${isFinite(L) ? K6.fmt(L, 3) : "∞"}</span>` + (diverged ? `<span class="readout" style="color:var(--bad)">divergerer! senk η</span>` : "");
+  }
+  function step() {
+    if (diverged) return;
+    const eta = Math.pow(10, +etaS.value), c = path[path.length - 1], g = grad(c[0], c[1]);
+    const nx = [c[0] - eta * g[0], c[1] - eta * g[1]];
+    path.push(nx); if (path.length > 400) path.splice(1, 1);
+    if (!isFinite(loss(nx[0], nx[1])) || Math.abs(nx[0]) + Math.abs(nx[1]) > 1e6) diverged = true;
+    draw();
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; document.getElementById("gdRun").textContent = "Kjør"; } }
+  document.getElementById("gdStep").onclick = () => { stop(); step(); };
+  document.getElementById("gdRun").onclick = () => {
+    if (timer) return stop();
+    document.getElementById("gdRun").textContent = "Pause";
+    timer = setInterval(() => { step(); if (diverged || path.length > 300) stop(); }, 70);
+  };
+  document.getElementById("gdReset").onclick = () => { stop(); path = [view.start.slice()]; diverged = false; draw(); };
+  stdC.onchange = () => { stop(); etaS.value = stdC.checked ? -0.3 : -1.5; setup(); draw(); };
+  etaS.oninput = draw;
+  document.getElementById("gdParam").addEventListener("click", e => {
+    const m = PP.mouse(e); stop(); path = [[PP.invX(m.px), PP.invY(m.py)]]; diverged = false; draw();
+  });
+  setup();
+  CK.live(() => { heat = null; draw(); });
+});
+</script>
+
+<script>
+/* ---------- Widget 3: polynomgrad 1–15 ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const PF = CK.plot(document.getElementById("polyFit"), { xmin: -10.5, xmax: 10.5, pad: { l: 44, r: 12, t: 12, b: 34 } });
+  const PE = CK.plot(document.getElementById("polyErr"), { xmin: 0.5, xmax: 15.5, pad: { l: 52, r: 12, t: 12, b: 34 } });
+  const deg = document.getElementById("polyDeg"), set = document.getElementById("polySet"), read = document.getElementById("polyRead");
+  const truths = {
+    ukjent: { F: x => 0.02 * x ** 3 - 1.2 * x + 2, sd: 3, ymin: -18, ymax: 22 },
+    parabel: { F: x => x * x + 2 * x, sd: 6, ymin: -25, ymax: 130 }
+  };
+  let seed = 7, train, test, errs, T;
+  function gen() {
+    T = truths[set.value]; const r = CK.rng(seed + (set.value === "parabel" ? 100 : 0));
+    const all = []; for (let i = 0; i < 45; i++) { const x = -10 + 20 * r(); all.push({ x, y: T.F(x) + r.normal(0, T.sd) }); }
+    train = all.slice(0, 30); test = all.slice(30);
+    errs = []; for (let M = 1; M <= 15; M++) { const f = K6.polyfit(train, M, -10, 10); errs.push({ M, tr: K6.mse(train, f), te: K6.mse(test, f) }); }
+    PF.setView({ ymin: T.ymin, ymax: T.ymax });
+  }
+  function draw() {
+    const M = +deg.value; document.getElementById("polyDegO").textContent = M;
+    const f = K6.polyfit(train, M, -10, 10);
+    PF.clear().grid().axes({ xlabel: "x", ylabel: "y" });
+    PF.ctx.save(); PF.ctx.beginPath(); PF.ctx.rect(PF.pad.l, PF.pad.t, PF.W - PF.pad.l - PF.pad.r, PF.H - PF.pad.t - PF.pad.b); PF.ctx.clip();
+    PF.fn(T.F, { color: PF.col("muted"), width: 1.5, dash: [5, 4] });
+    PF.fn(f, { color: PF.col("c3"), width: 2.6, samples: 600 });
+    PF.ctx.restore();
+    PF.points(train, { color: PF.col("c1"), r: 4 });
+    PF.points(test, { color: PF.col("c2"), r: 4 });
+    PF.legend([{ color: PF.col("c1"), label: "trening" }, { color: PF.col("c2"), label: "test" }, { color: PF.col("c3"), label: "modell, grad " + M }]);
+    // feilkurve (log10)
+    const lv = errs.flatMap(e => [Math.log10(Math.max(e.tr, 1e-3)), Math.log10(Math.max(e.te, 1e-3))]);
+    const lo = Math.floor(Math.min(...lv)), hi = Math.min(Math.ceil(Math.max(...lv)), lo + 8);
+    PE.setView({ ymin: lo, ymax: hi });
+    const yt = []; for (let v = lo; v <= hi; v++) yt.push(v);
+    PE.clear().grid({ yticks: yt, xticks: [1, 3, 5, 7, 9, 11, 13, 15] }).axes({ frame: true, xticks: false, yticks: yt, fmt: v => (v >= 0 && v <= 4 ? String(10 ** v) : "1e" + v), ylabel: "MSE (log)" });
+    PE.axes({ frame: true, xticks: [1, 3, 5, 7, 9, 11, 13, 15], yticks: false, xlabel: "grad M" });
+    const cl = v => Math.min(hi, Math.log10(Math.max(v, 1e-3)));
+    PE.path(errs.map(e => ({ x: e.M, y: cl(e.tr) })), { color: PE.col("c1"), width: 2 });
+    PE.path(errs.map(e => ({ x: e.M, y: cl(e.te) })), { color: PE.col("c2"), width: 2 });
+    PE.points(errs.map(e => ({ x: e.M, y: cl(e.tr) })), { color: PE.col("c1"), r: 3 });
+    PE.points(errs.map(e => ({ x: e.M, y: cl(e.te) })), { color: PE.col("c2"), r: 3 });
+    PE.line(M, lo, M, hi, { color: PE.col("c3"), width: 1.5, dash: [4, 3] });
+    PE.legend([{ color: PE.col("c1"), label: "trenings-MSE" }, { color: PE.col("c2"), label: "test-MSE" }], { x: PE.W - 150 });
+    const e = errs[M - 1], bestM = errs.reduce((a, b) => b.te < a.te ? b : a).M;
+    read.innerHTML = `<span class="readout">trenings-MSE = ${K6.fmt(e.tr, 2)}</span><span class="readout">test-MSE = ${K6.fmt(e.te, 2)}</span><span class="readout">parametre = ${M + 1}</span><span class="readout">lavest test-MSE ved grad ${bestM}</span>`;
+  }
+  deg.oninput = draw;
+  set.onchange = () => { gen(); draw(); };
+  document.getElementById("polyNew").onclick = () => { seed++; gen(); draw(); };
+  gen(); CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget 4: residualfordeling (prosjekt 1-lignende data) ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const r = CK.rng(2024); const data = [];
+  for (let i = 0; i < 300; i++) { const x = 10 + 20 * r(); data.push({ x, y: 4.9 + 3.0 * x + r.normal(0, 2) }); }
+  const best = K6.ols(data);
+  const PD = CK.plot(document.getElementById("resData"), { xmin: 9, xmax: 31, ymin: 25, ymax: 105, pad: { l: 40, r: 10, t: 10, b: 34 } });
+  const PH = CK.plot(document.getElementById("resHist"), { xmin: -14, xmax: 14, ymin: 0, ymax: 0.3, pad: { l: 40, r: 10, t: 10, b: 34 } });
+  const d0 = document.getElementById("resD0"), d1 = document.getElementById("resD1"), read = document.getElementById("resRead");
+  function draw() {
+    const b0 = best.b0 + +d0.value, b1 = best.b1 + +d1.value;
+    document.getElementById("resD0o").textContent = (+d0.value).toFixed(1);
+    document.getElementById("resD1o").textContent = (+d1.value).toFixed(2);
+    const res = data.map(p => p.y - (b0 + b1 * p.x));
+    PD.clear().grid().axes({ frame: true, xlabel: "Net_Activity", ylabel: "Energy" });
+    PD.points(data.map((p, i) => ({ x: p.x, y: p.y, color: res[i] > 0 ? PD.col("c4") : PD.col("c2") })), { r: 2.5, alpha: 0.7, stroke: false });
+    PD.fn(x => b0 + b1 * x, { color: PD.col("c1"), width: 2.5 });
+    // histogram
+    const bw = 1, bins = {}; res.forEach(v => { const k = Math.floor(v / bw); bins[k] = (bins[k] || 0) + 1; });
+    PH.clear().grid().axes({ frame: true, xlabel: "residual y − ŷ", ylabel: "andel", yticks: false });
+    Object.keys(bins).forEach(k => { const x0 = k * bw; PH.rect(x0, 0, x0 + bw, Math.min(0.3, bins[k] / data.length), { fill: PH.col("c1"), alpha: 0.55, color: PH.col("surface"), width: 1 }); });
+    const m = res.reduce((s, v) => s + v, 0) / res.length;
+    PH.line(0, 0, 0, 0.3, { color: PH.col("muted"), width: 1.2, dash: [4, 3] });
+    PH.line(m, 0, m, 0.3, { color: PH.col("c2"), width: 2.5 });
+    PH.text("snitt", m, 0.285, { color: PH.col("c2"), align: "center", size: 12 });
+    const rmse = Math.sqrt(res.reduce((s, v) => s + v * v, 0) / res.length);
+    const g0 = -m, g1 = -data.reduce((s, p, i) => s + p.x * res[i], 0) / data.length;
+    read.innerHTML = `<span class="readout">Energy ≈ ${b0.toFixed(2)} + ${b1.toFixed(2)}·x</span><span class="readout">snittfeil = ${K6.fmt(m, 2)}</span><span class="readout">RMSE = ${rmse.toFixed(2)}</span><span class="readout">∂L/∂β₀ = ${K6.fmt(g0, 2)}</span><span class="readout">∂L/∂β₁ = ${K6.fmt(g1, 2)}</span>`;
+  }
+  d0.oninput = d1.oninput = draw;
+  CK.live(draw);
+});
+</script>
+</body>
+</html>

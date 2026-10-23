@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 · Logistisk regresjon og gradient descent – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  /* figurramme (egen klasse, fordi .card brukes av flashcards i course.js) */
+  figure.fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  figure.fig svg { display: block; width: 100%; height: auto; max-width: 680px; margin: 0 auto; }
+  .fig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fig-grid img { width: 100%; height: auto; }
+  @media (max-width: 560px) { .fig-grid { grid-template-columns: 1fr; } }
+  .widget select { font: inherit; font-size: 14.5px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .canvas-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 640px) { .canvas-pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-chapter="02">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 02 · Del I · Veiledet læring</div>
+  <h1>Logistisk regresjon og gradient descent</h1>
+  <p class="lead">Den første ekte læringsalgoritmen i kurset. Vi bygger en modell som gir en sannsynlighet, finner en tapsfunksjon som sier hvor feil den er, og lar gradient descent skru på parametrene til tapet er minst mulig. Akkurat den samme oppskriften trener nevrale nettverk senere.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>skrive opp modellen $y_{pred} = \sigma(w\mathbf{x} + b)$ og forklare hvorfor vi trenger sigmoid</li>
+    <li>forklare antakelsen om ingen vekselvirkninger og hvorfor beslutningsgrensen er lineær</li>
+    <li>utlede binary cross-entropy fra likelihood, og forklare log og minustegn</li>
+    <li>forklare gradient descent, læringsraten, konveksitet og hvorfor tapet må være deriverbart</li>
+    <li>utlede $\partial L / \partial w_j = (y_{pred} - y)x_j$ og $\partial L/\partial b = y_{pred} - y$ trinn for trinn</li>
+    <li>regne ett gradient-steg for hånd med kalkulator</li>
+    <li>lese og skrive en vektorisert implementasjon med <code>fit</code> og <code>predict</code>, og tolke tap- og accuracy-kurver</li>
+  </ul>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="modell"><span class="sec">2.1</span>Fra lineær modell til sannsynlighet</h2>
+
+<p>Vi fortsetter med Titanic fra <a href="01-grunnlag.html">kapittel 1</a>. Vi vil ha en modell som tar inn features $\mathbf{x}$ (klasse, kjønn, alder) og gir sannsynligheten for å overleve. Den enkleste modellen vi kan tenke oss er en <strong>lineær modell</strong>:</p>
+
+<div class="eq">
+  <p class="eq-note">Lineær modell (likning 2 i notatene)</p>
+  $$z = \sum_{j=1}^{n} w_j x_j + b = w\mathbf{x} + b$$
+</div>
+
+<p>Hver <strong>vekt</strong> (weight) $w_j$ sier hvor viktig feature $x_j$ er for utfallet, og hvilken retning den drar: positiv $w_j$ betyr at større $x_j$ gir større $z$. <strong>Bias</strong> $b$ er konstantleddet, som flytter hele uttrykket opp eller ned uavhengig av features.</p>
+
+<div class="quiz" data-id="02-z-scalar">
+  <p class="q">Notatene ber deg tenke over dette: Er $z = w\mathbf{x} + b$ et tall eller en vektor, for <em>ett</em> datapunkt?</p>
+  <ul>
+    <li data-correct>Et tall (skalar), fordi $w\mathbf{x}$ er et prikkprodukt</li>
+    <li>En vektor med $n$ elementer, én per feature</li>
+    <li>En matrise med størrelse $n \times n$</li>
+    <li>Det avhenger av hvor mange datapunkter vi har</li>
+  </ul>
+  <div class="explain">Både $w$ og $\mathbf{x}$ er vektorer med $n$ elementer, men $w\mathbf{x} = \sum_j w_j x_j$ er et prikkprodukt: gang sammen elementvis og summer. Resultatet er ett tall, og pluss $b$ er det fortsatt ett tall. (Regner vi ut $z$ for <em>alle</em> $N$ datapunkter samtidig med en matrise $X$, får vi en vektor med $N$ tall, ett per datapunkt. Men det er fordi vi har $N$ datapunkter, ikke fordi $z$ for ett punkt er en vektor.)</div>
+</div>
+
+<div class="calc" data-id="02-calc-z" data-answer="0.5" data-tol="0.001">
+  <p class="q">La $w = (2, -1, 0.5)$, $b = 0.5$ og $\mathbf{x} = (1, 3, 2)$. Hva er $z$?</p>
+  <div class="solution">$z = 2\cdot 1 + (-1)\cdot 3 + 0.5 \cdot 2 + 0.5 = 2 - 3 + 1 + 0.5 = 0.5$.</div>
+</div>
+
+<h3 id="sigmoid">Problemet med z, og sigmoid som løsning</h3>
+<p>$z$ kan bli et hvilket som helst reelt tall: $-37$, $0.2$, $1500$. Men vi vil ha en <em>sannsynlighet</em>, altså et tall mellom 0 og 1. Løsningen er å sende $z$ gjennom den <strong>logistiske funksjonen</strong>, også kalt <strong>sigmoid</strong> fordi den er formet som en S:</p>
+
+<div class="eq">
+  <p class="eq-note">Sigmoid (likning 3) og modellens prediksjon (likning 4)</p>
+  $$\sigma(z) = \frac{1}{1 + e^{-z}} \qquad\Longrightarrow\qquad y_{pred} = \sigma(w\mathbf{x}+b) = \frac{1}{1 + e^{-(\sum_j w_j x_j + b)}}$$
+</div>
+
+<div class="chain">
+  <div><b>Problem</b>$z$ kan bli hva som helst</div><div class="arrow">→</div>
+  <div><b>Løsning</b>send $z$ gjennom sigmoid</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>$y_{pred} \in (0,1)$ kan tolkes som $p(y=1 \mid \mathbf{x})$</div>
+</div>
+
+<p>Noen verdier det lønner seg å kunne utenat:</p>
+<table class="center">
+  <thead><tr><th>$z$</th><th>$-\infty$</th><th>$-2$</th><th>$0$</th><th>$2$</th><th>$+\infty$</th></tr></thead>
+  <tbody><tr><td>$\sigma(z)$</td><td>$\to 0$</td><td>$\approx 0.12$</td><td>$0.5$</td><td>$\approx 0.88$</td><td>$\to 1$</td></tr></tbody>
+</table>
+
+<div class="callout why"><span class="label">Hvorfor akkurat sigmoid?</span>
+<ul style="margin:0">
+  <li>Den gir verdier i det åpne intervallet $(0,1)$, aldri nøyaktig 0 eller 1.</li>
+  <li>Den er <strong>monoton</strong>: større $z$ gir alltid større sannsynlighet, så rekkefølgen fra den lineære modellen bevares.</li>
+  <li>Den er glatt og <strong>deriverbar</strong> overalt, med en ekstremt pen derivert: $\sigma'(z) = \sigma(z)(1 - \sigma(z))$. Det trenger vi for gradient descent.</li>
+  <li>Den dukker opp igjen som <strong>aktiveringsfunksjon</strong> i nevrale nettverk (<a href="09-nevrale-nett.html">kapittel 9</a>), så den er verdt å huske.</li>
+</ul></div>
+
+<figure class="fig">
+<svg viewBox="0 0 680 210" role="img" aria-label="Logistisk regresjon som en beregningsgraf">
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"/></marker>
+  </defs>
+  <g font-size="14" text-anchor="middle">
+    <circle cx="60" cy="40" r="24" style="fill: var(--surface-2); stroke: var(--c1)" stroke-width="1.6"/><text x="60" y="45">x₁</text>
+    <circle cx="60" cy="105" r="24" style="fill: var(--surface-2); stroke: var(--c1)" stroke-width="1.6"/><text x="60" y="110">x₂</text>
+    <circle cx="60" cy="170" r="24" style="fill: var(--surface-2); stroke: var(--c1)" stroke-width="1.6"/><text x="60" y="175">x₃</text>
+    <path d="M86 44 L272 98" stroke-width="1.6" style="stroke: var(--muted)" marker-end="url(#a2)"/>
+    <path d="M86 105 L270 105" stroke-width="1.6" style="stroke: var(--muted)" marker-end="url(#a2)"/>
+    <path d="M86 166 L272 112" stroke-width="1.6" style="stroke: var(--muted)" marker-end="url(#a2)"/>
+    <text x="175" y="58" font-size="13" style="fill: var(--c1)">w₁</text>
+    <text x="175" y="98" font-size="13" style="fill: var(--c1)">w₂</text>
+    <text x="175" y="160" font-size="13" style="fill: var(--c1)">w₃</text>
+    <circle cx="305" cy="105" r="32" style="fill: var(--accent-soft); stroke: var(--c1)" stroke-width="1.8"/>
+    <text x="305" y="104" font-size="20">Σ</text><text x="305" y="123" font-size="11" style="fill: var(--muted)">+ b</text>
+    <path d="M339 105 L410 105" stroke-width="1.6" style="stroke: var(--muted)" marker-end="url(#a2)"/>
+    <text x="374" y="96" font-size="14" font-style="italic">z</text>
+    <rect x="414" y="75" width="80" height="60" rx="10" style="fill: var(--surface-2); stroke: var(--c3)" stroke-width="1.8"/>
+    <path d="M426 124 C 448 124, 446 86, 482 86" fill="none" style="stroke: var(--c3)" stroke-width="2.2"/>
+    <text x="454" y="152" font-size="13" style="fill: var(--muted)">σ(z)</text>
+    <path d="M496 105 L560 105" stroke-width="1.6" style="stroke: var(--muted)" marker-end="url(#a2)"/>
+    <text x="616" y="102" font-size="15" font-weight="700">y_pred</text>
+    <text x="616" y="122" font-size="12" style="fill: var(--muted)">∈ (0, 1)</text>
+  </g>
+</svg>
+<figcaption><b>Figur 2.1</b> Logistisk regresjon som en liten beregningsgraf: vekt hver feature, summer og legg til $b$ (lineær del), og klem resultatet inn i $(0,1)$ med sigmoid. Dette er nøyaktig ett nevron med sigmoid-aktivering, se <a href="09-nevrale-nett.html">kapittel 9</a>.</figcaption>
+</figure>
+
+<div class="widget" id="w-sig">
+  <h4>Utforsk: sigmoid med vekt og bias</h4>
+  <canvas id="sig" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>w <input type="range" id="sig-w" min="-4" max="4" step="0.1" value="1"><output id="sig-wo">1</output></label>
+    <label>b <input type="range" id="sig-b" min="-6" max="6" step="0.1" value="0"><output id="sig-bo">0</output></label>
+  </div>
+  <div class="readouts"><span class="readout" id="sig-r"></span></div>
+  <p class="small muted" style="margin:10px 0 0">Kurven er $y_{pred} = \sigma(wx + b)$ for én feature $x$. Legg merke til: <strong>w</strong> styrer hvor bratt overgangen er (stor $|w|$ = skarp, nesten trappetrinn; negativ $w$ snur kurven). <strong>b</strong> flytter kurven sidelengs. Den stiplede linjen er der $y_{pred} = 0.5$, altså der $z = 0$ og $x = -b/w$. Det er beslutningsgrensen.</p>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("sig"), { xmin: -8, xmax: 8, ymin: -0.05, ymax: 1.05 });
+  const w = document.getElementById("sig-w"), b = document.getElementById("sig-b");
+  function draw() {
+    const W = +w.value, B = +b.value;
+    document.getElementById("sig-wo").textContent = W.toFixed(1); document.getElementById("sig-bo").textContent = B.toFixed(1);
+    P.clear().grid().axes({ xlabel: "x", ylabel: "y_pred = σ(wx+b)" });
+    P.line(P.xmin, 0.5, P.xmax, 0.5, { color: P.col("muted"), width: 1, dash: [3, 4] });
+    P.fn(x => 1 / (1 + Math.exp(-(W * x + B))), { color: P.col("c1"), width: 2.8 });
+    let txt;
+    if (Math.abs(W) < 1e-9) txt = "w = 0: y_pred = σ(b) = " + (1 / (1 + Math.exp(-B))).toFixed(3) + " for alle x (ingen grense)";
+    else {
+      const x0 = -B / W;
+      if (x0 > P.xmin && x0 < P.xmax) { P.line(x0, -0.05, x0, 1.05, { color: P.col("c2"), width: 1.6, dash: [6, 4] }); P.points([{ x: x0, y: 0.5 }], { color: P.col("c2"), r: 5 }); }
+      txt = "y_pred = 0.5 ved x = −b/w = " + x0.toFixed(2) + " · klasse 1 for x " + (W > 0 ? "&gt;" : "&lt;") + " " + x0.toFixed(2);
+    }
+    document.getElementById("sig-r").innerHTML = txt;
+  }
+  w.oninput = b.oninput = draw;
+  CK.live(draw);
+});
+</script>
+
+<div class="quiz" data-id="02-sigmoid-output">
+  <p class="q">En logistisk regresjonsmodell gir $y_{pred} = \sigma(w\mathbf{x}+b)$. Hvilket utsagn om $y_{pred}$ er riktig?</p>
+  <ul>
+    <li>Den er alltid nøyaktig 0 eller 1</li>
+    <li>Den er garantert lik den sanne sannsynligheten for hendelsen</li>
+    <li>Den avhenger ikke av $w$ og $b$ etter at modellen er trent</li>
+    <li data-correct>Den er et tall i $(0,1)$ og kan tolkes som modellens estimerte sannsynlighet for klasse 1</li>
+  </ul>
+  <div class="explain">Sigmoid gir verdier strengt mellom 0 og 1. Det blir 0 eller 1 først når vi bruker en <em>terskel</em> (typisk 0.5) for å velge klasse. Det er et <em>estimat</em>: en dårlig trent eller feilspesifisert modell kan gi feil sannsynligheter. Og $y_{pred}$ avhenger nettopp av $w$ og $b$, som er låst etter trening. (Eksamen 2025 del 1.2.)</div>
+</div>
+
+<h3 id="vekselvirkning">Antakelsen: ingen vekselvirkninger</h3>
+<p>Se på $z = w_1 x_1 + w_2 x_2 + b$. Øker vi $x_1$ med 1, øker $z$ med nøyaktig $w_1$, <em>uansett hva $x_2$ er</em>. Effekten av én feature er uavhengig av de andre. Vi sier at modellen antar at det <strong>ikke er vekselvirkninger</strong> (interaksjoner) mellom features.</p>
+<p>I virkeligheten finnes vekselvirkninger hele tiden. Kanskje det å være barn økte sjansen for å overleve mye på første klasse, men lite på tredje. Det kan ikke en lineær modell uttrykke med bare $x_1$ og $x_2$.</p>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2024 oppg. 1</strong>: «Hvilken antakelse gjør en lineær modell om dataene?» Riktig: <em>at det ikke er vekselvirkninger mellom features</em>. Distraktorer: «antar høy bias», «antar at den vil undertilpasse», og det motsatte, «effekten av hver variabel avhenger av andre variabler».</p></div>
+
+<div class="quiz" data-id="02-interaction">
+  <p class="q">En modell har $z = 0.8 x_1 - 0.3 x_2 + 0.1$. Hvor mye endres $z$ hvis $x_1$ øker fra 2 til 3, når $x_2 = 10$? Og når $x_2 = -5$?</p>
+  <ul>
+    <li>$0.8$ når $x_2 = 10$, og $-0.7$ når $x_2 = -5$</li>
+    <li data-correct>$0.8$ i begge tilfeller</li>
+    <li>$0.8 \cdot 10 = 8$ og $0.8 \cdot (-5) = -4$</li>
+    <li>Det kan ikke avgjøres uten å vite $b$</li>
+  </ul>
+  <div class="explain">I en lineær modell er endringen i $z$ når $x_1$ øker med 1 alltid lik $w_1 = 0.8$, uavhengig av $x_2$ og $b$. Det er nettopp antakelsen om ingen vekselvirkninger. Hadde modellen hatt et ledd $w_3 x_1 x_2$, ville effekten av $x_1$ avhengt av $x_2$.</div>
+</div>
+
+<h3 id="grense">Lineær beslutningsgrense, og når den ikke holder</h3>
+<p>Vi velger klasse 1 når $y_{pred} \gt 0.5$. Siden $\sigma(z) = 0.5$ nøyaktig når $z = 0$, er grensen mellom klassene:</p>
+<div class="eq">
+  <p class="eq-note">Beslutningsgrensen</p>
+  $$y_{pred} = 0.5 \iff z = w\mathbf{x} + b = 0$$
+</div>
+<p>Med to features er $w_1 x_1 + w_2 x_2 + b = 0$ en <strong>rett linje</strong>; med tre features et plan; med flere et <em>hyperplan</em>. Logistisk regresjon kan altså bare skille klasser med en rett grense. Det er modellens <strong>induktive bias</strong> (<a href="01-grunnlag.html#induktiv">kapittel 1</a>).</p>
+
+<div class="calc" data-id="02-calc-boundary" data-answer="1" data-tol="0">
+  <p class="q">En modell har $w = (2, -1)$ og $b = -1$. Et datapunkt har $\mathbf{x} = (1, 0.5)$. Hvilken klasse predikerer modellen med terskel 0.5? (Svar 0 eller 1.)</p>
+  <div class="solution">$z = 2 \cdot 1 - 1 \cdot 0.5 - 1 = 0.5 &gt; 0$, så $y_{pred} = \sigma(0.5) \approx 0.62 &gt; 0.5$, og modellen sier klasse 1. Du trenger ikke regne ut sigmoid: fortegnet til $z$ avgjør klassen. Beslutningsgrensen er linjen $2x_1 - x_2 - 1 = 0$, altså $x_2 = 2x_1 - 1$.</div>
+</div>
+
+<p>Hva om dataene <em>ikke</em> kan skilles av en rett linje? Da hjelper ingen mengde trening. Trikset er <strong>feature engineering</strong>: lag nye features av de gamle, slik at problemet blir lineært i de nye. Hvis klassene ligger i et XOR-mønster (klasse 1 i to motstående kvadranter), er produktet $x_1 x_2$ positivt i den ene klassen og negativt i den andre. Legger vi til $x_3 = x_1 x_2$ som feature, blir modellen</p>
+<div class="eq">$$z = w_1 x_1 + w_2 x_2 + w_3\, x_1 x_2 + b$$</div>
+<p>som fortsatt er lineær i <em>parametrene</em> (så alt i dette kapittelet gjelder), men gir en krum grense i det opprinnelige $(x_1, x_2)$-rommet. Og legg merke til at $x_1 x_2$ nettopp er et <strong>vekselvirkningsledd</strong>. Du kan prøve dette selv i widgeten i <a href="#trening">seksjon 2.7</a>.</p>
+
+<div class="callout proj"><span class="label">Prosjekt 1, problem 2</span><p>Kravet var minst <strong>0.88</strong> test-accuracy på data som er «not linearly separable». Logistisk regresjon på rå $x_0, x_1$ gir rundt 0.5, altså som å kaste mynt, fordi klassene ligger i et rotert XOR-lignende mønster. ❓ «Explain poor initial performance and your improvements»: den lineære grensen (induktiv bias) passer ikke dataene. Med en produkt-feature $x_0 x_1$ kommer modellen godt over 0.88 (vi fikk rundt 0.90 i en rask test). Kvadratiske features som $x_0^2, x_1^2$ alene hjelper mindre her; det er vekselvirkningen som bærer informasjonen.</p></div>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Logistisk regresjon har bare en linjal.</strong> Den kan bare tegne rette streker. Vil du ha en krum grense, må du bøye <em>arket</em> (lage nye features) så en rett strek på det bøyde arket blir krum når du bretter det ut igjen.</p></div>
+
+<!-- ====================================================================== -->
+<h2 id="tap"><span class="sec">2.2</span>Tapsfunksjonen: hvor feil er modellen?</h2>
+
+<p>Før modellen kan gi gode prediksjoner, må den tilpasses dataene. Det kalles <strong>trening</strong> (læring). Dataene vi bruker til det er <strong>treningsdata</strong>, og funksjonen som måler hvor godt modellen gjør det er <strong>tapsfunksjonen</strong> (loss function), skrevet $L(y_{pred}, y)$. Den sier hvor langt prediksjonen er fra target, for ett datapunkt.</p>
+
+<p>Hvilken tapsfunksjon? Det avhenger av oppgaven. Vi vil maksimere sannsynligheten for <em>riktig</em> klassifisering: at $y_{pred}$ er stor når $y = 1$, og liten når $y = 0$. Kompakt kan vi skrive sannsynligheten modellen gir det riktige svaret som:</p>
+
+<div class="eq">
+  <p class="eq-note">Sannsynligheten for riktig klasse (likning 6)</p>
+  $$y_{pred}^{\,y}\,(1 - y_{pred})^{1-y}$$
+</div>
+
+<p>Notatene har en oppgave til dette uttrykket: <em>Hva er verdien når $y_{pred} = 1$ og $y = 1$? Og for de andre kombinasjonene?</em> Prøv før du åpner svaret.</p>
+
+<details class="steps"><summary>Svar: alle fire kombinasjoner</summary><div>
+<table class="center">
+  <thead><tr><th>$y_{pred}$</th><th>$y$</th><th>Utregning</th><th>Verdi</th><th>Tolkning</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>1</td><td>$1^1 \cdot 0^0$</td><td>1</td><td>Helt sikker og riktig</td></tr>
+    <tr><td>0</td><td>0</td><td>$0^0 \cdot 1^1$</td><td>1</td><td>Helt sikker og riktig</td></tr>
+    <tr><td>1</td><td>0</td><td>$1^0 \cdot 0^1$</td><td>0</td><td>Helt sikker og feil</td></tr>
+    <tr><td>0</td><td>1</td><td>$0^1 \cdot 1^0$</td><td>0</td><td>Helt sikker og feil</td></tr>
+  </tbody>
+</table>
+<p>(Vi bruker konvensjonen $0^0 = 1$.) Trikset er at eksponentene fungerer som en <strong>bryter</strong>: når $y = 1$ forsvinner den andre faktoren (opphøyd i 0 blir 1), og uttrykket blir $y_{pred}$. Når $y = 0$ forsvinner den første, og uttrykket blir $1 - y_{pred}$. Uttrykket er altså sannsynligheten modellen ga til den klassen som faktisk var riktig.</p>
+<p>I praksis er $y_{pred}$ aldri nøyaktig 0 eller 1. Med $y_{pred} = 0.7$: hvis $y = 1$ får vi $0.7$, og hvis $y = 0$ får vi $0.3$.</p>
+</div></details>
+
+<div class="calc" data-id="02-calc-like" data-answer="0.2" data-tol="0.001">
+  <p class="q">Modellen gir $y_{pred} = 0.8$ for et datapunkt der $y = 0$. Hva er $y_{pred}^{\,y}(1-y_{pred})^{1-y}$?</p>
+  <div class="solution">$0.8^0 \cdot (1 - 0.8)^1 = 1 \cdot 0.2 = 0.2$. Modellen ga bare 20 % sannsynlighet til det riktige svaret (klasse 0).</div>
+</div>
+
+<h3 id="likelihood">Likelihood: data er gitt, modellen kan endres</h3>
+<p>Vi vil ikke endre dataene slik at de passer modellen. Vi vil endre <em>modellen</em> slik at sannsynlighetene passer dataene. Dataene er gitt; parametrene $w$ og $b$ er det vi kan skru på. Setter vi inn $y_{pred} = \sigma(w\mathbf{x}+b)$, får vi:</p>
+<div class="eq">
+  <p class="eq-note">Likelihood (likning 7)</p>
+  $$\mathcal{L}(w, b \mid \mathbf{x}, y) = \sigma(w\mathbf{x}+b)^{\,y}\,\bigl(1 - \sigma(w\mathbf{x}+b)\bigr)^{1-y}$$
+</div>
+<p>Dette er en <strong>likelihood</strong> (derav bokstaven L). Samme formel kan leses på to måter, og forskjellen ligger i hva som er kjent:</p>
+<div class="two-col">
+  <div class="callout def" style="margin:0"><span class="label">Sannsynlighet</span><p>Parametrene er <strong>kjent</strong> (modellen er satt). Vi spør: hvor sannsynlig er ulike observasjoner $\mathbf{x}, y$ som vi ikke har sett ennå? Det er det vi gjør ved <em>inferens</em>.</p></div>
+  <div class="callout def" style="margin:0"><span class="label">Likelihood</span><p>Dataene er <strong>observert</strong>. Vi spør: hvor godt passer ulike verdier av parametrene $w, b$ med det vi har sett? En funksjon av parametrene, gitt data. Det er det vi gjør ved <em>trening</em>.</p></div>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Sannsynlighet: «Gitt terningen, hva blir kastene?» Likelihood: «Gitt kastene, hvilken terning var det?»</strong> Ved trening har vi kastene (dataene) og leter etter terningen (parametrene).</p></div>
+
+<h3 id="log">Fra likelihood til cross-entropy: log og minustegn</h3>
+<p>Uttrykket i likning 7 er vanskelig å jobbe med på grunn av eksponentene. Og over mange datapunkter blir likelihood et <em>produkt</em> av mange tall mellom 0 og 1, som raskt blir forsvinnende lite. Siden vi bare vil finne <em>hvor</em> optimum ligger, kan vi ta logaritmen. Logaritmen er <strong>monoton</strong> (strengt voksende), så den flytter ikke optimum:</p>
+<div class="eq">
+  <p class="eq-note">Log-likelihood (likning 8–9)</p>
+  $$\ln \mathcal{L}(w,b \mid \mathbf{x},y) = y \ln \sigma(w\mathbf{x}+b) + (1-y)\ln\bigl(1 - \sigma(w\mathbf{x}+b)\bigr)$$
+</div>
+<p>Log gjør eksponenter til faktorer ($\ln a^y = y \ln a$) og produkter til summer ($\ln(ab) = \ln a + \ln b$). Likelihood for riktig klasse skal <em>maksimeres</em>. Men konvensjonen i maskinlæring er å <em>minimere</em> et tap. Så vi setter et <strong>minustegn</strong> foran:</p>
+<div class="eq">
+  <p class="eq-note">Binary cross-entropy (likning 10–11): tapsfunksjonen vi bruker</p>
+  $$L(y_{pred}, y) = -\ln\mathcal{L} = -y \ln y_{pred} - (1-y)\ln(1 - y_{pred})$$
+</div>
+
+<div class="chain">
+  <div><b>Likelihood</b>vil maksimere sannsynligheten for riktig klasse</div><div class="arrow">→</div>
+  <div><b>Log</b>produkter → summer, eksponenter → faktorer; samme optimum</div><div class="arrow">→</div>
+  <div><b>Minus</b>maksimere → minimere: et tap</div>
+</div>
+
+<p>Bryter-trikset virker fortsatt: for $y = 1$ er tapet $-\ln y_{pred}$, og for $y = 0$ er tapet $-\ln(1 - y_{pred})$.</p>
+
+<div class="widget" id="w-loss">
+  <h4>Utforsk: hvorfor log straffer selvsikre feil hardt</h4>
+  <canvas id="lossc" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>$y_{pred}$ <input type="range" id="lc-p" min="0.01" max="0.99" step="0.01" value="0.8"><output id="lc-po">0.80</output></label>
+    <label><input type="checkbox" id="lc-mse"> vis kvadratfeil til sammenligning</label>
+  </div>
+  <div class="readouts"><span class="readout" id="lc-r1"></span><span class="readout" id="lc-r0"></span></div>
+  <p class="small muted" style="margin:10px 0 0">Blå: tapet når fasiten er $y=1$, altså $-\ln y_{pred}$. Oransje: tapet når $y=0$, altså $-\ln(1-y_{pred})$. Dra $y_{pred}$ mot 0.01: hvis fasiten var 1, går tapet mot uendelig. En modell som er 99 % sikker og tar feil, straffes mye hardere enn en som er usikker. Slå på kvadratfeil (stiplet) og se at den aldri blir større enn 1, uansett hvor selvsikker feilen er.</p>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("lossc"), { xmin: 0, xmax: 1, ymin: 0, ymax: 5 });
+  const s = document.getElementById("lc-p"), m = document.getElementById("lc-mse");
+  function draw() {
+    const p = +s.value; document.getElementById("lc-po").textContent = p.toFixed(2);
+    P.clear().grid().axes({ xlabel: "y_pred", ylabel: "tap L", frame: true });
+    if (m.checked) {
+      P.fn(x => (1 - x) ** 2, { color: P.col("c1"), width: 1.6, dash: [5, 4] });
+      P.fn(x => x * x, { color: P.col("c2"), width: 1.6, dash: [5, 4] });
+    }
+    P.fn(x => -Math.log(x), { color: P.col("c1"), width: 2.8 });
+    P.fn(x => -Math.log(1 - x), { color: P.col("c2"), width: 2.8 });
+    const l1 = -Math.log(p), l0 = -Math.log(1 - p);
+    P.line(p, 0, p, 5, { color: P.col("muted"), width: 1, dash: [3, 4] });
+    P.points([{ x: p, y: Math.min(l1, 5) }], { color: P.col("c1"), r: 6 });
+    P.points([{ x: p, y: Math.min(l0, 5) }], { color: P.col("c2"), r: 6 });
+    P.legend([{ color: P.col("c1"), label: "y = 1:  −ln(y_pred)" }, { color: P.col("c2"), label: "y = 0:  −ln(1 − y_pred)" }], { x: P.X(0.36) });
+    document.getElementById("lc-r1").textContent = "hvis y = 1: L = " + l1.toFixed(3);
+    document.getElementById("lc-r0").textContent = "hvis y = 0: L = " + l0.toFixed(3);
+  }
+  s.oninput = m.onchange = draw;
+  CK.live(draw);
+});
+</script>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>Fordi $-\ln$ går mot uendelig nær 0, gir cross-entropy enorme tap (og store gradienter) for selvsikre feil. Modellen presses hardt til å rette opp de verste feilene først. Samtidig gir den nesten null tap når modellen er sikker og riktig, så de punktene bidrar lite til videre læring.</p></div>
+
+<div class="calc" data-id="02-calc-bce" data-answer="1.263" data-tol="0.005">
+  <p class="q">To datapunkter: (A) $y = 1$, $y_{pred} = 0.8$ og (B) $y = 0$, $y_{pred} = 0.9$. Hva er det gjennomsnittlige cross-entropy-tapet? Bruk $\ln 0.8 \approx -0.223$ og $\ln 0.1 \approx -2.303$.</p>
+  <div class="solution">A: $y=1$, så $L_A = -\ln 0.8 \approx 0.223$. B: $y=0$, så $L_B = -\ln(1 - 0.9) = -\ln 0.1 \approx 2.303$. Snitt: $(0.223 + 2.303)/2 \approx 1.263$. Legg merke til at B, den selvsikre feilen, står for nesten hele tapet.</div>
+</div>
+
+<div class="quiz" data-id="02-why-log">
+  <p class="q">Hvorfor tar vi logaritmen av likelihood før vi optimerer?</p>
+  <ul>
+    <li data-correct>Fordi log er monoton (samme optimum), og gjør produkter og eksponenter til summer og faktorer som er lettere å derivere og numerisk stabile</li>
+    <li>Fordi logaritmen gjør funksjonen lineær, slik at vi kan løse den eksakt</li>
+    <li>Fordi log gjør at tapet alltid er negativt, som er nødvendig for minimering</li>
+    <li>Fordi log fjerner behovet for sigmoid-funksjonen</li>
+  </ul>
+  <div class="explain">En monoton transformasjon flytter ikke hvor maksimum ligger, så vi finner de samme parametrene. Samtidig blir uttrykket enklere å derivere, og vi unngår at produktet av mange små sannsynligheter blir numerisk null. Log gjør ikke funksjonen lineær. Log-likelihood er negativ (log av tall under 1), og det er nettopp derfor vi setter på et minustegn så tapet blir positivt. Sigmoid er fortsatt med i uttrykket.</div>
+</div>
+
+<div class="quiz" data-id="02-why-minus">
+  <p class="q">Hvorfor er det et minustegn foran log-likelihood i cross-entropy?</p>
+  <ul>
+    <li>For å gjøre funksjonen konveks</li>
+    <li>Fordi den deriverte av $\ln x$ er negativ</li>
+    <li data-correct>Fordi vi vil maksimere likelihood, men gradient descent og konvensjonen er å minimere et tap; å maksimere $f$ er det samme som å minimere $-f$</li>
+    <li>For å kompensere for at sigmoid gir verdier under 0.5</li>
+  </ul>
+  <div class="explain">Minustegnet snur et maksimeringsproblem til et minimeringsproblem uten å flytte optimum. Den deriverte av $\ln x$ er $1/x$, som er positiv. Konveksiteten kommer fra hele uttrykket (negativ log av sigmoid), ikke fra fortegnet alene, og sigmoid har ingenting med saken å gjøre.</div>
+</div>
+
+<h3 id="argmin">Treningsproblemet</h3>
+<p>Modellen er definert av parametrene $w$ og $b$, kompakt $\theta = (w, b)$. Å trene modellen betyr å finne parametrene som minimerer tapet <em>i gjennomsnitt over alle de $N$ treningspunktene</em>:</p>
+<div class="eq">
+  <p class="eq-note">Optimaliseringsproblemet (likning 12)</p>
+  $$\hat{\theta} = \arg\min_{\theta}\; \frac{1}{N}\sum_{i=1}^{N} L\bigl(f(\mathbf{x}^{(i)}; \theta),\, y^{(i)}\bigr)$$
+</div>
+<p>$\arg\min$ betyr «den verdien av $\theta$ som gir minst verdi», ikke selve minimumsverdien. Hatten på $\hat\theta$ betyr at det er et <em>estimat</em> basert på data. Siden vi minimerer minus log-likelihood, er dette det samme som å maksimere log-likelihood for target-verdiene $y$ gitt hvert datapunkt $\mathbf{x}$. Det kalles <strong>conditional maximum likelihood estimation</strong>: «betinget» fordi vi modellerer $p(y \mid \mathbf{x})$, ikke $\mathbf{x}$ selv.</p>
+
+<div class="quiz" data-id="02-argmin">
+  <p class="q">Hva betyr $\hat\theta = \arg\min_\theta J(\theta)$?</p>
+  <ul>
+    <li>$\hat\theta$ er den minste verdien $J$ kan ta</li>
+    <li>$\hat\theta$ er den minste parameteren i $\theta$</li>
+    <li>$\hat\theta$ er gradienten til $J$ i minimumspunktet</li>
+    <li data-correct>$\hat\theta$ er parameterverdiene som gir lavest $J$</li>
+  </ul>
+  <div class="explain">$\arg\min$ returnerer <em>argumentet</em> (her parametrene) som minimerer funksjonen. Minimumsverdien selv skrives $\min_\theta J(\theta)$. Gradienten i et minimum er null, men det er ikke det $\arg\min$ betyr.</div>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil</span><p>Å bruke kvadratfeil (MSE) som tap for logistisk regresjon. Kombinert med sigmoid blir MSE <em>ikke-konveks</em> i parametrene, og gradienten blir nesten null når modellen er selvsikkert feil (sigmoid er flat der). Cross-entropy har ingen av problemene: den er konveks for logistisk regresjon, og gradienten blir enkel, som vi skal se.</p></div>
+
+<!-- ====================================================================== -->
+<h2 id="gd"><span class="sec">2.3</span>Gradient descent</h2>
+
+<p>Vi har en tapsfunksjon og vil finne parametrene som minimerer den. For logistisk regresjon finnes det ingen formel som gir svaret direkte. Vi trenger en metode for å finne minimum av en funksjon vi ikke kjenner formen til: <strong>gradient descent</strong>.</p>
+
+<div class="callout hook"><span class="label">Knagg: fjellet med bind for øynene</span><p>Du står på et fjell med bind for øynene og skal ned til det laveste punktet. Du ser ingenting, men du kan kjenne helningen under føttene. Beste strategi: kjenn etter hvilken vei det går brattest nedover, ta et skritt dit, og gjenta. Helningen er <strong>gradienten</strong>, skrittlengden er <strong>læringsraten</strong>, og din posisjon er <strong>parametrene</strong>.</p></div>
+
+<p>Notatene spør: <em>Hvilken retning bør vi bevege oss i? I hvilket rom?</em></p>
+<ul>
+  <li><strong>Rommet</strong> er <strong>parameterrommet</strong>, utspent av $\theta$-verdiene. Har vi fire parametre (tre vekter og en bias), er rommet firedimensjonalt. Vi går ikke rundt blant datapunktene; vi flytter på $w$ og $b$.</li>
+  <li><strong>Retningen</strong> er den der tapet minker. Vi trenger altså den deriverte av $L$ med hensyn på $\theta$: <strong>gradienten</strong> $\partial L / \partial \theta$. Gradienten peker mot økende tap, så vi går i <em>motsatt</em> retning.</li>
+</ul>
+
+<div class="eq">
+  <p class="eq-note">Oppdateringsregelen (likning 13)</p>
+  $$\theta_{t+1} = \theta_t - \eta\, \frac{\partial}{\partial \theta} L\bigl(f(\mathbf{x};\theta), y\bigr)$$
+</div>
+<p>Vi starter med en tilfeldig (eller null) verdi for parametrene, og oppdaterer dem iterativt. Minustegnet gjør at vi går nedover. $\eta$ (eta) er <strong>læringsraten</strong> (learning rate): hvor store korrigeringer vi gjør per steg.</p>
+
+<div class="callout why"><span class="label">Hvorfor må tapet være deriverbart?</span><p>Hele metoden bygger på den deriverte. Uten gradient vet vi ikke hvilken vei som er nedover. Siden gradient descent brukes nesten overalt i maskinlæring, også i nevrale nettverk, er dette en viktig lærdom: <strong>tapsfunksjonen må være deriverbar</strong>. Det er grunnen til at vi ikke kan trene direkte på accuracy: accuracy endrer seg i hopp (et punkt er enten riktig eller feil), så den deriverte er null nesten overalt og udefinert i hoppene.</p></div>
+
+<div class="callout def"><span class="label">Læringsraten er en hyperparameter</span><p>$\eta$ er en parameter vi justerer for at treningen skal gå best mulig, men den er <em>ikke en del av modellen</em>. Den definerer læringsprosessen. Det er en <strong>hyperparameter</strong> (se <a href="01-grunnlag.html#hyper">kapittel 1</a> og eksamen 2024 oppg. 12).</p></div>
+
+<h3 id="konveks">Konvekse og ikke-konvekse funksjoner</h3>
+<figure class="fig">
+  <div class="fig-grid">
+    <img src="../assets/fig/notater/s08_1.png" alt="En konveks funksjon med ett minimum">
+    <img src="../assets/fig/notater/s08_2.png" alt="En ikke-konveks funksjon med flere minima">
+  </div>
+  <figcaption><b>Figur 2.2</b> Fra notatene: (a) en konveks funksjon, med ett minimum; (b) en ikke-konveks funksjon, med flere lokale minima og ett globalt.</figcaption>
+</figure>
+<p>En utfordring er at en funksjon kan ha både <strong>lokale</strong> og <strong>globale</strong> minima. Et lokalt minimum har høyere funksjonsverdi enn det globale, men helningen peker oppover i alle retninger rundt det, så gradient descent blir stående. I fjell-analogien: du har gått deg vill i en fjellkjede og står i en dal uten å vite at det finnes en dypere dal bak neste topp.</p>
+<p>Tapsfunksjonen for logistisk regresjon er <strong>konveks</strong>: den har bare ett minimum (en «skål»). Så lenge funksjonen er konveks, har vi en garanti: et minimum gradient descent finner er det globale. For nevrale nettverk er tapet ikke-konvekst, og den garantien forsvinner (<a href="10-trening-nn.html">kapittel 10</a>).</p>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2024 oppg. 20</strong>: «I hvilket tilfelle vet vi at gradient descent vil finne et globalt minimum?» Riktig: <em>konvekse funksjoner</em>. Distraktorer: lineær regresjon, nevrale nettverk, monotone funksjoner.</p></div>
+
+<h3 id="laeringsrate">Læringsraten: for høy, for lav, passe</h3>
+
+<div class="widget" id="w-gd">
+  <h4>Utforsk: gradient descent og læringsraten</h4>
+  <div class="canvas-pair">
+    <canvas id="gd-f" width="420" height="300"></canvas>
+    <canvas id="gd-l" width="420" height="300"></canvas>
+  </div>
+  <div class="controls">
+    <label>Funksjon <select id="gd-fn"><option value="q">Konveks: L(θ) = θ²</option><option value="n">Ikke-konveks</option></select></label>
+    <label>η <input type="range" id="gd-eta" min="0.01" max="1.15" step="0.01" value="0.1"><output id="gd-etao">0.10</output></label>
+    <label>Start θ₀ <input type="range" id="gd-t0" min="-3.8" max="3.8" step="0.1" value="3.2"><output id="gd-t0o">3.2</output></label>
+  </div>
+  <div class="controls">
+    <button class="btn" type="button" id="gd-step">Ett steg</button>
+    <button class="btn" type="button" id="gd-run">Kjør 30 steg</button>
+    <button class="btn ghost" type="button" id="gd-reset">Nullstill</button>
+    <span class="readout" id="gd-r"></span>
+  </div>
+  <p class="small muted" style="margin:10px 0 0"><strong>Prøv dette på den konvekse funksjonen:</strong> $\eta = 0.05$ (tregt, mange små steg). $\eta = 0.3$ (rask, jevn konvergens). $\eta = 0.8$ (θ hopper fra side til side, men nærmer seg minimum: oscillering). $\eta = 1.0$ (hopper evig mellom $\pm\theta_0$). $\eta = 1.1$ (divergens: tapet eksploderer). <strong>På den ikke-konvekse:</strong> start i $\theta_0 = 3$ med liten $\eta$ og se at du ender i det lokale minimumet til høyre, mens start i $\theta_0 = -1$ finner det globale.</p>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const F = {
+    q: { f: t => t * t, d: t => 2 * t, ymin: -0.5, ymax: 16 },
+    n: { f: t => 0.05 * t ** 4 - 0.6 * t * t + 0.3 * t + 2, d: t => 0.2 * t ** 3 - 1.2 * t + 0.3, ymin: -1, ymax: 7 }
+  };
+  const Pf = CK.plot(document.getElementById("gd-f"), { xmin: -4, xmax: 4, ymin: -0.5, ymax: 16, pad: { l: 40 } });
+  const Pl = CK.plot(document.getElementById("gd-l"), { xmin: 0, xmax: 30, ymin: 0, ymax: 16, pad: { l: 44 } });
+  const fn = document.getElementById("gd-fn"), eta = document.getElementById("gd-eta"), t0 = document.getElementById("gd-t0");
+  let path = [];
+  function reset() { path = [+t0.value]; draw(); }
+  function step() {
+    const g = F[fn.value], t = path[path.length - 1];
+    if (!isFinite(t) || Math.abs(t) > 1e6) return;
+    path.push(t - (+eta.value) * g.d(t));
+  }
+  function draw() {
+    const g = F[fn.value];
+    document.getElementById("gd-etao").textContent = (+eta.value).toFixed(2);
+    document.getElementById("gd-t0o").textContent = (+t0.value).toFixed(1);
+    Pf.setView({ ymin: g.ymin, ymax: g.ymax });
+    Pf.clear().grid().axes({ xlabel: "θ", ylabel: "L(θ)" });
+    Pf.fn(g.f, { color: P_col("c1"), width: 2.5 });
+    const vis = path.filter(t => isFinite(t));
+    const pts = vis.map(t => ({ x: Math.max(-4.3, Math.min(4.3, t)), y: Math.min(g.ymax + 1, g.f(t)) }));
+    for (let i = 1; i < pts.length; i++) Pf.line(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y, { color: P_col("c2"), width: 1.4 });
+    pts.forEach((p, i) => Pf.points([p], { color: i === pts.length - 1 ? P_col("c2") : P_col("c5"), r: i === pts.length - 1 ? 6 : 4 }));
+    const losses = vis.map(t => g.f(t));
+    const top = Math.max(g.ymax, ...losses.filter(isFinite).map(v => Math.min(v, 1e3)));
+    Pl.setView({ xmax: Math.max(30, losses.length), ymin: Math.min(0, g.ymin), ymax: Math.min(top * 1.05, 200) });
+    Pl.clear().grid().axes({ xlabel: "steg t", ylabel: "L(θ_t)", frame: true });
+    Pl.path(losses.map((v, i) => ({ x: i, y: Math.min(v, Pl.ymax) })), { color: P_col("c2"), width: 2.2 });
+    Pl.points(losses.map((v, i) => ({ x: i, y: Math.min(v, Pl.ymax) })), { color: P_col("c2"), r: 3 });
+    const t = path[path.length - 1];
+    let state = "";
+    if (path.length > 3) {
+      const a = path[path.length - 1], b = path[path.length - 2], c = path[path.length - 3];
+      const L1 = g.f(a), L2 = g.f(b);
+      if (!isFinite(a) || Math.abs(a) > 50 || (L1 > L2 * 1.05 && L1 > 1)) state = " · divergerer!";
+      else if ((a - b) * (b - c) < 0 && Math.abs(L1 - L2) > 1e-4) state = " · oscillerer";
+      else if (Math.abs(g.d(a)) < 1e-3) state = " · konvergert";
+    }
+    document.getElementById("gd-r").textContent = "steg " + (path.length - 1) + " · θ = " + (Math.abs(t) > 1e5 ? t.toExponential(1) : t.toFixed(3)) + " · L = " + (Math.abs(g.f(t)) > 1e5 ? g.f(t).toExponential(1) : g.f(t).toFixed(3)) + state;
+  }
+  const P_col = n => CK.cssVar(n);
+  document.getElementById("gd-step").onclick = () => { step(); draw(); };
+  document.getElementById("gd-run").onclick = () => { for (let i = 0; i < 30; i++) step(); draw(); };
+  document.getElementById("gd-reset").onclick = reset;
+  fn.onchange = () => { if (fn.value === "n") t0.value = 3; else t0.value = 3.2; reset(); };
+  t0.oninput = reset; eta.oninput = reset;
+  path = [+t0.value];
+  CK.live(draw);
+});
+</script>
+
+<p>For $L(\theta) = \theta^2$ er gradienten $2\theta$, så oppdateringen blir $\theta_{t+1} = \theta_t - 2\eta\theta_t = (1 - 2\eta)\theta_t$. Det forklarer alt du så i widgeten:</p>
+<table>
+  <thead><tr><th>Læringsrate</th><th>$1 - 2\eta$</th><th>Hva skjer</th></tr></thead>
+  <tbody>
+    <tr><td>$0 \lt \eta \lt 0.5$</td><td>mellom 0 og 1</td><td>Jevn konvergens. Liten $\eta$ gir treg trening.</td></tr>
+    <tr><td>$0.5 \lt \eta \lt 1$</td><td>mellom $-1$ og 0</td><td>Fortegnet skifter hvert steg: <strong>oscillering</strong>, men det konvergerer likevel.</td></tr>
+    <tr><td>$\eta = 1$</td><td>$-1$</td><td>Hopper evig mellom $\theta_0$ og $-\theta_0$.</td></tr>
+    <tr><td>$\eta \gt 1$</td><td>under $-1$</td><td><strong>Divergens</strong>: hvert steg havner lenger unna, og tapet eksploderer.</td></tr>
+  </tbody>
+</table>
+<p>Grensene 0.5 og 1 gjelder akkurat denne funksjonen. For et ekte tap avhenger de av hvor bratt og krum funksjonen er, men <em>mønsteret</em> er det samme.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<ul style="margin:0">
+  <li><strong>For høy $\eta$</strong>: stegene skyter over minimum. Tapet oscillerer i stedet for å minke jevnt, eller øker til det eksploderer (NaN).</li>
+  <li><strong>For lav $\eta$</strong>: hvert steg er lite og trygt, men treningen tar svært mange epoker, og kan se ut som den har «stoppet opp» før den er ferdig.</li>
+</ul></div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2025 del 1.3</strong>: Trenings-tapet oscillerer i stedet for å minke jevnt, og implementasjonen er korrekt. Mest sannsynlige årsak: <em>læringsraten er for høy</em>.</p></div>
+
+<div class="quiz" data-id="02-oscillate">
+  <p class="q">Du trener logistisk regresjon med gradient descent. Tapet hopper opp og ned fra epoke til epoke i stedet for å minke jevnt. Koden er korrekt. Hva er den mest sannsynlige årsaken?</p>
+  <ul>
+    <li>Datasettet er perfekt lineært separerbart</li>
+    <li>Modellen har for mange parametre til at gradient descent kan brukes</li>
+    <li data-correct>Læringsraten er for høy</li>
+    <li>Sigmoid-funksjonen er ikke deriverbar</li>
+  </ul>
+  <div class="explain">For høy $\eta$ gjør at hvert steg skyter forbi minimum, så tapet hopper. Sigmoid <em>er</em> deriverbar overalt. Gradient descent fungerer fint med millioner av parametre (det er slik nevrale nett trenes). Perfekt lineært separerbare data gir et annet fenomen: vektene vokser uten grense fordi tapet kan gjøres stadig mindre, men tapet minker jevnt, det oscillerer ikke.</div>
+</div>
+
+<div class="quiz" data-id="02-lr-low">
+  <p class="q">Etter 1000 epoker minker tapet fortsatt sakte og jevnt, uten tegn til å flate ut. Hva er en rimelig konklusjon?</p>
+  <ul>
+    <li data-correct>Læringsraten kan være for lav, eller vi trenger flere epoker</li>
+    <li>Læringsraten er for høy</li>
+    <li>Modellen har funnet et lokalt minimum</li>
+    <li>Tapsfunksjonen er ikke deriverbar</li>
+  </ul>
+  <div class="explain">Et tap som minker jevnt men sakte betyr at vi fortsatt er på vei ned, bare med små skritt. Større $\eta$ eller flere epoker hjelper. For høy $\eta$ gir oscillering eller divergens, ikke treg jevn nedgang. I et minimum ville tapet flatet ut. Var tapet ikke deriverbart, kunne vi ikke beregnet gradienten i det hele tatt.</div>
+</div>
+
+<div class="quiz" data-id="02-convex">
+  <p class="q">Hvilket utsagn om konveksitet og gradient descent er riktig?</p>
+  <ul>
+    <li>Gradient descent finner alltid det globale minimumet, uansett funksjon</li>
+    <li>Tapsfunksjonen for logistisk regresjon har mange lokale minima, så vi må prøve mange startpunkt</li>
+    <li>For en konveks funksjon er det globale minimumet alltid i $\theta = 0$</li>
+    <li data-correct>Hvis tapet er konvekst, er et minimum gradient descent finner også det globale minimumet</li>
+  </ul>
+  <div class="explain">En konveks funksjon har ingen lokale minima som ikke er globale, så hvis gradient descent konvergerer til et minimum (med passe læringsrate), er det globalt. For ikke-konvekse funksjoner kan vi bli sittende fast i lokale minima. Logistisk regresjon med cross-entropy er konveks. Hvor minimumet ligger avhenger av funksjonen, ikke av konveksiteten.</div>
+</div>
+
+<div class="calc" data-id="02-calc-gd1d" data-answer="2.4" data-tol="0.001">
+  <p class="q">$L(\theta) = \theta^2$, $\theta_0 = 3$ og $\eta = 0.1$. Hva er $\theta_1$ etter ett steg med gradient descent?</p>
+  <div class="solution">$\frac{dL}{d\theta} = 2\theta = 6$ i $\theta_0 = 3$. $\theta_1 = 3 - 0.1 \cdot 6 = 2.4$. Tapet gikk fra 9 til 5.76.</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="utledning"><span class="sec">2.4</span>Utledning av gradienten</h2>
+
+<p>For å bruke oppdateringsregelen trenger vi den deriverte av tapet med hensyn på hver vekt $w_j$ og på $b$. Notatene sier det er en god øvelse å gjøre dette for hånd, og her gjør vi det sammen. Først resultatet, så du vet hvor vi skal:</p>
+
+<div class="eq">
+  <p class="eq-note">Gradientene for logistisk regresjon med cross-entropy (likning 22 og 25)</p>
+  $$\frac{\partial L}{\partial w_j} = (y_{pred} - y)\,x_j \qquad\qquad \frac{\partial L}{\partial b} = y_{pred} - y$$
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>«Feil ganger input.»</strong> Gradienten for $w_j$ er bare <em>hvor feil vi var</em> ($y_{pred} - y$) ganget med <em>hvor mye feature $j$ var med på det</em> ($x_j$). Bias har «input» lik 1, så gradienten er bare feilen. Samme form dukker opp for lineær regresjon med MSE (<a href="06-regresjon.html">kapittel 6</a>).</p></div>
+
+<p>Tre nyttige relasjoner (likning 14–16 i notatene):</p>
+<div class="eq">
+  $$\frac{\partial}{\partial x}\ln x = \frac{1}{x} \qquad \frac{\partial}{\partial z}\sigma(z) = \sigma(z)\bigl(1-\sigma(z)\bigr) \qquad \frac{\partial f}{\partial x} = \frac{\partial f}{\partial u}\frac{\partial u}{\partial x}\ \ \text{(kjerneregelen)}$$
+</div>
+
+<details class="steps"><summary>Bonus: hvorfor er $\sigma'(z) = \sigma(z)(1-\sigma(z))$?</summary><div>
+<p>Skriv $\sigma(z) = (1 + e^{-z})^{-1}$ og bruk kjerneregelen:</p>
+$$\sigma'(z) = -(1+e^{-z})^{-2} \cdot (-e^{-z}) = \frac{e^{-z}}{(1+e^{-z})^2} = \underbrace{\frac{1}{1+e^{-z}}}_{\sigma(z)} \cdot \underbrace{\frac{e^{-z}}{1+e^{-z}}}_{1 - \sigma(z)}$$
+<p>Den siste faktoren er $1 - \sigma(z)$ fordi $1 - \frac{1}{1+e^{-z}} = \frac{1 + e^{-z} - 1}{1+e^{-z}} = \frac{e^{-z}}{1+e^{-z}}$. Konsekvens: den deriverte er størst ($0.25$) i $z = 0$ og går mot null når $|z|$ blir stor, der sigmoid er flat.</p>
+</div></details>
+
+<details class="steps"><summary>Utledning av $\partial L/\partial w_j$ steg for steg</summary><div>
+<p>Skriv $\sigma(\cdot)$ som forkortelse for $\sigma(w\mathbf{x}+b)$. Vi starter med tapet:</p>
+$$\frac{\partial L}{\partial w_j} = \frac{\partial}{\partial w_j}\Bigl[-y\ln\sigma(\cdot) - (1-y)\ln\bigl(1-\sigma(\cdot)\bigr)\Bigr]$$
+<p><strong>Steg 1: deriver logaritmene</strong> med $\frac{d}{dx}\ln x = \frac1x$ og kjerneregelen. Merk at den deriverte av $1 - \sigma$ er $-\sigma'$, så minustegnet foran andre ledd snur:</p>
+$$= -y\frac{1}{\sigma(\cdot)}\frac{\partial\sigma(\cdot)}{\partial w_j} + (1-y)\frac{1}{1-\sigma(\cdot)}\frac{\partial \sigma(\cdot)}{\partial w_j}$$
+<p><strong>Steg 2: sett på felles brøkstrek</strong> $\sigma(1-\sigma)$ og trekk ut $\frac{\partial\sigma}{\partial w_j}$:</p>
+$$= \frac{-y\bigl(1-\sigma(\cdot)\bigr) + (1-y)\sigma(\cdot)}{\sigma(\cdot)\bigl(1-\sigma(\cdot)\bigr)}\;\frac{\partial\sigma(\cdot)}{\partial w_j}$$
+<p><strong>Steg 3: forenkle telleren.</strong> $-y + y\sigma + \sigma - y\sigma = \sigma - y$. De to $y\sigma$-leddene kansellerer:</p>
+$$= \frac{\sigma(\cdot) - y}{\sigma(\cdot)\bigl(1-\sigma(\cdot)\bigr)}\;\frac{\partial\sigma(\cdot)}{\partial w_j}$$
+<p><strong>Steg 4: deriver sigmoid</strong> med kjerneregelen, $\frac{\partial \sigma(z)}{\partial w_j} = \sigma(z)(1-\sigma(z))\frac{\partial z}{\partial w_j}$:</p>
+$$= \frac{\sigma(\cdot) - y}{\sigma(\cdot)\bigl(1-\sigma(\cdot)\bigr)}\;\sigma(\cdot)\bigl(1-\sigma(\cdot)\bigr)\frac{\partial}{\partial w_j}(w\mathbf{x}+b)$$
+<p><strong>Steg 5: kanseller</strong> $\sigma(1-\sigma)$ oppe og nede, og bruk at $\frac{\partial}{\partial w_j}(w_1x_1 + \dots + w_jx_j + \dots + b) = x_j$ (alle andre ledd er konstanter med hensyn på $w_j$):</p>
+$$= \bigl(\sigma(w\mathbf{x}+b) - y\bigr)x_j = (y_{pred} - y)\,x_j$$
+<p>Den vakre kanselleringen i steg 5 er ingen tilfeldighet: cross-entropy (log) og sigmoid (eksponentiell) «passer sammen» slik at $\sigma'$ forsvinner. Det er en hovedgrunn til at vi bruker akkurat denne tapsfunksjonen.</p>
+</div></details>
+
+<details class="steps"><summary>Utledning av $\partial L/\partial b$</summary><div>
+<p>Steg 1–4 er identiske, bare med $b$ i stedet for $w_j$. Vi ender opp med</p>
+$$\frac{\partial L}{\partial b} = \bigl(\sigma(w\mathbf{x}+b) - y\bigr)\frac{\partial}{\partial b}(w\mathbf{x}+b)$$
+<p>og siden $\frac{\partial}{\partial b}(w\mathbf{x} + b) = 1$:</p>
+$$\frac{\partial L}{\partial b} = y_{pred} - y$$
+</div></details>
+
+<p><strong>Over alle $N$ datapunkter</strong> minimerer vi gjennomsnittstapet, og den deriverte av et gjennomsnitt er gjennomsnittet av de deriverte:</p>
+<div class="eq">
+  $$\frac{\partial}{\partial w_j}\frac1N\sum_{i=1}^N L^{(i)} = \frac1N\sum_{i=1}^N \bigl(y^{(i)}_{pred} - y^{(i)}\bigr)x^{(i)}_j \qquad \frac{\partial}{\partial b}\frac1N\sum_{i=1}^N L^{(i)} = \frac1N\sum_{i=1}^N \bigl(y^{(i)}_{pred} - y^{(i)}\bigr)$$
+</div>
+
+<div class="callout why"><span class="label">Hvorfor gir formelen mening?</span><p>Hvis $y = 1$ og $y_{pred} = 0.3$, er feilen $-0.7$: modellen er for lav. Gradienten for $w_j$ er $-0.7x_j$. Med positiv $x_j$ er den negativ, så $w_j - \eta \cdot (\text{negativ})$ <em>øker</em> $w_j$, som øker $z$ og dermed $y_{pred}$. Akkurat riktig vei. Er prediksjonen perfekt, er feilen 0 og ingenting endres. Og features som er 0 for et datapunkt, får ingen skyld for feilen.</p></div>
+
+<div class="quiz" data-id="02-grad-sign">
+  <p class="q">For et datapunkt med $y = 0$ gir modellen $y_{pred} = 0.9$. Feature $x_2 = 3$. Hva skjer med $w_2$ i neste gradient-steg (med $\eta \gt 0$)?</p>
+  <ul>
+    <li>$w_2$ øker, fordi gradienten er positiv</li>
+    <li data-correct>$w_2$ minker, fordi gradienten $(0.9 - 0)\cdot 3 = 2.7$ er positiv og vi trekker den fra</li>
+    <li>$w_2$ er uendret, fordi $y = 0$ gjør gradienten null</li>
+    <li>$w_2$ minker, fordi gradienten er negativ</li>
+  </ul>
+  <div class="explain">$\partial L/\partial w_2 = (y_{pred} - y)x_2 = (0.9 - 0)\cdot 3 = 2.7 \gt 0$. Oppdateringen er $w_2 \leftarrow w_2 - \eta \cdot 2.7$, så $w_2$ minker. Det senker $z$ og $y_{pred}$, som er riktig når fasiten er 0. $y = 0$ gjør ikke gradienten null; det er feilen $y_{pred} - y$ som teller. Det første alternativet blander fortegnet til gradienten med retningen på oppdateringen.</div>
+</div>
+
+<div class="quiz" data-multi data-id="02-grad-facts">
+  <p class="q">Hvilke utsagn om gradienten $\partial L / \partial w_j = (y_{pred} - y)x_j$ er riktige?</p>
+  <ul>
+    <li data-correct>Hvis prediksjonen er perfekt ($y_{pred} = y$), er gradienten null</li>
+    <li data-correct>Gradienten for $b$ er den samme som for $w_j$, bare uten faktoren $x_j$</li>
+    <li>Gradienten inneholder faktoren $\sigma(z)(1-\sigma(z))$, så den blir liten når modellen er selvsikkert feil</li>
+    <li data-correct>Store verdier av $x_j$ gir store gradienter for $w_j$, som er en grunn til å skalere features</li>
+  </ul>
+  <div class="explain">Feilen $y_{pred} - y$ er null ved perfekt prediksjon. For $b$ er «input» 1. Faktoren $\sigma(1-\sigma)$ <em>kansellerte</em> i utledningen; det er nettopp fordelen med cross-entropy fremfor MSE, der den blir stående og gir små gradienter for selvsikre feil. Og siden $x_j$ ganges inn, får features med store tall store steg, så én læringsrate passer dårlig for alle hvis de ikke er skalert (<a href="01-grunnlag.html#skalering">kapittel 1</a>).</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="handregning"><span class="sec">2.5</span>Ett gradient-steg for hånd</h2>
+
+<p>Slik regner du det på eksamen, med enkel kalkulator. Vi har:</p>
+<div class="callout def"><span class="label">Oppgave</span><p>Vekter $w = (0.5,\ -1)$, bias $b = 0$, læringsrate $\eta = 0.1$. Ett datapunkt $\mathbf{x} = (2,\ 1)$ med $y = 1$. Regn ut prediksjonen, tapet, gradientene og de nye parametrene.</p></div>
+
+<div class="calc" data-id="02-calc-step-ypred" data-answer="0.5" data-tol="0.001">
+  <p class="q">Steg 1: Hva er $y_{pred}$?</p>
+  <div class="solution">$z = 0.5 \cdot 2 + (-1)\cdot 1 + 0 = 1 - 1 = 0$. $y_{pred} = \sigma(0) = \frac{1}{1 + e^0} = \frac12 = 0.5$. (Tapet er $-\ln 0.5 \approx 0.693$.)</div>
+</div>
+
+<div class="calc" data-id="02-calc-step-grad" data-answer="-1" data-tol="0.001">
+  <p class="q">Steg 2: Hva er $\partial L/\partial w_1$?</p>
+  <div class="solution">$\partial L/\partial w_1 = (y_{pred} - y)x_1 = (0.5 - 1)\cdot 2 = -1$. Tilsvarende er $\partial L/\partial w_2 = (-0.5)\cdot 1 = -0.5$ og $\partial L/\partial b = -0.5$.</div>
+</div>
+
+<div class="calc" data-id="02-calc-step-w1" data-answer="0.6" data-tol="0.001">
+  <p class="q">Steg 3: Hva blir den nye verdien av $w_1$?</p>
+  <div class="solution">$w_1 \leftarrow 0.5 - 0.1\cdot(-1) = 0.5 + 0.1 = 0.6$. Videre: $w_2 \leftarrow -1 - 0.1\cdot(-0.5) = -0.95$ og $b \leftarrow 0 - 0.1 \cdot (-0.5) = 0.05$.</div>
+</div>
+
+<div class="calc" data-id="02-calc-step-loss" data-answer="0.554" data-tol="0.005">
+  <p class="q">Steg 4: Regn ut tapet på nytt med de nye parametrene. Bruk $e^{-0.3} \approx 0.741$ og $\ln 0.5744 \approx -0.554$.</p>
+  <div class="solution">$z = 0.6\cdot 2 + (-0.95)\cdot 1 + 0.05 = 1.2 - 0.95 + 0.05 = 0.3$. $y_{pred} = \frac{1}{1 + 0.741} \approx 0.574$. Tapet er $-\ln 0.574 \approx 0.554$, ned fra $0.693$. Ett steg flyttet prediksjonen i riktig retning (mot 1) og senket tapet.</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2024 oppg. 2</strong> var en slik håndregning, men for <em>lineær</em> regresjon med $L = \frac12(y - f(x))^2$: $f(x) = wx + b$, start $w, b = 1, 0$, datapunkt $x=2, y=4$, $\alpha = 0.1$. Gradientene har samme form, «feil ganger input»: $\partial L/\partial w = (f(x) - y)x = (2-4)\cdot 2 = -4$ og $\partial L/\partial b = -2$, som gir $w = 1.4$ og $b = 0.2$. Se <a href="06-regresjon.html">kapittel 6</a>.</p></div>
+
+<div class="calc" data-id="02-calc-linstep" data-answer="2.2" data-tol="0.001">
+  <p class="q">Lignende oppgave: lineær modell $f(x) = wx + b$ med $L = \frac12(y - f(x))^2$. Start $w = 2$, $b = 1$, datapunkt $x = 1$, $y = 5$, læringsrate $0.1$. Hva blir ny $w$?</p>
+  <div class="solution">$f(1) = 2\cdot1 + 1 = 3$. $\partial L/\partial w = (f(x) - y)x = (3-5)\cdot 1 = -2$. $w \leftarrow 2 - 0.1\cdot(-2) = 2.2$. (Og $\partial L/\partial b = -2$, så $b \leftarrow 1.2$.)</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="kode"><span class="sec">2.6</span>Fra formel til kode</h2>
+
+<p>Nå har vi alt: en modell, parametrene som definerer den, en tapsfunksjon, og en regel for å oppdatere parametrene så tapet minker. Et program som gjør disse stegene er en <strong>læringsalgoritme</strong>. Notatene foreslår denne strukturen (her med metodene fylt ut og vektorisert med numpy):</p>
+
+<pre><code><span class="k">import</span> numpy <span class="k">as</span> np
+
+<span class="k">class</span> LogisticRegression:
+    <span class="k">def</span> __init__(self, learning_rate=<span class="s">0.1</span>, epochs=<span class="s">1000</span>):
+        self.learning_rate = learning_rate        <span class="c"># hyperparameter η</span>
+        self.epochs = epochs                      <span class="c"># hyperparameter</span>
+        self.weights, self.bias = <span class="k">None</span>, <span class="k">None</span>     <span class="c"># modellparametre θ = (w, b)</span>
+        self.losses, self.train_accuracies = [], []
+
+    <span class="k">def</span> sigmoid_function(self, z):
+        <span class="k">return</span> <span class="s">1</span> / (<span class="s">1</span> + np.exp(-z))
+
+    <span class="k">def</span> _compute_loss(self, y, y_pred):
+        eps = <span class="s">1e-9</span>                                <span class="c"># unngå log(0)</span>
+        <span class="k">return</span> -np.mean(y * np.log(y_pred + eps) + (<span class="s">1</span> - y) * np.log(<span class="s">1</span> - y_pred + eps))
+
+    <span class="k">def</span> compute_gradients(self, x, y, y_pred):
+        error = y_pred - y                        <span class="c"># (N,)   «feilen»</span>
+        grad_w = np.matmul(x.T, error) / len(y)   <span class="c"># (n,)   snitt av feil · x_j</span>
+        grad_b = np.mean(error)                   <span class="c"># skalar</span>
+        <span class="k">return</span> grad_w, grad_b
+
+    <span class="k">def</span> update_parameters(self, grad_w, grad_b):
+        self.weights -= self.learning_rate * grad_w   <span class="c"># θ ← θ − η · gradient</span>
+        self.bias    -= self.learning_rate * grad_b
+
+    <span class="k">def</span> fit(self, x, y):
+        self.weights = np.zeros(x.shape[<span class="s">1</span>])        <span class="c"># x.shape = (datapunkter, features)</span>
+        self.bias = <span class="s">0</span>
+        <span class="k">for</span> _ <span class="k">in</span> range(self.epochs):               <span class="c"># én epoke = én gang gjennom alle data</span>
+            z = np.matmul(x, self.weights) + self.bias   <span class="c"># (N,)  ett z per datapunkt</span>
+            y_pred = self.sigmoid_function(z)
+            grad_w, grad_b = self.compute_gradients(x, y, y_pred)
+            self.update_parameters(grad_w, grad_b)
+            self.losses.append(self._compute_loss(y, y_pred))
+            self.train_accuracies.append(np.mean(y == (y_pred &gt; <span class="s">0.5</span>)))
+
+    <span class="k">def</span> predict(self, x):
+        y_pred = self.sigmoid_function(np.matmul(x, self.weights) + self.bias)
+        <span class="k">return</span> (y_pred &gt; <span class="s">0.5</span>).astype(int)          <span class="c"># terskel 0.5 → klasse 0/1</span></code></pre>
+
+<p>Noen ting å legge merke til:</p>
+<ul>
+  <li><strong>fit og predict</strong>: notatene understreker at disse navnene er så standard at du bør bruke dem også i egen kode. <code>fit</code> er trening, <code>predict</code> er inferens.</li>
+  <li><strong>Epoke</strong>: parameteren <code>epochs</code> angir hvor mange ganger gradient descent går gjennom <em>alle</em> treningsdataene. Her regner vi gradienten på hele datasettet og gjør én oppdatering per epoke (full-batch gradient descent). Mini-batch og stokastisk GD, med flere oppdateringer per epoke, kommer i <a href="10-trening-nn.html">kapittel 10</a>.</li>
+  <li><strong>Terskel 0.5</strong>: <code>predict</code> gjør sannsynligheter om til klasser. 0.5 er et valg, ikke en lov. Å flytte terskelen bytter falske positive mot falske negative (<a href="03-evaluering.html">kapittel 3</a>).</li>
+  <li><strong>Vektorisert</strong>: i stedet for en Python-løkke over datapunkter regner <code>np.matmul(x, w)</code> ut $z$ for alle $N$ punkter på én gang, og <code>np.matmul(x.T, error)</code> summerer $\sum_i (y_{pred}^{(i)} - y^{(i)})x^{(i)}_j$ for alle $j$ på én gang. Det er både kortere og mye raskere.</li>
+  <li><strong>Små avvik i notatene</strong>: notatkoden skriver <code>np.matmul(self.weights, x.transpose())</code> i <code>fit</code>, som gir det samme som <code>np.matmul(x, self.weights)</code>, og kaller sigmoid <code>_sigmoid</code> ett sted og <code>sigmoid_function</code> et annet. Bruk ett navn konsekvent.</li>
+</ul>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2025 del 10.2</strong>: Gitt <code>z = np.matmul(X, w)</code> og <code>y_pred = 1 / (1 + np.exp(-z))</code>, med <code>X</code> av shape <code>(n_samples, n_features)</code> og <code>w</code> av shape <code>(n_features,)</code>. Hva inneholder <code>y_pred</code>? <em>Predikerte sannsynligheter i (0, 1) for hvert sample.</em> Ikke klasse-labels (ingen terskel er brukt), ikke vilkårlige reelle tall (det er <code>z</code>), og ikke logaritmer.</p></div>
+
+<div class="quiz" data-id="02-shapes">
+  <p class="q"><code>X</code> har shape <code>(500, 3)</code> og <code>w</code> har shape <code>(3,)</code>. Hvilken shape har <code>z = np.matmul(X, w) + b</code>?</p>
+  <ul>
+    <li><code>(3,)</code>, én verdi per feature</li>
+    <li><code>(500, 3)</code></li>
+    <li data-correct><code>(500,)</code>, én verdi per datapunkt</li>
+    <li>En skalar</li>
+  </ul>
+  <div class="explain">Matriseproduktet av $(500 \times 3)$ og $(3,)$ gir $(500,)$: ett prikkprodukt $w\mathbf{x}^{(i)}$ per rad, altså ett $z$ per datapunkt. $b$ legges til hvert element (broadcasting). <code>(3,)</code> er shapen til <code>w</code> og til gradienten <code>grad_w</code>.</div>
+</div>
+
+<div class="quiz" data-id="02-numpy-ypred">
+  <p class="q">Du kjører <code>z = np.matmul(X, w)</code> og deretter <code>y_pred = 1 / (1 + np.exp(-z))</code>. Hva inneholder <code>y_pred</code>?</p>
+  <ul>
+    <li data-correct>Predikerte sannsynligheter i $(0,1)$ for hvert datapunkt</li>
+    <li>Klasse-labels 0 eller 1 for hvert datapunkt</li>
+    <li>Log-sannsynligheter for hvert datapunkt</li>
+    <li>Én score per datapunkt som kan være et hvilket som helst reelt tall</li>
+  </ul>
+  <div class="explain">Sigmoid er brukt elementvis på <code>z</code>, så hvert element ligger i $(0,1)$ og tolkes som sannsynligheten for klasse 1. Klasse-labels krever en terskel, f.eks. <code>(y_pred &gt; 0.5)</code>. Ubegrensede reelle tall beskriver <code>z</code> (før sigmoid). Ingen logaritme er tatt.</div>
+</div>
+
+<div class="quiz" data-id="02-epoch">
+  <p class="q">I <code>fit</code>-metoden over, med 400 treningspunkter og <code>epochs=50</code>: hvor mange ganger oppdateres parametrene?</p>
+  <ul>
+    <li>400</li>
+    <li data-correct>50</li>
+    <li>20 000</li>
+    <li>8</li>
+  </ul>
+  <div class="explain">Koden regner gradienten på hele datasettet og gjør én oppdatering per epoke (full-batch), så 50 epoker gir 50 oppdateringer. 20 000 ($400 \cdot 50$) ville vært stokastisk GD med én oppdatering per datapunkt. Antall oppdateringer per epoke avhenger av batch-størrelsen (<a href="10-trening-nn.html">kapittel 10</a>).</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="trening"><span class="sec">2.7</span>Trening i praksis: tap og accuracy over epoker</h2>
+
+<p>Når læringsalgoritmen er ferdig, splitter vi dataene i trening og test (<a href="01-grunnlag.html#arbeidsflyt">kapittel 1</a>) og trener:</p>
+<pre><code>log_reg = LogisticRegression(learning_rate=<span class="s">0.01</span>, epochs=<span class="s">30</span>)
+log_reg.fit(X_train, y_train)
+predictions = log_reg.predict(X_test)
+
+epoch_list = np.arange(<span class="s">0</span>, <span class="s">30</span>, <span class="s">1</span>)
+plt.plot(epoch_list, log_reg.losses, c=<span class="s">"red"</span>, label=<span class="s">"Loss"</span>)
+plt.plot(epoch_list, log_reg.train_accuracies, c=<span class="s">"blue"</span>, label=<span class="s">"Accuracy"</span>)
+plt.legend(); plt.show()</code></pre>
+
+<p>For å vite at programmet faktisk blir bedre gjennom erfaring (Mitchells P!), må vi måle ytelsen. Som et minimum lagrer vi tap og treffsikkerhet (accuracy) under treningen og plotter dem.</p>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s11_1.png" alt="Tap og accuracy over 30 epoker" style="max-width:420px; width:100%">
+  <figcaption><b>Figur 2.3</b> Fra notatene: tap (rød) og accuracy (blå) over 30 epoker for Titanic. Tapet starter høyt og minker jevnt før det flater ut; accuracy starter lavt, øker og flater ut.</figcaption>
+</figure>
+
+<p>Hvordan leser vi dette plottet?</p>
+<ul>
+  <li><strong>Tapet minker og flater ut</strong>: bra. Modellen lærer, og har omtrent lært det den kan.</li>
+  <li><strong>Accuracy øker og flater ut</strong>: også bra.</li>
+  <li><strong>Begge flater ut</strong>: treningen har vart lenge nok. Hadde kurvene ikke flatet ut, trengte vi flere epoker. Her kunne vi stoppet etter rundt 20–25 epoker.</li>
+  <li><strong>Starttapet er ca. 0.693</strong>: det er ingen tilfeldighet. Med $w = 0$ og $b = 0$ er $z = 0$ og $y_{pred} = 0.5$ for alle, og tapet er $-\ln 0.5 = \ln 2 \approx 0.693$.</li>
+  <li><strong>Start-accuracy er ca. 0.6</strong>: med $y_{pred} = 0.5$ og regelen «klasse 1 hvis $y_{pred} \gt 0.5$» predikeres alle som klasse 0. Accuracy blir da andelen som ikke overlevde, omtrent 60 %.</li>
+  <li><strong>Accuracy er hakkete, tapet er glatt</strong>: accuracy endrer seg bare når et punkt krysser terskelen, så den hopper i trinn. Tapet reagerer på hver lille endring i sannsynlighetene. Det er også grunnen til at tapet, og ikke accuracy, er det vi deriverer.</li>
+</ul>
+
+<div class="calc" data-id="02-calc-init-loss" data-answer="0.693" data-tol="0.005">
+  <p class="q">Alle vekter og bias starter i 0. Hva er cross-entropy-tapet (gjennomsnitt over datasettet) før første oppdatering, uansett data? Bruk $\ln 2 \approx 0.693$.</p>
+  <div class="solution">$z = 0$ gir $y_{pred} = 0.5$ for alle punkter. For $y=1$: $-\ln 0.5$. For $y=0$: $-\ln(1 - 0.5) = -\ln 0.5$. Begge er $\ln 2 \approx 0.693$, så snittet er $0.693$. Ser du et starttap langt over dette med null-initialisering, er det sannsynligvis en feil i koden.</div>
+</div>
+
+<div class="widget" id="w-train">
+  <h4>Utforsk: logistisk regresjon trenes live</h4>
+  <div class="canvas-pair">
+    <canvas id="tr-data" width="420" height="340"></canvas>
+    <canvas id="tr-curve" width="420" height="340"></canvas>
+  </div>
+  <div class="controls">
+    <label>Data <select id="tr-set"><option value="lin">Lineært separerbar (nesten)</option><option value="xor">XOR-mønster (som prosjekt 1)</option></select></label>
+    <label><input type="checkbox" id="tr-prod"> legg til feature $x_1 x_2$</label>
+    <label>η <input type="range" id="tr-eta" min="0.01" max="5" step="0.01" value="0.5"><output id="tr-etao">0.50</output></label>
+  </div>
+  <div class="controls">
+    <button class="btn" type="button" id="tr-go">Start</button>
+    <button class="btn" type="button" id="tr-step">Én epoke</button>
+    <button class="btn ghost" type="button" id="tr-reset">Nullstill</button>
+  </div>
+  <div class="readouts"><span class="readout" id="tr-r1"></span><span class="readout" id="tr-r2"></span></div>
+  <p class="small muted" style="margin:10px 0 0">Bakgrunnsfargen er $y_{pred}$ (blå = klasse 1, oransje = klasse 0, sterkere farge = sikrere), og den svarte kurven er beslutningsgrensen $y_{pred} = 0.5$. Til høyre: tap (oransje) og accuracy (blå) per epoke. <strong>Prøv:</strong> (1) Lineære data: grensen finner raskt plassen sin og kurvene flater ut. (2) XOR uten $x_1x_2$: grensen vandrer rundt, tapet blir stående rundt 0.69 og accuracy rundt 50 %. Ingen rett linje kan skille dataene. (3) XOR <em>med</em> $x_1x_2$: grensen blir krum (to hyperbler) og accuracy går høyt opp. (4) Sett η til 5 på lineære data: se hvordan tapet hopper i starten.</p>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const Pd = CK.plot(document.getElementById("tr-data"), { xmin: -3, xmax: 3, ymin: -3, ymax: 3, pad: { l: 34, r: 10, t: 10, b: 30 } });
+  const Pc = CK.plot(document.getElementById("tr-curve"), { xmin: 0, xmax: 150, ymin: 0, ymax: 1, pad: { l: 40, r: 12, t: 10, b: 30 } });
+  const setSel = document.getElementById("tr-set"), prod = document.getElementById("tr-prod"), eta = document.getElementById("tr-eta");
+  const goBtn = document.getElementById("tr-go");
+  const MAXE = 150;
+  let data = [], w = [], b = 0, hist = [], running = false, timer = null;
+  function makeData() {
+    const r = CK.rng(setSel.value === "lin" ? 11 : 23); data = [];
+    if (setSel.value === "lin") {
+      for (let i = 0; i < 70; i++) data.push({ x: r.normal(0.9, 0.75), y: r.normal(0.7, 0.75), c: 1 });
+      for (let i = 0; i < 70; i++) data.push({ x: r.normal(-0.9, 0.75), y: r.normal(-0.6, 0.75), c: 0 });
+    } else {
+      for (let i = 0; i < 160; i++) {
+        const x = r.normal(0, 1.05), y = r.normal(0, 1.05);
+        let c = x * y < 0 ? 1 : 0; if (r() < 0.06) c = 1 - c;
+        data.push({ x: Math.max(-2.9, Math.min(2.9, x)), y: Math.max(-2.9, Math.min(2.9, y)), c });
+      }
+    }
+  }
+  const feat = (x, y) => prod.checked ? [x, y, x * y] : [x, y];
+  const zf = (x, y) => { const f = feat(x, y); let z = b; for (let j = 0; j < f.length; j++) z += w[j] * f[j]; return z; };
+  const sig = z => 1 / (1 + Math.exp(-z));
+  function evalAll() {
+    let L = 0, acc = 0;
+    data.forEach(d => { const p = sig(zf(d.x, d.y)); L += -(d.c * Math.log(p + 1e-12) + (1 - d.c) * Math.log(1 - p + 1e-12)); acc += ((p > 0.5 ? 1 : 0) === d.c) ? 1 : 0; });
+    return { L: L / data.length, acc: acc / data.length };
+  }
+  function reset() {
+    stop(); makeData(); w = feat(0, 0).map(() => 0); b = 0; hist = [evalAll()]; draw();
+  }
+  function epoch() {
+    if (hist.length > MAXE) { stop(); return; }
+    const n = w.length, gw = new Array(n).fill(0); let gb = 0;
+    data.forEach(d => { const f = feat(d.x, d.y), e = sig(zf(d.x, d.y)) - d.c; for (let j = 0; j < n; j++) gw[j] += e * f[j]; gb += e; });
+    const N = data.length, h = +eta.value;
+    for (let j = 0; j < n; j++) w[j] -= h * gw[j] / N; b -= h * gb / N;
+    hist.push(evalAll());
+  }
+  function contour(P, f, nx, ny) {
+    const dx = (P.xmax - P.xmin) / nx, dy = (P.ymax - P.ymin) / ny, v = [];
+    for (let i = 0; i <= nx; i++) { v.push([]); for (let j = 0; j <= ny; j++) v[i].push(f(P.xmin + i * dx, P.ymin + j * dy)); }
+    const ctx = P.ctx; ctx.save(); ctx.strokeStyle = CK.cssVar("text"); ctx.lineWidth = 2.2; ctx.beginPath();
+    const ip = (x1, y1, a, x2, y2, c) => { const t = a / (a - c); return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]; };
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      const x0 = P.xmin + i * dx, y0 = P.ymin + j * dy, x1 = x0 + dx, y1 = y0 + dy;
+      const a = v[i][j], bb = v[i + 1][j], c = v[i + 1][j + 1], d = v[i][j + 1], pts = [];
+      if ((a > 0) !== (bb > 0)) pts.push(ip(x0, y0, a, x1, y0, bb));
+      if ((bb > 0) !== (c > 0)) pts.push(ip(x1, y0, bb, x1, y1, c));
+      if ((c > 0) !== (d > 0)) pts.push(ip(x1, y1, c, x0, y1, d));
+      if ((d > 0) !== (a > 0)) pts.push(ip(x0, y1, d, x0, y0, a));
+      for (let k = 0; k + 1 < pts.length; k += 2) { ctx.moveTo(P.X(pts[k][0]), P.Y(pts[k][1])); ctx.lineTo(P.X(pts[k + 1][0]), P.Y(pts[k + 1][1])); }
+    }
+    ctx.stroke(); ctx.restore();
+  }
+  function draw() {
+    document.getElementById("tr-etao").textContent = (+eta.value).toFixed(2);
+    Pd.clear();
+    const c1 = CK.cssVar("c1"), c2 = CK.cssVar("c2"), nx = 48, ny = 48;
+    const dx = (Pd.xmax - Pd.xmin) / nx, dy = (Pd.ymax - Pd.ymin) / ny;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      const x = Pd.xmin + (i + 0.5) * dx, y = Pd.ymin + (j + 0.5) * dy, p = sig(zf(x, y));
+      Pd.rect(Pd.xmin + i * dx, Pd.ymin + j * dy, Pd.xmin + (i + 1) * dx + 0.002, Pd.ymin + (j + 1) * dy + 0.002, { fill: p > 0.5 ? c1 : c2, alpha: Math.min(0.42, Math.abs(p - 0.5) * 0.9) });
+    }
+    Pd.axes({ xlabel: "x₁", ylabel: "x₂", frame: true });
+    if (w.some(v => Math.abs(v) > 1e-6)) contour(Pd, zf, 90, 90);
+    Pd.points(data.filter(d => d.c === 1), { color: c1, r: 4.5 });
+    Pd.points(data.filter(d => d.c === 0), { color: c2, r: 4.5 });
+    const top = Math.max(1, ...hist.map(h => Math.min(h.L, 3)));
+    Pc.setView({ ymax: top * 1.05 });
+    Pc.clear().grid().axes({ xlabel: "epoke", frame: true });
+    Pc.line(0, Math.LN2, MAXE, Math.LN2, { color: CK.cssVar("muted"), width: 1, dash: [3, 4] });
+    Pc.text("ln 2 ≈ 0.693", MAXE * 0.98, Math.LN2 + top * 0.035, { align: "right", size: 11, color: CK.cssVar("muted") });
+    if (hist.length > 1) {
+      Pc.path(hist.map((h, i) => ({ x: i, y: Math.min(h.L, 3) })), { color: c2, width: 2.2 });
+      Pc.path(hist.map((h, i) => ({ x: i, y: h.acc })), { color: c1, width: 2.2 });
+    }
+    Pc.legend([{ color: c2, label: "tap (cross-entropy)" }, { color: c1, label: "accuracy" }], { x: Pc.X(MAXE * 0.45), y: Pc.Y(0.22 * Pc.ymax) });
+    const h = hist[hist.length - 1];
+    document.getElementById("tr-r1").textContent = "epoke " + (hist.length - 1) + " · tap " + h.L.toFixed(3) + " · accuracy " + (100 * h.acc).toFixed(1) + " %";
+    document.getElementById("tr-r2").textContent = "w = (" + w.map(v => v.toFixed(2)).join(", ") + ") · b = " + b.toFixed(2);
+  }
+  function stop() { running = false; if (timer) clearInterval(timer); timer = null; goBtn.textContent = "Start"; }
+  goBtn.onclick = () => {
+    if (running) { stop(); return; }
+    if (hist.length > MAXE) reset();
+    running = true; goBtn.textContent = "Pause";
+    timer = setInterval(() => { epoch(); draw(); if (hist.length > MAXE) stop(); }, 60);
+  };
+  document.getElementById("tr-step").onclick = () => { epoch(); draw(); };
+  document.getElementById("tr-reset").onclick = reset;
+  setSel.onchange = prod.onchange = reset;
+  eta.oninput = () => { document.getElementById("tr-etao").textContent = (+eta.value).toFixed(2); };
+  makeData(); w = feat(0, 0).map(() => 0); b = 0; hist = [evalAll()];
+  CK.live(draw);
+});
+</script>
+
+<div class="quiz" data-id="02-curve-read">
+  <p class="q">Etter 100 epoker har tapet på treningsdata flatet ut på 0.69, og accuracy ligger rundt 50 % på et balansert datasett med to features. Hva er den mest sannsynlige forklaringen?</p>
+  <ul>
+    <li>Modellen trenger bare flere epoker</li>
+    <li>Læringsraten er for høy</li>
+    <li data-correct>Klassene kan ikke skilles av en rett linje i disse features, så modellen kan ikke gjøre det bedre enn å gjette; den trenger nye features</li>
+    <li>Modellen har overtilpasset treningsdataene</li>
+  </ul>
+  <div class="explain">Et tap som flater ut på $\ln 2 \approx 0.693$ betyr at modellen i praksis sier 0.5 for alle, altså ren gjetting. Når kurven er flat, hjelper ikke flere epoker. For høy læringsrate gir hopping, ikke et flatt platå. Overtilpasning ville gitt <em>lavt</em> treningstap. Det klassiske eksempelet er XOR-lignende data, som i prosjekt 1, der feature engineering (f.eks. $x_1 x_2$) løser problemet.</div>
+</div>
+
+<div class="quiz" data-id="02-why-not-acc">
+  <p class="q">Hvorfor kan vi ikke bruke accuracy direkte som tapsfunksjon i gradient descent?</p>
+  <ul>
+    <li>Fordi accuracy bare fungerer på testdata</li>
+    <li data-correct>Fordi accuracy endrer seg i hopp: den deriverte er null nesten overalt, så den gir ingen retning å gå i</li>
+    <li>Fordi accuracy alltid er lavere enn tapet</li>
+    <li>Fordi accuracy er en hyperparameter</li>
+  </ul>
+  <div class="explain">Små endringer i $w$ endrer sannsynlighetene litt, men accuracy endres bare når et punkt krysser terskelen. Funksjonen er stykkevis konstant, så gradienten er null (eller udefinert i hoppene). Gradient descent trenger en glatt, deriverbar funksjon. Accuracy er fortsatt nyttig som <em>evalueringsmetrikk</em>, som ikke trenger å være deriverbar (<a href="03-evaluering.html">kapittel 3</a>). Den kan regnes på både trenings- og testdata, og den er ingen hyperparameter.</div>
+</div>
+
+<div class="reflect" data-id="02-r-curves">
+  <p class="q">I figur 2.3 flater tapet ut rundt 0.54 og accuracy rundt 0.77. Betyr det at modellen vil ha 77 % treffsikkerhet på nye passasjerer? Hva mer vil du vite?</p>
+  <div class="answer">Nei, ikke nødvendigvis. Kurvene er målt på <em>treningsdataene</em>, som modellen har tilpasset seg. Ytelsen på nye data må måles på et separat testsett (og helst velges hyperparametre på et valideringssett). For en enkel modell som logistisk regresjon med få features er gapet mellom trening og test ofte lite, men det må sjekkes. I tillegg forteller accuracy lite om <em>hvilke</em> feil modellen gjør: tar den feil på overlevende eller ikke-overlevende? Det trenger vi confusion matrix, precision og recall til (<a href="03-evaluering.html">kapittel 3</a>). Notatene sier det samme: tap og accuracy forteller «kun en liten del av historien».</div>
+</div>
+
+<div class="reflect" data-id="02-r-whole">
+  <p class="q">Forklar hele kjeden fra «vi vil ha en sannsynlighet» til «oppdater $w_j$ med $(y_{pred} - y)x_j$» med dine egne ord, uten formler. Hvilket steg synes du er minst intuitivt?</p>
+  <div class="answer">(1) En lineær kombinasjon av features gir et tall som kan bli hva som helst; sigmoid klemmer det inn mellom 0 og 1 så det kan tolkes som en sannsynlighet. (2) Vi vil at modellen skal gi høy sannsynlighet til det riktige svaret; det er likelihood. (3) Log gjør produkter til summer uten å flytte optimum, og minus gjør maksimering til minimering: det er cross-entropy-tapet. (4) For å finne parametrene som minimerer tapet, går vi i motsatt retning av gradienten, skritt for skritt, med skrittlengde gitt av læringsraten. (5) Når vi deriverer, kansellerer sigmoidens derivert mot logaritmen, og igjen står «feil ganger input». Mange synes steg (2)–(3) er minst intuitivt; knaggen er at tapet bare er «minus log av sannsynligheten modellen ga til riktig svar».</div>
+</div>
+
+<div class="reflect" data-id="02-r-scaling">
+  <p class="q">Du trener på Titanic med features Pclass (1–3), Sex (0/1) og Fare (0–512), uten skalering, og med én læringsrate. Hva tror du skjer, og hvorfor? Bruk formelen for gradienten.</p>
+  <div class="answer">Gradienten for $w_j$ er proporsjonal med $x_j$. Fare er opptil flere hundre ganger større enn Sex, så gradienten for $w_{Fare}$ blir tilsvarende stor. En læringsrate som er passe for Sex blir alt for høy for Fare (oscillering eller divergens), og en læringsrate som er trygg for Fare blir så liten at $w_{Sex}$ nesten ikke flytter seg (treg trening). Skalering (MinMax eller Standard, fittet på treningsdata) gir alle features samme størrelsesorden, slik at én læringsrate fungerer for alle.</div>
+</div>
+
+<details class="more"><summary>Fordypning: log-odds, og hvorfor det heter «logistisk» <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+<p>Løs $p = \sigma(z)$ for $z$: $z = \ln\frac{p}{1-p}$. Forholdet $\frac{p}{1-p}$ kalles <em>odds</em>, og $\ln$ av det heter <em>log-odds</em> eller <em>logit</em>. Logistisk regresjon er altså en lineær regresjon på log-odds: hver ekstra enhet av $x_j$ ganger oddsen med $e^{w_j}$. Det gjør vektene tolkbare, og forklarer navnet: modellen er en regresjon (på log-odds) sendt gjennom den logistiske funksjonen.</p>
+</div></details>
+
+<!-- ====================================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Modell</strong>: $z = w\mathbf{x} + b$ (en skalar per datapunkt) og $y_{pred} = \sigma(z) = \frac{1}{1+e^{-z}} \in (0,1)$, tolket som $p(y=1 \mid \mathbf{x})$.</li>
+    <li><strong>Antakelse</strong>: ingen vekselvirkninger mellom features. <strong>Beslutningsgrensen</strong> $z = 0$ er lineær (linje/plan/hyperplan). Ikke-lineært separerbare data krever feature engineering, f.eks. $x_1 x_2$.</li>
+    <li>$y_{pred}^{\,y}(1-y_{pred})^{1-y}$ = sannsynligheten modellen gir til riktig klasse. Som funksjon av parametrene, gitt data, er det en <strong>likelihood</strong>.</li>
+    <li><strong>Log</strong> (monoton, gjør produkter til summer) + <strong>minus</strong> (maks → min) gir <strong>binary cross-entropy</strong>: $L = -y\ln y_{pred} - (1-y)\ln(1-y_{pred})$. Selvsikre feil straffes hardt.</li>
+    <li>Trening: $\hat\theta = \arg\min_\theta \frac1N \sum_i L^{(i)}$, altså conditional maximum likelihood.</li>
+    <li><strong>Gradient descent</strong>: $\theta_{t+1} = \theta_t - \eta\,\partial L/\partial\theta$ i parameterrommet. Tapet må være <strong>deriverbart</strong>. Konveks tap gir garantert globalt minimum; logistisk regresjon er konveks.</li>
+    <li><strong>Læringsrate</strong> $\eta$ er en hyperparameter. For høy: oscillering eller divergens. For lav: treg trening.</li>
+    <li><strong>Gradientene</strong>: $\partial L/\partial w_j = (y_{pred} - y)x_j$ og $\partial L/\partial b = y_{pred} - y$, «feil ganger input». Over $N$ punkter: ta snittet.</li>
+    <li><strong>Kode</strong>: <code>fit</code> (epoker med GD) og <code>predict</code> (terskel 0.5). Vektorisert: <code>z = X @ w + b</code>, <code>grad_w = X.T @ (y_pred - y) / N</code>.</li>
+    <li><strong>Kurver</strong>: tapet skal minke og flate ut, accuracy øke og flate ut. Med null-initialisering starter tapet på $\ln 2 \approx 0.693$.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Sigmoid</div><div class="back">$\sigma(z) = \frac{1}{1+e^{-z}}$. Mapper ℝ til $(0,1)$. $\sigma(0) = 0.5$. $\sigma'(z) = \sigma(z)(1-\sigma(z))$.</div></div>
+  <div class="card"><div class="front">Er $z = w\mathbf{x}+b$ et tall eller en vektor?</div><div class="back">Et tall (skalar) per datapunkt: $w\mathbf{x}$ er et prikkprodukt.</div></div>
+  <div class="card"><div class="front">Antakelsen i en lineær modell</div><div class="back">Ingen vekselvirkninger: effekten av hver feature er uavhengig av de andre.</div></div>
+  <div class="card"><div class="front">Beslutningsgrense</div><div class="back">$y_{pred} = 0.5 \iff w\mathbf{x}+b = 0$. En linje/hyperplan. Krum grense krever nye features.</div></div>
+  <div class="card"><div class="front">Likelihood vs. sannsynlighet</div><div class="back">Sannsynlighet: parametre kjent, data ukjent. Likelihood: data observert, funksjon av parametrene.</div></div>
+  <div class="card"><div class="front">Binary cross-entropy</div><div class="back">$L = -y\ln y_{pred} - (1-y)\ln(1-y_{pred})$ = minus log-likelihood.</div></div>
+  <div class="card"><div class="front">Hvorfor log? Hvorfor minus?</div><div class="back">Log: monoton, gjør produkt/eksponent til sum/faktor. Minus: maksimere likelihood = minimere tap.</div></div>
+  <div class="card"><div class="front">Oppdateringsregelen</div><div class="back">$\theta_{t+1} = \theta_t - \eta\,\frac{\partial L}{\partial\theta}$. Motsatt retning av gradienten.</div></div>
+  <div class="card"><div class="front">$\partial L/\partial w_j$ og $\partial L/\partial b$</div><div class="back">$(y_{pred} - y)x_j$ og $y_{pred} - y$. «Feil ganger input.»</div></div>
+  <div class="card"><div class="front">For høy / for lav læringsrate</div><div class="back">For høy: oscillering, divergens. For lav: svært treg trening.</div></div>
+  <div class="card"><div class="front">Konveks funksjon</div><div class="back">Ett minimum. Et minimum gradient descent finner er globalt. Logistisk regresjon med cross-entropy er konveks.</div></div>
+  <div class="card"><div class="front">Epoke</div><div class="back">Én gjennomgang av alle treningsdataene. Full-batch GD: én oppdatering per epoke.</div></div>
+  <div class="card"><div class="front">Starttap med $w=0, b=0$</div><div class="back">$y_{pred} = 0.5$ for alle, så tapet er $\ln 2 \approx 0.693$.</div></div>
+  <div class="card"><div class="front">Hvorfor ikke accuracy som tap?</div><div class="back">Den er stykkevis konstant: gradienten er null nesten overalt, så den kan ikke brukes i gradient descent.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+</body>
+</html>

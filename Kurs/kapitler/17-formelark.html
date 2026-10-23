@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>17 · Formelark og begrepsliste – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .flist { display: grid; gap: 10px; margin: 14px 0 22px; }
+  .f { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px 10px; }
+  .f .fx { overflow-x: auto; overflow-y: hidden; }
+  .f .fx .katex-display { margin: 4px 0; }
+  .f .fm { font-size: 15px; color: var(--text-soft); line-height: 1.5; }
+  .f .fm b { color: var(--text); }
+  .f .fl { font-size: 13px; margin-left: 6px; white-space: nowrap; }
+  .f.exp { border-style: dashed; }
+  .f .tag { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--exam); margin-right: 6px; }
+  .topic-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+  .topic-nav a { font-size: 13.5px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; background: var(--surface); }
+  .topic-nav a:hover { border-color: var(--accent); }
+  .gloss-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; position: sticky; top: 56px; z-index: 5; background: var(--bg); padding: 8px 0; }
+  .gloss-tools input { font: inherit; flex: 1 1 260px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .gloss-letters { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 10px; }
+  .gloss-letters a { font-size: 13px; font-weight: 700; width: 26px; text-align: center; padding: 2px 0; border-radius: 6px; text-decoration: none; background: var(--surface-2); }
+  .gloss h3.letter { font-size: 18px; margin: 22px 0 6px; color: var(--accent); border-bottom: 1px solid var(--border); }
+  .gloss dl { margin: 0; }
+  .gloss .g { padding: 8px 2px; border-bottom: 1px dashed var(--border); }
+  .gloss .g dt { font-weight: 700; }
+  .gloss .g dt .en { font-weight: 500; color: var(--muted); font-style: italic; margin-left: 6px; }
+  .gloss .g dt a { font-size: 12.5px; font-weight: 500; margin-left: 8px; }
+  .gloss .g dd { margin: 2px 0 0; font-size: 15.5px; color: var(--text-soft); }
+  .hooks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 16px 0; }
+  .hooks div { background: var(--hook-bg); border-left: 4px solid var(--hook); border-radius: 0 10px 10px 0; padding: 10px 12px; font-size: 15px; }
+  .hooks div b { display: block; font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--hook); margin-bottom: 2px; }
+  ol.traps li { margin: 8px 0; }
+  ol.traps li b { color: var(--exam); }
+  .api td code, .api th { white-space: nowrap; }
+  .vs td:first-child { font-weight: 700; white-space: nowrap; }
+</style>
+</head>
+<body data-chapter="17">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 17 · Eksamen</div>
+  <h1>Formelark og begrepsliste</h1>
+  <p class="lead">Alt du trenger å ha i hodet på eksamensdagen, samlet på ett sted: formlene med hva de betyr, begrepene på norsk og engelsk, én huskesetning per hovedidé, en API-jukselapp, de vanligste fellene og blandet repetisjon til slutt.</p>
+</header>
+
+<div class="goals">
+  <h4>Slik bruker du siden</h4>
+  <ul>
+    <li><strong>Før eksamen:</strong> gå gjennom formlene tema for tema. Dekk til forklaringen og si høyt hva formelen betyr og når den brukes. Lenken fører til kapittelet der den forklares.</li>
+    <li><strong>Begrepslisten</strong> har et søkefelt. Skriv for eksempel «bias» for å se alle betydningene.</li>
+    <li><strong>Eksamensfellene og forvekslingstabellen</strong> er laget fra feilsvarene på eksamen 2024 og 2025. Les dem dagen før.</li>
+    <li>Eksamen er <strong>uten hjelpemidler</strong>, med enkel kalkulator. Alt her må sitte i hodet, så bruk flashcards og quizen nederst flere ganger.</li>
+  </ul>
+</div>
+
+<div class="banner">Formler merket <b>forventet pensum</b> (stiplet ramme) hører til forsterkningslæring og forklarbar KI. De ble spurt om på eksamen 2024/2025, men står ikke i forelesningsnotatene. Se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>.</div>
+
+<!-- ===================================================================== -->
+<h2 id="formler"><span class="sec">17.1</span>Formelark</h2>
+
+<div class="topic-nav">
+  <a href="#f-logreg">Logistisk regresjon</a><a href="#f-eval">Metrikker</a><a href="#f-info">Entropi og Bayes</a><a href="#f-traer">Trær</a>
+  <a href="#f-regr">Regresjon</a><a href="#f-gen">Bias–varians</a><a href="#f-ens">Ensemble</a><a href="#f-nn">Nevrale nett</a>
+  <a href="#f-tren">Epoker</a><a href="#f-clu">Clustering</a><a href="#f-dim">PCA og t-SNE</a><a href="#f-rl">RL</a><a href="#f-xai">Shapley</a>
+</div>
+
+<h3 id="f-logreg">Logistisk regresjon og gradient descent</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$z = \sum_{i=1}^{n} w_i x_i + b = \mathbf{w}\mathbf{x} + b$$</div>
+    <div class="fm"><b>Lineær modell.</b> $z$ er ett tall (prikkprodukt av to vektorer pluss bias). Kan bli hva som helst, derfor sendes den gjennom sigmoid. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$\sigma(z) = \frac{1}{1+e^{-z}}, \qquad \sigma'(z) = \sigma(z)\big(1-\sigma(z)\big)$$</div>
+    <div class="fm"><b>Sigmoid</b> mapper $\mathbb{R}\to(0,1)$, så $y_{pred} = \sigma(\mathbf{w}\mathbf{x}+b)$ kan tolkes som sannsynlighet. $\sigma(0) = 0.5$. Den deriverte brukes i utledningen av gradienten. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$L(\mathbf{w},b\,|\,\mathbf{x},y) = y_{pred}^{\,y}\,(1-y_{pred})^{1-y}$$</div>
+    <div class="fm"><b>Likelihood</b> for ett datapunkt: lik $y_{pred}$ når $y=1$ og $1-y_{pred}$ når $y=0$. En fordeling over <em>parametrene</em> gitt observerte data. Skal maksimeres. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$L(y_{pred},y) = -y\ln y_{pred} - (1-y)\ln(1-y_{pred})$$</div>
+    <div class="fm"><b>Binary cross-entropy (BCE)</b> = minus log-likelihood. Logaritmen gjør produktet til en sum, minustegnet gjør maksimering til minimering. Konveks for logistisk regresjon. I kode: <code>-y*np.log(y_pred) - (1-y)*np.log(1-y_pred)</code>. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$L = -w_1\,y\ln y_{pred} - w_0\,(1-y)\ln(1-y_{pred})$$</div>
+    <div class="fm"><b>Vektet BCE</b> for ubalanserte data. $w_1$ står på leddet som bare er aktivt når $y=1$. Gi minoritetsklassen størst vekt, f.eks. omvendt proporsjonalt med klassestørrelsen (9000 vs 1000 → $w$ for minoriteten 9 ganger større). <a class="fl" href="03-evaluering.html">kap. 3</a></div></div>
+  <div class="f"><div class="fx">$$L(\hat{\mathbf{y}},\mathbf{y}) = -\sum_{i} y_i\log\hat{y}_i$$</div>
+    <div class="fm"><b>Kryss-entropi for flere klasser</b> (one-hot $\mathbf{y}$, softmax-output $\hat{\mathbf{y}}$). Bare leddet for riktig klasse bidrar. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$\frac{\partial L}{\partial w_j} = (y_{pred}-y)\,x_j, \qquad \frac{\partial L}{\partial b} = y_{pred}-y$$</div>
+    <div class="fm"><b>Gradientene til BCE</b> med sigmoid. Den pene formen kommer fordi $\sigma'$ kansellerer nevneren. Feil × input. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$\hat{\theta} = \arg\min_{\theta}\ \frac{1}{N}\sum_{i=1}^{N} L\big(f(\mathbf{x}^{(i)};\theta),\,y^{(i)}\big)$$</div>
+    <div class="fm"><b>Trening</b> = finn parametrene $\theta = (\mathbf{w},b)$ som minimerer gjennomsnittlig tap (conditional maximum likelihood). <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+  <div class="f"><div class="fx">$$\theta_{t+1} = \theta_t - \eta\,\frac{\partial}{\partial\theta}L\big(f(\mathbf{x};\theta),y\big)$$</div>
+    <div class="fm"><b>Gradient descent.</b> Gradienten peker mot økende tap, så vi går motsatt vei. $\eta$ = læringsrate (hyperparameter). For høy $\eta$: oscillering/divergens. For lav: treg. Tapet må være deriverbart. <a class="fl" href="02-logistisk.html">kap. 2</a></div></div>
+</div>
+
+<div class="calc" data-id="17-gd-steg" data-answer="1.4" data-tol="0.001">
+  <p class="q">(Eksamen 2024 oppg. 2) Modell $f(x) = wx + b$, tap $L = \frac12(y-f(x))^2$, start $w = 1$, $b = 0$, datapunkt $x = 2$, $y = 4$, $\eta = 0.1$. Hva blir $w$ etter ett steg?</p>
+  <div class="solution">$f = 2$. $\frac{\partial L}{\partial w} = -(y-f)x = -(4-2)\cdot 2 = -4$, $\frac{\partial L}{\partial b} = -(y-f) = -2$. $w \leftarrow 1 - 0.1\cdot(-4) = 1.4$ og $b \leftarrow 0 - 0.1\cdot(-2) = 0.2$.</div>
+</div>
+
+<h3 id="f-eval">Evaluering og ubalanserte data</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$\text{Accuracy} = \frac{TP+TN}{TP+TN+FP+FN}$$</div>
+    <div class="fm"><b>Treffsikkerhet.</b> Villedende ved ubalanse: 99 % friske gir 99 % accuracy for en modell som sier «frisk» til alle. <a class="fl" href="03-evaluering.html">kap. 3</a></div></div>
+  <div class="f"><div class="fx">$$\text{Precision} = \frac{TP}{TP+FP}, \qquad \text{Recall} = TPR = \frac{TP}{TP+FN}$$</div>
+    <div class="fm"><b>Precision</b>: av dem vi <em>sa</em> var positive, hvor mange var det? Viktig når falsk alarm er dyrt (utrykning). <b>Recall</b> (sensitivitet): av alle <em>faktisk</em> positive, hvor mange fant vi? Viktig når en bom er farlig (dødelig sykdom). <a class="fl" href="03-evaluering.html">kap. 3</a></div></div>
+  <div class="f"><div class="fx">$$TNR = \frac{TN}{TN+FP}\ (\text{spesifisitet}), \qquad FPR = \frac{FP}{FP+TN} = 1-TNR$$</div>
+    <div class="fm"><b>ROC-kurven</b> plotter TPR (y) mot FPR (x) for alle terskler. Terskel 1 gir (0,0), terskel 0 gir (1,1). Lavere terskel → lenger opp til høyre. <a class="fl" href="03-evaluering.html">kap. 3</a></div></div>
+  <div class="f"><div class="fx">$$\text{AUC} = P\big(\text{score}(\text{tilfeldig positiv}) \gt \text{score}(\text{tilfeldig negativ})\big)$$</div>
+    <div class="fm"><b>ROC AUC</b>: 0.5 = myntkast (diagonalen), 1 = perfekt rangering. Ikke det samme som accuracy. <a class="fl" href="03-evaluering.html">kap. 3</a></div></div>
+  <div class="f"><div class="fx">$$\text{Under: } 2\cdot n_{min} \text{ totalt}, \qquad \text{Over: } 2\cdot n_{maj}\text{ totalt},\ n_{maj}-n_{min}\text{ duplikater}$$</div>
+    <div class="fm"><b>Resampling.</b> 100 vs 1000: undersampling gir 200 punkter (risiko: underfit), oversampling gir 2000 med 900 duplikater (risiko: overfit). <a class="fl" href="03-evaluering.html">kap. 3</a></div></div>
+</div>
+
+<div class="calc" data-id="17-precision" data-answer="0.5714" data-tol="0.005">
+  <p class="q">(Fra eksamen 2024 oppg. 5) Ved terskel 0.3: TP = 40, FN = 10, FP = 30, TN = 20. Regn ut precision.</p>
+  <div class="solution">Precision $= \frac{40}{40+30} = \frac{40}{70} \approx 0.571$. Til sammenligning: recall $= 40/50 = 0.8$ og FPR $= 30/50 = 0.6$, så punktet på ROC-kurven er (0.6, 0.8).</div>
+</div>
+
+<h3 id="f-info">Entropi, kryss-entropi, KL, Bayes og dimensjonsforbannelsen</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$H(p) = -\sum_i p(x_i)\log p(x_i)$$</div>
+    <div class="fm"><b>Entropi</b>: usikkerhet / forventet informasjon. Binær: maks 1 bit ved (0.5, 0.5), min 0 når alt er én klasse. Med $k$ klasser er maks $\log_2 k$. $I(0.5,0.5) = 1$, $I(0.01,0.99)\approx 0.08$. <a class="fl" href="04-sannsynlighet.html">kap. 4</a></div></div>
+  <div class="f"><div class="fx">$$H(p,q) = -\sum_i p(x_i)\log q(x_i)$$</div>
+    <div class="fm"><b>Kryss-entropi</b>: $p$ = fordelingen dataene faktisk kommer fra (labels), $q$ = det modellen tror. BCE er et spesialtilfelle. $H(p,q) \ge H(p)$. <a class="fl" href="04-sannsynlighet.html">kap. 4</a></div></div>
+  <div class="f"><div class="fx">$$D_{KL}(P\,\|\,Q) = \sum_x P(x)\log\frac{P(x)}{Q(x)} = H(P,Q) - H(P)$$</div>
+    <div class="fm"><b>KL-divergens</b>: overraskelsen ved å bruke $Q$ når dataene kommer fra $P$. $\ge 0$, $=0$ bare når $P=Q$, <em>ikke symmetrisk</em>. Tapet i SNE/t-SNE. <a class="fl" href="12-dimensjonsreduksjon.html#sne">kap. 12</a></div></div>
+  <div class="f"><div class="fx">$$P(A|B) = \frac{P(B|A)\,P(A)}{P(B)} \qquad\Rightarrow\qquad p(C_k|\mathbf{x}) = \frac{p(\mathbf{x}|C_k)\,p(C_k)}{p(\mathbf{x})}$$</div>
+    <div class="fm"><b>Bayes' teorem.</b> Posterior = likelihood × prior / evidens. $p(C_k)$ = prior (klassefordeling), $p(\mathbf{x}|C_k)$ = likelihood, $p(\mathbf{x})$ = evidens (lik for alle klasser, normaliserer). <a class="fl" href="04-sannsynlighet.html">kap. 4</a></div></div>
+  <div class="f"><div class="fx">$$\hat{y} = \arg\max_k\ p(C_k)\prod_{i=1}^{n} p(x_i|C_k)$$</div>
+    <div class="fm"><b>Naiv Bayes</b>: antar at featurene er betinget uavhengige gitt klassen, og dropper $p(\mathbf{x})$. Gir en rangering, ikke kalibrerte sannsynligheter. Antakelsen trenger ikke holde i virkeligheten for at metoden skal brukes. <a class="fl" href="04-sannsynlighet.html">kap. 4</a></div></div>
+  <div class="f"><div class="fx">$$\#\text{bins} = 10^d, \qquad \#\text{datapunkter} = 10\cdot 10^d = 10^{d+1}$$</div>
+    <div class="fm"><b>Dimensjonsforbannelsen</b> (10 bins per akse, 10 punkter per bin): $d=3$ → $10^4$, $d=10$ → $10^{11}$, $d=784$ → $10^{785}$ (universet har ~$10^{82}$ atomer). <a class="fl" href="04-sannsynlighet.html">kap. 4</a></div></div>
+  <div class="f"><div class="fx">$$\text{andel i skall av tykkelse }\epsilon = \frac{1^d-(1-\epsilon)^d}{1^d} = 1-(1-\epsilon)^d \xrightarrow{d\to\infty} 1$$</div>
+    <div class="fm"><b>Skall-oppgaven</b>: volum $\propto r^d$. Nesten alt volum ligger i et tynt ytre skall: $\epsilon = 0.01$ gir 3 % for $d=3$, 63 % for $d=100$ og 99.96 % for $d=784$. Avstander konsentreres. <a class="fl" href="04-sannsynlighet.html">kap. 4</a></div></div>
+</div>
+
+<div class="calc" data-id="17-entropi" data-answer="0.94" data-tol="0.01">
+  <p class="q">Regn ut entropien (log₂) til en node med 9 positive og 5 negative.</p>
+  <div class="solution">$I = -\frac{9}{14}\log_2\frac{9}{14} - \frac{5}{14}\log_2\frac{5}{14} = 0.643\cdot 0.637 + 0.357\cdot 1.485 \approx 0.410 + 0.530 = 0.940$.</div>
+</div>
+
+<h3 id="f-traer">Beslutningstrær</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$\text{Gini}(D) = 1-\sum_{i=1}^{k} p_i^2$$</div>
+    <div class="fm"><b>Gini-urenhet</b>: sannsynligheten for å gjette feil klasse når du gjetter etter klassefordelingen. 0 = ren node. Maks $1-1/k$: 0.5 for to klasser (notatenes «[0, 0.5]» gjelder bare binært). (0.3, 0.7) → 0.42. Default i sklearn, billigere enn entropi (ingen logaritme). <a class="fl" href="05-traer.html">kap. 5</a></div></div>
+  <div class="f"><div class="fx">$$\text{Gini}_f(D) = \frac{n_1}{n}\text{Gini}(D_1) + \frac{n_2}{n}\text{Gini}(D_2)$$</div>
+    <div class="fm"><b>Vektet Gini etter splitt</b>. Velg splitten med <em>lavest</em> vektet Gini. <a class="fl" href="05-traer.html">kap. 5</a></div></div>
+  <div class="f"><div class="fx">$$I(p_1,\dots,p_k) = -\sum_{i=1}^{k} p_i\log_2 p_i$$</div>
+    <div class="fm"><b>Entropi i en node</b>, som over men med $\log_2$. <a class="fl" href="05-traer.html">kap. 5</a></div></div>
+  <div class="f"><div class="fx">$$\Delta I = I\Big(\tfrac{p}{p+n},\tfrac{n}{p+n}\Big) - \sum_{i=1}^{s}\frac{p_i+n_i}{p+n}\,I\Big(\tfrac{p_i}{p_i+n_i},\tfrac{n_i}{p_i+n_i}\Big)$$</div>
+    <div class="fm"><b>Informasjonsgevinst</b> = entropi før − vektet entropi etter. Velg splitten med <em>størst</em> $\Delta I$. Eksempel: (9+, 5−) → (4+, 5−) og (5+, 0−): $0.940 - \frac{9}{14}\cdot 0.991 - 0 \approx 0.30$. <a class="fl" href="05-traer.html">kap. 5</a></div></div>
+  <div class="f"><div class="fx">$$\text{Regresjonstre: velg splitten med lavest (vektet) varians / MSE i barna}$$</div>
+    <div class="fm"><b>Regresjonstrær</b> predikerer gjennomsnittet i hver løvnode. Splitt som gir varians 0.9 velges over 2.4 (eksamen 2025 del 4.4). <a class="fl" href="07-generalisering.html">kap. 7</a></div></div>
+</div>
+
+<div class="calc" data-id="17-gini-vektet" data-answer="0.3429" data-tol="0.003">
+  <p class="q">En node med 10 punkter splittes i $D_1$ = (3 A, 1 B) og $D_2$ = (1 A, 5 B). Regn ut vektet Gini etter splitten.</p>
+  <div class="solution">$\text{Gini}(D_1) = 1 - 0.75^2 - 0.25^2 = 0.375$. $\text{Gini}(D_2) = 1 - (1/6)^2 - (5/6)^2 = 1 - 0.0278 - 0.6944 = 0.2778$. Vektet: $\frac{4}{10}\cdot 0.375 + \frac{6}{10}\cdot 0.2778 = 0.15 + 0.1667 \approx 0.343$.</div>
+</div>
+
+<h3 id="f-regr">Lineær og polynomisk regresjon</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$f(\mathbf{x}) = \beta_0 + \beta_1x_1 + \dots + \beta_n x_n$$</div>
+    <div class="fm"><b>Lineær regresjon</b>: $n+1$ parametre for $n$ features. $\beta_0$ = bias/skjæringspunkt (ikke det samme som bias i bias–varians!). Antar ingen vekselvirkning mellom features (eksamen 2024 oppg. 1). <a class="fl" href="06-regresjon.html">kap. 6</a></div></div>
+  <div class="f"><div class="fx">$$\text{MSE} = \frac{1}{2N}\sum_{i=1}^{N}\big(y^{(i)} - f(\mathbf{x}^{(i)})\big)^2$$</div>
+    <div class="fm"><b>Mean squared error</b>. Faktoren ½ er bare for bekvemmelighet (kansellerer ved derivasjon). Å minimere MSE = maksimere likelihood under gaussisk støy. Følsom for outliers (kvadrat). <a class="fl" href="06-regresjon.html">kap. 6</a></div></div>
+  <div class="f"><div class="fx">$$\frac{\partial L}{\partial\beta_0} = \frac{1}{N}\sum_i\big(f(\mathbf{x}^{(i)})-y^{(i)}\big), \qquad \frac{\partial L}{\partial\beta_1} = \frac{1}{N}\sum_i x^{(i)}\big(f(\mathbf{x}^{(i)})-y^{(i)}\big)$$</div>
+    <div class="fm"><b>MSE-gradientene</b>. Overestimerer modellen alltid, er $\partial L/\partial\beta_0 \gt 0$ og $\beta_0$ for stor; GD minker den. Oppdatering: $\beta \leftarrow \beta - \eta\,\partial L/\partial\beta$. <a class="fl" href="06-regresjon.html">kap. 6</a></div></div>
+  <div class="f"><div class="fx">$$f(x) = \beta_0 + \beta_1x + \beta_2x^2 + \dots + \beta_M x^M$$</div>
+    <div class="fm"><b>Polynomisk regresjon</b> = lineær regresjon på genererte features $x, x^2, \dots$ (feature engineering). Fortsatt lineær i parametrene. Graden $M$ er en hyperparameter. <a class="fl" href="06-regresjon.html">kap. 6</a></div></div>
+</div>
+
+<h3 id="f-gen">Generalisering og bias–varians</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$y = F(\mathbf{x}) + \varepsilon, \qquad E[\varepsilon] = 0,\ \operatorname{Var}(\varepsilon) = \sigma^2$$</div>
+    <div class="fm"><b>Datagenerering</b>: sann funksjon pluss irredusibel støy. <a class="fl" href="07-generalisering.html">kap. 7</a></div></div>
+  <div class="f"><div class="fx">$$\operatorname{Bias}_D[f(\mathbf{x};D)] = E_D[f(\mathbf{x};D)] - F(\mathbf{x})$$</div>
+    <div class="fm"><b>Bias</b>: systematisk bom, gjennomsnittet over mange treningssett. Snitt 165 cm mot sann 167 cm → bias −2 cm. Høy bias ↔ underfit. <a class="fl" href="07-generalisering.html">kap. 7</a></div></div>
+  <div class="f"><div class="fx">$$\operatorname{Var}_D[f(\mathbf{x};D)] = E_D\Big[\big(E_D[f(\mathbf{x};D)] - f(\mathbf{x};D)\big)^2\Big]$$</div>
+    <div class="fm"><b>Varians</b>: hvor mye modellen hopper rundt sitt eget snitt når treningsdataene byttes. Høy varians ↔ overfit. <a class="fl" href="07-generalisering.html">kap. 7</a></div></div>
+  <div class="f"><div class="fx">$$E_D\big[(y-f(\mathbf{x};D))^2\big] = \operatorname{Bias}^2 + \operatorname{Var} + \sigma^2$$</div>
+    <div class="fm"><b>Bias–varians-dekomposisjonen</b> av forventet testfeil. $\sigma^2$ kan aldri fjernes. Mer kompleks modell: bias ↓, varians ↑. <a class="fl" href="07-generalisering.html">kap. 7</a></div></div>
+  <div class="f"><div class="fx">$$\text{k-fold: } k \text{ tilpasninger}, \qquad \text{LOOCV: } n \text{ tilpasninger (trening på } n-1)$$</div>
+    <div class="fm"><b>Kryssvalidering</b>: ikke-overlappende folder, gjennomsnitt av $k$ testresultater. LOOCV = $k = n$, best estimat men dyrest. <a class="fl" href="07-generalisering.html">kap. 7</a></div></div>
+</div>
+
+<h3 id="f-ens">Ensemble-modeller</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$P(\text{punkt aldri trukket}) = \Big(1-\frac1n\Big)^n \xrightarrow{n\to\infty} e^{-1}\approx 0.368$$</div>
+    <div class="fm"><b>Bootstrap</b>: trekk $n$ punkter <em>med tilbakelegging</em>. Hvert bootstrap-sett inneholder i snitt ≈ 63.2 % unike punkter; de ≈ 36.8 % som ikke ble trukket kalles out-of-bag. <a class="fl" href="08-ensemble.html">kap. 8</a></div></div>
+  <div class="f"><div class="fx">$$\hat{y}_{bag} = \frac{1}{M}\sum_{m=1}^{M} f_m(\mathbf{x}) \quad\text{(regresjon)}, \qquad \text{flertallsstemme (klassifisering)}$$</div>
+    <div class="fm"><b>Bagging</b> = bootstrap + aggregering. Parallelle, uavhengige modeller; reduserer varians. Random forest legger til tilfeldig feature-utvalg per splitt for å gjøre trærne mindre korrelerte. <a class="fl" href="08-ensemble.html">kap. 8</a></div></div>
+  <div class="f"><div class="fx">$$F_{m}(\mathbf{x}) = F_{m-1}(\mathbf{x}) + \eta\,h_m(\mathbf{x}), \qquad h_m \approx y - F_{m-1}(\mathbf{x})$$</div>
+    <div class="fm"><b>Gradient boosting</b>: hvert nytt tre tilpasses pseudo-residualene (gradienten er $-(y-\hat y)$, så notatenes «previous − lr · new_tree» er samme regel med tre tilpasset gradienten). Sekvensielt; reduserer bias. <b>AdaBoost</b> øker i stedet vekten på feilklassifiserte punkter. <a class="fl" href="08-ensemble.html">kap. 8</a></div></div>
+</div>
+
+<div class="calc" data-id="17-bootstrap" data-answer="0.3487" data-tol="0.003">
+  <p class="q">Et datasett har $n = 10$ punkter. Hva er sannsynligheten for at ett bestemt punkt <em>ikke</em> er med i et bootstrap-utvalg av størrelse 10?</p>
+  <div class="solution">$(1 - 1/10)^{10} = 0.9^{10} \approx 0.349$. Allerede nær grensen $e^{-1}\approx 0.368$.</div>
+</div>
+
+<h3 id="f-nn">Perseptron og nevrale nettverk</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$f(\mathbf{x}) = H(\mathbf{w}\mathbf{x}+b), \qquad H(z) = \begin{cases}1 & z\ge 0\\ 0 & z\lt 0\end{cases}$$</div>
+    <div class="fm"><b>Perseptron (TLU)</b> med Heaviside. Derivert 0 nesten overalt og udefinert i 0, så gradient descent fungerer ikke. Kan bare lage lineære skiller (ikke XOR). <a class="fl" href="09-nevrale-nett.html">kap. 9</a></div></div>
+  <div class="f"><div class="fx">$$w_i \leftarrow w_i + \eta\,(y-\hat{y})\,x_i, \qquad w_{ij} \leftarrow w_{ij} + \eta\,(y_j-\hat{y}_j)\,x_i$$</div>
+    <div class="fm"><b>Perseptronregelen</b> (Rosenblatt), uten derivert. Endrer bare vekter når prediksjonen er feil. Andre form: flere output-noder $j$. <a class="fl" href="09-nevrale-nett.html">kap. 9</a></div></div>
+  <div class="f"><div class="fx">$$\text{NOT}: (w,b) = (-1,\,0.5),\quad \text{AND}: (1,1,-1.5),\quad \text{OR}: (1,1,-0.5)$$</div>
+    <div class="fm"><b>Logiske porter</b> med ett perseptron. XOR krever to lag, f.eks. XOR = AND(OR, NOT AND). <a class="fl" href="09-nevrale-nett.html">kap. 9</a></div></div>
+  <div class="f"><div class="fx">$$\operatorname{ReLU}(x) = \max(0,x), \qquad \operatorname{softmax}(\mathbf{x})_i = \frac{e^{x_i}}{\sum_j e^{x_j}}$$</div>
+    <div class="fm"><b>Aktiveringsfunksjoner</b>: ReLU i skjulte lag; sigmoid i output for binær klassifisering; softmax (summerer til 1, én node per klasse) for flere klasser; ingen/lineær for regresjon. <a class="fl" href="09-nevrale-nett.html">kap. 9</a></div></div>
+  <div class="f"><div class="fx">$$a^{l}_j = g\Big(\sum_i w^{l}_{ij}\,a^{l-1}_i + b^{l}_j\Big) \quad\Longleftrightarrow\quad \mathbf{a}^{l} = g\big(W^{l}\mathbf{a}^{l-1} + \mathbf{b}^{l}\big)$$</div>
+    <div class="fm"><b>Lag-aktivering på matriseform</b>. $W^l$ har dimensjon (noder i lag $l$) × (noder i lag $l-1$): 2 input, 3 noder → $(3\times2)(2\times1) = 3\times1$. Hvert lag er en ikke-lineær transformasjon. <a class="fl" href="09-nevrale-nett.html">kap. 9</a></div></div>
+  <div class="f"><div class="fx">$$\#\text{param}(\text{Dense}) = n_{inn}\cdot n_{ut} + n_{ut} = (n_{inn}+1)\,n_{ut}$$</div>
+    <div class="fm"><b>Parametertelling</b>: vekter + én bias per node. Input 3 → Dense(6): 24. Nett 2 → 16 → 16 → 1: 48 + 272 + 17 = 337. Perseptron med 2 features og 3 klasser: 6 vekter + 3 bias. <a class="fl" href="09-nevrale-nett.html">kap. 9</a></div></div>
+</div>
+
+<div class="calc" data-id="17-param" data-answer="51" data-tol="0">
+  <p class="q">Et Keras-nett har <code>Input(shape=(4,))</code>, så <code>Dense(6, "relu")</code>, så <code>Dense(3, "softmax")</code>. Hvor mange trenbare parametre har det?</p>
+  <div class="solution">Lag 1: $4\cdot 6 + 6 = 30$. Lag 2: $6\cdot 3 + 3 = 21$. Totalt $30 + 21 = 51$. Input-laget har ingen parametre: det bare sender dataene inn.</div>
+</div>
+
+<h3 id="f-tren">Trening av nevrale nettverk: epoker, batcher og iterasjoner</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$\text{iterasjoner per epoke} = \Big\lceil\frac{N}{B}\Big\rceil, \qquad \text{totalt} = \text{epoker}\cdot\Big\lceil\frac{N}{B}\Big\rceil$$</div>
+    <div class="fm"><b>Epoke</b> = én gjennomgang av alle $N$ treningspunkter. <b>Batch size</b> $B$ = punkter per oppdatering (hyperparameter). Full-batch GD: 1 oppdatering per epoke. SGD ($B=1$): $N$. Mini-batch: $N/B$. 10 000 punkter, $B = 500$ → 20 iterasjoner per epoke. <a class="fl" href="10-trening-nn.html">kap. 10</a></div></div>
+</div>
+
+<div class="calc" data-id="17-iter" data-answer="1880" data-tol="0">
+  <p class="q">$N = 6000$ treningspunkter, batch size 64, 20 epoker. Hvor mange parameteroppdateringer blir det totalt? (Siste, ufullstendige batch teller som en oppdatering.)</p>
+  <div class="solution">$6000/64 = 93.75$, rundet opp til 94 per epoke. $94\cdot 20 = 1880$.</div>
+</div>
+
+<h3 id="f-clu">Clustering</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$d(\mathbf{p},\mathbf{q}) = \sqrt{(p_1-q_1)^2 + \dots + (p_n-q_n)^2}$$</div>
+    <div class="fm"><b>Euklidsk avstand</b>, likhetsmålet i k-means. Konsentreres i høye dimensjoner. <a class="fl" href="11-clustering.html">kap. 11</a></div></div>
+  <div class="f"><div class="fx">$$\text{Inertia} = \sum_{i}\lVert\mathbf{x}_i - \boldsymbol{\mu}_{c(i)}\rVert^2$$</div>
+    <div class="fm"><b>Det k-means minimerer</b>: sum av kvadrerte avstander til egen sentroide. Synker alltid med større $k$ (0 når $k = n$), så den kan ikke alene velge $k$. <a class="fl" href="11-clustering.html">kap. 11</a></div></div>
+  <div class="f"><div class="fx">$$P(\text{alle sentroider i ulike klynger}) = \frac{k!}{k^k} \approx \sqrt{2\pi k}\,e^{-k}$$</div>
+    <div class="fm"><b>Tilfeldig initialisering</b> (riktig $k$, like store klynger): $k=3$ → 6/27 ≈ 0.22, $k=5$ → 0.038, $k=10$ → 0.00036. Eksponentielt avtakende (Stirling). Løsning: k-means++. <a class="fl" href="11-clustering.html">kap. 11</a></div></div>
+  <div class="f"><div class="fx">$$P(\mathbf{x}\text{ blir neste sentroide}) \propto D(\mathbf{x})^2$$</div>
+    <div class="fm"><b>k-means++</b>: $D$ = avstand til nærmeste valgte sentroide. Sprer sentroidene, men med tilfeldighet, så de havner nærmere klyngemidten enn «lengst unna»-regelen. <a class="fl" href="11-clustering.html">kap. 11</a></div></div>
+  <div class="f"><div class="fx">$$s = \frac{b-a}{\max(a,b)}\in[-1,1]$$</div>
+    <div class="fm"><b>Silhouette</b>: $a$ = snittavstand i egen klynge, $b$ = snittavstand til nærmeste andre klynge. 1 = godt plassert, 0 = på grensen, −1 = feil klynge. $a=2$, $b=5$ → 0.6. <a class="fl" href="11-clustering.html">kap. 11</a></div></div>
+  <div class="f"><div class="fx">$$\text{Calinski–Harabasz} = \frac{\text{spredning mellom klynger}}{\text{spredning innad i klynger}}\quad(\text{høy = bra})$$</div>
+    <div class="fm"><b>CH-score</b>: tette, godt separerte klynger gir høy verdi. <a class="fl" href="11-clustering.html">kap. 11</a></div></div>
+</div>
+
+<div class="calc" data-id="17-silhouette" data-answer="-0.25" data-tol="0.005">
+  <p class="q">Et punkt har snittavstand $a = 4$ til sin egen klynge og $b = 3$ til nærmeste andre klynge. Hva er silhouette-verdien?</p>
+  <div class="solution">$s = \frac{3-4}{\max(4,3)} = \frac{-1}{4} = -0.25$. Negativ: punktet ligger nærmere en annen klynge og er trolig feil tilordnet.</div>
+</div>
+
+<h3 id="f-dim">Dimensjonsreduksjon</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$\operatorname{cov}(x_i,x_j) = \frac{1}{N-1}\sum_{k=1}^{N}(x_{i,k}-\bar{x}_i)(x_{j,k}-\bar{x}_j)$$</div>
+    <div class="fm"><b>Kovarians</b>: sentrer, gang avvik, del på $N-1$. Positiv = øker sammen. <a class="fl" href="12-dimensjonsreduksjon.html#kovarians">kap. 12</a></div></div>
+  <div class="f"><div class="fx">$$S = \begin{pmatrix}\operatorname{Var}(x_1) & \operatorname{cov}(x_1,x_2)\\ \operatorname{cov}(x_2,x_1) & \operatorname{Var}(x_2)\end{pmatrix}$$</div>
+    <div class="fm"><b>Kovariansmatrise</b>: varianser på diagonalen, symmetrisk. Sporet = total varians. <a class="fl" href="12-dimensjonsreduksjon.html#kovarians">kap. 12</a></div></div>
+  <div class="f"><div class="fx">$$\det(S-\lambda I) = 0, \qquad \lambda_{1,2} = \frac{\operatorname{tr}S\pm\sqrt{(\operatorname{tr}S)^2-4\det S}}{2}, \qquad S\mathbf{e} = \lambda\mathbf{e}$$</div>
+    <div class="fm"><b>Egenverdier/-vektorer</b>. PC-ene er egenvektorene til $S$; $\lambda$ er variansen langs PC-en. Kontroll: $\lambda_1+\lambda_2 = \operatorname{tr}S$, $\lambda_1\lambda_2 = \det S$. Egenvektor $\propto (b,\ \lambda-a)$, normalisert til lengde 1. <a class="fl" href="12-dimensjonsreduksjon.html#egen">kap. 12</a></div></div>
+  <div class="f"><div class="fx">$$\text{andel}_i = \frac{\lambda_i}{\sum_j\lambda_j}, \qquad z_i = \mathbf{e}_i^\top(\mathbf{x}-\bar{\mathbf{x}})$$</div>
+    <div class="fm"><b>Forklart varians-andel</b> og <b>projeksjon</b>. Behold PC-er til kumulativ andel er høy nok. Eksempel: $S = [[1,-1],[-1,1]]$ gir $\lambda = 2, 0$: én komponent forklarer 100 %. <a class="fl" href="12-dimensjonsreduksjon.html#for-haand">kap. 12</a></div></div>
+  <div class="f"><div class="fx">$$p_{j|i} = \frac{\exp(-\lVert\mathbf{x}_i-\mathbf{x}_j\rVert^2/2\sigma_i^2)}{\sum_{k\ne i}\exp(-\lVert\mathbf{x}_i-\mathbf{x}_k\rVert^2/2\sigma_i^2)}, \qquad \operatorname{Perp} = 2^{H(P_i)}$$</div>
+    <div class="fm"><b>SNE/t-SNE</b>: gaussiske nabosannsynligheter i høy dimensjon; t-fordeling i lav dimensjon (tunge haler mot crowding); minimer $D_{KL}(P\|Q)$ ved å flytte punktene. Perplexity ≈ effektivt antall naboer. <a class="fl" href="12-dimensjonsreduksjon.html#tsne">kap. 12</a></div></div>
+</div>
+
+<h3 id="f-anom">Anomalideteksjon</h3>
+<div class="flist">
+  <div class="f"><div class="fx">$$\text{outlier} \iff d_{\min}(\mathbf{x}) \gt \text{persentil}_{95}(d_{\min})$$</div>
+    <div class="fm"><b>k-means-anomalier</b>: avstand til nærmeste sentroide over en valgt persentil. Terskelen er et valg, ingen fasit. DBSCAN: <code>labels_ == -1</code>. Isolation Forest: kort gjennomsnittlig sti fra rot = anomali, <code>predict == -1</code>. <a class="fl" href="13-anomali.html">kap. 13</a></div></div>
+</div>
+
+<h3 id="f-rl">Forsterkningslæring <span class="muted small">(forventet pensum)</span></h3>
+<div class="flist">
+  <div class="f exp"><div class="fx">$$Q^{new}(S_t,A_t) \leftarrow (1-\alpha)\,Q(S_t,A_t) + \alpha\big(R_{t+1} + \gamma\max_{A} Q(S_{t+1},A)\big)$$</div>
+    <div class="fm"><span class="tag">forventet pensum</span><b>Q-learning-oppdatering</b> (kalt Bellman-likningen på eksamen 2024 oppg. 32). $\alpha$ = læringsrate (hvor mye ny info veier), $\gamma\in[0,1]$ = diskonteringsfaktor (hvor mye fremtiden veier). Høy $\gamma$ → læringen domineres av estimatet av fremtidige tilstander. <a class="fl" href="14-forsterkning.html">kap. 14</a></div></div>
+  <div class="f exp"><div class="fx">$$Q \leftarrow Q + \alpha\big(\underbrace{R + \gamma\max_{a'}Q(s',a') - Q}_{\text{TD-feil}}\big), \qquad G_t = \sum_{k=0}^{\infty}\gamma^k R_{t+k+1}$$</div>
+    <div class="fm"><span class="tag">forventet pensum</span><b>Samme oppdatering</b> skrevet med TD-feil, og <b>diskontert retur</b>. ε-greedy: tilfeldig handling med sannsynlighet ε (utforsking), ellers $\arg\max_a Q$ (utnyttelse). <a class="fl" href="14-forsterkning.html">kap. 14</a></div></div>
+</div>
+
+<div class="calc" data-id="17-qlearn" data-answer="3.3" data-tol="0.001">
+  <p class="q">$Q(s,a) = 2$, $\alpha = 0.5$, $R = 1$, $\gamma = 0.9$ og $\max_{a'}Q(s',a') = 4$. Hva blir den nye $Q(s,a)$?</p>
+  <div class="solution">$(1-0.5)\cdot 2 + 0.5\cdot(1 + 0.9\cdot 4) = 1 + 0.5\cdot 4.6 = 1 + 2.3 = 3.3$.</div>
+</div>
+
+<h3 id="f-xai">Forklarbar KI <span class="muted small">(forventet pensum)</span></h3>
+<div class="flist">
+  <div class="f exp"><div class="fx">$$\phi_i(v) = \sum_{S\subseteq N\setminus\{i\}}\frac{|S|!\,(|N|-|S|-1)!}{|N|!}\Big(v(S\cup\{i\}) - v(S)\Big)$$</div>
+    <div class="fm"><span class="tag">forventet pensum</span><b>Shapley-verdi</b>: spiller (feature) $i$ sitt vektede gjennomsnittlige marginalbidrag over alle koalisjoner $S$ uten $i$. Efficiency: $\sum_i\phi_i = v(N) - v(\emptyset)$. SHAP bruker dette for å fordele en prediksjon på featurene. LIME = lokal, tolkbar surrogatmodell rundt ett punkt. <a class="fl" href="15-xai-etikk.html">kap. 15</a></div></div>
+</div>
+
+<div class="calc" data-id="17-shapley" data-answer="0.5" data-tol="0.001">
+  <p class="q">(Eksamen 2024 oppg. 36) $N = 3$, $v(\emptyset)=0$, $v(1)=2$, $v(2)=4$, $v(3)=5$, $v(\{1,2\})=3$, $v(\{1,3\})=3$, $v(\{2,3\})=2$, $v(\{1,2,3\})=3$. Regn ut $\phi_1$.</p>
+  <div class="solution">Vekter for $|N| = 3$: $|S|=0$ → $\frac{0!\,2!}{3!} = \frac13$, $|S|=1$ → $\frac{1!\,1!}{3!} = \frac16$, $|S|=2$ → $\frac{2!\,0!}{3!} = \frac13$.<br>$S=\emptyset$: $\frac13(2-0) = \frac23$. $S=\{2\}$: $\frac16(3-4) = -\frac16$. $S=\{3\}$: $\frac16(3-5) = -\frac13$. $S=\{2,3\}$: $\frac13(3-2) = \frac13$.<br>Sum: $\frac46 - \frac16 - \frac26 + \frac26 = \frac36 = 0.5$. (Tilsvarende $\phi_2 = 1$, $\phi_3 = 1.5$; sum $= 3 = v(N)$ ✓.)</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="begreper"><span class="sec">17.2</span>Begrepsliste A–Å</h2>
+<p>124 begreper med norsk og engelsk navn, kort definisjon og lenke til kapittelet der det forklares. Eksamen bruker begge språk om hverandre. Skriv i søkefeltet for å filtrere (søket går i både begrep, engelsk navn og definisjon).</p>
+<div class="gloss-tools">
+  <input type="search" id="glossSearch" placeholder="Søk, f.eks. «bias», «varians», «DBSCAN» …" aria-label="Søk i begrepslisten">
+  <span class="readout" id="glossCount">124 begreper</span>
+</div>
+<div class="gloss-letters"><a href="#g-A">A</a><a href="#g-B">B</a><a href="#g-C">C</a><a href="#g-D">D</a><a href="#g-E">E</a><a href="#g-F">F</a><a href="#g-G">G</a><a href="#g-H">H</a><a href="#g-I">I</a><a href="#g-K">K</a><a href="#g-L">L</a><a href="#g-M">M</a><a href="#g-N">N</a><a href="#g-O">O</a><a href="#g-P">P</a><a href="#g-Q">Q</a><a href="#g-R">R</a><a href="#g-S">S</a><a href="#g-T">T</a><a href="#g-U">U</a><a href="#g-V">V</a><a href="#g-X">X</a></div>
+<div class="gloss" id="gloss">
+<h3 class="letter" id="g-A">A</h3>
+<dl>
+  <div class="g"><dt>Accuracy / treffsikkerhet <span class="en">accuracy</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Andel riktige prediksjoner, $(TP+TN)/\text{alle}$. Misvisende ved ubalanserte klasser.</dd></div>
+  <div class="g"><dt>AdaBoost<a href="08-ensemble.html">kap. 8</a></dt><dd>Boosting-algoritme der hver ny svak modell trenes med økt vekt på punktene de forrige modellene klassifiserte feil. Modellene vektes med $\alpha$ i sluttprediksjonen.</dd></div>
+  <div class="g"><dt>Agent<a href="14-forsterkning.html">kap. 14</a></dt><dd>Den som handler i forsterkningslæring: observerer tilstand, velger handling, mottar belønning.</dd></div>
+  <div class="g"><dt>AI Act<a href="15-xai-etikk.html">kap. 15</a></dt><dd>EUs regulering av KI basert på risikonivå (forbudt, høy risiko, begrenset, minimal). Verdens første KI-spesifikke regulering.</dd></div>
+  <div class="g"><dt>Aktiveringsfunksjon <span class="en">activation function</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Ikke-lineær funksjon $g$ i hver node (sigmoid, ReLU, softmax, Heaviside). Uten den blir hele nettet én lineær funksjon.</dd></div>
+  <div class="g"><dt>Anomalideteksjon <span class="en">anomaly / outlier detection</span><a href="13-anomali.html">kap. 13</a></dt><dd>Finne punkter som ikke ligner majoriteten. Vanligvis uveiledet, fordi anomalier er få og ukjente.</dd></div>
+  <div class="g"><dt>Arkitektur <span class="en">architecture</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Hvordan nodene i et nevralt nett er satt sammen: antall lag, noder per lag, koblinger og aktiveringer.</dd></div>
+  <div class="g"><dt>AUC (ROC AUC) <span class="en">area under the curve</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Arealet under ROC-kurven = sannsynligheten for at en tilfeldig positiv rangeres høyere enn en tilfeldig negativ. 0.5 = myntkast.</dd></div>
+</dl>
+<h3 class="letter" id="g-B">B</h3>
+<dl>
+  <div class="g"><dt>Backpropagation / tilbakepropagering<a href="10-trening-nn.html">kap. 10</a></dt><dd>Beregner gradienten av tapet med hensyn på alle vekter ved å bruke kjerneregelen bakover fra output til input.</dd></div>
+  <div class="g"><dt>Bagging <span class="en">bootstrap aggregating</span><a href="08-ensemble.html">kap. 8</a></dt><dd>Tren flere modeller parallelt på bootstrap-utvalg og aggreger (snitt/flertall). Reduserer varians.</dd></div>
+  <div class="g"><dt>Batch size<a href="10-trening-nn.html">kap. 10</a></dt><dd>Antall treningspunkter som brukes til å regne ut én gradient og gjøre én oppdatering. Hyperparameter.</dd></div>
+  <div class="g"><dt>Bayes' teorem<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$P(A|B) = P(B|A)P(A)/P(B)$. Posterior = likelihood × prior / evidens.</dd></div>
+  <div class="g"><dt>Bellman-likningen <span class="en">Bellman equation</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Rekursiv sammenheng: verdien nå = belønning + diskontert verdi av neste tilstand. Grunnlaget for Q-learning-oppdateringen.</dd></div>
+  <div class="g"><dt>Beslutningstre <span class="en">decision tree</span><a href="05-traer.html">kap. 5</a></dt><dd>Modell som splitter dataene med én feature om gangen til løvnoder som gir prediksjonen. Tolkbar, trenger ikke skalering.</dd></div>
+  <div class="g"><dt>Bias (i bias–varians) <span class="en">bias</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Systematisk avvik: $E_D[f(\mathbf{x};D)] - F(\mathbf{x})$. Høy bias = for enkel modell, underfit.</dd></div>
+  <div class="g"><dt>Bias (i lineær modell) <span class="en">bias / intercept</span><a href="02-logistisk.html">kap. 2</a></dt><dd>Konstantleddet $b$ eller $\beta_0$: prediksjonen når alle features er 0. Har ingenting med bias–varians å gjøre.</dd></div>
+  <div class="g"><dt>Bootstrap<a href="08-ensemble.html">kap. 8</a></dt><dd>Trekk $n$ punkter med tilbakelegging fra et datasett med $n$ punkter. Ca. 63 % unike punkter per utvalg.</dd></div>
+</dl>
+<h3 class="letter" id="g-C">C</h3>
+<dl>
+  <div class="g"><dt>Calinski–Harabasz-score<a href="11-clustering.html">kap. 11</a></dt><dd>Forholdet mellom spredning mellom klynger og spredning innad i klynger. Høy = tette, separerte klynger.</dd></div>
+  <div class="g"><dt>Concentration of distances<a href="11-clustering.html">kap. 11</a></dt><dd>I høye dimensjoner blir alle parvise avstander nesten like store, så «nær» og «fjern» mister mening.</dd></div>
+  <div class="g"><dt>Confusion matrix / forvekslingsmatrise<a href="03-evaluering.html">kap. 3</a></dt><dd>Tabell med TP, FP, FN og TN. Grunnlaget for de fleste klassifiseringsmetrikker.</dd></div>
+  <div class="g"><dt>Crowding<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>I lav dimensjon er det ikke plass til alle moderat nære naboer. t-SNE løser det med t-fordelingens tunge haler.</dd></div>
+</dl>
+<h3 class="letter" id="g-D">D</h3>
+<dl>
+  <div class="g"><dt>DBSCAN<a href="11-clustering.html">kap. 11</a></dt><dd>Tetthetsbasert clustering med $\epsilon$ og <code>min_samples</code>. Finner kjernepunkter, ikke-kjernepunkter og outliers (label −1). Trenger ikke $k$.</dd></div>
+  <div class="g"><dt>Dimensjonsforbannelsen <span class="en">curse of dimensionality</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>Datarommet vokser eksponentielt med antall features ($10^d$ bins), så data blir glisne og avstander konsentreres.</dd></div>
+  <div class="g"><dt>Dimensjonsreduksjon <span class="en">dimensionality reduction</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Gå fra $n$ til $n'\lt n$ features og bevare mest mulig informasjon (varians i PCA, nabolag i t-SNE).</dd></div>
+  <div class="g"><dt>Diskonteringsfaktor <span class="en">discount factor, $\gamma$</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Hvor mye fremtidige belønninger veier i Q-verdien. $\gamma$ nær 1: langsiktig; nær 0: kortsiktig.</dd></div>
+  <div class="g"><dt>DQN <span class="en">deep Q-network</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Q-learning der Q-tabellen erstattes av et nevralt nett. Bruker replay buffer og target network for stabil trening.</dd></div>
+</dl>
+<h3 class="letter" id="g-E">E</h3>
+<dl>
+  <div class="g"><dt>Early stopping<a href="07-generalisering.html">kap. 7</a></dt><dd>Stopp treningen når valideringstapet ikke har blitt bedre på et antall epoker (patience). Motvirker overfitting.</dd></div>
+  <div class="g"><dt>Egenvektor / egenverdi <span class="en">eigenvector / eigenvalue</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>$S\mathbf{e} = \lambda\mathbf{e}$. For kovariansmatrisen er egenvektorene hovedkomponentene og egenverdiene variansen langs dem.</dd></div>
+  <div class="g"><dt>ε-greedy<a href="14-forsterkning.html">kap. 14</a></dt><dd>Velg tilfeldig handling med sannsynlighet ε (utforsking), ellers beste kjente handling (utnyttelse).</dd></div>
+  <div class="g"><dt>Embedding<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Plasseringen av datapunkter i et nytt (ofte lavdimensjonalt) rom, f.eks. resultatet av t-SNE.</dd></div>
+  <div class="g"><dt>Ensemble<a href="08-ensemble.html">kap. 8</a></dt><dd>Kombinasjon av flere modeller (parallelt, sekvensielt eller hierarkisk) som til sammen blir bedre enn hver enkelt.</dd></div>
+  <div class="g"><dt>Entropi <span class="en">entropy</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$H = -\sum p\log p$. Usikkerhet i en fordeling. Binær maks 1 bit.</dd></div>
+  <div class="g"><dt>Epoke <span class="en">epoch</span><a href="10-trening-nn.html">kap. 10</a></dt><dd>Én gjennomgang av hele treningsdatasettet.</dd></div>
+  <div class="g"><dt>Evidens <span class="en">evidence</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(\mathbf{x})$ i Bayes: sannsynligheten for dataene uavhengig av klasse. Lik for alle klasser, sikrer at posterior summerer til 1.</dd></div>
+</dl>
+<h3 class="letter" id="g-F">F</h3>
+<dl>
+  <div class="g"><dt>Feature engineering<a href="06-regresjon.html">kap. 6</a></dt><dd>Alt vi gjør med featurene: selection (velge ut), preprocessing (skalere, encode) og extraction (lage nye, f.eks. $x^2$ eller PCA).</dd></div>
+  <div class="g"><dt>Feature / variabel<a href="01-grunnlag.html">kap. 1</a></dt><dd>En egenskap ved datapunktene, en kolonne i datasettet. Kan være kvalitativ (kategorisk) eller kvantitativ.</dd></div>
+  <div class="g"><dt>Forward pass<a href="10-trening-nn.html">kap. 10</a></dt><dd>Å sende input gjennom nettet lag for lag for å få en prediksjon.</dd></div>
+  <div class="g"><dt>Fully connected / Dense<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Lag der hver node er koblet til alle noder i forrige lag. MLP består av slike lag.</dd></div>
+</dl>
+<h3 class="letter" id="g-G">G</h3>
+<dl>
+  <div class="g"><dt>Generalisering <span class="en">generalization</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Evnen til å gjøre det godt på nye, usette data. Hovedmålet i maskinlæring.</dd></div>
+  <div class="g"><dt>Gini-urenhet <span class="en">Gini impurity</span><a href="05-traer.html">kap. 5</a></dt><dd>$1-\sum p_i^2$. Sannsynligheten for å gjette feil klasse ved å gjette etter klassefordelingen. 0 = ren node.</dd></div>
+  <div class="g"><dt>Gradient<a href="02-logistisk.html">kap. 2</a></dt><dd>Vektoren av partiellderiverte av tapet med hensyn på parametrene. Peker mot brattest økning.</dd></div>
+  <div class="g"><dt>Gradient boosting<a href="08-ensemble.html">kap. 8</a></dt><dd>Sekvensielt ensemble der hvert nye tre tilpasses residualene (negativ gradient) til ensemblet så langt.</dd></div>
+  <div class="g"><dt>Gradient descent<a href="02-logistisk.html">kap. 2</a></dt><dd>Iterativ minimering: $\theta \leftarrow \theta - \eta\nabla L$. Finner globalt minimum for konvekse funksjoner.</dd></div>
+</dl>
+<h3 class="letter" id="g-H">H</h3>
+<dl>
+  <div class="g"><dt>Heaviside-funksjonen <span class="en">step function</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>$H(z) = 1$ hvis $z\ge 0$, ellers 0. Perseptronets aktivering; ikke brukbar med gradient descent.</dd></div>
+  <div class="g"><dt>Hovedkomponent <span class="en">principal component</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Egenvektor av kovariansmatrisen; ny akse som er en lineær kombinasjon av featurene og maksimerer varians, ortogonal på de forrige.</dd></div>
+  <div class="g"><dt>Hyperparameter<a href="02-logistisk.html">kap. 2</a></dt><dd>Styrer læringsprosessen, men er ikke en del av modellen og læres ikke fra data: læringsrate, epoker, batch size, $k$, max_depth, $\epsilon$, perplexity.</dd></div>
+</dl>
+<h3 class="letter" id="g-I">I</h3>
+<dl>
+  <div class="g"><dt>Ikke-parametrisk modell <span class="en">non-parametric</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Modell uten fast funksjonsform/antall parametre bestemt på forhånd (trær, DBSCAN, t-SNE). t-SNE kan derfor ikke brukes på nye data.</dd></div>
+  <div class="g"><dt>Induktiv bias <span class="en">inductive bias</span><a href="01-grunnlag.html">kap. 1</a></dt><dd>Antakelsene en modell gjør for å generalisere fra treningsdata til usette data (f.eks. linearitet, akseparallelle splitter).</dd></div>
+  <div class="g"><dt>Inertia<a href="11-clustering.html">kap. 11</a></dt><dd>Sum av kvadrerte avstander fra punkter til sin sentroide. Det k-means minimerer. Synker alltid med større $k$.</dd></div>
+  <div class="g"><dt>Inferens <span class="en">inference</span><a href="08-ensemble.html">kap. 8</a></dt><dd>Å bruke en ferdig trent modell til å gjøre prediksjoner.</dd></div>
+  <div class="g"><dt>Informasjonsgevinst <span class="en">information gain</span><a href="05-traer.html">kap. 5</a></dt><dd>Entropi før splitt minus vektet entropi etter. Velg splitten med størst gevinst.</dd></div>
+  <div class="g"><dt>Irredusibel støy <span class="en">irreducible error</span><a href="07-generalisering.html">kap. 7</a></dt><dd>$\sigma^2$ i bias–varians-dekomposisjonen: feil fra støy i dataene som ingen modell kan fjerne.</dd></div>
+  <div class="g"><dt>Isolation Forest<a href="13-anomali.html">kap. 13</a></dt><dd>Skog av trær med tilfeldige splitter til hvert punkt er isolert. Anomalier isoleres raskt (kort sti fra rot).</dd></div>
+</dl>
+<h3 class="letter" id="g-K">K</h3>
+<dl>
+  <div class="g"><dt>k-fold kryssvalidering <span class="en">k-fold cross-validation</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Del data i $k$ ikke-overlappende folder; tren $k$ ganger med hver fold som test én gang; ta snittet.</dd></div>
+  <div class="g"><dt>Kjernepunkt <span class="en">core point</span><a href="11-clustering.html">kap. 11</a></dt><dd>DBSCAN-punkt med minst <code>min_samples</code> naboer innenfor $\epsilon$. Kan utvide klyngen.</dd></div>
+  <div class="g"><dt>Klassifiseringsterskel <span class="en">classification threshold</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Verdien over hvilken $y_{pred}$ tolkes som klasse 1 (standard 0.5). Endrer ikke modellen, bare hvordan vi bruker den.</dd></div>
+  <div class="g"><dt>KL-divergens <span class="en">Kullback–Leibler divergence</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>$\sum P\log(P/Q)$. Relativ entropi; ≥ 0, ikke symmetrisk. Tapsfunksjonen i (t-)SNE.</dd></div>
+  <div class="g"><dt>k-means<a href="11-clustering.html">kap. 11</a></dt><dd>Sentroidebasert clustering: tilordne til nærmeste sentroide, flytt sentroiden til snittet, gjenta. Antar runde, like store klynger; må velge $k$.</dd></div>
+  <div class="g"><dt>k-means++<a href="11-clustering.html">kap. 11</a></dt><dd>Initialisering der neste sentroide trekkes med sannsynlighet $\propto D(\mathbf{x})^2$.</dd></div>
+  <div class="g"><dt>Konveks funksjon <span class="en">convex function</span><a href="02-logistisk.html">kap. 2</a></dt><dd>Funksjon med bare ett (globalt) minimum. Da finner gradient descent garantert det globale minimumet.</dd></div>
+  <div class="g"><dt>Kovarians / kovariansmatrise <span class="en">covariance (matrix)</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Hvor mye to features varierer sammen. Matrisen har varianser på diagonalen og kovarianser utenfor.</dd></div>
+  <div class="g"><dt>Kryss-entropi <span class="en">cross-entropy</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$H(p,q) = -\sum p\log q$. Tapsfunksjon for klassifisering (BCE for to klasser).</dd></div>
+  <div class="g"><dt>Kryssvalidering <span class="en">cross-validation</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Gjentatt splitting i trening/test for å bruke alle data og få et mer stabilt estimat (k-fold, LOOCV).</dd></div>
+</dl>
+<h3 class="letter" id="g-L">L</h3>
+<dl>
+  <div class="g"><dt>Likelihood<a href="02-logistisk.html">kap. 2</a></dt><dd>$L(\theta|\text{data})$: hvor sannsynlige de observerte dataene er som funksjon av parametrene. Maksimeres under trening.</dd></div>
+  <div class="g"><dt>LIME<a href="15-xai-etikk.html">kap. 15</a></dt><dd>Lokal forklaring: tilpass en enkel, tolkbar modell i nabolaget rundt ett datapunkt.</dd></div>
+  <div class="g"><dt>LOOCV <span class="en">leave-one-out cross-validation</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Kryssvalidering med $k=n$: tren på $n-1$, test på 1, gjenta $n$ ganger. Best estimat, dyrest.</dd></div>
+  <div class="g"><dt>Læringsrate <span class="en">learning rate, $\eta$</span><a href="02-logistisk.html">kap. 2</a></dt><dd>Steglengden i gradient descent. Hyperparameter. For høy: oscillering. For lav: treg trening.</dd></div>
+  <div class="g"><dt>Løvnode <span class="en">leaf node</span><a href="05-traer.html">kap. 5</a></dt><dd>Node nederst i et beslutningstre som gir prediksjonen og ikke splitter videre.</dd></div>
+</dl>
+<h3 class="letter" id="g-M">M</h3>
+<dl>
+  <div class="g"><dt>Markov-egenskapen <span class="en">Markov property</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Neste tilstand avhenger bare av nåværende tilstand og handling, ikke av historikken.</dd></div>
+  <div class="g"><dt>Metrikk <span class="en">metric</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Mål på ytelse som skal gi mening for mennesker (precision, recall, AUC …). Trenger ikke være deriverbar, i motsetning til tapet.</dd></div>
+  <div class="g"><dt>Mini-batch SGD<a href="10-trening-nn.html">kap. 10</a></dt><dd>Gradient beregnet på en liten tilfeldig batch (f.eks. 32–128 punkter). Det dyplæringsfolk mener med «SGD».</dd></div>
+  <div class="g"><dt>MLP <span class="en">multi-layer perceptron</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Fully connected feed-forward nevralt nett med ett eller flere skjulte lag.</dd></div>
+  <div class="g"><dt>Modellparameter <span class="en">parameter</span><a href="02-logistisk.html">kap. 2</a></dt><dd>Det modellen lærer fra data: $\mathbf{w}$, $b$, $\beta$, vekter i et nevralt nett.</dd></div>
+  <div class="g"><dt>MSE <span class="en">mean squared error</span><a href="06-regresjon.html">kap. 6</a></dt><dd>Snitt av kvadrerte feil. Standard tap for regresjon.</dd></div>
+</dl>
+<h3 class="letter" id="g-N">N</h3>
+<dl>
+  <div class="g"><dt>Naiv Bayes <span class="en">naïve Bayes</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>Bayes-klassifikator som antar betinget uavhengige features: $p(C_k)\prod_i p(x_i|C_k)$.</dd></div>
+  <div class="g"><dt>Nevralt nettverk <span class="en">neural network</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Lag av noder som hver gjør en vektet sum og en ikke-lineær aktivering. Lærer sine egne feature-transformasjoner.</dd></div>
+  <div class="g"><dt>Normalisering / skalering <span class="en">scaling</span><a href="01-grunnlag.html">kap. 1</a></dt><dd>Gi features samme størrelsesorden (MinMaxScaler til [0,1], StandardScaler til snitt 0, std 1). Fit kun på treningsdata.</dd></div>
+</dl>
+<h3 class="letter" id="g-O">O</h3>
+<dl>
+  <div class="g"><dt>Ortogonal <span class="en">orthogonal</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Står vinkelrett. Ortogonale hovedkomponenter gir ukorrelerte projeksjoner uten overlappende informasjon.</dd></div>
+  <div class="g"><dt>Outlier / anomali<a href="13-anomali.html">kap. 13</a></dt><dd>Datapunkt som skiller seg kraftig fra resten.</dd></div>
+  <div class="g"><dt>Overfitting / overtilpasning<a href="07-generalisering.html">kap. 7</a></dt><dd>Modellen tilpasser seg støy i treningsdataene: lav treningsfeil, høy valideringsfeil. Høy varians.</dd></div>
+  <div class="g"><dt>Oversampling<a href="03-evaluering.html">kap. 3</a></dt><dd>Dupliser punkter fra minoritetsklassen til klassene er like store. Risiko: overfitting på duplikater.</dd></div>
+</dl>
+<h3 class="letter" id="g-P">P</h3>
+<dl>
+  <div class="g"><dt>PCA <span class="en">principal component analysis</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Lineær dimensjonsreduksjon som projiserer på egenvektorene til kovariansmatrisen med størst egenverdi. Pearson 1901.</dd></div>
+  <div class="g"><dt>Perplexity<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>$2^{H(P_i)}$ i t-SNE; effektivt antall naboer. Bestemmer bredden $\sigma_i$ til hver gauss.</dd></div>
+  <div class="g"><dt>Perseptron<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Enkleste nevrale enhet: $H(\mathbf{w}\mathbf{x}+b)$. Rosenblatt 1957. Kan bare løse lineært separerbare problemer.</dd></div>
+  <div class="g"><dt>Policy<a href="14-forsterkning.html">kap. 14</a></dt><dd>Strategien som bestemmer hvilken handling agenten tar i hver tilstand, $\pi(s)$.</dd></div>
+  <div class="g"><dt>Posterior<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(C_k|\mathbf{x})$: sannsynligheten for klassen gitt dataene. Det klassifisering prøver å estimere.</dd></div>
+  <div class="g"><dt>Precision / presisjon<a href="03-evaluering.html">kap. 3</a></dt><dd>$TP/(TP+FP)$: andelen av predikerte positive som er riktige. Viktig når falske alarmer er dyre.</dd></div>
+  <div class="g"><dt>Preprosessering <span class="en">preprocessing</span><a href="01-grunnlag.html">kap. 1</a></dt><dd>Klargjøring av data: fjerne manglende verdier, encode kategorier, skalere.</dd></div>
+  <div class="g"><dt>Prior<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(C_k)$: klassefordelingen før vi ser på $\mathbf{x}$.</dd></div>
+  <div class="g"><dt>Pseudo-residualer <span class="en">pseudo-residuals</span><a href="08-ensemble.html">kap. 8</a></dt><dd>$y - \hat{y}$ (negativ gradient av tapet) som hvert nye tre tilpasses i gradient boosting.</dd></div>
+</dl>
+<h3 class="letter" id="g-Q">Q</h3>
+<dl>
+  <div class="g"><dt>Q-learning<a href="14-forsterkning.html">kap. 14</a></dt><dd>Lærer Q-verdier (forventet retur for tilstand–handling) med oppdateringen $Q \leftarrow (1-\alpha)Q + \alpha(R+\gamma\max Q')$.</dd></div>
+</dl>
+<h3 class="letter" id="g-R">R</h3>
+<dl>
+  <div class="g"><dt>Random forest / tilfeldig skog<a href="08-ensemble.html">kap. 8</a></dt><dd>Bagging av beslutningstrær pluss tilfeldig utvalg av features ved hver splitt. Trærne skal være diverse og uavhengige.</dd></div>
+  <div class="g"><dt>Recall / sensitivitet / TPR<a href="03-evaluering.html">kap. 3</a></dt><dd>$TP/(TP+FN)$: andelen faktisk positive vi finner. Viktig når det er farlig å bomme (sykdom).</dd></div>
+  <div class="g"><dt>Regresjon <span class="en">regression</span><a href="06-regresjon.html">kap. 6</a></dt><dd>Prediksjon av kontinuerlige verdier.</dd></div>
+  <div class="g"><dt>Regresjonstre <span class="en">regression tree</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Beslutningstre som predikerer en konstant (snittet) i hver region; splitter for å minimere varians/MSE.</dd></div>
+  <div class="g"><dt>ReLU<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>$\max(0,x)$. Vanligste aktivering i skjulte lag.</dd></div>
+  <div class="g"><dt>Replay buffer<a href="14-forsterkning.html">kap. 14</a></dt><dd>Lager overganger (s, a, r, s′) i DQN; trekker tilfeldige minibatcher for å bryte korrelasjon mellom treningseksempler.</dd></div>
+  <div class="g"><dt>Reward hacking<a href="14-forsterkning.html">kap. 14</a></dt><dd>Agenten finner en uønsket måte å få høy belønning på fordi belønningen er dårlig spesifisert.</dd></div>
+  <div class="g"><dt>ROC-kurve<a href="03-evaluering.html">kap. 3</a></dt><dd>TPR mot FPR for alle klassifiseringsterskler. Går fra (0,0) til (1,1).</dd></div>
+  <div class="g"><dt>Rotnode <span class="en">root node</span><a href="05-traer.html">kap. 5</a></dt><dd>Øverste node i treet, der alle data kommer inn. Splitter på den viktigste featuren.</dd></div>
+</dl>
+<h3 class="letter" id="g-S">S</h3>
+<dl>
+  <div class="g"><dt>Sentroide <span class="en">centroid</span><a href="11-clustering.html">kap. 11</a></dt><dd>Midtpunktet (snittet) av en klynge. Trenger ikke være et datapunkt.</dd></div>
+  <div class="g"><dt>SGD <span class="en">stochastic gradient descent</span><a href="10-trening-nn.html">kap. 10</a></dt><dd>Gradient beregnet på ett tilfeldig punkt (eller en mini-batch). Raske, støyete steg.</dd></div>
+  <div class="g"><dt>SHAP / Shapley-verdi<a href="15-xai-etikk.html">kap. 15</a></dt><dd>Fordeling av en prediksjon på featurene som det vektede gjennomsnittlige marginalbidraget over alle koalisjoner. Summerer til $v(N)-v(\emptyset)$.</dd></div>
+  <div class="g"><dt>Sigmoid / logistisk funksjon<a href="02-logistisk.html">kap. 2</a></dt><dd>$1/(1+e^{-z})$. Mapper til (0,1). Output i binær klassifisering.</dd></div>
+  <div class="g"><dt>Silhouette-koeffisient<a href="11-clustering.html">kap. 11</a></dt><dd>$(b-a)/\max(a,b)$ i [−1, 1]. Høy = punktet passer godt i sin klynge.</dd></div>
+  <div class="g"><dt>Skjult lag <span class="en">hidden layer</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Lag mellom input og output i et nevralt nett.</dd></div>
+  <div class="g"><dt>SNE <span class="en">stochastic neighbor embedding</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Dimensjonsreduksjon som flytter punkter i lav dimensjon (med GD) slik at nabosannsynlighetene matcher dem i høy dimensjon (KL-tap).</dd></div>
+  <div class="g"><dt>Softmax<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>$e^{x_i}/\sum_j e^{x_j}$. Output-aktivering for flere klasser; summerer til 1.</dd></div>
+  <div class="g"><dt>Spesifisitet / TNR <span class="en">specificity</span><a href="03-evaluering.html">kap. 3</a></dt><dd>$TN/(TN+FP)$: andelen faktisk negative som klassifiseres riktig. FPR = 1 − spesifisitet.</dd></div>
+  <div class="g"><dt>Støyfjerning <span class="en">denoising</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>En grunn til dimensjonsreduksjon: kast retninger som stort sett er støy.</dd></div>
+</dl>
+<h3 class="letter" id="g-T">T</h3>
+<dl>
+  <div class="g"><dt>Tapsfunksjon <span class="en">loss function</span><a href="02-logistisk.html">kap. 2</a></dt><dd>$L(y_{pred},y)$: hvor feil prediksjonen er. Må være deriverbar for gradient descent.</dd></div>
+  <div class="g"><dt>Target / label<a href="01-grunnlag.html">kap. 1</a></dt><dd>Det vi vil predikere, $y$. Finnes i veiledet læring, ikke i uveiledet.</dd></div>
+  <div class="g"><dt>Target network<a href="14-forsterkning.html">kap. 14</a></dt><dd>Kopi av Q-nettet i DQN som oppdateres sjelden, slik at treningsmålene holdes stabile.</dd></div>
+  <div class="g"><dt>Testdata<a href="07-generalisering.html">kap. 7</a></dt><dd>Brukes kun én gang til slutt for å rapportere ytelsen til den ferdige modellen. Aldri til tilpasning.</dd></div>
+  <div class="g"><dt>Treningsdata<a href="07-generalisering.html">kap. 7</a></dt><dd>Data modellparametrene tilpasses på.</dd></div>
+  <div class="g"><dt>t-SNE<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>SNE med t-fordeling (tunge haler) i lav dimensjon. Brukes til visualisering; ikke-parametrisk.</dd></div>
+</dl>
+<h3 class="letter" id="g-U">U</h3>
+<dl>
+  <div class="g"><dt>Underfitting / undertilpasning<a href="07-generalisering.html">kap. 7</a></dt><dd>Modellen er for enkel: høy feil på både trening og validering. Høy bias.</dd></div>
+  <div class="g"><dt>Undersampling<a href="03-evaluering.html">kap. 3</a></dt><dd>Trekk like mange fra majoritetsklassen som minoriteten har. Risiko: for lite data, underfitting.</dd></div>
+  <div class="g"><dt>Uveiledet læring <span class="en">unsupervised learning</span><a href="11-clustering.html">kap. 11</a></dt><dd>Læring uten targets: clustering, dimensjonsreduksjon, anomalideteksjon.</dd></div>
+</dl>
+<h3 class="letter" id="g-V">V</h3>
+<dl>
+  <div class="g"><dt>Valideringsdata<a href="07-generalisering.html">kap. 7</a></dt><dd>Brukes under trening til å overvåke modellen og velge hyperparametre (og early stopping).</dd></div>
+  <div class="g"><dt>Varians (i bias–varians) <span class="en">variance</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Hvor mye modellen endrer seg når treningsdataene byttes. Høy varians = overfit.</dd></div>
+  <div class="g"><dt>Veiledet læring <span class="en">supervised learning</span><a href="01-grunnlag.html">kap. 1</a></dt><dd>Læring fra par $(\mathbf{x}, y)$ med kjente targets: klassifisering og regresjon.</dd></div>
+  <div class="g"><dt>Vektet tapsfunksjon <span class="en">weighted loss</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Gir feil på én klasse (ofte minoriteten) større vekt i tapet.</dd></div>
+</dl>
+<h3 class="letter" id="g-X">X</h3>
+<dl>
+  <div class="g"><dt>XOR<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>«Enten–eller». Ikke lineært separerbar, derfor umulig for ett perseptron; krever et skjult lag.</dd></div>
+</dl>
+<p id="glossNone" class="muted" style="display:none">Ingen treff. Prøv et kortere søkeord eller det engelske navnet.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="knagger"><span class="sec">17.3</span>Knagger: én huskesetning per hovedidé</h2>
+<p>Hver setning er en knagg å henge resten av kunnskapen på. Kan du forklare <em>hvorfor</em> setningen stemmer, kan du som regel svare på eksamensspørsmålet.</p>
+<div class="hooks">
+  <div><b>Maskinlæring</b>Ytelse P på oppgave T blir bedre med erfaring E (Mitchell). Data er erfaringen.</div>
+  <div><b>Sigmoid</b>Klem et hvilket som helst tall inn i (0,1), så det kan leses som en sannsynlighet.</div>
+  <div><b>Cross-entropy</b>Minus log av sannsynligheten modellen ga riktig svar. Sikker og feil koster enormt.</div>
+  <div><b>Gradient descent</b>Bind for øynene på et fjell: kjenn etter brattest nedover og ta et skritt på størrelse η.</div>
+  <div><b>Læringsrate</b>For lang skrittlengde hopper over dalen (oscillering), for kort kommer aldri frem.</div>
+  <div><b>Parameter vs hyperparameter</b>Modellen lærer parametrene; du skrur på hyperparametrene.</div>
+  <div><b>Precision</b>«Når alarmen går, er det brann?» Viktig når falsk alarm er dyrt.</div>
+  <div><b>Recall</b>«Fant vi alle brannene?» Viktig når en bom er farlig.</div>
+  <div><b>ROC AUC</b>Sannsynligheten for at en tilfeldig syk får høyere score enn en tilfeldig frisk.</div>
+  <div><b>Ubalanserte data</b>99 % accuracy kan bety at modellen bare sier «frisk» til alle.</div>
+  <div><b>Entropi</b>Hvor overrasket du blir i snitt. Myntkast = 1 bit, sikker hendelse = 0.</div>
+  <div><b>Bayes</b>Posterior = likelihood × prior, normalisert. Evidensen er lik for alle klasser.</div>
+  <div><b>Naiv Bayes</b>Late som features ikke snakker sammen, så blir et umulig problem et produkt av enkle.</div>
+  <div><b>Dimensjonsforbannelsen</b>Rommet vokser som 10ᵈ; dataene blir støv i et tomt univers, og alt er like langt unna.</div>
+  <div><b>Gini</b>Trekk en kule og gjett farge etter fordelingen i posen: hvor ofte bommer du?</div>
+  <div><b>Informasjonsgevinst</b>Hvor mye mindre forvirret er vi etter splitten enn før?</div>
+  <div><b>Beslutningstre</b>Tjue spørsmål med akseparallelle ja/nei-spørsmål. Trenger ingen skalering.</div>
+  <div><b>MSE</b>Kvadrer feilen: store bom straffes mye, og ½ er bare der for å forsvinne ved derivasjon.</div>
+  <div><b>Polynomisk regresjon</b>Fortsatt lineær regresjon, bare med nye features $x^2, x^3, \dots$</div>
+  <div><b>Validering vs test</b>Validering er generalprøven du justerer etter; test er premieren du bare får én av.</div>
+  <div><b>Bias–varians</b>Bias bommer alltid i samme retning (blink ved siden av), varians spraier rundt (hagle).</div>
+  <div><b>Bootstrap</b>Trekk med tilbakelegging: lag mange datasett av ett, «pull yourself up by your bootstraps».</div>
+  <div><b>Bagging</b>Mange uavhengige eksperter stemmer; uenighet jevnes ut (varians ↓).</div>
+  <div><b>Boosting</b>Neste elev retter det forrige gjorde feil (bias ↓).</div>
+  <div><b>Perseptron</b>En maskin, ikke et program: vektet sum og trappetrinn. Kan ikke XOR.</div>
+  <div><b>Aktiveringsfunksjon</b>Uten ikke-linearitet kollapser hundre lag til ett lineært lag.</div>
+  <div><b>Backprop</b>Skylden for feilen fordeles bakover lag for lag med kjerneregelen.</div>
+  <div><b>Epoke</b>Én runde gjennom hele datasettet; iterasjoner per epoke = N / batch size.</div>
+  <div><b>k-means</b>Flytt hver sentroide til midten av punktene sine, gjenta. Antar runde, like store klynger.</div>
+  <div><b>DBSCAN</b>Klynger er tette nabolag; det som står alene, er outliers (label −1).</div>
+  <div><b>Silhouette</b>Er jeg nærmere min egen gjeng enn nabogjengen? 1 = ja, −1 = feil gjeng.</div>
+  <div><b>PCA</b>Den beste kameravinkelen: akser der skyen ser bredest ut, egenvektorene til kovariansmatrisen.</div>
+  <div><b>t-SNE</b>Bordplassering: venner skal sitte sammen. Avstand mellom bordene betyr ingenting.</div>
+  <div><b>KL-divergens</b>Overraskelsen ved å tro på Q når verden er P. Ikke symmetrisk.</div>
+  <div><b>Isolation Forest</b>Det rare er lett å isolere: få tilfeldige splitter, kort sti.</div>
+  <div><b>Q-learning</b>Ny Q = litt av gammel + litt av (belønning nå + γ × beste fremtid).</div>
+  <div><b>γ</b>Hvor langt agenten tenker frem. Høy γ = fremtiden dominerer.</div>
+  <div><b>Shapley</b>Fordel gevinsten rettferdig: hvert bidrag i snitt over alle rekkefølger spillerne kunne kommet i.</div>
+  <div><b>LIME</b>Zoom inn på ett punkt og forklar det med en enkel lineær modell lokalt.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="api"><span class="sec">17.4</span>API-jukselapp: sklearn og Keras</h2>
+
+<h3>Mønsteret som går igjen</h3>
+<pre><code><span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+<span class="k">from</span> sklearn.preprocessing <span class="k">import</span> StandardScaler
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+scaler = StandardScaler().fit(X_train)      <span class="c"># lær snitt/std KUN fra trening</span>
+X_train_s = scaler.transform(X_train)
+X_test_s  = scaler.transform(X_test)        <span class="c"># samme scaler, ingen ny fit!</span>
+
+model.fit(X_train_s, y_train)               <span class="c"># tilpass modellen</span>
+y_pred = model.predict(X_test_s)            <span class="c"># inferens</span></code></pre>
+
+<table class="api">
+  <tr><th>Metode</th><th>Gjør</th><th>Brukes på</th></tr>
+  <tr><td><code>fit(X[, y])</code></td><td>Lærer parametre/statistikk fra data</td><td>Bare treningsdata</td></tr>
+  <tr><td><code>transform(X)</code></td><td>Bruker det som er lært til å endre data (skalering, PCA)</td><td>Trening og test</td></tr>
+  <tr><td><code>fit_transform(X)</code></td><td><code>fit</code> + <code>transform</code> på samme data</td><td>Bare trening (og t-SNE, som ikke har noe annet valg)</td></tr>
+  <tr><td><code>predict(X)</code></td><td>Gir prediksjoner fra en tilpasset modell</td><td>Test / nye data</td></tr>
+  <tr><td><code>fit_predict(X)</code></td><td>Tilpass og gi klyngelabels på samme data</td><td>Clustering</td></tr>
+</table>
+
+<h3>Klassene du bør kjenne</h3>
+<table class="api">
+  <tr><th>Klasse</th><th>Viktige argumenter</th><th>Nyttige attributter / merknader</th></tr>
+  <tr><td><code>LabelEncoder</code>, <code>MinMaxScaler</code>, <code>StandardScaler</code></td><td>–</td><td>Encode kategorier til tall; skaler til [0,1] eller snitt 0/std 1. Fit på trening.</td></tr>
+  <tr><td><code>train_test_split</code></td><td><code>test_size</code>, <code>random_state</code></td><td>Returnerer <code>X_train, X_test, y_train, y_test</code>. Bruk to ganger for trening/validering/test.</td></tr>
+  <tr><td><code>DecisionTreeClassifier</code></td><td><code>criterion="gini"</code> (default) / <code>"entropy"</code> / <code>"log_loss"</code>, <code>max_depth</code></td><td><code>DecisionTreeRegressor</code> for regresjon; <code>get_depth()</code>, <code>get_n_leaves()</code>, <code>tree.plot_tree</code></td></tr>
+  <tr><td><code>PolynomialFeatures</code></td><td><code>degree</code></td><td>Lager $x, x^2, \dots$ Fit på trening.</td></tr>
+  <tr><td><code>SGDRegressor</code>, <code>Perceptron</code></td><td><code>learning_rate</code>, <code>eta0</code></td><td><code>partial_fit</code> for én epoke; <code>coef_</code>, <code>intercept_</code></td></tr>
+  <tr><td><code>PCA</code> (<code>sklearn.decomposition</code>)</td><td><code>n_components</code> (heltall eller andel, f.eks. 0.95)</td><td><code>components_</code> (egenvektorer), <code>explained_variance_</code> (egenverdier), <code>explained_variance_ratio_</code>, <code>inverse_transform</code></td></tr>
+  <tr><td><code>TSNE</code> (<code>sklearn.manifold</code>)</td><td><code>n_components=2</code>, <code>perplexity</code>, <code>learning_rate="auto"</code>, <code>init</code></td><td><strong>Bare</strong> <code>fit_transform</code>, ingen <code>transform</code></td></tr>
+  <tr><td><code>KMeans</code> / <code>MiniBatchKMeans</code></td><td><code>n_clusters</code>, <code>init="k-means++"</code></td><td><code>cluster_centers_</code>, <code>labels_</code>, <code>inertia_</code>, <code>transform(X)</code> = avstand til alle sentroider</td></tr>
+  <tr><td><code>DBSCAN</code></td><td><code>eps</code>, <code>min_samples</code></td><td><code>labels_</code>, der <strong>−1 = outlier</strong>. Ingen <code>predict</code> på nye data.</td></tr>
+  <tr><td><code>IsolationForest</code></td><td><code>n_estimators</code>, <code>contamination</code></td><td><code>predict</code> gir <strong>−1 = anomali</strong>, 1 = normal</td></tr>
+  <tr><td><code>silhouette_score</code>, <code>calinski_harabasz_score</code></td><td><code>(X, labels)</code></td><td>Fra <code>sklearn.metrics</code>; velg $k$</td></tr>
+</table>
+
+<h3>Uveiledet og anomali</h3>
+<pre><code>pca = PCA(n_components=2).fit(X_train);  Z = pca.transform(X_test)
+X_emb = TSNE(n_components=2, perplexity=30).fit_transform(X)   <span class="c"># alt på én gang</span>
+
+kmeans = KMeans(n_clusters=4, init=<span class="s">"k-means++"</span>).fit(X_train)
+dist = kmeans.transform(X_test).min(axis=1)                     <span class="c"># avstand til nærmeste sentroide</span>
+outliers = dist > np.percentile(dist, 95)
+
+outliers = DBSCAN(eps=0.5, min_samples=5).fit(X).labels_ == -1
+iso = IsolationForest(n_estimators=100, contamination=0.05).fit(X_train)
+outliers = iso.predict(X_test) == -1</code></pre>
+
+<h3>Keras</h3>
+<pre><code><span class="k">import</span> keras
+<span class="k">from</span> keras.layers <span class="k">import</span> Dense
+
+model = keras.Sequential()
+model.add(keras.Input(shape=(3,)))                 <span class="c"># uten dette: ingen vekter før første kall</span>
+model.add(Dense(6, activation=<span class="s">"relu"</span>))           <span class="c"># (3+1)·6 = 24 parametre</span>
+model.add(Dense(2, activation=<span class="s">"softmax"</span>))        <span class="c"># én node per klasse</span>
+model.summary()
+
+model.compile(optimizer=keras.optimizers.SGD(),
+              loss=<span class="s">"categorical_crossentropy"</span>, metrics=[<span class="s">"accuracy"</span>])
+history = model.fit(x_train, y_train, batch_size=64, epochs=10,
+                    validation_data=(x_val, y_val),
+                    callbacks=[keras.callbacks.EarlyStopping(monitor=<span class="s">"val_loss"</span>, patience=5)])
+history.history[<span class="s">"loss"</span>], history.history[<span class="s">"val_loss"</span>]   <span class="c"># læringskurver</span>
+y_pred = model.predict(x_test);  model.evaluate(x_test, y_test)
+model.save(<span class="s">"modell.keras"</span>);  model = keras.models.load_model(<span class="s">"modell.keras"</span>)</code></pre>
+<p class="small">Output-lag og tap må passe sammen: binær → <code>Dense(1, "sigmoid")</code> + <code>"binary_crossentropy"</code>; flere klasser → <code>Dense(K, "softmax")</code> + <code>"categorical_crossentropy"</code>; regresjon → <code>Dense(1)</code> (ingen aktivering) + <code>"mse"</code>. Output-shape er alltid antall noder i siste lag.</p>
+
+<!-- ===================================================================== -->
+<h2 id="feller"><span class="sec">17.5</span>Typiske eksamensfeller</h2>
+<p>Disse er hentet fra feilsvarene på eksamen 2024 og 2025 og fra det notatene advarer mot.</p>
+<ol class="traps">
+  <li><b>Fit på testdata.</b> Scaler, PCA og PolynomialFeatures tilpasses kun på trening; testdata får bare <code>transform</code>. Også «fit på hele datasettet før splitt» er feil.</li>
+  <li><b>Bias ≠ bias.</b> Konstantleddet $b$/$\beta_0$ har ingenting med bias i bias–varians å gjøre.</li>
+  <li><b>Precision vs recall.</b> Farlig å bomme (sykdom) → recall. Dyrt med falsk alarm (utrykning) → precision.</li>
+  <li><b>Accuracy ved ubalanse.</b> Høy accuracy, men sykehuset vil ikke kjøpe modellen? Ubalanserte klasser og lav recall.</li>
+  <li><b>AUC = 0.9 er ikke «90 % riktige».</b> Det er sannsynligheten for riktig rangering av et tilfeldig positivt/negativt par.</li>
+  <li><b>ROC-punkter og terskel.</b> Lav terskel → mange positive → høy TPR og høy FPR (oppe til høyre). Regn ut (FPR, TPR) fra matrisen.</li>
+  <li><b>Læringsraten er en hyperparameter</b>, ikke en modellparameter og ikke «treningsparameter».</li>
+  <li><b>Oscillerende tap</b> → læringsraten er for høy (2025 del 1.3).</li>
+  <li><b>Gradient descent finner globalt minimum for konvekse funksjoner</b>, ikke for nevrale nett generelt.</li>
+  <li><b>Batch size</b> = punkter per iterasjon, ikke antall oppdateringer per epoke. Iterasjoner per epoke = N/B.</li>
+  <li><b>Undersampling-tall.</b> 2000 punkter, 90 % A: behold 200 fra A (like mange som B). Oversampling: legg til 1600 i B.</li>
+  <li><b>Vektet BCE.</b> $w_1$ står foran $y\ln y_{pred}$. Minoritetsklassen får størst vekt.</li>
+  <li><b>Lavest Gini / høyest informasjonsgevinst vinner.</b> Ikke omvendt. Regresjonstrær: lavest varians etter splitt.</li>
+  <li><b>Gini maks 0.5 gjelder bare to klasser</b>; generelt $1-1/k$.</li>
+  <li><b>Naiv Bayes</b> antar betinget uavhengighet <em>selv om</em> den sanne fordelingen bryter den; den kan fortsatt beregne en posterior.</li>
+  <li><b>$p(\mathbf{x})$ i Bayes</b> normaliserer slik at posteriorene summerer til 1; den avgjør ikke hvilken klasse som vinner.</li>
+  <li><b>Kryssvalidering vs bootstrap.</b> Kryssvalidering: ikke-overlappende folder. Bootstrap: med tilbakelegging, kan gjenta punkter.</li>
+  <li><b>Random forest</b> trenger diverse og uavhengige trær (bootstrap + tilfeldige features), ikke samme bootstrap-trekk.</li>
+  <li><b>AdaBoost vs gradient boosting.</b> AdaBoost: øk vekt på feilklassifiserte punkter. Gradient boosting: tilpass residualene.</li>
+  <li><b>Heaviside</b> er uegnet for gradient descent fordi den deriverte er 0 nesten overalt og udefinert i 0, ikke fordi den gir negative verdier.</li>
+  <li><b>XOR</b> kan ikke læres av ett perseptron fordi den ikke er lineært separerbar.</li>
+  <li><b>Backpropagation</b> beregner gradienten (kjerneregelen bakover); det er ikke forward pass og ikke vektinitialisering.</li>
+  <li><b>k-means</b> minimerer sum av kvadrerte avstander til egen sentroide; bruk den når avstand innad i klyngene er mindre enn mellom dem.</li>
+  <li><b>DBSCAN er robust</b> fordi den identifiserer outliers og ikke presser dem inn i klynger. Den bruker globale $\epsilon$ og <code>min_samples</code>.</li>
+  <li><b>DBSCAN-smilefjes</b> (eksamen 2024): alt i én klynge → $\epsilon$ for stor; alt støy → $\epsilon$ for liten eller <code>min_samples</code> for stor.</li>
+  <li><b>PCA bevarer varians</b>, den reduserer ikke variansen. Komponentene er ukorrelerte, ikke korrelerte.</li>
+  <li><b>PC-er er egenvektorer til kovariansmatrisen</b>, ikke til datamatrisen og ikke «antall features som beholdes».</li>
+  <li><b>t-SNE kan ikke brukes på nye data</b> fordi den optimaliserer posisjonene direkte. Den lærer ingen projeksjonsmatrise.</li>
+  <li><b>Avstander mellom klynger og klyngestørrelser i t-SNE</b> betyr ingenting.</li>
+  <li><b>Høy γ</b> → fremtidige verdier dominerer, ikke den umiddelbare belønningen. Tap og belønning i Q-learning henger ikke nødvendigvis sammen.</li>
+  <li><b>2025-poengregel:</b> feil svar gir −0.83 poeng, ubesvart 0, og du kan ikke angre et valgt alternativ. Gjett bare når du kan utelukke minst ett alternativ.</li>
+</ol>
+
+<!-- ===================================================================== -->
+<h2 id="forveksling"><span class="sec">17.6</span>Det som ofte forveksles</h2>
+<table class="vs">
+  <tr><th>Par</th><th>Den ene</th><th>Den andre</th></tr>
+  <tr><td>Precision / recall</td><td><b>Precision</b> $= TP/(TP+FP)$: av alarmene, hvor mange var ekte? Nevneren er det modellen <em>predikerte</em> positivt.</td><td><b>Recall</b> $= TP/(TP+FN)$: av de ekte tilfellene, hvor mange fant vi? Nevneren er det som <em>faktisk</em> er positivt.</td></tr>
+  <tr><td>Bias / bias</td><td><b>Bias-ledd</b> $b$, $\beta_0$: en modellparameter, skjæringspunktet.</td><td><b>Bias (statistisk)</b> $E_D[f]-F$: systematisk feil hos læringsalgoritmen; høy bias = underfit.</td></tr>
+  <tr><td>Parameter / hyperparameter</td><td><b>Parameter</b>: læres fra data ($\mathbf{w}$, $b$, $\beta$, vekter).</td><td><b>Hyperparameter</b>: velges før/utenfor trening ($\eta$, epoker, batch size, $k$, max_depth, $\epsilon$, perplexity, polynomgrad). Justeres med valideringsdata.</td></tr>
+  <tr><td>Bagging / boosting</td><td><b>Bagging</b>: parallelt, uavhengige modeller på bootstrap-utvalg, snitt/flertall; reduserer varians (random forest).</td><td><b>Boosting</b>: sekvensielt, hver modell retter de forriges feil; reduserer bias (AdaBoost, gradient boosting).</td></tr>
+  <tr><td>PCA / t-SNE</td><td><b>PCA</b>: lineær, bevarer global varians, rask, gjenbrukbar (<code>transform</code>), kan lage features.</td><td><b>t-SNE</b>: ikke-lineær, bevarer lokale nabolag (KL), treg, ikke-parametrisk, kun visualisering.</td></tr>
+  <tr><td>Epoke / iterasjon / batch</td><td><b>Epoke</b>: én runde gjennom alle data. <b>Batch</b>: delmengden som brukes til én gradient.</td><td><b>Iterasjon</b>: én parameteroppdatering. Iterasjoner per epoke = N / batch size.</td></tr>
+  <tr><td>k-means / DBSCAN</td><td><b>k-means</b>: sentroidebasert, likhet = avstand, må velge $k$, alle punkter får klynge, runde klynger, rask for store $n$.</td><td><b>DBSCAN</b>: tetthetsbasert, velger $\epsilon$ og <code>min_samples</code>, finner $k$ selv, merker outliers (−1), vilkårlige former, sliter med varierende tetthet.</td></tr>
+  <tr><td>Likelihood / sannsynlighet</td><td><b>Sannsynlighet</b>: parametrene er gitt, vi spør hvor sannsynlige (ennå ikke observerte) data er.</td><td><b>Likelihood</b>: dataene er observert, vi ser på det som funksjon av parametrene og maksimerer det under trening.</td></tr>
+  <tr><td>Tap / metrikk</td><td><b>Tapsfunksjon</b>: optimaliseres under trening, må være deriverbar (BCE, MSE).</td><td><b>Metrikk</b>: rapporteres for mennesker, trenger ikke være deriverbar (accuracy, recall, AUC).</td></tr>
+  <tr><td>Validering / test</td><td><b>Validering</b>: brukes under utviklingen til å velge hyperparametre og early stopping.</td><td><b>Test</b>: rørt én gang til slutt; ingen justering etterpå.</td></tr>
+  <tr><td>GD / SGD / mini-batch</td><td><b>GD</b>: hele datasettet per oppdatering, 1 per epoke, nøyaktig men tregt.</td><td><b>SGD</b>: ett punkt, N per epoke, støyete. <b>Mini-batch</b>: B punkter, N/B per epoke.</td></tr>
+  <tr><td>Sigmoid / softmax</td><td><b>Sigmoid</b>: én output i (0,1), binær klassifisering.</td><td><b>Softmax</b>: K outputs som summerer til 1, flere klasser.</td></tr>
+  <tr><td>Overfit / underfit</td><td><b>Overfit</b>: lav treningsfeil, høy valideringsfeil, høy varians.</td><td><b>Underfit</b>: høy feil på begge, høy bias.</td></tr>
+  <tr><td>Under- / oversampling</td><td><b>Undersampling</b>: fjern fra majoriteten; risiko underfit.</td><td><b>Oversampling</b>: dupliser minoriteten; risiko overfit.</td></tr>
+  <tr><td>Gini / entropi</td><td><b>Gini</b>: $1-\sum p^2$, maks 0.5 (binær), raskere.</td><td><b>Entropi</b>: $-\sum p\log_2 p$, maks 1 (binær), har logaritme. Gir som regel samme splitter.</td></tr>
+  <tr><td>Policy / Q-verdi</td><td><b>Policy</b> $\pi(s)$: hvilken handling agenten tar i hver tilstand.</td><td><b>Q-verdi</b> $Q(s,a)$: forventet (diskontert) retur for å ta handling $a$ i $s$.</td></tr>
+  <tr><td>LIME / SHAP</td><td><b>LIME</b>: lokal surrogatmodell rundt ett punkt.</td><td><b>SHAP</b>: Shapley-verdier, rettferdig fordeling av prediksjonen; kan aggregeres globalt.</td></tr>
+</table>
+
+<!-- ===================================================================== -->
+<h2 id="flashcards"><span class="sec">17.7</span>Flashcards</h2>
+<p>Klikk (eller Enter) for å snu kortet. Si svaret høyt før du snur.</p>
+<div class="cards">
+  <div class="card"><div class="front">Sigmoid og dens deriverte</div><div class="back">$\sigma(z) = 1/(1+e^{-z})$, $\sigma' = \sigma(1-\sigma)$</div></div>
+  <div class="card"><div class="front">Binary cross-entropy</div><div class="back">$-y\ln\hat y - (1-y)\ln(1-\hat y)$</div></div>
+  <div class="card"><div class="front">Gradient av BCE mht. $w_j$</div><div class="back">$(\hat y - y)\,x_j$; mht. $b$: $\hat y - y$</div></div>
+  <div class="card"><div class="front">GD-oppdatering</div><div class="back">$\theta \leftarrow \theta - \eta\,\partial L/\partial\theta$</div></div>
+  <div class="card"><div class="front">Precision</div><div class="back">$TP/(TP+FP)$ – andelen av alarmene som var ekte</div></div>
+  <div class="card"><div class="front">Recall / TPR</div><div class="back">$TP/(TP+FN)$ – andelen av de ekte vi fant</div></div>
+  <div class="card"><div class="front">FPR</div><div class="back">$FP/(FP+TN) = 1 -$ spesifisitet</div></div>
+  <div class="card"><div class="front">ROC AUC = 0.5</div><div class="back">Ikke bedre enn myntkast (diagonalen)</div></div>
+  <div class="card"><div class="front">Entropi av (0.5, 0.5)</div><div class="back">1 bit (maks for to klasser)</div></div>
+  <div class="card"><div class="front">Kryss-entropi</div><div class="back">$H(p,q) = -\sum p\log q$; $p$ = data, $q$ = modell</div></div>
+  <div class="card"><div class="front">KL og kryss-entropi</div><div class="back">$D_{KL}(P\|Q) = H(P,Q) - H(P)$</div></div>
+  <div class="card"><div class="front">Bayes' teorem</div><div class="back">$p(C|\mathbf{x}) = p(\mathbf{x}|C)p(C)/p(\mathbf{x})$</div></div>
+  <div class="card"><div class="front">Naiv Bayes-antakelsen</div><div class="back">Featurene er betinget uavhengige gitt klassen</div></div>
+  <div class="card"><div class="front">Datapunkter for $d$ features (10 bins, 10 per bin)</div><div class="back">$10^{d+1}$</div></div>
+  <div class="card"><div class="front">Andel av kule i skall $\epsilon$</div><div class="back">$1-(1-\epsilon)^d \to 1$</div></div>
+  <div class="card"><div class="front">Gini-urenhet</div><div class="back">$1-\sum p_i^2$; (0.3, 0.7) → 0.42</div></div>
+  <div class="card"><div class="front">Vektet Gini</div><div class="back">$\frac{n_1}{n}G(D_1) + \frac{n_2}{n}G(D_2)$ – lavest vinner</div></div>
+  <div class="card"><div class="front">Informasjonsgevinst</div><div class="back">Entropi før − vektet entropi etter; størst vinner</div></div>
+  <div class="card"><div class="front">MSE og faktoren ½</div><div class="back">$\frac{1}{2N}\sum(y-f)^2$; ½ kansellerer ved derivasjon</div></div>
+  <div class="card"><div class="front">$\partial L/\partial\beta_0$ for MSE</div><div class="back">$\frac1N\sum(f(\mathbf{x})-y)$; > 0 når modellen overestimerer</div></div>
+  <div class="card"><div class="front">Antall parametre i lineær regresjon</div><div class="back">$n+1$ for $n$ features</div></div>
+  <div class="card"><div class="front">Bias–varians-dekomposisjon</div><div class="back">$E[(y-f)^2] = \text{Bias}^2 + \text{Var} + \sigma^2$</div></div>
+  <div class="card"><div class="front">Høy varians tyder på …</div><div class="back">Overfitting: lav treningsfeil, høy valideringsfeil, ustabil mellom datasplitter</div></div>
+  <div class="card"><div class="front">Andel unike i et bootstrap-utvalg</div><div class="back">≈ 63.2 % ($1-e^{-1}$)</div></div>
+  <div class="card"><div class="front">Gradient boosting tilpasser …</div><div class="back">Pseudo-residualene $y-\hat y$ fra ensemblet så langt</div></div>
+  <div class="card"><div class="front">AdaBoost øker vekten på …</div><div class="back">Punktene som ble klassifisert feil</div></div>
+  <div class="card"><div class="front">Perseptronregelen</div><div class="back">$w_i \leftarrow w_i + \eta(y-\hat y)x_i$</div></div>
+  <div class="card"><div class="front">AND-perseptron</div><div class="back">$(w_1,w_2,b) = (1,1,-1.5)$; OR: $(1,1,-0.5)$; NOT: $(-1, 0.5)$</div></div>
+  <div class="card"><div class="front">ReLU</div><div class="back">$\max(0,x)$ – skjulte lag</div></div>
+  <div class="card"><div class="front">Softmax</div><div class="back">$e^{x_i}/\sum_j e^{x_j}$ – output for flere klasser</div></div>
+  <div class="card"><div class="front">Lag på matriseform</div><div class="back">$\mathbf{a}^l = g(W^l\mathbf{a}^{l-1} + \mathbf{b}^l)$</div></div>
+  <div class="card"><div class="front">Parametre i Dense-lag</div><div class="back">$(n_{inn}+1)\cdot n_{ut}$</div></div>
+  <div class="card"><div class="front">Iterasjoner per epoke</div><div class="back">$N/B$; 10 000 / 500 = 20</div></div>
+  <div class="card"><div class="front">k-means minimerer …</div><div class="back">Sum av kvadrerte avstander til egen sentroide (inertia)</div></div>
+  <div class="card"><div class="front">P(unik init) i k-means</div><div class="back">$k!/k^k$; $k=3$ → 0.22</div></div>
+  <div class="card"><div class="front">Silhouette</div><div class="back">$(b-a)/\max(a,b)$ i [−1, 1]</div></div>
+  <div class="card"><div class="front">DBSCAN-hyperparametre</div><div class="back">$\epsilon$ (nabolagsradius) og <code>min_samples</code></div></div>
+  <div class="card"><div class="front">Kovarians</div><div class="back">$\frac{1}{N-1}\sum(x_i-\bar x_i)(x_j-\bar x_j)$</div></div>
+  <div class="card"><div class="front">Egenverdier 2×2</div><div class="back">$\frac{\text{tr}\pm\sqrt{\text{tr}^2-4\det}}{2}$</div></div>
+  <div class="card"><div class="front">Forklart varians-andel</div><div class="back">$\lambda_i/\sum_j\lambda_j$</div></div>
+  <div class="card"><div class="front">Perplexity</div><div class="back">$2^{H(P_i)}$ ≈ effektivt antall naboer</div></div>
+  <div class="card"><div class="front">Isolation Forest: anomali betyr …</div><div class="back">Kort gjennomsnittlig sti fra rot; <code>predict == -1</code></div></div>
+  <div class="card"><div class="front">Q-learning-oppdatering</div><div class="back">$Q \leftarrow (1-\alpha)Q + \alpha(R + \gamma\max_{a'}Q(s',a'))$</div></div>
+  <div class="card"><div class="front">Markov-egenskapen</div><div class="back">Neste tilstand avhenger bare av nåværende tilstand og handling</div></div>
+  <div class="card"><div class="front">Shapley-vekt for koalisjon $S$</div><div class="back">$|S|!\,(|N|-|S|-1)!/|N|!$</div></div>
+  <div class="card"><div class="front">Shapley efficiency</div><div class="back">$\sum_i\phi_i = v(N) - v(\emptyset)$</div></div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="quiz"><span class="sec">17.8</span>Blandet repetisjon</h2>
+<p>Femten spørsmål på tvers av pensum, i eksamensstil. Ta dem i én økt uten å bla opp.</p>
+
+<div class="quiz" data-id="17-q-auc">
+  <p class="q">En modell har ROC AUC = 0.85. Hva betyr det?</p>
+  <ul>
+    <li>Modellen klassifiserer 85 % av datapunktene riktig</li>
+    <li>Modellen har 85 % recall ved terskel 0.5</li>
+    <li data-correct>Med 85 % sannsynlighet gir modellen et tilfeldig positivt punkt høyere score enn et tilfeldig negativt</li>
+    <li>85 % av arealet i confusion matrix ligger på diagonalen</li>
+  </ul>
+  <div class="explain">AUC er et rangeringsmål over alle terskler (eksamen 2024 oppg. 6). Det er ikke accuracy, og det er ikke knyttet til én terskel. «Areal i confusion matrix» er tull, men lyder plausibelt fordi «area» står i navnet.</div>
+</div>
+
+<div class="quiz" data-id="17-q-metrikk">
+  <p class="q">En modell skal flagge transaksjoner for manuell kontroll. Hver kontroll koster mye, og banken vil ikke kaste bort tid på falske alarmer. Hvilken metrikk er viktigst å få høy?</p>
+  <ul>
+    <li>Recall</li>
+    <li data-correct>Precision</li>
+    <li>Accuracy</li>
+    <li>False positive rate</li>
+  </ul>
+  <div class="explain">Dyre falske positive → høy precision, $TP/(TP+FP)$. Recall er viktig når det er farligst å bomme på positive. Accuracy er villedende ved ubalanse (svindel er sjelden). FPR vil vi ha <em>lav</em>, ikke høy.</div>
+</div>
+
+<div class="quiz" data-id="17-q-scaler">
+  <p class="q">Du har kjørt <code>scaler = MinMaxScaler().fit(X_train)</code>. Hvordan skalerer du testdataene?</p>
+  <ul>
+    <li><code>MinMaxScaler().fit_transform(X_test)</code></li>
+    <li><code>scaler.fit(X_test)</code></li>
+    <li><code>X_test / X_test.max()</code></li>
+    <li data-correct><code>scaler.transform(X_test)</code></li>
+  </ul>
+  <div class="explain">Testdata skal skaleres med min/maks lært fra treningsdata (eksamen 2024 oppg. 4 og 2025 del 10.1). En ny fit på testdata gir en annen skala og lekker informasjon. <code>scaler.fit</code> returnerer dessuten scaleren, ikke transformerte data.</div>
+</div>
+
+<div class="quiz" data-id="17-q-gini">
+  <p class="q">En node har 8 punkter av klasse A og 8 av klasse B. Splitt 1 gir (8A, 2B) og (0A, 6B). Splitt 2 gir (4A, 4B) og (4A, 4B). Hvilken velges, og hva er vektet Gini for den?</p>
+  <ul>
+    <li>Splitt 2, Gini 0.5</li>
+    <li data-correct>Splitt 1, Gini 0.2</li>
+    <li>Splitt 1, Gini 0.32</li>
+    <li>Begge er like gode fordi de bruker alle 16 punktene</li>
+  </ul>
+  <div class="explain">Splitt 1: venstre $1-0.8^2-0.2^2 = 0.32$ (10 punkter), høyre 0 (6 punkter). Vektet: $\frac{10}{16}\cdot 0.32 = 0.2$. Splitt 2 gir 0.5 i begge barn (ingen forbedring fra rotens 0.5). Laveste vektede Gini vinner. 0.32 er Gini i venstre barn uten vekting.</div>
+</div>
+
+<div class="quiz" data-id="17-q-epoke">
+  <p class="q">Et treningssett har 12 000 punkter og batch size 300. Hvor mange iterasjoner (oppdateringer) er det i én epoke?</p>
+  <ul>
+    <li>300</li>
+    <li data-correct>40</li>
+    <li>12 000</li>
+    <li>1</li>
+  </ul>
+  <div class="explain">$12\,000/300 = 40$. 12 000 ville vært ren SGD (batch size 1), og 1 ville vært full-batch GD. 300 er batch size, ikke antall iterasjoner.</div>
+</div>
+
+<div class="quiz" data-id="17-q-biasvar">
+  <p class="q">Treningsfeilen er nesten 0, valideringsfeilen er høy, og prediksjonene endrer seg mye når du trener på en ny datasplitt. Hva er diagnosen?</p>
+  <ul>
+    <li>Høy bias, underfitting</li>
+    <li>Lav varians, modellen er stabil</li>
+    <li data-correct>Høy varians, overfitting</li>
+    <li>Irredusibel støy, ingenting å gjøre</li>
+  </ul>
+  <div class="explain">Lav trening + høy validering + ustabilitet mellom splitter = høy varians (eksamen 2025 del 4.2). Høy bias ville gitt høy feil også på trening. Irredusibel støy forklarer ikke at treningsfeilen er nesten 0.</div>
+</div>
+
+<div class="quiz" data-id="17-q-boosting">
+  <p class="q">Hva trenes hvert nye tre på i gradient boosting for regresjon?</p>
+  <ul>
+    <li data-correct>Forskjellen mellom target og ensemblets nåværende prediksjon (pseudo-residualene)</li>
+    <li>Et nytt bootstrap-utvalg av de opprinnelige targetene</li>
+    <li>De samme dataene, men med høyere vekt på punktene som ble klassifisert feil</li>
+    <li>Et tilfeldig utvalg features, slik at trærne blir ukorrelerte</li>
+  </ul>
+  <div class="explain">Gradient boosting tilpasser residualene, slik at hvert tre fokuserer på det de forrige ikke klarte (2024 oppg. 17, 2025 del 3.4). Bootstrap og tilfeldige features er bagging/random forest. Høyere vekt på feilklassifiserte punkter er AdaBoost.</div>
+</div>
+
+<div class="quiz" data-id="17-q-xor">
+  <p class="q">Hvorfor kan ikke ett enkelt perseptron lære XOR?</p>
+  <ul>
+    <li>Fordi Heaviside-funksjonen gir negative verdier</li>
+    <li>Fordi XOR har binære labels, og perseptronet krever kontinuerlige</li>
+    <li>Fordi perseptronet bare kan ha én input</li>
+    <li data-correct>Fordi klassene i XOR ikke kan skilles med én rett linje</li>
+  </ul>
+  <div class="explain">Ett perseptron lager én lineær beslutningsgrense, og XOR er ikke lineært separerbar (eksamen 2025 del 5.2). Heaviside gir 0/1, aldri negative verdier. Perseptronet er laget for binære labels og kan ha mange input.</div>
+</div>
+
+<div class="quiz" data-multi data-id="17-q-kmeans">
+  <p class="q">Hvilke implisitte antakelser eller svakheter har k-means?</p>
+  <ul>
+    <li data-correct>Den antar at du vet (eller kan velge) antall klynger $k$</li>
+    <li data-correct>Den fungerer best når klyngene er kompakte og avstanden innad er mindre enn mellom klynger</li>
+    <li>Den markerer outliers med label −1</li>
+    <li data-correct>Den er følsom for outliers, som kan trekke sentroidene bort</li>
+    <li>Den fungerer bedre jo flere dimensjoner dataene har</li>
+  </ul>
+  <div class="explain">k-means bruker avstand som likhet, må få $k$, og sentroidene er gjennomsnitt som trekkes av outliers. Label −1 for outliers er DBSCAN. Høye dimensjoner gjør euklidsk avstand mindre meningsfull, så den blir dårligere, ikke bedre.</div>
+</div>
+
+<div class="quiz" data-id="17-q-dbscan">
+  <p class="q">Ifølge DBSCAN tilhører to punkter samme klynge dersom …</p>
+  <ul>
+    <li>de har samme nærmeste sentroide</li>
+    <li data-correct>det ene kan nås fra det andre gjennom en kjede av punkter der hvert steg er høyst $\epsilon$ (via kjernepunkter)</li>
+    <li>de har identiske feature-vektorer</li>
+    <li>begge har færre enn <code>min_samples</code> naboer</li>
+  </ul>
+  <div class="explain">DBSCAN definerer klynger ved tetthetsnåbarhet (eksamen 2025 del 6.4). Sentroider hører til k-means. Punkter med færre enn <code>min_samples</code> naboer er ikke-kjernepunkter eller outliers, og det gjør dem ikke til samme klynge.</div>
+</div>
+
+<div class="quiz" data-id="17-q-pca">
+  <p class="q">Kovariansmatrisen til to features er $S = \begin{pmatrix}3 & 1\\ 1 & 3\end{pmatrix}$. Hvor stor andel av variansen forklarer PC1?</p>
+  <ul>
+    <li>50 %</li>
+    <li>75 %</li>
+    <li data-correct>$\frac{4}{6}\approx 67\,\%$</li>
+    <li>100 %</li>
+  </ul>
+  <div class="explain">$\operatorname{tr} = 6$, $\det = 9 - 1 = 8$. $\lambda = \frac{6\pm\sqrt{36-32}}{2} = \frac{6\pm 2}{2}$, altså 4 og 2. Andel: $4/6 \approx 67\,\%$. PC1 peker langs $(1,1)/\sqrt2$. 50 % ville vært ved $b=0$ (like varianser, ukorrelert); 75 % er $3/4$ (feil å bruke diagonalen).</div>
+</div>
+
+<div class="quiz" data-id="17-q-tsne">
+  <p class="q">Hvorfor kan ikke en t-SNE-embedding brukes direkte på nye datapunkter?</p>
+  <ul>
+    <li>Fordi projeksjonsmatrisen t-SNE lærer, er for stor til å lagres</li>
+    <li data-correct>Fordi t-SNE optimaliserer posisjonene til de opprinnelige punktene direkte i stedet for å lære en transformasjon</li>
+    <li>Fordi t-SNE lærer en global lineær avbildning som ikke generaliserer</li>
+    <li>Fordi t-SNE bevarer globale avstander, som ikke kan håndheves for nye data</li>
+  </ul>
+  <div class="explain">Eksamen 2025 del 7.2. t-SNE er ikke-parametrisk: det finnes ingen matrise eller lineær avbildning, og den bevarer lokale nabolag, ikke globale avstander.</div>
+</div>
+
+<div class="quiz" data-id="17-q-gamma">
+  <p class="q">I Q-learning-oppdateringen $Q \leftarrow (1-\alpha)Q + \alpha(R + \gamma\max_{a'}Q(s',a'))$: hva skjer når $\gamma$ er høy (nær 1)?</p>
+  <ul>
+    <li>Agenten velger oftere tilfeldige handlinger</li>
+    <li>Læringen domineres av de gamle Q-verdiene</li>
+    <li>Læringen domineres av den umiddelbare belønningen</li>
+    <li data-correct>Læringen domineres av estimatet av fremtidige tilstander</li>
+  </ul>
+  <div class="explain">$\gamma$ vekter fremtiden (eksamen 2024 oppg. 32, 2025 del 8.4). Tilfeldige handlinger styres av ε. Hvor mye de gamle Q-verdiene veier, styres av $\alpha$ (lav $\alpha$ → gamle verdier dominerer). Lav $\gamma$ ville gjort umiddelbar belønning dominerende.</div>
+</div>
+
+<div class="quiz" data-id="17-q-shapley">
+  <p class="q">Et spill med tre spillere har $v(\{1,2,3\}) = 12$ og $v(\emptyset) = 0$. Du har regnet ut $\phi_1 = 3$ og $\phi_2 = 5$. Hva må $\phi_3$ være?</p>
+  <ul>
+    <li data-correct>4</li>
+    <li>12</li>
+    <li>8</li>
+    <li>Det kan ikke avgjøres uten alle verdiene til den karakteristiske funksjonen</li>
+  </ul>
+  <div class="explain">Efficiency-egenskapen: Shapley-verdiene summerer til $v(N) - v(\emptyset) = 12$, så $\phi_3 = 12 - 3 - 5 = 4$. Dette er en rask kontroll på eksamensoppgaver om Shapley (i 2024: $\frac12 + 1 + \frac32 = 3 = v(N)$).</div>
+</div>
+
+<div class="quiz" data-multi data-id="17-q-hyper">
+  <p class="q">Hvilke av disse er hyperparametre?</p>
+  <ul>
+    <li data-correct>Antall klynger $k$ i k-means</li>
+    <li>Vektene $\mathbf{w}$ i logistisk regresjon</li>
+    <li data-correct>Perplexity i t-SNE</li>
+    <li data-correct><code>max_depth</code> i et beslutningstre</li>
+    <li>Sentroidene etter at k-means har konvergert</li>
+  </ul>
+  <div class="explain">Hyperparametre velges før treningen og styrer læringsprosessen: $k$, perplexity, max_depth (og $\eta$, epoker, batch size, $\epsilon$). Vektene og de ferdige sentroidene er det algoritmen lærer fra data, altså parametre.</div>
+</div>
+
+<div class="summary">
+  <h3>Siste sjekk før eksamen</h3>
+  <ul>
+    <li>Kan du regne ut precision, recall, FPR, Gini, entropi, informasjonsgevinst, et GD-steg, antall parametre, iterasjoner per epoke, kovarians, egenverdier for 2×2, KL, en Q-oppdatering og en Shapley-verdi med enkel kalkulator?</li>
+    <li>Kan du forklare <em>hvorfor</em>: sigmoid, log i tapet, minus i GD, validering ved siden av test, bootstrap i random forest, aktiveringsfunksjoner, k-means++, ortogonale PC-er, t-fordeling i t-SNE?</li>
+    <li>Kjenner du fellene: fit på test, bias/bias, precision/recall, accuracy ved ubalanse, AUC ≠ accuracy, t-SNE på nye data?</li>
+    <li>Husk poengregelen i 2025: feil svar trekker. Svar når du kan utelukke alternativer.</li>
+  </ul>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("glossSearch");
+  const items = Array.from(document.querySelectorAll("#gloss .g"));
+  const heads = Array.from(document.querySelectorAll("#gloss h3.letter"));
+  const count = document.getElementById("glossCount"), none = document.getElementById("glossNone");
+  const norm = s => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
+  const texts = items.map(g => norm(g.textContent));
+  function filter() {
+    const q = norm(input.value.trim());
+    let n = 0;
+    items.forEach((g, i) => { const hit = !q || texts[i].includes(q); g.style.display = hit ? "" : "none"; if (hit) n++; });
+    heads.forEach(h => {
+      const dl = h.nextElementSibling;
+      const any = dl && Array.from(dl.querySelectorAll(".g")).some(g => g.style.display !== "none");
+      h.style.display = any ? "" : "none"; if (dl) dl.style.display = any ? "" : "none";
+    });
+    count.textContent = q ? n + " av " + items.length + " begreper" : items.length + " begreper";
+    none.style.display = n ? "none" : "";
+  }
+  input.addEventListener("input", filter);
+});
+</script>
+</body>
+</html>

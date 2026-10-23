@@ -1,0 +1,2274 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 · Forklarbar KI og etikk – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  svg.diagram { display: block; margin: 0 auto; width: 100%; height: auto; }
+  svg.diagram .box { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+  svg.diagram .sm { font-size: 12px; fill: var(--text-soft); }
+  .vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 14px; margin: 8px 0 4px; }
+  .vgrid label { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-family: var(--mono); font-size: 14px; }
+  .vgrid input { width: 70px; font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  #shTable td, #shTable th { text-align: center; font-family: var(--mono); font-size: 14px; }
+  #shTable tr.avg td { font-weight: 700; border-top: 2px solid var(--accent); }
+  .sort-item { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .sort-item select { font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .sort-item .fb { grid-column: 1 / -1; font-size: 14.5px; display: none; padding: 6px 10px; border-radius: 8px; }
+  .sort-item.checked .fb { display: block; }
+  .sort-item.ok .fb { background: var(--ok-bg); }
+  .sort-item.bad .fb { background: var(--bad-bg); }
+  .pyramid div { margin: 0 auto 6px; padding: 10px 14px; border-radius: 10px; text-align: center; font-size: 15px; color: #fff; }
+  .pyramid b { display: block; font-size: 16px; }
+  figure.fig-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+</style>
+</head>
+<body data-chapter="15">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 15 · Forventet pensum</div>
+  <h1>Forklarbar KI og etikk</h1>
+  <p class="lead">En modell som er treffsikker, men som ingen forstår, er vanskelig å stole på, feilsøke og regulere. Her lærer du å åpne den svarte boksen med LIME, Shapley-verdier og SHAP, og hvilke etiske prinsipper og regler (AI Act) som gjelder når modellene tar beslutninger om mennesker.</p>
+</header>
+
+<div class="banner"><b>Forventet pensum.</b> Forelesningsnotatene for dette temaet var ikke kommet per 14.10.2026. Kapittelet bygger på eksamen 2024 (oppg. 34–39) og standard lærebokstoff (bl.a. Molnar, <i>Interpretable Machine Learning</i>, og EUs KI-forordning). <b>Sjekk notasjon og vektlegging mot forelesningsnotatene når de kommer.</b></div>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare hvorfor forklarbarhet er viktig, og skille mellom tolkbare modeller og svarte bokser, global og lokal forklaring, og modellagnostiske og modellspesifikke metoder</li>
+    <li>beskrive hvordan LIME lager en lokal forklaring, og hva begrensningene er</li>
+    <li>regne ut Shapley-verdier for tre spillere for hånd og kjenne egenskapene effektivitet, symmetri, dummy og additivitet</li>
+    <li>lese et SHAP-plott (beeswarm/summary): hvilken feature betyr mest, og i hvilken retning den trekker</li>
+    <li>kjenne de etiske prinsippene velgjørenhet, ikke-skade, autonomi, rettferdighet og forklarbarhet</li>
+    <li>forklare den risikobaserte inndelingen i AI Act og gi eksempler på skjevhet og diskriminering i data</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="hvorfor"><span class="sec">15.1</span>Hvorfor forklarbarhet?</h2>
+
+<p>Et dypt nevralt nett eller en random forest med 500 trær kan ha høy accuracy, men vi kan ikke lese av hvorfor den sa «avslå lånet» for akkurat denne søkeren. Forklarbar KI (explainable AI, XAI) handler om metoder som gjør slike beslutninger forståelige for mennesker.</p>
+
+<div class="callout why"><span class="label">Fire grunner</span>
+<ul>
+<li><b>Tillit:</b> leger, saksbehandlere og brukere må kunne vurdere om de skal følge modellens råd.</li>
+<li><b>Feilsøking:</b> forklaringer avslører om modellen har lært snarveier. Et kjent eksempel er en klassifikator som skilte ulv fra husky ved å se etter snø i bakgrunnen, ikke på dyret.</li>
+<li><b>Regulering:</b> GDPR gir rett til meningsfull informasjon om logikken bak automatiserte avgjørelser, og AI Act stiller krav om åpenhet og dokumentasjon for høyrisikosystemer.</li>
+<li><b>Rettferdighet:</b> uten innsyn er det vanskelig å oppdage at modellen diskriminerer, for eksempel via postnummer som stedfortreder for etnisitet.</li>
+</ul></div>
+
+<div class="callout hook"><span class="label">Knagg: ulv og snø</span>
+<p>Husk husky-modellen som egentlig var en snødetektor. Den hadde høy accuracy på testsettet, fordi alle ulvebildene tilfeldigvis hadde snø. Uten forklaring hadde ingen oppdaget det. Accuracy forteller <i>om</i> modellen treffer, forklaringer forteller <i>hvorfor</i>.</p>
+</div>
+
+<div class="quiz" data-multi data-id="15-why-xai">
+  <p class="q">Hvilke er gode grunner til å bruke forklarbarhetsmetoder?</p>
+  <ul>
+    <li data-correct>Oppdage at modellen bruker en uønsket snarvei i dataene.</li>
+    <li>Øke modellens accuracy på testsettet automatisk.</li>
+    <li data-correct>Gi en person som får avslag en begrunnelse hun kan forstå og eventuelt klage på.</li>
+    <li data-correct>Avdekke om modellen behandler grupper urettferdig.</li>
+  </ul>
+  <div class="explain">Feilsøking, begrunnelse og rettferdighet er alle hovedmotiver for XAI. En forklaringsmetode endrer ikke selve modellen og øker derfor ikke accuracy av seg selv. Den kan riktignok hjelpe deg å finne feil som du så retter, men det er ikke det metoden gjør.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="typer"><span class="sec">15.2</span>Tolkbare modeller og typer forklaringer</h2>
+
+<p>Noen modeller er <b>tolkbare i seg selv</b> (intrinsically interpretable):</p>
+<ul>
+<li><b>Lineær og logistisk regresjon</b> (<a href="06-regresjon.html">kapittel 6</a> og <a href="02-logistisk.html">kapittel 2</a>): hver vekt $\beta_j$ sier hvor mye prediksjonen (eller log-oddsen) endres når $x_j$ øker med én enhet, når de andre holdes fast. Med standardiserte features kan vektene sammenlignes direkte.</li>
+<li><b>Beslutningstrær</b> (<a href="05-traer.html">kapittel 5</a>): stien fra rot til løvnode er en lesbar regel, for eksempel «hvis kvinne og 1. klasse, så overlever». Det gjelder bare så lenge treet er grunt.</li>
+</ul>
+<p><b>Svarte bokser</b> (black box) er modeller der sammenhengen mellom input og output er for kompleks til å lese direkte: dype nevrale nett, store ensembler som random forest og gradient boosting (<a href="08-ensemble.html">kapittel 8</a>), og SVM med kjerner.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til? En avveining</span>
+<p>Ofte (men ikke alltid) må vi velge mellom fleksibilitet og tolkbarhet. Et dypt tre eller et stort ensemble kan fange mer kompliserte mønstre, men blir uleselig. Derfor finnes to strategier: velg en tolkbar modell når det er godt nok (særlig når mye står på spill), eller bruk en svart boks og forklar den i etterkant (post hoc) med metoder som LIME og SHAP.</p>
+</div>
+
+<h3>To akser for å sortere forklaringsmetoder</h3>
+<table>
+<tr><th></th><th>Betydning</th><th>Eksempler</th></tr>
+<tr><td><b>Global</b></td><td>forklarer modellens oppførsel totalt sett: hvilke features betyr mest generelt?</td><td>koeffisientene i lineær regresjon, Gini-viktighet i random forest, gjennomsnittlig |SHAP|</td></tr>
+<tr><td><b>Lokal</b></td><td>forklarer <i>én</i> prediksjon: hvorfor fikk akkurat denne personen dette svaret?</td><td>LIME, SHAP-verdier for ett datapunkt</td></tr>
+<tr><td><b>Modellagnostisk</b></td><td>virker på hvilken som helst modell, fordi den bare trenger å kalle <code>predict</code></td><td>LIME, KernelSHAP, permutasjonsviktighet</td></tr>
+<tr><td><b>Modellspesifikk</b></td><td>utnytter modellens indre struktur</td><td>Gini-viktighet i trær, TreeSHAP, vekter i lineære modeller</td></tr>
+</table>
+
+<div class="callout hook"><span class="label">Knagg: kart og veibeskrivelse</span>
+<p>En global forklaring er et kart over hele byen: hvilke veier er viktigst? En lokal forklaring er veibeskrivelsen for akkurat din tur: sving til venstre her, fordi du skal dit. Modellagnostisk er en GPS som virker i alle biler. Modellspesifikk er et instrument bygget inn i én bilmodell.</p>
+</div>
+
+<div class="quiz" data-id="15-global-local">
+  <p class="q">En bank viser en søker at avslaget skyldtes høy gjeld (bidrag −0.3) og kort ansettelsestid (bidrag −0.1). Hva slags forklaring er dette?</p>
+  <ul>
+    <li>Global, fordi den bruker features fra hele datasettet.</li>
+    <li data-correct>Lokal, fordi den forklarer én bestemt prediksjon.</li>
+    <li>Modellspesifikk, fordi den bare kan lages for lineære modeller.</li>
+    <li>Ingen forklaring, bare en prediksjon.</li>
+  </ul>
+  <div class="explain">Forklaringen gjelder én søker og ett svar, så den er lokal. En global forklaring ville sagt noe om modellen generelt, for eksempel at gjeld i snitt er den viktigste featuren. Slike bidrag kan lages for alle modeller med LIME eller SHAP, så den er ikke nødvendigvis modellspesifikk.</div>
+</div>
+
+<div class="quiz" data-id="15-agnostic">
+  <p class="q">Hvilken metode er <i>modellspesifikk</i>?</p>
+  <ul>
+    <li>LIME</li>
+    <li>KernelSHAP</li>
+    <li>Permutasjonsviktighet (stokk om én feature og mål hvor mye ytelsen faller)</li>
+    <li data-correct>Gini-basert feature importance i en random forest</li>
+  </ul>
+  <div class="explain">Gini-viktighet summerer hvor mye hver feature reduserte urenheten i splittene i trærne. Det krever at modellen <i>er</i> trær. LIME, KernelSHAP og permutasjonsviktighet trenger bare å kunne kalle modellen med nye input, så de er modellagnostiske.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="lime"><span class="sec">15.3</span>LIME: lokal lineær tilnærming</h2>
+
+<p>LIME står for <i>Local Interpretable Model-agnostic Explanations</i>. Ideen er at selv om modellen $f$ er komplisert globalt, ser den nesten lineær ut hvis vi zoomer inn nok rundt ett punkt, akkurat som jorda ser flat ut når du står på den.</p>
+
+<div class="callout def"><span class="label">LIME-algoritmen for ett punkt $x$</span>
+<ol>
+<li><b>Perturber:</b> lag mange nye punkter $z$ i nærheten av $x$ (for tabelldata: trekk verdier, for tekst: fjern ord, for bilder: skjul områder).</li>
+<li><b>Spør den svarte boksen:</b> regn ut $f(z)$ for hvert nytt punkt.</li>
+<li><b>Vekt etter nærhet:</b> punkter nær $x$ teller mest, for eksempel med $\pi_x(z) = \exp\!\big(-\lVert z - x\rVert^2/\sigma^2\big)$.</li>
+<li><b>Tilpass en enkel modell:</b> en vektet lineær regresjon (eller et lite tre) $g$ på parene $(z, f(z))$.</li>
+<li><b>Les av:</b> koeffisientene til $g$ er den lokale forklaringen.</li>
+</ol>
+</div>
+
+<div class="eq">
+  <p class="eq-note">LIME som optimeringsproblem: lokal troverdighet pluss enkelhet</p>
+  $$\xi(x) = \arg\min_{g \in G}\; \underbrace{\sum_{z} \pi_x(z)\,\big(f(z) - g(z)\big)^2}_{\text{lokal feil}} \;+\; \underbrace{\Omega(g)}_{\text{kompleksitet}}$$
+</div>
+
+<div class="chain">
+  <div><b>Problem</b>$f$ er for komplisert til å lese</div><div class="arrow">→</div>
+  <div><b>Idé</b>$f$ er omtrent lineær lokalt</div><div class="arrow">→</div>
+  <div><b>Metode</b>perturber, vekt etter nærhet, tilpass lineær $g$</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>en lokal forklaring, gyldig bare nær $x$</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: LIME på en ikke-lineær modell</h4>
+  <canvas id="limeCv" width="640" height="460"></canvas>
+  <div class="controls">
+    <label>kjernebredde σ <input type="range" id="limeS" min="0.2" max="5" step="0.05" value="0.7"><output id="limeSo">0.70</output></label>
+    <button class="btn ghost" type="button" id="limeNew">Nye perturbasjoner</button>
+  </div>
+  <div class="readouts"><span class="readout" id="limeG"></span><span class="readout" id="limeF"></span><span class="readout" id="limeR"></span></div>
+  <p class="small muted"><b>Klikk et punkt</b> i planet. Bakgrunnen er den svarte boksens sannsynlighet for klasse 1 (blå) mot klasse 0 (oransje), og den tykke kurven er den sanne beslutningsgrensen $f = 0.5$. Prikkene er perturbasjoner, med størrelse etter vekt. Den stiplede linjen er grensen til den lokale lineære modellen $g = 0.5$, og pila er retningen der $g$ øker. <b>Legg merke til:</b> (1) Grensen til $g$ følger den sanne kurven nær punktet, men ikke langt unna. (2) Klikk andre steder på bølgen, og den lokale forklaringen endrer seg helt: der kurven stiger er $x_1$ viktig, på toppen nesten bare $x_2$. (3) Med stor σ blir «lokal» til «global», og en rett linje passer dårlig til bølgen (lav vektet $R^2$). (4) Trykk «Nye perturbasjoner» med liten σ: forklaringen vingler litt. Det er LIMEs ustabilitet.</p>
+</div>
+
+<div class="callout warn"><span class="label">Begrensninger ved LIME</span>
+<ul>
+<li><b>Valg av nabolag:</b> kjernebredden σ avgjør hva «lokalt» betyr, og forklaringen kan endre seg mye med den. Det finnes ingen fasit.</li>
+<li><b>Ustabilitet:</b> perturbasjonene er tilfeldige, så to kjøringer kan gi ulike forklaringer for samme punkt.</li>
+<li><b>Urealistiske punkter:</b> perturbasjoner kan lage kombinasjoner som aldri forekommer (for eksempel en 5-åring med 40 års arbeidserfaring), og modellens svar der er meningsløse.</li>
+<li><b>Bare lokal:</b> forklaringen sier ingenting om modellen andre steder, og kan ikke settes sammen til en global forklaring uten videre.</li>
+</ul></div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 34</span>
+<p>«Hvilket utsagn er korrekt om LIME?» Fasit: <b>LIME tilpasser en tolkbar modell i nabolaget rundt et enkelt datapunkt.</b> Distraktorene: «produserer globale feature importances» (nei, lokal), «minimerer kompleksiteten til modellen slik at den kan tolkes direkte» (nei, LIME endrer ikke modellen), og «erstatter nevrale nett med beslutningstrær» (nei, surrogaten forklarer bare, den erstatter ingenting).</p>
+</div>
+
+<div class="quiz" data-id="15-lime">
+  <p class="q">Hvilket utsagn om LIME er riktig?</p>
+  <ul>
+    <li>LIME trener en ny, enklere modell som erstatter den opprinnelige i produksjon.</li>
+    <li>LIME krever tilgang til gradientene i modellen.</li>
+    <li data-correct>LIME lager perturberte punkter rundt ett datapunkt, vekter dem etter nærhet og tilpasser en enkel modell lokalt.</li>
+    <li>LIME gir én forklaring som gjelder for alle datapunkter.</li>
+  </ul>
+  <div class="explain">Det er LIME-oppskriften. Surrogaten brukes bare til å forklare og erstatter ikke modellen. LIME er modellagnostisk og trenger bare <code>predict</code>, ikke gradienter. Forklaringen er lokal og gjelder bare nær det valgte punktet.</div>
+</div>
+
+<div class="quiz" data-id="15-lime-weight">
+  <p class="q">Hvorfor vekter LIME perturbasjonene etter avstanden til punktet som forklares?</p>
+  <ul>
+    <li data-correct>Fordi den enkle modellen bare skal være god lokalt, så punkter langt unna skal telle lite.</li>
+    <li>For å gjøre den svarte boksen mer nøyaktig.</li>
+    <li>For å sikre at forklaringen blir lik for alle punkter.</li>
+    <li>Fordi lineær regresjon ikke fungerer uten vekter.</li>
+  </ul>
+  <div class="explain">En lineær modell kan ikke ligne en krum funksjon overalt, men den kan ligne den i et lite område. Vektingen sier hvilket område. Den svarte boksen endres ikke. Vektingen gjør forklaringene <i>mer</i> forskjellige fra punkt til punkt, ikke like. Vanlig lineær regresjon fungerer fint uten vekter, men da blir den en global tilnærming.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="shapley"><span class="sec">15.4</span>Shapley-verdier: rettferdig fordeling</h2>
+
+<p>Shapley-verdier kommer fra <b>samarbeidende spillteori</b> (Lloyd Shapley, 1953, som senere fikk Nobelprisen i økonomi). Spørsmålet er: tre personer samarbeider og tjener til sammen en sum. Hvordan fordeler vi gevinsten rettferdig, når noen bidrar mer enn andre og noen jobber bedre sammen?</p>
+
+<div class="callout def"><span class="label">Spill og karakteristisk funksjon</span>
+<p>Vi har $N$ spillere. For hver koalisjon (delmengde) $S$ av spillerne angir den <b>karakteristiske funksjonen</b> $v(S)$ hvor mye koalisjonen klarer å oppnå alene, med $v(\varnothing) = 0$. Shapley-verdien $\phi_i$ er spiller $i$ sin rettferdige andel av $v(\text{alle})$.</p>
+</div>
+
+<h3>Metoden som er lettest uten hjelpemidler: rekkefølger</h3>
+<p>Tenk deg at spillerne kommer inn i rommet én og én i tilfeldig rekkefølge. Når spiller $i$ kommer inn, øker verdien fra $v(S)$ til $v(S \cup \{i\})$, der $S$ er de som allerede er der. Økningen er $i$ sitt <b>marginale bidrag</b> i den rekkefølgen. Shapley-verdien er <b>gjennomsnittet av de marginale bidragene over alle $N!$ rekkefølger</b>. For tre spillere er det $3! = 6$ rekkefølger.</p>
+
+<div class="callout hook"><span class="label">Knagg: dørterskelen</span>
+<p>«Hvor mye steg verdien da du kom inn døra?» Den som kommer først, får æren for alt hun klarer alene. Den som kommer sist, får bare det hun tilfører en gruppe som allerede er sterk. Ved å ta gjennomsnittet over alle rekkefølger blir ingen premiert eller straffet for når de tilfeldigvis kom.</p>
+</div>
+
+<h3>Regneeksempel: eksamen 2024 oppg. 36</h3>
+<p>Tre spillere med</p>
+<div class="eq">$$v(1)=2,\quad v(2)=4,\quad v(3)=5,\quad v(\{1,2\})=3,\quad v(\{1,3\})=3,\quad v(\{2,3\})=2,\quad v(\{1,2,3\})=3$$</div>
+<p>Lag en tabell med én rad per rekkefølge. I hver rad: hvor mye økte verdien da hver spiller kom inn?</p>
+
+<table class="center">
+<tr><th>Rekkefølge</th><th>bidrag 1</th><th>bidrag 2</th><th>bidrag 3</th></tr>
+<tr><td>1, 2, 3</td><td>$v(1)-0 = 2$</td><td>$v(12)-v(1) = 1$</td><td>$v(123)-v(12) = 0$</td></tr>
+<tr><td>1, 3, 2</td><td>$2$</td><td>$v(123)-v(13) = 0$</td><td>$v(13)-v(1) = 1$</td></tr>
+<tr><td>2, 1, 3</td><td>$v(12)-v(2) = -1$</td><td>$4$</td><td>$v(123)-v(12) = 0$</td></tr>
+<tr><td>2, 3, 1</td><td>$v(123)-v(23) = 1$</td><td>$4$</td><td>$v(23)-v(2) = -2$</td></tr>
+<tr><td>3, 1, 2</td><td>$v(13)-v(3) = -2$</td><td>$v(123)-v(13) = 0$</td><td>$5$</td></tr>
+<tr><td>3, 2, 1</td><td>$v(123)-v(23) = 1$</td><td>$v(23)-v(3) = -3$</td><td>$5$</td></tr>
+<tr><td><b>Sum</b></td><td>$3$</td><td>$6$</td><td>$9$</td></tr>
+<tr><td><b>Snitt ($\div 6$)</b></td><td>$\phi_1 = \tfrac12$</td><td>$\phi_2 = 1$</td><td>$\phi_3 = \tfrac32$</td></tr>
+</table>
+
+<p><b>Kontroll:</b> $\tfrac12 + 1 + \tfrac32 = 3 = v(\{1,2,3\})$. Summen skal alltid bli verdien til hele gruppen (effektivitet, se under). Det er en rask måte å luke ut feil svaralternativer på eksamen. Fasit var $\phi_1 = \tfrac12,\ \phi_2 = 1,\ \phi_3 = \tfrac32$. Av de fire alternativene summerte to seg ikke til 3 ($\tfrac12, 1, 2$ gir 3.5 og $\tfrac12, \tfrac32, \tfrac12$ gir 2.5), så kontrollen luker ut dem med en gang. De to som var igjen ($\tfrac12, \tfrac32, 1$ og $\tfrac12, 1, \tfrac32$) summerer begge til 3, så for å skille dem må du regne ut minst én verdi til.</p>
+
+<div class="callout warn"><span class="label">Vanlige feil</span>
+<ul>
+<li>Å glemme at marginale bidrag kan være <b>negative</b>. Her drar spillerne hverandre ned når de samarbeider ($v(\{2,3\}) = 2 \lt v(3) = 5$).</li>
+<li>Å bruke $v(S)$ i stedet for $v(S\cup\{i\}) - v(S)$, altså å glemme å trekke fra.</li>
+<li>Å dele på antall delmengder (4) i stedet for antall rekkefølger (6). Rekkefølger med samme «forgjengermengde» teller flere ganger.</li>
+</ul></div>
+
+<h3>Formelen, og hvorfor den er den samme</h3>
+<div class="eq">
+  <p class="eq-note">Shapley-verdien til spiller $i$ (slik den sto på eksamen 2024)</p>
+  $$\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|!\,(N-|S|-1)!}{N!}\,\Big(v(S\cup\{i\}) - v(S)\Big)$$
+</div>
+<p>Vekten er nettopp <b>andelen rekkefølger der akkurat $S$ står foran $i$</b>: spillerne i $S$ kan stå i $|S|!$ rekkefølger foran, de resterende $N-|S|-1$ kan stå i $(N-|S|-1)!$ rekkefølger bak, og det er $N!$ rekkefølger totalt. Formelen og rekkefølgemetoden er altså samme utregning, bare gruppert ulikt.</p>
+
+<details class="steps"><summary>Kontroll med formelen for spiller 1</summary><div>
+<p>Med $N = 3$ er delmengdene av $\{2,3\}$: $\varnothing$, $\{2\}$, $\{3\}$, $\{2,3\}$.</p>
+<ul>
+<li>$S = \varnothing$: vekt $\frac{0!\,2!}{3!} = \frac{2}{6}$, bidrag $v(1) - 0 = 2$.</li>
+<li>$S = \{2\}$: vekt $\frac{1!\,1!}{3!} = \frac16$, bidrag $v(12)-v(2) = 3 - 4 = -1$.</li>
+<li>$S = \{3\}$: vekt $\frac16$, bidrag $v(13)-v(3) = 3 - 5 = -2$.</li>
+<li>$S = \{2,3\}$: vekt $\frac{2!\,0!}{3!} = \frac26$, bidrag $v(123)-v(23) = 3 - 2 = 1$.</li>
+</ul>
+<p>$\phi_1 = \frac26\cdot 2 + \frac16\cdot(-1) + \frac16\cdot(-2) + \frac26\cdot 1 = \frac{4 - 1 - 2 + 2}{6} = \frac36 = \frac12$. ✓</p>
+</div></details>
+
+<h3>Fire egenskaper (aksiomer)</h3>
+<p>Shapley-verdien er den <i>eneste</i> fordelingen som oppfyller alle disse fire samtidig. Det er derfor den regnes som «rettferdig».</p>
+<table>
+<tr><th>Egenskap</th><th>Betydning</th><th>I ML (SHAP)</th></tr>
+<tr><td><b>Effektivitet</b></td><td>$\sum_i \phi_i = v(N) - v(\varnothing)$: hele gevinsten fordeles</td><td>bidragene summerer seg til prediksjon minus gjennomsnittsprediksjon</td></tr>
+<tr><td><b>Symmetri</b></td><td>to spillere som bidrar likt til alle koalisjoner, får lik verdi</td><td>to features med identisk effekt får lik SHAP-verdi</td></tr>
+<tr><td><b>Dummy</b> (nullspiller)</td><td>en spiller som aldri endrer verdien, får $\phi_i = 0$</td><td>en feature modellen ikke bruker, får SHAP-verdi 0</td></tr>
+<tr><td><b>Additivitet</b></td><td>for to spill $v$ og $w$ er $\phi_i(v + w) = \phi_i(v) + \phi_i(w)$</td><td>i et ensemble som summerer modeller, er SHAP-verdien summen av SHAP-verdiene til delmodellene</td></tr>
+</table>
+
+<h3>Eget eksempel: tre studenter på et prosjekt</h3>
+<p>Ada, Bo og Cyrus kan levere prosjekter verdt (i poeng): $v(A)=12$, $v(B)=6$, $v(C)=0$, $v(AB)=24$, $v(AC)=18$, $v(BC)=12$, $v(ABC)=36$.</p>
+<details class="steps"><summary>Løsning med rekkefølger, og et snarveitriks</summary><div>
+<table class="center">
+<tr><th>Rekkefølge</th><th>A</th><th>B</th><th>C</th></tr>
+<tr><td>A B C</td><td>12</td><td>12</td><td>12</td></tr>
+<tr><td>A C B</td><td>12</td><td>18</td><td>6</td></tr>
+<tr><td>B A C</td><td>18</td><td>6</td><td>12</td></tr>
+<tr><td>B C A</td><td>24</td><td>6</td><td>6</td></tr>
+<tr><td>C A B</td><td>18</td><td>18</td><td>0</td></tr>
+<tr><td>C B A</td><td>24</td><td>12</td><td>0</td></tr>
+<tr><td><b>Snitt</b></td><td><b>18</b></td><td><b>12</b></td><td><b>6</b></td></tr>
+</table>
+<p>Kontroll: $18 + 12 + 6 = 36$. ✓</p>
+<p><b>Snarvei:</b> hvert par tjener 6 mer enn summen av medlemmene alene ($24 = 12 + 6 + 6$, $18 = 12 + 0 + 6$, $12 = 6 + 0 + 6$), og hele gruppen er summen av alt ($12+6+0+3\cdot 6 = 36$). Hver spiller får sin egen verdi pluss halvparten av samarbeidsgevinsten i hvert par hun er med i: $\phi_A = 12 + 3 + 3 = 18$, $\phi_B = 6 + 3 + 3 = 12$, $\phi_C = 0 + 3 + 3 = 6$. Cyrus er verdiløs alene, men får 6 fordi han gjør de andre bedre. Det er forskjellen på Shapley og «hva klarer du alene».</p>
+</div></details>
+
+<div class="widget">
+  <h4>Shapley-kalkulator for tre spillere</h4>
+  <p class="small muted" style="margin:0 0 6px">Endre verdiene for koalisjonene ($v(\varnothing) = 0$). Tabellen viser alle 6 rekkefølger, de marginale bidragene og snittet. <b>Prøv:</b> gjør spiller 3 til en dummy ($v(13) = v(1)$, $v(23) = v(2)$, $v(123) = v(12)$), og se at $\phi_3 = 0$. Gjør spiller 1 og 2 like, og se symmetri.</p>
+  <div class="controls" style="margin-top:4px">
+    <label>Forhåndsvalg <select id="shPreset" style="font:inherit;font-size:14px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text)">
+      <option value="exam">Eksamen 2024 oppg. 36</option>
+      <option value="proj">Ada, Bo og Cyrus</option>
+      <option value="dummy">Dummy og symmetri</option>
+      <option value="add">Ren sum (ingen samspill)</option>
+    </select></label>
+  </div>
+  <div class="vgrid" id="shInputs"></div>
+  <div style="overflow-x:auto"><table id="shTable"></table></div>
+  <canvas id="shBars" width="640" height="200"></canvas>
+  <div class="readouts"><span class="readout" id="shSum"></span></div>
+</div>
+
+<div class="calc" data-id="15-shapley-exam" data-answer="1.5" data-tol="0.01">
+  <p class="q">Regn ut $\phi_3$ for eksamensspillet over uten å se på tabellen: $v(1)=2,\ v(2)=4,\ v(3)=5,\ v(12)=3,\ v(13)=3,\ v(23)=2,\ v(123)=3$.</p>
+  <div class="solution">Bidragene til spiller 3 i rekkefølgene 123, 132, 213, 231, 312, 321 er $0, 1, 0, -2, 5, 5$. Summen er 9, og $\phi_3 = 9/6 = 1.5$.</div>
+</div>
+
+<div class="calc" data-id="15-shapley-own" data-answer="5" data-tol="0.01">
+  <p class="q">Nytt spill: $v(1)=4,\ v(2)=2,\ v(3)=0,\ v(12)=8,\ v(13)=4,\ v(23)=4,\ v(123)=10$. Hva er $\phi_1$?</p>
+  <div class="solution">Bidrag fra spiller 1 i rekkefølgene 123, 132, 213, 231, 312, 321: $4,\ 4,\ v(12)-v(2)=6,\ v(123)-v(23)=6,\ v(13)-v(3)=4,\ 6$. Summen er 30, og $\phi_1 = 30/6 = 5$. (Til sammenligning er $\phi_2 = 4$ og $\phi_3 = 1$, og $5+4+1 = 10$ ✓.) Snarveien virker også: samarbeidsgevinsten er 2 i par 12, 0 i par 13 og 2 i par 23, så $\phi_1 = 4 + 1 + 0 = 5$.</div>
+</div>
+
+<div class="calc" data-id="15-shapley-weight" data-answer="0.1667" data-tol="0.002">
+  <p class="q">I Shapley-formelen med $N = 3$: hva er vekten $\frac{|S|!(N-|S|-1)!}{N!}$ for en koalisjon $S$ med én spiller? (Oppgi som desimaltall.)</p>
+  <div class="solution">$\frac{1!\cdot 1!}{3!} = \frac16 \approx 0.1667$. Det er én av seks rekkefølger der akkurat den spilleren står foran $i$ og den siste står bak.</div>
+</div>
+
+<div class="quiz" data-id="15-efficiency">
+  <p class="q">Tre spillere har $v(\{1,2,3\}) = 12$. Du har regnet ut $\phi_1 = 3$ og $\phi_2 = 5$. Hva må $\phi_3$ være?</p>
+  <ul>
+    <li>Det kan ikke avgjøres uten flere opplysninger.</li>
+    <li>8</li>
+    <li data-correct>4</li>
+    <li>12</li>
+  </ul>
+  <div class="explain">Effektivitet: $\phi_1 + \phi_2 + \phi_3 = v(N) - v(\varnothing) = 12$, så $\phi_3 = 12 - 3 - 5 = 4$. Vi trenger ikke resten av $v$. Svaret 8 er $\phi_1 + \phi_2$, og 12 er hele summen.</div>
+</div>
+
+<div class="quiz" data-id="15-dummy">
+  <p class="q">Spiller 3 endrer aldri verdien av noen koalisjon: $v(S\cup\{3\}) = v(S)$ for alle $S$. Spiller 1 og 2 er symmetriske, og $v(\{1,2,3\}) = 30$. Hva er Shapley-verdiene?</p>
+  <ul>
+    <li>$\phi_1 = \phi_2 = \phi_3 = 10$</li>
+    <li data-correct>$\phi_1 = \phi_2 = 15$, $\phi_3 = 0$</li>
+    <li>$\phi_1 = 20$, $\phi_2 = 10$, $\phi_3 = 0$</li>
+    <li>$\phi_1 = \phi_2 = 15$, $\phi_3 = 30$</li>
+  </ul>
+  <div class="explain">Dummy-egenskapen gir $\phi_3 = 0$. Symmetri gir $\phi_1 = \phi_2$, og effektivitet gir $\phi_1 + \phi_2 = 30$, så begge er 15. Lik fordeling (10 hver) bryter dummy-egenskapen. Den tredje bryter symmetri. Den siste summerer seg til 60 og bryter effektivitet.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="shap"><span class="sec">15.5</span>SHAP: Shapley-verdier for features</h2>
+
+<p>SHAP (SHapley Additive exPlanations, Lundberg og Lee, 2017) bruker Shapley-verdier til å forklare én prediksjon $f(x)$:</p>
+<ul>
+<li><b>Spillerne</b> er featurene (alder, kjønn, klasse …).</li>
+<li><b>Gevinsten</b> er prediksjonen for dette punktet.</li>
+<li><b>$v(S)$</b> er den forventede prediksjonen når vi bare kjenner featurene i $S$ og tar gjennomsnittet over de andre: $v(S) = \mathbb{E}[f(X) \mid X_S = x_S]$.</li>
+<li><b>Baseline</b> $\phi_0 = v(\varnothing) = \mathbb{E}[f(X)]$ er gjennomsnittsprediksjonen over datasettet.</li>
+</ul>
+
+<div class="eq">
+  <p class="eq-note">Lokal nøyaktighet (effektivitet): bidragene summerer seg til prediksjonen</p>
+  $$f(x) = \phi_0 + \sum_{j=1}^{p} \phi_j, \qquad \phi_0 = \mathbb{E}[f(X)]$$
+</div>
+
+<p>En SHAP-verdi $\phi_j$ er altså <b>hvor mye feature $j$ dytter prediksjonen bort fra gjennomsnittet</b> for akkurat dette punktet. Positiv: opp. Negativ: ned. Det er ikke det samme som «høy» eller «lav» prediksjon i absolutt forstand.</p>
+
+<div class="callout hook"><span class="label">Knagg: dragkamp fra gjennomsnittet</span>
+<p>Alle starter på gjennomsnittet $\phi_0$. Så drar hver feature i tauet, noen opp og noen ned, og der tauet ender er prediksjonen. SHAP-verdien er hvor hardt og i hvilken retning hver feature drar.</p>
+</div>
+
+<h3>Et enkelt tilfelle: lineær modell</h3>
+<p>For $f(x) = \beta_0 + \sum_j \beta_j x_j$ med uavhengige features er SHAP-verdien $\phi_j = \beta_j\,(x_j - \mathbb{E}[x_j])$: vekten ganger hvor langt over eller under snittet punktet er.</p>
+
+<div class="calc" data-id="15-shap-linear" data-answer="6" data-tol="0.01">
+  <p class="q">Modellen er $f(x) = 2 + 3x_1 - 2x_2$, og i datasettet er $\mathbb{E}[x_1] = 1$ og $\mathbb{E}[x_2] = 2$. Hva er SHAP-verdien til $x_1$ for punktet $x = (3, 1)$?</p>
+  <div class="solution">$\phi_1 = 3\cdot(3 - 1) = 6$. Tilsvarende $\phi_2 = -2\cdot(1 - 2) = +2$ (lav $x_2$ og negativ vekt dytter <i>opp</i>). Kontroll: $\phi_0 = 2 + 3\cdot 1 - 2\cdot 2 = 1$ og $f(x) = 2 + 9 - 2 = 9 = 1 + 6 + 2$. ✓</div>
+</div>
+
+<div class="callout warn"><span class="label">Beregningskostnad</span>
+<p>Eksakte Shapley-verdier krever alle $2^p$ koalisjoner. Med 30 features er det over en milliard. Derfor bruker SHAP-biblioteket tilnærminger: KernelSHAP (modellagnostisk, beslektet med LIME) og TreeSHAP (rask og eksakt for trebaserte modeller, altså modellspesifikk).</p>
+</div>
+
+<h3 id="beeswarm">Slik leser du et SHAP beeswarm-plott</h3>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 640 348" role="img" aria-label="SHAP beeswarm-plott for Titanic">
+<defs><linearGradient id="shapgrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1e88e5"/><stop offset="1" stop-color="#ff0d57"/></linearGradient></defs>
+<line x1="302.9" y1="10" x2="302.9" y2="296" style="stroke:var(--axis);stroke-width:1"/>
+<line x1="110" y1="36.0" x2="560" y2="36.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="40.0" text-anchor="end" font-size="13">Sex_male</text>
+<circle cx="197" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="447" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="217" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="453" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="179" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="434" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="205" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="485" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="173" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="204" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="188" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="254" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="216" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="179" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="216" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="200" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="220" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="482" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="469" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="198" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="437" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="205" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="198" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="430" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="479" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="383" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="186" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="207" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="191" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="193" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="449" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="481" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="201" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="245" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="200" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="205" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="442" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="206" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="221" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="492" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="446" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="204" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="201" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="457" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="267" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="429" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="199" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="195" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="210" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="471" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="218" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="470" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="190" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="422" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="193" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="189" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="201" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="185" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="495" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="203" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="475" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="202" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="488" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="193" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="202" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="500" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="461" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="217" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="510" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="510" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="477" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="197" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="193" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="221" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="492" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="198" cy="45" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="222" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="467" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="198" cy="27" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="184" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="226" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="205" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="203" cy="45" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="187" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="488" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="219" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="495" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="421" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="236" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="419" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="216" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="233" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="244" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="226" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="436" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="210" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="195" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="185" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="219" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="472" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="492" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="234" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="482" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="224" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="214" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="445" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="157" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="517" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="234" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="238" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="218" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="204" cy="45" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="204" cy="27" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="183" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="486" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="211" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="187" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="462" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="208" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="213" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="499" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="500" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="201" cy="27" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="224" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="190" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="254" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="470" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="212" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="412" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="420" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="206" cy="48" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="231" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="447" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="479" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="435" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="180" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="472" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="487" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="193" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="223" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="189" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="492" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="441" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="405" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="174" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="476" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="472" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="475" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="201" cy="48" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="167" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="195" cy="45" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="234" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="225" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="223" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="173" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="200" cy="24" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="202" cy="50" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="484" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="194" cy="27" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="455" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="220" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="445" cy="31" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="219" cy="45" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="461" cy="34" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="211" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="206" cy="24" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="185" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="186" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="451" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="232" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="232" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="218" cy="27" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="214" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="471" cy="31" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="539" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="446" cy="43" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="184" cy="31" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="209" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="485" cy="31" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="196" cy="48" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="230" cy="43" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="198" cy="48" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="234" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="461" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="203" cy="22" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="215" cy="48" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="206" cy="50" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="194" cy="24" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="216" cy="24" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="518" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="479" cy="41" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="186" cy="29" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="180" cy="41" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="425" cy="38" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="170" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="220" cy="45" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="160" cy="36" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="168" cy="34" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="543" cy="36" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="176" cy="38" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<line x1="110" y1="76.0" x2="560" y2="76.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="80.0" text-anchor="end" font-size="13">Pclass</text>
+<circle cx="345" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="249" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="348" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="265" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="370" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="262" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="257" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="255" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="261" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="259" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="326" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="253" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="256" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="230" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="315" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="244" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="240" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="271" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="387" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="388" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="330" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="278" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="326" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="217" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="240" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="395" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="245" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="362" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="289" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="268" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="409" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="397" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="366" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="245" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="337" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="237" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="247" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="274" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="258" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="395" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="267" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="267" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="261" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="272" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="367" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="266" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="337" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="428" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="320" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="247" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="239" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="382" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="327" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="231" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="259" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="426" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="260" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="261" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="252" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="389" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="245" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="251" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="259" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="240" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="482" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="259" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="386" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="269" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="265" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="443" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="271" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="252" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="239" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="261" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="353" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="280" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="267" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="365" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="400" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="270" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="249" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="318" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="251" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="267" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="265" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="342" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="390" cy="74" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="328" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="433" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="247" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="274" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="254" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="271" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="265" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="256" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="320" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="376" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="273" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="243" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="414" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="256" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="239" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="261" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="275" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="342" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="268" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="369" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="305" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="268" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="340" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="374" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="443" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="246" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="233" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="263" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="248" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="268" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="249" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="242" cy="71" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="268" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="411" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="233" cy="74" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="359" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="446" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="379" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="397" cy="74" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="253" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="349" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="250" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="454" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="258" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="259" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="252" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="254" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="410" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="328" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="255" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="246" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="357" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="253" cy="88" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="242" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="374" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="273" cy="83" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="414" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="270" cy="88" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="432" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="394" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="332" cy="76" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="248" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="261" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="244" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="319" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="411" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="247" cy="88" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="316" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="343" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="234" cy="81" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="254" cy="64" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="253" cy="90" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="241" cy="69" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="380" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="223" cy="76" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="242" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="324" cy="81" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="244" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="245" cy="64" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="429" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="245" cy="90" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="229" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="282" cy="78" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="395" cy="81" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="252" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="352" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="260" cy="67" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="421" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="350" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="266" cy="88" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="335" cy="78" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="317" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="439" cy="76" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="254" cy="62" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="317" cy="81" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="246" cy="62" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="269" cy="64" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="398" cy="71" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="425" cy="74" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="257" cy="88" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="245" cy="92" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="422" cy="78" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="368" cy="74" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="248" cy="60" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="269" cy="90" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="367" cy="81" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="323" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="240" cy="85" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="346" cy="74" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="323" cy="81" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<circle cx="409" cy="74" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="342" cy="81" r="2.3" fill="#8e4a9e" fill-opacity="0.85"/>
+<line x1="110" y1="116.0" x2="560" y2="116.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="120.0" text-anchor="end" font-size="13">Age</text>
+<circle cx="320" cy="116" r="2.3" fill="#6262b9" fill-opacity="0.85"/>
+<circle cx="397" cy="116" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="266" cy="116" r="2.3" fill="#c72b7a" fill-opacity="0.85"/>
+<circle cx="303" cy="116" r="2.3" fill="#8251a5" fill-opacity="0.85"/>
+<circle cx="304" cy="118" r="2.3" fill="#a33e90" fill-opacity="0.85"/>
+<circle cx="275" cy="116" r="2.3" fill="#db206d" fill-opacity="0.85"/>
+<circle cx="411" cy="116" r="2.3" fill="#3a78d2" fill-opacity="0.85"/>
+<circle cx="328" cy="116" r="2.3" fill="#526bc3" fill-opacity="0.85"/>
+<circle cx="284" cy="116" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="277" cy="118" r="2.3" fill="#c42c7b" fill-opacity="0.85"/>
+<circle cx="399" cy="116" r="2.3" fill="#2e7eda" fill-opacity="0.85"/>
+<circle cx="393" cy="116" r="2.3" fill="#2285e1" fill-opacity="0.85"/>
+<circle cx="317" cy="116" r="2.3" fill="#5a66be" fill-opacity="0.85"/>
+<circle cx="348" cy="116" r="2.3" fill="#2e7eda" fill-opacity="0.85"/>
+<circle cx="295" cy="116" r="2.3" fill="#a33e90" fill-opacity="0.85"/>
+<circle cx="290" cy="116" r="2.3" fill="#94479a" fill-opacity="0.85"/>
+<circle cx="418" cy="116" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="313" cy="116" r="2.3" fill="#6561b8" fill-opacity="0.85"/>
+<circle cx="314" cy="118" r="2.3" fill="#6f5bb1" fill-opacity="0.85"/>
+<circle cx="312" cy="116" r="2.3" fill="#695eb5" fill-opacity="0.85"/>
+<circle cx="426" cy="116" r="2.3" fill="#317dd8" fill-opacity="0.85"/>
+<circle cx="300" cy="116" r="2.3" fill="#92489b" fill-opacity="0.85"/>
+<circle cx="298" cy="118" r="2.3" fill="#8a4ca0" fill-opacity="0.85"/>
+<circle cx="280" cy="116" r="2.3" fill="#db206d" fill-opacity="0.85"/>
+<circle cx="298" cy="114" r="2.3" fill="#7757ac" fill-opacity="0.85"/>
+<circle cx="325" cy="116" r="2.3" fill="#5d65bc" fill-opacity="0.85"/>
+<circle cx="284" cy="118" r="2.3" fill="#b03788" fill-opacity="0.85"/>
+<circle cx="306" cy="116" r="2.3" fill="#94479a" fill-opacity="0.85"/>
+<circle cx="321" cy="118" r="2.3" fill="#5e64bc" fill-opacity="0.85"/>
+<circle cx="308" cy="118" r="2.3" fill="#685fb6" fill-opacity="0.85"/>
+<circle cx="308" cy="114" r="2.3" fill="#5b66bd" fill-opacity="0.85"/>
+<circle cx="307" cy="121" r="2.3" fill="#93479a" fill-opacity="0.85"/>
+<circle cx="271" cy="116" r="2.3" fill="#d32472" fill-opacity="0.85"/>
+<circle cx="324" cy="118" r="2.3" fill="#4f6cc5" fill-opacity="0.85"/>
+<circle cx="388" cy="116" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="309" cy="118" r="2.3" fill="#715ab0" fill-opacity="0.85"/>
+<circle cx="431" cy="116" r="2.3" fill="#3a78d3" fill-opacity="0.85"/>
+<circle cx="291" cy="116" r="2.3" fill="#a33e90" fill-opacity="0.85"/>
+<circle cx="281" cy="118" r="2.3" fill="#ab3a8b" fill-opacity="0.85"/>
+<circle cx="293" cy="118" r="2.3" fill="#a93b8c" fill-opacity="0.85"/>
+<circle cx="296" cy="118" r="2.3" fill="#94479a" fill-opacity="0.85"/>
+<circle cx="324" cy="114" r="2.3" fill="#4c6ec7" fill-opacity="0.85"/>
+<circle cx="267" cy="118" r="2.3" fill="#db206d" fill-opacity="0.85"/>
+<circle cx="326" cy="114" r="2.3" fill="#6660b7" fill-opacity="0.85"/>
+<circle cx="282" cy="114" r="2.3" fill="#ac3a8b" fill-opacity="0.85"/>
+<circle cx="283" cy="114" r="2.3" fill="#ae3889" fill-opacity="0.85"/>
+<circle cx="325" cy="121" r="2.3" fill="#6262b9" fill-opacity="0.85"/>
+<circle cx="290" cy="118" r="2.3" fill="#894da1" fill-opacity="0.85"/>
+<circle cx="288" cy="114" r="2.3" fill="#ce2775" fill-opacity="0.85"/>
+<circle cx="407" cy="116" r="2.3" fill="#2782de" fill-opacity="0.85"/>
+<circle cx="321" cy="121" r="2.3" fill="#705ab0" fill-opacity="0.85"/>
+<circle cx="303" cy="114" r="2.3" fill="#7359ae" fill-opacity="0.85"/>
+<circle cx="323" cy="111" r="2.3" fill="#5e65bc" fill-opacity="0.85"/>
+<circle cx="299" cy="121" r="2.3" fill="#8f499d" fill-opacity="0.85"/>
+<circle cx="302" cy="121" r="2.3" fill="#8350a4" fill-opacity="0.85"/>
+<circle cx="406" cy="116" r="2.3" fill="#2185e2" fill-opacity="0.85"/>
+<circle cx="305" cy="111" r="2.3" fill="#5c65bd" fill-opacity="0.85"/>
+<circle cx="310" cy="114" r="2.3" fill="#7458ae" fill-opacity="0.85"/>
+<circle cx="317" cy="118" r="2.3" fill="#6d5cb2" fill-opacity="0.85"/>
+<circle cx="279" cy="121" r="2.3" fill="#9e4193" fill-opacity="0.85"/>
+<circle cx="299" cy="111" r="2.3" fill="#a63d8e" fill-opacity="0.85"/>
+<circle cx="413" cy="118" r="2.3" fill="#367ad5" fill-opacity="0.85"/>
+<circle cx="283" cy="121" r="2.3" fill="#cc2877" fill-opacity="0.85"/>
+<circle cx="340" cy="116" r="2.3" fill="#4373cd" fill-opacity="0.85"/>
+<circle cx="290" cy="114" r="2.3" fill="#ae3989" fill-opacity="0.85"/>
+<circle cx="313" cy="114" r="2.3" fill="#5c65bd" fill-opacity="0.85"/>
+<circle cx="304" cy="123" r="2.3" fill="#8c4b9f" fill-opacity="0.85"/>
+<circle cx="462" cy="116" r="2.3" fill="#3b77d2" fill-opacity="0.85"/>
+<circle cx="300" cy="123" r="2.3" fill="#94479a" fill-opacity="0.85"/>
+<circle cx="300" cy="109" r="2.3" fill="#93479b" fill-opacity="0.85"/>
+<circle cx="335" cy="116" r="2.3" fill="#5569c2" fill-opacity="0.85"/>
+<circle cx="311" cy="121" r="2.3" fill="#9e4194" fill-opacity="0.85"/>
+<circle cx="281" cy="111" r="2.3" fill="#a23f91" fill-opacity="0.85"/>
+<circle cx="269" cy="118" r="2.3" fill="#aa3b8c" fill-opacity="0.85"/>
+<circle cx="291" cy="121" r="2.3" fill="#aa3b8c" fill-opacity="0.85"/>
+<circle cx="319" cy="114" r="2.3" fill="#695eb5" fill-opacity="0.85"/>
+<circle cx="293" cy="111" r="2.3" fill="#93479a" fill-opacity="0.85"/>
+<circle cx="286" cy="111" r="2.3" fill="#a14092" fill-opacity="0.85"/>
+<circle cx="308" cy="111" r="2.3" fill="#8d4b9e" fill-opacity="0.85"/>
+<circle cx="260" cy="116" r="2.3" fill="#d8216f" fill-opacity="0.85"/>
+<circle cx="422" cy="116" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="302" cy="109" r="2.3" fill="#844fa4" fill-opacity="0.85"/>
+<circle cx="287" cy="121" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="301" cy="125" r="2.3" fill="#92489b" fill-opacity="0.85"/>
+<circle cx="392" cy="118" r="2.3" fill="#2d7fdb" fill-opacity="0.85"/>
+<circle cx="313" cy="121" r="2.3" fill="#a33f90" fill-opacity="0.85"/>
+<circle cx="477" cy="116" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="333" cy="118" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="334" cy="114" r="2.3" fill="#4970c9" fill-opacity="0.85"/>
+<circle cx="409" cy="118" r="2.3" fill="#2782df" fill-opacity="0.85"/>
+<circle cx="384" cy="116" r="2.3" fill="#2e7eda" fill-opacity="0.85"/>
+<circle cx="308" cy="123" r="2.3" fill="#954699" fill-opacity="0.85"/>
+<circle cx="314" cy="111" r="2.3" fill="#6e5cb2" fill-opacity="0.85"/>
+<circle cx="296" cy="114" r="2.3" fill="#974598" fill-opacity="0.85"/>
+<circle cx="478" cy="116" r="2.3" fill="#377ad5" fill-opacity="0.85"/>
+<circle cx="313" cy="123" r="2.3" fill="#894da1" fill-opacity="0.85"/>
+<circle cx="312" cy="111" r="2.3" fill="#6660b7" fill-opacity="0.85"/>
+<circle cx="297" cy="121" r="2.3" fill="#8c4b9f" fill-opacity="0.85"/>
+<circle cx="431" cy="118" r="2.3" fill="#3a78d3" fill-opacity="0.85"/>
+<circle cx="334" cy="121" r="2.3" fill="#5669c1" fill-opacity="0.85"/>
+<circle cx="300" cy="125" r="2.3" fill="#9c4295" fill-opacity="0.85"/>
+<circle cx="298" cy="107" r="2.3" fill="#8f499d" fill-opacity="0.85"/>
+<circle cx="328" cy="118" r="2.3" fill="#5b66be" fill-opacity="0.85"/>
+<circle cx="393" cy="114" r="2.3" fill="#2882de" fill-opacity="0.85"/>
+<circle cx="311" cy="123" r="2.3" fill="#92489b" fill-opacity="0.85"/>
+<circle cx="279" cy="123" r="2.3" fill="#c92a78" fill-opacity="0.85"/>
+<circle cx="285" cy="123" r="2.3" fill="#be2f7f" fill-opacity="0.85"/>
+<circle cx="438" cy="116" r="2.3" fill="#2782de" fill-opacity="0.85"/>
+<circle cx="284" cy="109" r="2.3" fill="#b43586" fill-opacity="0.85"/>
+<circle cx="314" cy="109" r="2.3" fill="#8f499d" fill-opacity="0.85"/>
+<circle cx="303" cy="107" r="2.3" fill="#8d4b9e" fill-opacity="0.85"/>
+<circle cx="334" cy="111" r="2.3" fill="#5e64bc" fill-opacity="0.85"/>
+<circle cx="305" cy="109" r="2.3" fill="#5d65bc" fill-opacity="0.85"/>
+<circle cx="327" cy="111" r="2.3" fill="#4b6fc8" fill-opacity="0.85"/>
+<circle cx="312" cy="109" r="2.3" fill="#715ab0" fill-opacity="0.85"/>
+<circle cx="294" cy="111" r="2.3" fill="#92489b" fill-opacity="0.85"/>
+<circle cx="343" cy="116" r="2.3" fill="#4473cc" fill-opacity="0.85"/>
+<circle cx="288" cy="111" r="2.3" fill="#93479b" fill-opacity="0.85"/>
+<circle cx="282" cy="109" r="2.3" fill="#c82a79" fill-opacity="0.85"/>
+<circle cx="320" cy="123" r="2.3" fill="#4672cb" fill-opacity="0.85"/>
+<circle cx="273" cy="116" r="2.3" fill="#be307f" fill-opacity="0.85"/>
+<circle cx="287" cy="123" r="2.3" fill="#c72b7a" fill-opacity="0.85"/>
+<circle cx="267" cy="114" r="2.3" fill="#a53e8f" fill-opacity="0.85"/>
+<circle cx="304" cy="128" r="2.3" fill="#6b5db4" fill-opacity="0.85"/>
+<circle cx="285" cy="125" r="2.3" fill="#b73484" fill-opacity="0.85"/>
+<circle cx="265" cy="121" r="2.3" fill="#a83c8d" fill-opacity="0.85"/>
+<circle cx="307" cy="125" r="2.3" fill="#715ab0" fill-opacity="0.85"/>
+<circle cx="304" cy="104" r="2.3" fill="#7558ad" fill-opacity="0.85"/>
+<circle cx="304" cy="130" r="2.3" fill="#844fa4" fill-opacity="0.85"/>
+<circle cx="268" cy="114" r="2.3" fill="#ea1864" fill-opacity="0.85"/>
+<circle cx="296" cy="123" r="2.3" fill="#91489b" fill-opacity="0.85"/>
+<circle cx="309" cy="125" r="2.3" fill="#7458ae" fill-opacity="0.85"/>
+<circle cx="301" cy="128" r="2.3" fill="#ac3a8a" fill-opacity="0.85"/>
+<circle cx="304" cy="102" r="2.3" fill="#7f52a7" fill-opacity="0.85"/>
+<circle cx="421" cy="118" r="2.3" fill="#357bd5" fill-opacity="0.85"/>
+<circle cx="319" cy="121" r="2.3" fill="#516bc4" fill-opacity="0.85"/>
+<circle cx="309" cy="107" r="2.3" fill="#964598" fill-opacity="0.85"/>
+<circle cx="293" cy="123" r="2.3" fill="#b63484" fill-opacity="0.85"/>
+<circle cx="263" cy="116" r="2.3" fill="#ca2977" fill-opacity="0.85"/>
+<circle cx="319" cy="111" r="2.3" fill="#874ea2" fill-opacity="0.85"/>
+<circle cx="281" cy="125" r="2.3" fill="#c52c7b" fill-opacity="0.85"/>
+<circle cx="295" cy="109" r="2.3" fill="#964699" fill-opacity="0.85"/>
+<circle cx="288" cy="109" r="2.3" fill="#94479a" fill-opacity="0.85"/>
+<circle cx="307" cy="107" r="2.3" fill="#91499c" fill-opacity="0.85"/>
+<circle cx="446" cy="116" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="319" cy="123" r="2.3" fill="#4273cd" fill-opacity="0.85"/>
+<circle cx="285" cy="107" r="2.3" fill="#bb3281" fill-opacity="0.85"/>
+<circle cx="304" cy="132" r="2.3" fill="#864ea3" fill-opacity="0.85"/>
+<circle cx="275" cy="118" r="2.3" fill="#b53585" fill-opacity="0.85"/>
+<circle cx="313" cy="125" r="2.3" fill="#8d4b9e" fill-opacity="0.85"/>
+<circle cx="283" cy="128" r="2.3" fill="#c32d7c" fill-opacity="0.85"/>
+<circle cx="259" cy="118" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="324" cy="109" r="2.3" fill="#4771ca" fill-opacity="0.85"/>
+<circle cx="292" cy="109" r="2.3" fill="#a53d8f" fill-opacity="0.85"/>
+<circle cx="337" cy="116" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="275" cy="114" r="2.3" fill="#b93282" fill-opacity="0.85"/>
+<circle cx="329" cy="114" r="2.3" fill="#6262b9" fill-opacity="0.85"/>
+<circle cx="264" cy="111" r="2.3" fill="#cc2876" fill-opacity="0.85"/>
+<circle cx="324" cy="123" r="2.3" fill="#4e6dc6" fill-opacity="0.85"/>
+<circle cx="295" cy="125" r="2.3" fill="#c22e7d" fill-opacity="0.85"/>
+<circle cx="426" cy="118" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="293" cy="125" r="2.3" fill="#8f499d" fill-opacity="0.85"/>
+<circle cx="320" cy="125" r="2.3" fill="#6d5cb2" fill-opacity="0.85"/>
+<circle cx="401" cy="118" r="2.3" fill="#2683df" fill-opacity="0.85"/>
+<circle cx="328" cy="121" r="2.3" fill="#4174ce" fill-opacity="0.85"/>
+<circle cx="321" cy="107" r="2.3" fill="#6262b9" fill-opacity="0.85"/>
+<circle cx="300" cy="104" r="2.3" fill="#ad398a" fill-opacity="0.85"/>
+<circle cx="303" cy="100" r="2.3" fill="#6b5db4" fill-opacity="0.85"/>
+<circle cx="283" cy="104" r="2.3" fill="#a93b8d" fill-opacity="0.85"/>
+<circle cx="310" cy="128" r="2.3" fill="#7359af" fill-opacity="0.85"/>
+<circle cx="305" cy="133" r="2.3" fill="#954699" fill-opacity="0.85"/>
+<circle cx="288" cy="125" r="2.3" fill="#aa3b8c" fill-opacity="0.85"/>
+<circle cx="283" cy="130" r="2.3" fill="#a04092" fill-opacity="0.85"/>
+<circle cx="311" cy="104" r="2.3" fill="#695eb5" fill-opacity="0.85"/>
+<circle cx="332" cy="123" r="2.3" fill="#5569c2" fill-opacity="0.85"/>
+<circle cx="281" cy="107" r="2.3" fill="#994497" fill-opacity="0.85"/>
+<circle cx="288" cy="107" r="2.3" fill="#a93b8c" fill-opacity="0.85"/>
+<circle cx="250" cy="116" r="2.3" fill="#d32472" fill-opacity="0.85"/>
+<circle cx="295" cy="107" r="2.3" fill="#6a5eb4" fill-opacity="0.85"/>
+<circle cx="430" cy="114" r="2.3" fill="#357bd6" fill-opacity="0.85"/>
+<circle cx="292" cy="107" r="2.3" fill="#7657ad" fill-opacity="0.85"/>
+<circle cx="251" cy="118" r="2.3" fill="#d32472" fill-opacity="0.85"/>
+<circle cx="299" cy="130" r="2.3" fill="#a33e90" fill-opacity="0.85"/>
+<circle cx="385" cy="118" r="2.3" fill="#377ad5" fill-opacity="0.85"/>
+<circle cx="305" cy="99" r="2.3" fill="#8c4b9f" fill-opacity="0.85"/>
+<circle cx="278" cy="121" r="2.3" fill="#b13787" fill-opacity="0.85"/>
+<circle cx="324" cy="109" r="2.3" fill="#6e5bb2" fill-opacity="0.85"/>
+<circle cx="314" cy="107" r="2.3" fill="#695eb5" fill-opacity="0.85"/>
+<circle cx="319" cy="109" r="2.3" fill="#5967bf" fill-opacity="0.85"/>
+<circle cx="278" cy="111" r="2.3" fill="#cb2977" fill-opacity="0.85"/>
+<circle cx="287" cy="128" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="297" cy="128" r="2.3" fill="#894ca0" fill-opacity="0.85"/>
+<circle cx="295" cy="104" r="2.3" fill="#9d4294" fill-opacity="0.85"/>
+<circle cx="289" cy="104" r="2.3" fill="#a33e90" fill-opacity="0.85"/>
+<circle cx="283" cy="102" r="2.3" fill="#8d4b9e" fill-opacity="0.85"/>
+<circle cx="312" cy="130" r="2.3" fill="#8c4b9f" fill-opacity="0.85"/>
+<circle cx="394" cy="121" r="2.3" fill="#337cd7" fill-opacity="0.85"/>
+<circle cx="308" cy="128" r="2.3" fill="#7d53a8" fill-opacity="0.85"/>
+<circle cx="271" cy="121" r="2.3" fill="#be307f" fill-opacity="0.85"/>
+<circle cx="448" cy="116" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<line x1="110" y1="156.0" x2="560" y2="156.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="160.0" text-anchor="end" font-size="13">Embarked_S</text>
+<circle cx="331" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="291" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="330" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="337" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="282" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="281" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="352" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="290" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="338" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="332" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="288" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="293" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="276" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="331" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="287" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="283" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="322" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="285" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="298" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="282" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="346" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="329" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="284" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="292" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="163" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="331" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="282" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="340" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="284" cy="163" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="329" cy="151" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="291" cy="149" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="149" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="163" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="165" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="147" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="277" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="282" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="165" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="147" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="343" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="296" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="294" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="321" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="336" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="293" cy="168" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="144" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="287" cy="149" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="165" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="283" cy="168" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="147" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="296" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="170" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="168" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="333" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="282" cy="163" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="287" cy="144" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="299" cy="158" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="281" cy="149" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="331" cy="163" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="288" cy="170" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="144" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="285" cy="170" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="293" cy="142" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="172" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="293" cy="140" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="282" cy="165" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="142" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="322" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="294" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="283" cy="142" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="283" cy="172" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="303" cy="156" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="172" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="280" cy="147" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="140" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="293" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="140" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="341" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="292" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="281" cy="168" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="285" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="276" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="287" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="325" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="339" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="337" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="289" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="280" cy="144" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="331" cy="149" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="346" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="154" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="292" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="329" cy="165" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="292" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="327" cy="158" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="287" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="287" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="281" cy="170" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="327" cy="154" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="345" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="335" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="335" cy="151" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="281" cy="142" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="288" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="336" cy="163" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="341" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="285" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="326" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="285" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="343" cy="151" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="281" cy="172" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="328" cy="147" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="282" cy="140" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="330" cy="168" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="330" cy="144" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="347" cy="156" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="291" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="283" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="288" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="280" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="295" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="286" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="337" cy="149" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="327" cy="151" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="281" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="288" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="336" cy="165" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="289" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="295" cy="163" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="288" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="334" cy="151" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="287" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="285" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="332" cy="163" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="285" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="335" cy="147" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="287" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="287" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="292" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="326" cy="163" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="279" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="292" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="336" cy="168" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="293" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="282" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="326" cy="149" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="281" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="327" cy="165" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="291" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="291" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="282" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="297" cy="149" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="298" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="288" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="333" cy="149" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="322" cy="161" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="293" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="290" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="285" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="284" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="278" cy="161" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="287" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="276" cy="151" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="293" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="139" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="289" cy="173" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<line x1="110" y1="196.0" x2="560" y2="196.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="200.0" text-anchor="end" font-size="13">Fare</text>
+<circle cx="326" cy="196" r="2.3" fill="#3a78d3" fill-opacity="0.85"/>
+<circle cx="313" cy="196" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="285" cy="196" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="308" cy="196" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="336" cy="196" r="2.3" fill="#4373cd" fill-opacity="0.85"/>
+<circle cx="287" cy="196" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="278" cy="196" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="327" cy="198" r="2.3" fill="#2a80dc" fill-opacity="0.85"/>
+<circle cx="281" cy="196" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="198" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="294" cy="196" r="2.3" fill="#2a81dd" fill-opacity="0.85"/>
+<circle cx="282" cy="198" r="2.3" fill="#1f87e3" fill-opacity="0.85"/>
+<circle cx="288" cy="198" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="305" cy="196" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="360" cy="196" r="2.3" fill="#7558ae" fill-opacity="0.85"/>
+<circle cx="303" cy="198" r="2.3" fill="#2683df" fill-opacity="0.85"/>
+<circle cx="273" cy="196" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="282" cy="194" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="309" cy="194" r="2.3" fill="#2683df" fill-opacity="0.85"/>
+<circle cx="300" cy="196" r="2.3" fill="#2186e3" fill-opacity="0.85"/>
+<circle cx="280" cy="201" r="2.3" fill="#2186e3" fill-opacity="0.85"/>
+<circle cx="283" cy="198" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="290" cy="196" r="2.3" fill="#2385e1" fill-opacity="0.85"/>
+<circle cx="301" cy="198" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="314" cy="198" r="2.3" fill="#2a81dd" fill-opacity="0.85"/>
+<circle cx="280" cy="191" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="289" cy="194" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="289" cy="201" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="347" cy="196" r="2.3" fill="#526bc3" fill-opacity="0.85"/>
+<circle cx="305" cy="201" r="2.3" fill="#2285e1" fill-opacity="0.85"/>
+<circle cx="290" cy="191" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="334" cy="196" r="2.3" fill="#367ad5" fill-opacity="0.85"/>
+<circle cx="286" cy="194" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="322" cy="196" r="2.3" fill="#4075cf" fill-opacity="0.85"/>
+<circle cx="343" cy="196" r="2.3" fill="#7657ad" fill-opacity="0.85"/>
+<circle cx="310" cy="196" r="2.3" fill="#2683df" fill-opacity="0.85"/>
+<circle cx="287" cy="203" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="349" cy="198" r="2.3" fill="#506cc5" fill-opacity="0.85"/>
+<circle cx="350" cy="196" r="2.3" fill="#536ac3" fill-opacity="0.85"/>
+<circle cx="318" cy="196" r="2.3" fill="#307ed9" fill-opacity="0.85"/>
+<circle cx="293" cy="198" r="2.3" fill="#2186e3" fill-opacity="0.85"/>
+<circle cx="290" cy="194" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="287" cy="189" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="292" cy="201" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="318" cy="198" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="297" cy="198" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="372" cy="196" r="2.3" fill="#974598" fill-opacity="0.85"/>
+<circle cx="280" cy="203" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="308" cy="191" r="2.3" fill="#2484e1" fill-opacity="0.85"/>
+<circle cx="315" cy="194" r="2.3" fill="#2683df" fill-opacity="0.85"/>
+<circle cx="283" cy="201" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="319" cy="194" r="2.3" fill="#2583e0" fill-opacity="0.85"/>
+<circle cx="299" cy="194" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="339" cy="196" r="2.3" fill="#4a6fc9" fill-opacity="0.85"/>
+<circle cx="309" cy="198" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="302" cy="194" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="322" cy="198" r="2.3" fill="#2d7fdb" fill-opacity="0.85"/>
+<circle cx="295" cy="194" r="2.3" fill="#2484e1" fill-opacity="0.85"/>
+<circle cx="269" cy="196" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="343" cy="198" r="2.3" fill="#6262b9" fill-opacity="0.85"/>
+<circle cx="276" cy="198" r="2.3" fill="#1f87e3" fill-opacity="0.85"/>
+<circle cx="281" cy="189" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="289" cy="205" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="290" cy="191" r="2.3" fill="#2186e3" fill-opacity="0.85"/>
+<circle cx="369" cy="198" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="306" cy="203" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="284" cy="191" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="340" cy="198" r="2.3" fill="#377ad4" fill-opacity="0.85"/>
+<circle cx="305" cy="201" r="2.3" fill="#2882de" fill-opacity="0.85"/>
+<circle cx="332" cy="198" r="2.3" fill="#307ed9" fill-opacity="0.85"/>
+<circle cx="299" cy="201" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="314" cy="201" r="2.3" fill="#2583e0" fill-opacity="0.85"/>
+<circle cx="360" cy="198" r="2.3" fill="#695eb5" fill-opacity="0.85"/>
+<circle cx="302" cy="191" r="2.3" fill="#2583e0" fill-opacity="0.85"/>
+<circle cx="304" cy="203" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="285" cy="203" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="294" cy="201" r="2.3" fill="#2185e2" fill-opacity="0.85"/>
+<circle cx="318" cy="201" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="309" cy="194" r="2.3" fill="#2981de" fill-opacity="0.85"/>
+<circle cx="315" cy="191" r="2.3" fill="#2a81dd" fill-opacity="0.85"/>
+<circle cx="284" cy="189" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="292" cy="203" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="294" cy="191" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="306" cy="189" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="309" cy="201" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="298" cy="191" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="324" cy="194" r="2.3" fill="#3e76d0" fill-opacity="0.85"/>
+<circle cx="345" cy="194" r="2.3" fill="#6d5cb2" fill-opacity="0.85"/>
+<circle cx="321" cy="194" r="2.3" fill="#3a78d2" fill-opacity="0.85"/>
+<circle cx="301" cy="189" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="350" cy="194" r="2.3" fill="#6b5db4" fill-opacity="0.85"/>
+<circle cx="313" cy="203" r="2.3" fill="#2e7fda" fill-opacity="0.85"/>
+<circle cx="296" cy="203" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="328" cy="196" r="2.3" fill="#307dd9" fill-opacity="0.85"/>
+<circle cx="294" cy="189" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="293" cy="189" r="2.3" fill="#2285e1" fill-opacity="0.85"/>
+<circle cx="295" cy="205" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="313" cy="189" r="2.3" fill="#2882de" fill-opacity="0.85"/>
+<circle cx="288" cy="187" r="2.3" fill="#2285e1" fill-opacity="0.85"/>
+<circle cx="316" cy="205" r="2.3" fill="#2782df" fill-opacity="0.85"/>
+<circle cx="324" cy="201" r="2.3" fill="#357bd6" fill-opacity="0.85"/>
+<circle cx="327" cy="191" r="2.3" fill="#377ad5" fill-opacity="0.85"/>
+<circle cx="293" cy="205" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="281" cy="205" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="290" cy="187" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="280" cy="187" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="339" cy="194" r="2.3" fill="#4c6ec7" fill-opacity="0.85"/>
+<circle cx="291" cy="208" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="353" cy="198" r="2.3" fill="#7a55aa" fill-opacity="0.85"/>
+<circle cx="310" cy="191" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="287" cy="208" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="289" cy="184" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="260" cy="196" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="292" cy="184" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="294" cy="210" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="328" cy="198" r="2.3" fill="#2d7fdb" fill-opacity="0.85"/>
+<circle cx="294" cy="182" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="315" cy="187" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="274" cy="198" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="305" cy="205" r="2.3" fill="#2185e2" fill-opacity="0.85"/>
+<circle cx="319" cy="191" r="2.3" fill="#3879d3" fill-opacity="0.85"/>
+<circle cx="348" cy="201" r="2.3" fill="#7e53a8" fill-opacity="0.85"/>
+<circle cx="345" cy="201" r="2.3" fill="#536ac3" fill-opacity="0.85"/>
+<circle cx="327" cy="203" r="2.3" fill="#3978d3" fill-opacity="0.85"/>
+<circle cx="302" cy="187" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="310" cy="203" r="2.3" fill="#2385e1" fill-opacity="0.85"/>
+<circle cx="315" cy="208" r="2.3" fill="#357bd6" fill-opacity="0.85"/>
+<circle cx="299" cy="203" r="2.3" fill="#2185e2" fill-opacity="0.85"/>
+<circle cx="331" cy="194" r="2.3" fill="#3e76d0" fill-opacity="0.85"/>
+<circle cx="299" cy="189" r="2.3" fill="#2782de" fill-opacity="0.85"/>
+<circle cx="299" cy="205" r="2.3" fill="#2583e0" fill-opacity="0.85"/>
+<circle cx="311" cy="189" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="307" cy="205" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="290" cy="212" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="335" cy="194" r="2.3" fill="#3d76d1" fill-opacity="0.85"/>
+<circle cx="309" cy="205" r="2.3" fill="#2285e1" fill-opacity="0.85"/>
+<circle cx="279" cy="208" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="298" cy="187" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="287" cy="210" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="310" cy="187" r="2.3" fill="#2d7fdb" fill-opacity="0.85"/>
+<circle cx="280" cy="184" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="328" cy="201" r="2.3" fill="#3e76d0" fill-opacity="0.85"/>
+<circle cx="297" cy="187" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="331" cy="191" r="2.3" fill="#4a6fc9" fill-opacity="0.85"/>
+<circle cx="347" cy="191" r="2.3" fill="#546ac2" fill-opacity="0.85"/>
+<circle cx="292" cy="180" r="2.3" fill="#1f87e3" fill-opacity="0.85"/>
+<circle cx="313" cy="184" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="301" cy="208" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="283" cy="205" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="301" cy="208" r="2.3" fill="#2185e2" fill-opacity="0.85"/>
+<circle cx="301" cy="184" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="363" cy="196" r="2.3" fill="#5e64bc" fill-opacity="0.85"/>
+<circle cx="286" cy="187" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="294" cy="208" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="285" cy="208" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="304" cy="184" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="307" cy="187" r="2.3" fill="#2385e1" fill-opacity="0.85"/>
+<circle cx="289" cy="182" r="2.3" fill="#2186e2" fill-opacity="0.85"/>
+<circle cx="304" cy="210" r="2.3" fill="#2583e0" fill-opacity="0.85"/>
+<circle cx="332" cy="201" r="2.3" fill="#2b80dc" fill-opacity="0.85"/>
+<circle cx="361" cy="198" r="2.3" fill="#4b6ec8" fill-opacity="0.85"/>
+<circle cx="296" cy="184" r="2.3" fill="#2186e3" fill-opacity="0.85"/>
+<circle cx="292" cy="213" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="280" cy="210" r="2.3" fill="#2285e2" fill-opacity="0.85"/>
+<circle cx="328" cy="203" r="2.3" fill="#3b78d2" fill-opacity="0.85"/>
+<circle cx="286" cy="184" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="288" cy="212" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="350" cy="194" r="2.3" fill="#5668c1" fill-opacity="0.85"/>
+<circle cx="273" cy="194" r="2.3" fill="#1e87e4" fill-opacity="0.85"/>
+<circle cx="309" cy="208" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="301" cy="182" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="292" cy="179" r="2.3" fill="#2384e1" fill-opacity="0.85"/>
+<circle cx="290" cy="213" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="316" cy="210" r="2.3" fill="#377ad4" fill-opacity="0.85"/>
+<circle cx="323" cy="201" r="2.3" fill="#347bd6" fill-opacity="0.85"/>
+<circle cx="339" cy="201" r="2.3" fill="#516bc4" fill-opacity="0.85"/>
+<circle cx="303" cy="212" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="308" cy="208" r="2.3" fill="#2484e1" fill-opacity="0.85"/>
+<circle cx="311" cy="184" r="2.3" fill="#2782df" fill-opacity="0.85"/>
+<circle cx="284" cy="210" r="2.3" fill="#1f87e3" fill-opacity="0.85"/>
+<circle cx="283" cy="182" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="360" cy="194" r="2.3" fill="#9b4395" fill-opacity="0.85"/>
+<circle cx="299" cy="210" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="284" cy="212" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="266" cy="196" r="2.3" fill="#1f87e4" fill-opacity="0.85"/>
+<circle cx="307" cy="184" r="2.3" fill="#2981de" fill-opacity="0.85"/>
+<circle cx="283" cy="180" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="345" cy="191" r="2.3" fill="#4671cb" fill-opacity="0.85"/>
+<circle cx="366" cy="196" r="2.3" fill="#705ab0" fill-opacity="0.85"/>
+<circle cx="357" cy="196" r="2.3" fill="#94479a" fill-opacity="0.85"/>
+<circle cx="299" cy="182" r="2.3" fill="#2086e3" fill-opacity="0.85"/>
+<circle cx="313" cy="182" r="2.3" fill="#2981dd" fill-opacity="0.85"/>
+<circle cx="336" cy="198" r="2.3" fill="#5868c0" fill-opacity="0.85"/>
+<circle cx="341" cy="191" r="2.3" fill="#5569c2" fill-opacity="0.85"/>
+<circle cx="301" cy="212" r="2.3" fill="#2385e1" fill-opacity="0.85"/>
+<circle cx="318" cy="203" r="2.3" fill="#2981dd" fill-opacity="0.85"/>
+<circle cx="299" cy="180" r="2.3" fill="#2484e0" fill-opacity="0.85"/>
+<circle cx="313" cy="212" r="2.3" fill="#2a80dc" fill-opacity="0.85"/>
+<circle cx="302" cy="180" r="2.3" fill="#2385e1" fill-opacity="0.85"/>
+<circle cx="308" cy="210" r="2.3" fill="#2782de" fill-opacity="0.85"/>
+<line x1="110" y1="236.0" x2="560" y2="236.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="240.0" text-anchor="end" font-size="13">SibSp</text>
+<circle cx="308" cy="236" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="236" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="252" cy="236" r="2.3" fill="#7756ac" fill-opacity="0.85"/>
+<circle cx="307" cy="238" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="234" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="295" cy="236" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="307" cy="241" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="231" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="236" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="238" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="234" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="293" cy="236" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="311" cy="241" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="208" cy="236" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="312" cy="231" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="243" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="243" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="229" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="307" cy="229" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="179" cy="236" r="2.3" fill="#a43e8f" fill-opacity="0.85"/>
+<circle cx="301" cy="238" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="299" cy="236" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="245" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="183" cy="236" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="308" cy="227" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="245" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="270" cy="236" r="2.3" fill="#7756ac" fill-opacity="0.85"/>
+<circle cx="291" cy="238" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="208" cy="238" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="308" cy="248" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="224" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="234" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="227" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="248" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="241" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="310" cy="224" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="250" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="250" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="310" cy="222" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="231" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="252" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="222" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="243" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="229" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="220" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="252" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="245" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="308" cy="220" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="238" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="298" cy="234" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="296" cy="238" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="306" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="241" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="291" cy="234" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="227" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="231" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="309" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="243" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="248" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="229" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="301" cy="245" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="201" cy="236" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="249" cy="236" r="2.3" fill="#a43e8f" fill-opacity="0.85"/>
+<circle cx="299" cy="227" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="248" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="316" cy="236" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="198" cy="236" r="2.3" fill="#a43e8f" fill-opacity="0.85"/>
+<circle cx="305" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="258" cy="236" r="2.3" fill="#7756ac" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="224" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="315" cy="238" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="250" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="305" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="246" cy="238" r="2.3" fill="#a43e8f" fill-opacity="0.85"/>
+<circle cx="308" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="313" cy="234" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="286" cy="236" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="224" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="250" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="258" cy="238" r="2.3" fill="#7756ac" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="222" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="297" cy="234" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="301" cy="222" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="179" cy="238" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="295" cy="241" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="250" cy="238" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="312" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="309" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="252" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="181" cy="238" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="304" cy="220" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="298" cy="252" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="191" cy="236" r="2.3" fill="#a43e8f" fill-opacity="0.85"/>
+<circle cx="181" cy="234" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="181" cy="241" r="2.3" fill="#a43e8f" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="220" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="186" cy="236" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="303" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="158" cy="236" r="2.3" fill="#d12573" fill-opacity="0.85"/>
+<circle cx="302" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="303" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="301" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="308" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="202" cy="238" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="313" cy="241" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="305" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="312" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="313" cy="231" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="309" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="306" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="307" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="310" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="309" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="219" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="212" cy="236" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="307" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="280" cy="236" r="2.3" fill="#7756ac" fill-opacity="0.85"/>
+<circle cx="310" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="312" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="308" cy="253" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="219" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="253" r="2.3" fill="#4a6fc8" fill-opacity="0.85"/>
+<line x1="110" y1="276.0" x2="560" y2="276.0" style="stroke:var(--grid);stroke-width:1;stroke-dasharray:2 3"/>
+<text x="102" y="280.0" text-anchor="end" font-size="13">Parch</text>
+<circle cx="300" cy="276" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="276" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="296" cy="276" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="304" cy="278" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="278" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="274" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="276" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="297" cy="278" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="281" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="274" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="271" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="283" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="303" cy="269" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="285" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="281" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="295" cy="274" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="305" cy="267" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="288" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="278" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="297" cy="281" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="293" cy="276" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="301" cy="264" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="274" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="294" cy="271" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="306" cy="281" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="294" cy="283" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="303" cy="290" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="262" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="304" cy="292" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="271" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="260" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="271" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="283" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="269" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="292" cy="278" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="301" cy="285" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="283" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="269" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="267" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="288" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="307" cy="285" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="264" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="290" cy="274" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="287" cy="276" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="290" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="262" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="292" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="260" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="296" cy="269" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="312" cy="276" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="297" cy="285" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="267" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="288" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="264" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="290" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="311" cy="278" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="296" cy="267" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="291" cy="281" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="296" cy="288" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="300" cy="293" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="286" cy="276" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="262" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="292" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="260" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="259" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="285" cy="278" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="288" cy="278" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="306" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="293" cy="271" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="308" cy="293" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="287" cy="274" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="293" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="300" cy="259" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="284" cy="274" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="289" cy="281" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="279" cy="276" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="303" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="315" cy="276" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="274" cy="276" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="299" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="293" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="307" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="305" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="306" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="302" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="298" cy="293" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="301" cy="259" r="2.3" fill="#b33686" fill-opacity="0.85"/>
+<circle cx="292" cy="283" r="2.3" fill="#fe0d57" fill-opacity="0.85"/>
+<circle cx="305" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="300" cy="293" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="304" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<circle cx="295" cy="264" r="2.3" fill="#685fb5" fill-opacity="0.85"/>
+<circle cx="300" cy="259" r="2.3" fill="#1e88e5" fill-opacity="0.85"/>
+<line x1="110" y1="296" x2="560" y2="296" style="stroke:var(--axis)"/>
+<line x1="142.1" y1="296" x2="142.1" y2="301" style="stroke:var(--axis)"/><text x="142.1" y="314" text-anchor="middle" font-size="11">-1.5</text>
+<line x1="195.7" y1="296" x2="195.7" y2="301" style="stroke:var(--axis)"/><text x="195.7" y="314" text-anchor="middle" font-size="11">-1</text>
+<line x1="249.3" y1="296" x2="249.3" y2="301" style="stroke:var(--axis)"/><text x="249.3" y="314" text-anchor="middle" font-size="11">-0.5</text>
+<line x1="302.9" y1="296" x2="302.9" y2="301" style="stroke:var(--axis)"/><text x="302.9" y="314" text-anchor="middle" font-size="11">0</text>
+<line x1="356.4" y1="296" x2="356.4" y2="301" style="stroke:var(--axis)"/><text x="356.4" y="314" text-anchor="middle" font-size="11">0.5</text>
+<line x1="410.0" y1="296" x2="410.0" y2="301" style="stroke:var(--axis)"/><text x="410.0" y="314" text-anchor="middle" font-size="11">1</text>
+<line x1="463.6" y1="296" x2="463.6" y2="301" style="stroke:var(--axis)"/><text x="463.6" y="314" text-anchor="middle" font-size="11">1.5</text>
+<line x1="517.1" y1="296" x2="517.1" y2="301" style="stroke:var(--axis)"/><text x="517.1" y="314" text-anchor="middle" font-size="11">2</text>
+<text x="335.0" y="336" text-anchor="middle" font-size="13">SHAP-verdi (påvirkning på modellens output, log-odds)</text>
+<rect x="590" y="16" width="9" height="270" fill="url(#shapgrad)"/>
+<text x="605" y="26" font-size="11">Høy</text><text x="605" y="284" font-size="11">Lav</text>
+<text x="622" y="156.0" font-size="11" text-anchor="middle" transform="rotate(-90 622 156.0)">feature-verdi</text>
+</svg>
+<figcaption><b>Figur 15.1</b> SHAP beeswarm (summary plot) for en modell som predikerer overlevelse på Titanic (illustrasjon laget for kurset). <b>Hver prikk er én passasjer.</b> Plasseringen langs x-aksen er SHAP-verdien til featuren for den passasjeren. Fargen er feature-verdien (rød = høy, blå = lav). Radene er sortert etter gjennomsnittlig |SHAP|, med den viktigste øverst. Merk at kjønn her er kodet som <code>Sex_male</code> (1 = mann).</figcaption>
+</figure>
+
+<ol>
+<li><b>Hvilken feature betyr mest?</b> Den øverst, med størst spredning langs x-aksen. Her er det <code>Sex_male</code>.</li>
+<li><b>Hvilken retning?</b> Se hvor fargene ligger. For <code>Sex_male</code> ligger røde prikker (verdi 1, menn) til venstre: å være mann trekker prediksjonen <i>ned</i> sammenlignet med gjennomsnittet. Blå (kvinner) ligger til høyre og trekker opp.</li>
+<li><b>Pclass</b> (1 = første klasse, 3 = tredje klasse): røde prikker (høy verdi, 3. klasse) ligger til venstre. Høy Pclass trekker prediksjonen ned sammenlignet med gjennomsnittsprediksjonen.</li>
+<li><b>Age:</b> de fleste prikkene ligger nær null, men en klynge blå prikker (barn) ligger langt til høyre. Lav alder kan trekke kraftig opp.</li>
+<li><b>Nederst</b> ligger <code>Parch</code> nesten bare på null. Den betyr lite for denne modellen.</li>
+</ol>
+
+<div class="callout warn"><span class="label">Feller i SHAP-plott</span>
+<ul>
+<li><b>Relativt, ikke absolutt:</b> negativ SHAP-verdi betyr «lavere enn gjennomsnittsprediksjonen», ikke «lav sannsynlighet». En jente i 3. klasse kan fortsatt få høy predikert overlevelse fordi <code>Sex</code> og <code>Age</code> drar mye opp.</li>
+<li><b>Kodingen avgjør fargen:</b> på eksamen 2024 lå røde prikker for <code>Sex</code> til <i>høyre</i>, altså var høy verdi kodet som kvinne. I figuren over er det motsatt. Sjekk alltid hva «høy» betyr.</li>
+<li><b>Ikke kausalt:</b> SHAP forklarer <i>modellen</i>, ikke verden. At <code>Fare</code> drar opp, betyr ikke at en dyrere billett ville reddet noen.</li>
+<li><b>Ingen korrelasjon mellom features:</b> plottet sier ingenting om hvilke features som henger sammen med hverandre.</li>
+</ul></div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 35</span>
+<p>Et beeswarm-plott for Titanic med radene Sex, Pclass, Age, Fare, Embarked_S, SibSp, Parch, Embarked_Q. <b>Spørsmål 1:</b> hvilken feature påvirker prediksjonen mest? Fasit: <b>Sex</b> (øverst, størst spredning, fra omtrent −1.5 til +2.3). <b>Spørsmål 2:</b> hvordan påvirker høy Pclass prediksjonen? Fasit: <b>det trekker modellprediksjonen ned sammenlignet med gjennomsnittsprediksjonen.</b> Distraktorene «modellen predikerer lav sannsynlighet for overlevelse» og «fører alltid til høy prediksjon» er feil fordi SHAP er relativt til baseline og ikke sier noe absolutt. «Passasjerer med høy Pclass har ofte lav Sex» er feil fordi plottet ikke viser sammenheng mellom features.</p>
+</div>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 640 245" role="img" aria-label="SHAP waterfall for én passasjer">
+  <g font-size="13">
+  <line x1="160" y1="20" x2="160" y2="240" style="stroke:var(--axis)"/>
+  <text x="150" y="44" text-anchor="end">baseline E[f(X)]</text>
+  <text x="168" y="46" class="sm">−0.47 (≈ 38 % overlever)</text>
+  <text x="150" y="74" text-anchor="end">Sex_male = 0</text>
+  <rect x="160" y="62" width="128" height="18" rx="3" fill="#ff0d57" opacity=".85"/><text x="294" y="76" class="sm">+1.60</text>
+  <text x="150" y="104" text-anchor="end">Pclass = 1</text>
+  <rect x="288" y="92" width="72" height="18" rx="3" fill="#ff0d57" opacity=".85"/><text x="366" y="106" class="sm">+0.90</text>
+  <text x="150" y="134" text-anchor="end">Fare = 80</text>
+  <rect x="360" y="122" width="20" height="18" rx="3" fill="#ff0d57" opacity=".85"/><text x="386" y="136" class="sm">+0.25</text>
+  <text x="150" y="164" text-anchor="end">Age = 29</text>
+  <rect x="380" y="152" width="4" height="18" rx="2" fill="#ff0d57" opacity=".85"/><text x="390" y="166" class="sm">+0.05</text>
+  <text x="150" y="194" text-anchor="end">Embarked_S = 1</text>
+  <rect x="372" y="182" width="12" height="18" rx="3" fill="#1e88e5" opacity=".85"/><text x="390" y="196" class="sm">−0.15</text>
+  <text x="150" y="232" text-anchor="end" font-weight="700">f(x)</text>
+  <text x="168" y="232" class="sm">−0.47 + 1.60 + 0.90 + 0.25 + 0.05 − 0.15 = 2.18 log-odds → σ(2.18) ≈ 0.90</text>
+  </g>
+</svg>
+<figcaption><b>Figur 15.2</b> Lokal SHAP-forklaring (waterfall) for én passasjer: en kvinne i 1. klasse. Hver søyle er en SHAP-verdi (rød dytter opp, blå dytter ned, slik SHAP-biblioteket fargelegger waterfall-plott, og <i>ikke</i> feature-verdien som i beeswarm), og de summerer seg fra baseline til modellens output. Tallene er i log-odds, som er vanlig for klassifikatorer. $\sigma$ omregner til sannsynlighet (se <a href="02-logistisk.html">kapittel 2</a>). Beeswarm-plottet er tusen slike forklaringer stablet oppå hverandre.</figcaption>
+</figure>
+
+<div class="quiz" data-id="15-shap-top">
+  <p class="q">Se på figur 15.1. Hvilken feature påvirker modellens prediksjon minst?</p>
+  <ul>
+    <li>Sex_male</li>
+    <li>SibSp</li>
+    <li>Embarked_S</li>
+    <li data-correct>Parch</li>
+  </ul>
+  <div class="explain">Radene er sortert etter gjennomsnittlig |SHAP|. <code>Parch</code> ligger nederst, og prikkene samler seg nesten helt på 0. <code>SibSp</code> har få prikker langt fra null, men noen passasjerer med mange søsken får store negative verdier, så gjennomsnittlig påvirkning er større.</div>
+</div>
+
+<div class="quiz" data-id="15-shap-dir">
+  <p class="q">I figur 15.1 ligger røde prikker i <code>Pclass</code>-raden til venstre for 0. Hva betyr det?</p>
+  <ul>
+    <li>Passasjerer i 3. klasse får alltid predikert under 50 % overlevelse.</li>
+    <li data-correct>For passasjerer med høy Pclass (3. klasse) trekker denne featuren prediksjonen ned sammenlignet med gjennomsnittsprediksjonen.</li>
+    <li>Passasjerer i 3. klasse er oftere menn.</li>
+    <li>Pclass er den viktigste featuren.</li>
+  </ul>
+  <div class="explain">SHAP-verdien er bidraget relativt til baseline. Rød betyr høy feature-verdi, og venstre betyr negativt bidrag. Det sier ikke noe absolutt om prediksjonen, fordi andre features kan dra opp (det første alternativet er feil). Plottet viser ikke sammenhengen mellom Pclass og kjønn. Pclass er nummer to, ikke den viktigste.</div>
+</div>
+
+<div class="quiz" data-id="15-shap-sum">
+  <p class="q">For én passasjer er baseline $\phi_0 = 0.38$ (i sannsynlighet), og SHAP-verdiene er $+0.30$ (Sex), $-0.12$ (Pclass) og $+0.04$ (Age). Hva predikerer modellen?</p>
+  <ul>
+    <li>0.22</li>
+    <li data-correct>0.60</li>
+    <li>0.84</li>
+    <li>Det kan ikke avgjøres uten selve modellen.</li>
+  </ul>
+  <div class="explain">Lokal nøyaktighet: $f(x) = \phi_0 + \sum\phi_j = 0.38 + 0.30 - 0.12 + 0.04 = 0.60$. Svaret 0.22 er bare summen av SHAP-verdiene, uten baseline. Svaret 0.84 får du hvis du glemmer minustegnet på Pclass. Vi trenger ikke modellen, fordi SHAP-verdiene alltid summerer seg til prediksjonen.</div>
+</div>
+
+<div class="reflect" data-id="15-r-lime-shap">
+  <p class="q">Både LIME og SHAP gir lokale forklaringer som tall per feature. Hva er den viktigste forskjellen, og når ville du foretrukket SHAP?</p>
+  <div class="answer">LIME tilpasser en lokal surrogatmodell på tilfeldige perturbasjoner, og resultatet avhenger av valg som kjernebredde og sampling. Det kan vingle mellom kjøringer, og bidragene trenger ikke summere seg til noe bestemt. SHAP bygger på Shapley-verdier med et teoretisk fundament: bidragene oppfyller effektivitet, symmetri, dummy og additivitet, og summerer seg nøyaktig til prediksjon minus baseline. SHAP-verdier for mange punkter kan også samles til en global oversikt (beeswarm, gjennomsnittlig |SHAP|). Jeg ville foretrukket SHAP når forklaringen må være konsistent og etterprøvbar, for eksempel overfor en tilsynsmyndighet, og særlig for trebaserte modeller der TreeSHAP er raskt og eksakt. LIME er enkelt og intuitivt og virker godt på tekst og bilder.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="prinsipper"><span class="sec">15.6</span>Etiske prinsipper for KI</h2>
+
+<p>Mange rammeverk for KI-etikk koker ned til fem prinsipper. Fire av dem er hentet fra medisinsk etikk, og det femte er lagt til for KI (Floridi og Cowls, 2019):</p>
+
+<table>
+<tr><th>Prinsipp</th><th>Betydning</th><th>Brudd, eksempel</th></tr>
+<tr><td><b>Velgjørenhet</b> (beneficence)</td><td>KI skal fremme menneskelig velferd og gjøre godt</td><td>et system som bare optimerer klikk uten tanke på brukernes helse</td></tr>
+<tr><td><b>Ikke-skade</b> (non-maleficence)</td><td>KI skal ikke skade: personvern, sikkerhet, robusthet</td><td>datalekkasje, en selvkjørende bil som ikke er testet godt nok</td></tr>
+<tr><td><b>Autonomi</b> (autonomy)</td><td>mennesker skal beholde kontroll og kunne ta egne valg</td><td>manipulasjon uten at brukeren vet det, beslutninger som tvinges på brukeren uten samtykke eller kontroll</td></tr>
+<tr><td><b>Rettferdighet</b> (justice)</td><td>rettferdig fordeling av goder og byrder, ingen diskriminering</td><td>en ansettelsesmodell som systematisk rangerer kvinner lavere</td></tr>
+<tr><td><b>Forklarbarhet</b> (explicability)</td><td>åpenhet og ansvarlighet: vi skal forstå hvordan systemet virker og hvem som har ansvaret</td><td>avslag på søknad uten begrunnelse og uten klagemulighet</td></tr>
+</table>
+
+<p>EUs ekspertgruppe for pålitelig KI og den norske nasjonale KI-strategien bruker beslektede prinsipper: menneskelig kontroll og tilsyn, robusthet og sikkerhet, personvern, åpenhet, rettferdighet og ikke-diskriminering, samfunns- og miljømessig velferd, og ansvarlighet.</p>
+
+<div class="callout hook"><span class="label">Knagg: legeløftet</span>
+<p>De fire første er det en god lege lover: gjør godt, ikke skad, respekter pasientens valg, og behandle alle likt. KI-etikken legger til det femte: <b>og kunne forklare hvorfor</b>.</p>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig forveksling</span>
+<p>Autonomi handler om at <i>mennesket</i> skal ha kontroll, ikke at KI-systemet skal være selvstendig («autonomt»). Et system som alltid krever menneskelig godkjenning før det tar en beslutning, <i>styrker</i> autonomi, det bryter den ikke.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 38 og 39</span>
+<p><b>38:</b> Hva betyr velgjørenhet? Fasit: «AI-systemer skal fremme menneskelig velferd og gjøre godt.» Distraktorer: «ikke fremme kommersielle mål», «være tilgjengelig for alle» og «operere uten feil». <br><b>39 (flere riktige):</b> Hvordan kan et system bryte autonomi? Fasit: <b>tvinge beslutninger på brukeren uten samtykke eller kontroll</b>, og <b>manipulere brukere uten at de vet at de blir påvirket.</b> Feil: «gi brukeren full kontroll over sine data» og «alltid kreve menneskelig godkjenning» (begge styrker autonomi), og «redusere effektiviteten i en organisasjon» (ikke et autonomispørsmål).</p>
+</div>
+
+<div class="quiz" data-id="15-benef">
+  <p class="q">Hva innebærer velgjørenhet (beneficence) som etisk prinsipp for KI?</p>
+  <ul>
+    <li>At KI-systemer skal være gratis.</li>
+    <li data-correct>At KI-systemer skal bidra positivt til menneskers velferd.</li>
+    <li>At KI-systemer aldri skal gjøre feil.</li>
+    <li>At KI-systemet skal forklare beslutningene sine.</li>
+  </ul>
+  <div class="explain">Velgjørenhet betyr å gjøre godt. Feilfrihet er umulig og er ikke det prinsippet handler om (å unngå skade er nærmere ikke-skade). Å forklare beslutninger er forklarbarhet, et annet prinsipp. Gratis tilgang er ikke et av prinsippene, selv om det kan berøre rettferdighet.</div>
+</div>
+
+<div class="quiz" data-multi data-id="15-autonomy">
+  <p class="q">Hvilke eksempler bryter med prinsippet om autonomi?</p>
+  <ul>
+    <li data-correct>En app som bruker skjulte psykologiske triks for å få brukere til å kjøpe ting de ellers ikke ville kjøpt.</li>
+    <li>Et system som lar brukeren slette alle sine data.</li>
+    <li data-correct>Et system som melder brukere inn i en tjeneste automatisk uten å spørre.</li>
+    <li>Et beslutningsstøttesystem der en saksbehandler alltid tar den endelige avgjørelsen.</li>
+  </ul>
+  <div class="explain">Skjult manipulasjon og beslutninger uten samtykke tar kontrollen fra brukeren. Å la brukeren slette data og å la et menneske ta den endelige avgjørelsen styrker autonomien.</div>
+</div>
+
+<div class="quiz" data-id="15-principle-match">
+  <p class="q">En modell for å fordele sykehjemsplasser gir systematisk færre plasser til innbyggere i visse bydeler med samme pleiebehov. Hvilket prinsipp brytes tydeligst?</p>
+  <ul>
+    <li>Autonomi</li>
+    <li>Forklarbarhet</li>
+    <li data-correct>Rettferdighet</li>
+    <li>Velgjørenhet</li>
+  </ul>
+  <div class="explain">Ulik behandling av grupper med samme behov er et rettferdighetsproblem. Forklarbarhet kan hjelpe oss å <i>oppdage</i> det, og systemet gjør kanskje ikke så mye godt heller, men kjernen er urettferdig fordeling. Ingen blir manipulert eller fratatt valg, så det er ikke primært autonomi.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="skjevhet"><span class="sec">15.7</span>Skjevhet og diskriminering i data</h2>
+
+<p>En modell lærer mønstrene i treningsdataene, også de urettferdige. Hvis historikken er skjev, blir modellen skjev. Det kalles <b>skjevhet</b> (bias), men det er ikke det samme som bias i lineær modell eller bias i bias–varians (<a href="07-generalisering.html">kapittel 7</a>).</p>
+
+<div class="callout def"><span class="label">Kilder til skjevhet</span>
+<ul>
+<li><b>Historisk skjevhet:</b> dataene speiler tidligere diskriminering, for eksempel at få kvinner ble ansatt i teknologiske stillinger.</li>
+<li><b>Representasjonsskjevhet (utvalgsskjevhet):</b> noen grupper er underrepresentert, så modellen blir dårligere for dem.</li>
+<li><b>Målingsskjevhet / proxy:</b> vi måler noe annet enn det vi bryr oss om, som helsekostnader i stedet for helsebehov.</li>
+<li><b>Stedfortredere</b> (proxy variables): å fjerne «kjønn» eller «etnisitet» hjelper ikke når postnummer, navn eller fritidsaktiviteter avslører det samme.</li>
+<li><b>Tilbakekoblingsløkker:</b> modellen sender politiet til bydel A, de finner mer kriminalitet der fordi de leter der, og neste års data bekrefter modellen.</li>
+</ul></div>
+
+<div class="callout def"><span class="label">Kjente eksempler</span>
+<ul>
+<li><b>Amazons rekrutteringsverktøy (2018):</b> trent på ti år med CV-er, mest fra menn. Modellen lærte å trekke ned CV-er med ordet «women's» (som i «women's chess club»). Prosjektet ble lagt ned.</li>
+<li><b>COMPAS (ProPublica, 2016):</b> et verktøy for tilbakefallsrisiko i amerikanske domstoler. Svarte tiltalte som ikke begikk ny kriminalitet, ble oftere feilaktig vurdert som høy risiko (høyere falsk positiv-rate) enn hvite.</li>
+<li><b>Gender Shades (Buolamwini og Gebru, 2018):</b> kommersielle ansiktsanalysesystemer bommet på kjønn hos under 1 % av lyse menn, men hos opptil rundt en tredjedel av mørkhudede kvinner. Treningsdataene var dominert av lyse ansikter.</li>
+<li><b>Helsealgoritme i USA (Obermeyer m.fl., 2019):</b> brukte tidligere helsekostnader som proxy for behov. Fordi mindre penger historisk var brukt på svarte pasienter, ble de vurdert som friskere enn de var.</li>
+<li><b>Barnetrygdskandalen i Nederland:</b> et risikosystem flagget familier, blant annet basert på dobbelt statsborgerskap, og tusenvis ble urettmessig krevd for tilbakebetaling. Regjeringen gikk av i 2021.</li>
+</ul></div>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Det holder ikke å sjekke total accuracy. Mål ytelsen <b>per gruppe</b> (for eksempel falsk positiv-rate og recall per gruppe, se <a href="03-evaluering.html">kapittel 3</a>), se etter stedfortredere, og spør om målvariabelen faktisk måler det du bryr deg om. Forklaringsmetoder som SHAP kan avsløre at en modell lener seg på mistenkelige features.</p>
+</div>
+
+<div class="quiz" data-id="15-proxy">
+  <p class="q">Et team fjerner kolonnen «kjønn» fra treningsdataene til en ansettelsesmodell for å unngå kjønnsdiskriminering. Hvorfor er ikke det nødvendigvis nok?</p>
+  <ul>
+    <li>Fordi modellen da får for få features og underfitter.</li>
+    <li>Fordi lovverket krever at kjønn alltid er med.</li>
+    <li>Fordi skjevhet bare finnes i testdataene.</li>
+    <li data-correct>Fordi andre features (for eksempel hobbyer, utdanningssted eller ordvalg i CV-en) kan fungere som stedfortredere for kjønn.</li>
+  </ul>
+  <div class="explain">Modellen kan rekonstruere kjønn fra korrelerte features, akkurat som Amazon-verktøyet som straffet «women's». Én feature færre gir sjelden underfitting. Loven krever ikke at kjønn er med. Skjevheten ligger i treningsdataene og historikken, ikke bare i testdataene.</div>
+</div>
+
+<div class="reflect" data-id="15-r-bias">
+  <p class="q">En kommune vil bruke ML til å forutsi hvilke barn som trenger oppfølging fra barnevernet, trent på historiske saker. Nevn to mulige kilder til skjevhet og ett tiltak for hver.</p>
+  <div class="answer">(1) <b>Historisk skjevhet / tilbakekobling:</b> familier som allerede er mye i kontakt med offentlige tjenester (for eksempel NAV), blir oftere meldt og undersøkt, så de dominerer dataene. Modellen lærer «kontakt med det offentlige» og ikke «omsorgssvikt». Tiltak: analyser hvordan sakene oppsto, og mål feilratene per gruppe. (2) <b>Proxy-variabler:</b> bosted, inntekt eller språk kan stå for etnisitet eller fattigdom. Tiltak: bruk SHAP til å se hva modellen vektlegger, og fjern eller begrens slike features og deres stedfortredere. I tillegg: et menneske bør ta beslutningen, og familien må kunne få en forklaring og klage. Et slikt system vil trolig falle inn under høy risiko i AI Act.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="aiact"><span class="sec">15.8</span>AI Act: EUs risikobaserte regulering</h2>
+
+<p>AI Act (KI-forordningen, forordning (EU) 2024/1689) ble vedtatt i 2024 og trådte i kraft 1. august 2024. Den omtales som <b>verdens første omfattende, KI-spesifikke regulering</b>. Reglene fases inn gradvis: forbudene gjelder fra februar 2025, reglene for generelle KI-modeller (som store språkmodeller) fra august 2025, og de fleste kravene til høyrisikosystemer fra 2026–2027. EU har foreslått å utsette deler av høyrisikoreglene. Norge er med via EØS, og det er planlagt en norsk KI-lov som gjennomfører forordningen.</p>
+
+<p>Kjernen er at reguleringen er <b>risikobasert</b>: jo større risiko systemet er for helse, sikkerhet og grunnleggende rettigheter, jo strengere krav. Inndelingen er etter <i>bruksområde og risiko</i>, ikke etter teknologi eller sektor.</p>
+
+<div class="pyramid">
+  <div style="width:40%;background:var(--bad)"><b>Uakseptabel risiko</b>forbudt</div>
+  <div style="width:58%;background:var(--cons)"><b>Høy risiko</b>tillatt, men strengt regulert</div>
+  <div style="width:76%;background:var(--warn);color:#1d1f23"><b>Begrenset risiko</b>krav om åpenhet</div>
+  <div style="width:94%;background:var(--ok)"><b>Minimal risiko</b>ingen nye krav</div>
+</div>
+
+<table>
+<tr><th>Kategori</th><th>Hva skjer</th><th>Eksempler</th></tr>
+<tr><td><b>Uakseptabel</b></td><td><b>Forbudt</b></td><td>sosial poengberegning (social scoring), manipulasjon som utnytter sårbare grupper, følelsesgjenkjenning på arbeidsplass og i skole, biometrisk fjernidentifikasjon i sanntid på offentlig sted for politiet (med snevre unntak), forutsigelse av kriminalitet basert bare på profilering, ukritisk innsamling av ansiktsbilder fra nettet</td></tr>
+<tr><td><b>Høy risiko</b></td><td><b>Tillatt, men regulert</b>: risikostyring, datakvalitet, dokumentasjon, logging, åpenhet, menneskelig tilsyn, nøyaktighet og robusthet, samsvarsvurdering og CE-merking</td><td>CV-sortering og ansettelse, kredittvurdering, opptak og vurdering i utdanning, tilgang til offentlige tjenester og ytelser, kritisk infrastruktur, politi, grensekontroll, rettsvesen, og KI som sikkerhetskomponent i produkter som medisinsk utstyr, biler og leketøy</td></tr>
+<tr><td><b>Begrenset</b></td><td><b>Åpenhetskrav</b>: brukeren skal vite at det er KI</td><td>chatboter, deepfakes og KI-generert innhold som skal merkes</td></tr>
+<tr><td><b>Minimal</b></td><td>ingen nye krav (frivillige retningslinjer)</td><td>spamfilter, KI i dataspill, de fleste anbefalingssystemer</td></tr>
+</table>
+
+<p>I tillegg har generelle KI-modeller (general-purpose AI, som store språkmodeller) egne krav til dokumentasjon og opphavsrett, og strengere krav for de største modellene. Bøtene kan bli store, opptil 35 millioner euro eller 7 % av global omsetning for brudd på forbudene.</p>
+
+<div class="callout hook"><span class="label">Knagg: trafikklyset</span>
+<p>Rødt = forbudt. Oransje = kjør, men forsiktig og med førerkort (høy risiko er regulert, <b>ikke forbudt</b>). Gult = vis tydelig at du er KI. Grønt = kjør fritt.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 37 (flere riktige)</span>
+<p>Sanne: <b>«AI Act er verdens første AI-spesifikke regulering»</b> og <b>«AI Act vil regulere AI-systemer basert på samfunnsrisiko».</b> <br>Usanne: «AI Act deler AI-systemer inn i flere kategorier, hvor AI-systemer til bruk i helsesektoren har en egen kategori» (kategoriene er risikonivåer, ikke sektorer. Medisinsk KI havner ofte i høy risiko, men det finnes ingen egen helsekategori). «AI-systemer som medfører høy samfunnsrisiko vil bli forbudt» (høy risiko er <i>regulert</i>, bare uakseptabel risiko er forbudt).</p>
+</div>
+
+<div class="widget">
+  <h4>Sorteringsøvelse: hvilken risikokategori?</h4>
+  <p class="small muted" style="margin:0 0 4px">Velg kategori for hvert system og trykk «Sjekk». Kategoriene følger hovedreglene i forordningen. I virkeligheten avhenger plasseringen av detaljer i bruken.</p>
+  <div id="sortList"></div>
+  <div class="controls"><button class="btn" type="button" id="sortCheck">Sjekk</button><button class="btn ghost" type="button" id="sortReset">Nullstill</button><span class="readout" id="sortScore"></span></div>
+</div>
+
+<div class="quiz" data-multi data-id="15-aiact">
+  <p class="q">Hvilke utsagn om AI Act stemmer?</p>
+  <ul>
+    <li>Alle KI-systemer med høy risiko blir forbudt.</li>
+    <li data-correct>Reguleringen er risikobasert: kravene øker med risikoen systemet utgjør.</li>
+    <li data-correct>En kundeservice-chatbot må opplyse om at brukeren snakker med en maskin.</li>
+    <li>KI-systemer deles inn etter hvilken teknologi de bruker, for eksempel nevrale nett eller beslutningstrær.</li>
+  </ul>
+  <div class="explain">Risikobasert regulering og åpenhetskrav for chatboter stemmer. Høy risiko er regulert, ikke forbudt. Bare uakseptabel risiko forbys. Inndelingen er etter bruksområde og risiko, ikke etter teknologi: det samme nevrale nettet kan være minimal risiko i et spill og høy risiko i ansettelser.</div>
+</div>
+
+<div class="quiz" data-id="15-aiact-cv">
+  <p class="q">Et selskap bruker et ML-system til å rangere jobbsøkere automatisk. Hvordan behandles det i AI Act?</p>
+  <ul>
+    <li data-correct>Høy risiko: tillatt, men med krav om blant annet datakvalitet, dokumentasjon og menneskelig tilsyn.</li>
+    <li>Det er forbudt.</li>
+    <li>Begrenset risiko: det holder å opplyse søkerne om at KI brukes.</li>
+    <li>Minimal risiko: ingen krav.</li>
+  </ul>
+  <div class="explain">Ansettelse og arbeidsliv står uttrykkelig på listen over høyrisikoområder, fordi beslutningene påvirker folks livsmuligheter og kan diskriminere. Det er ikke forbudt (det er f.eks. følelsesgjenkjenning på arbeidsplassen). Åpenhet alene er kravet for begrenset risiko og er ikke nok her.</div>
+</div>
+
+<div class="reflect" data-id="15-r-aiact">
+  <p class="q">Hvorfor tror du EU valgte å regulere etter <i>risiko ved bruken</i> i stedet for å regulere bestemte teknologier som «nevrale nettverk»?</p>
+  <div class="answer">Fordi skaden kommer fra hva systemet brukes til, ikke fra matematikken inni. Det samme nettet kan sortere spam (ufarlig) eller sortere jobbsøkere (kan diskriminere). Teknologi endrer seg raskt, så en lov som nevner bestemte metoder ville raskt blitt utdatert, mens bruksområder som kreditt, ansettelse og politi er stabile. Risikobasert regulering lar også ufarlige anvendelser slippe byråkrati, slik at innovasjon ikke kveles unødig. Ulempen er at grensene mellom kategoriene kan være uklare og må tolkes.</div>
+</div>
+
+<!-- ============================================================ -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><b>Hvorfor XAI:</b> tillit, feilsøking (ulv og snø), regulering og rettferdighet.</li>
+    <li><b>Tolkbare modeller</b> (lineære, grunne trær) vs. <b>svarte bokser</b> (nevrale nett, ensembler). <b>Global</b> (hele modellen) vs. <b>lokal</b> (én prediksjon). <b>Modellagnostisk</b> (bare <code>predict</code>) vs. <b>modellspesifikk</b>.</li>
+    <li><b>LIME:</b> perturber rundt ett punkt, vekt etter nærhet, tilpass en enkel modell lokalt. Begrensninger: valg av kjernebredde, ustabilitet, urealistiske perturbasjoner, bare lokal.</li>
+    <li><b>Shapley:</b> $\phi_i$ = gjennomsnittlig marginalt bidrag over alle $N!$ rekkefølger. Effektivitet ($\sum\phi_i = v(N)$), symmetri, dummy ($\phi = 0$) og additivitet. Kontroller alltid at summen blir $v(N)$.</li>
+    <li><b>SHAP:</b> features er spillerne. $f(x) = \phi_0 + \sum\phi_j$, der baseline $\phi_0 = \mathbb{E}[f(X)]$. Beeswarm: øverste rad betyr mest, x = bidrag, farge = feature-verdi. Bidraget er relativt til gjennomsnittet, ikke absolutt.</li>
+    <li><b>Etikk:</b> velgjørenhet (gjøre godt), ikke-skade, autonomi (mennesket har kontroll, ingen manipulasjon), rettferdighet og forklarbarhet.</li>
+    <li><b>Skjevhet:</b> historisk, representasjon, proxy og tilbakekobling. Å fjerne en sensitiv kolonne er ikke nok.</li>
+    <li><b>AI Act:</b> risikobasert. Uakseptabel = forbudt, høy = regulert (ikke forbudt), begrenset = åpenhet, minimal = ingen krav. Kategoriene er risikonivåer, ikke sektorer.</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="front">Lokal vs global forklaring</div><div class="back">Lokal: hvorfor fikk dette punktet dette svaret? Global: hvordan oppfører modellen seg generelt?</div></div>
+  <div class="card"><div class="front">Modellagnostisk</div><div class="back">Virker på alle modeller fordi den bare kaller predict. LIME, KernelSHAP, permutasjonsviktighet.</div></div>
+  <div class="card"><div class="front">LIME</div><div class="back">Perturber rundt x, vekt etter nærhet, tilpass en enkel tolkbar modell lokalt. Lokal og modellagnostisk.</div></div>
+  <div class="card"><div class="front">Shapley-verdi</div><div class="back">Gjennomsnittlig marginalt bidrag $v(S\cup\{i\})-v(S)$ over alle rekkefølger.</div></div>
+  <div class="card"><div class="front">Shapley-vekten</div><div class="back">$\frac{|S|!(N-|S|-1)!}{N!}$ = andelen rekkefølger der akkurat S står foran i.</div></div>
+  <div class="card"><div class="front">Effektivitet</div><div class="back">$\sum_i\phi_i = v(N)-v(\varnothing)$. I SHAP: bidragene summerer til f(x) − E[f(X)].</div></div>
+  <div class="card"><div class="front">Dummy og symmetri</div><div class="back">Dummy: bidrar aldri, så φ = 0. Symmetri: like bidrag gir lik φ.</div></div>
+  <div class="card"><div class="front">SHAP-baseline</div><div class="back">$\phi_0 = \mathbb{E}[f(X)]$, gjennomsnittsprediksjonen. SHAP-verdier måler avvik fra den.</div></div>
+  <div class="card"><div class="front">Lese beeswarm</div><div class="back">Øverst = viktigst. x = SHAP-verdi (opp/ned fra snittet). Farge = feature-verdi (rød høy, blå lav).</div></div>
+  <div class="card"><div class="front">Velgjørenhet</div><div class="back">KI skal fremme menneskelig velferd og gjøre godt.</div></div>
+  <div class="card"><div class="front">Autonomi</div><div class="back">Mennesker skal ha kontroll. Brytes ved manipulasjon og beslutninger uten samtykke.</div></div>
+  <div class="card"><div class="front">AI Act: fire nivåer</div><div class="back">Uakseptabel (forbudt), høy (regulert), begrenset (åpenhet), minimal (ingen krav).</div></div>
+  <div class="card"><div class="front">Proxy-variabel</div><div class="back">En feature som avslører en sensitiv egenskap (postnummer gir etnisitet). Derfor er det ikke nok å fjerne kolonnen.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+/* ---------- LIME-demo ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const cv = document.getElementById("limeCv");
+  const P = CK.plot(cv, { xmin: -3, xmax: 3, ymin: -3, ymax: 3, pad: { l: 40, r: 14, t: 12, b: 34 } });
+  const sig = z => 1 / (1 + Math.exp(-z));
+  const f = (a, b) => sig(3 * (b - 1.2 * Math.sin(1.5 * a) - 0.2 * a));   // svart boks
+  const sS = document.getElementById("limeS");
+  let pt = { x: 0, y: 0.15 }, seed = 1, samples = [];
+  function sample() {
+    const r = CK.rng(seed); samples = [];
+    for (let i = 0; i < 400; i++) { const a = -3 + 6 * r(), b = -3 + 6 * r(); samples.push({ a, b, f: f(a, b) }); }
+  }
+  function fit(sigma) {
+    // vektet minste kvadrat: f ≈ c0 + c1 a + c2 b
+    const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], y = [0, 0, 0];
+    let sw = 0, swf = 0;
+    samples.forEach(s => {
+      const d2 = (s.a - pt.x) ** 2 + (s.b - pt.y) ** 2; s.w = Math.exp(-d2 / (sigma * sigma));
+      const v = [1, s.a, s.b];
+      for (let i = 0; i < 3; i++) { y[i] += s.w * v[i] * s.f; for (let j = 0; j < 3; j++) A[i][j] += s.w * v[i] * v[j]; }
+      sw += s.w; swf += s.w * s.f;
+    });
+    for (let i = 0; i < 3; i++) A[i][i] += 1e-6;
+    const c = solve3(A, y);
+    const mean = swf / sw; let sst = 0, sse = 0;
+    samples.forEach(s => { const g = c[0] + c[1] * s.a + c[2] * s.b; sse += s.w * (s.f - g) ** 2; sst += s.w * (s.f - mean) ** 2; });
+    return { c, r2: sst > 1e-12 ? 1 - sse / sst : 1, sw };
+  }
+  function solve3(A, b) {
+    const M = A.map((r, i) => [...r, b[i]]);
+    for (let i = 0; i < 3; i++) {
+      let p = i; for (let k = i + 1; k < 3; k++) if (Math.abs(M[k][i]) > Math.abs(M[p][i])) p = k;
+      [M[i], M[p]] = [M[p], M[i]];
+      for (let k = 0; k < 3; k++) if (k !== i) { const fct = M[k][i] / M[i][i]; for (let j = i; j < 4; j++) M[k][j] -= fct * M[i][j]; }
+    }
+    return [M[0][3] / M[0][0], M[1][3] / M[1][1], M[2][3] / M[2][2]];
+  }
+  function draw() {
+    const sigma = +sS.value; document.getElementById("limeSo").textContent = sigma.toFixed(2);
+    P.clear();
+    const ctx = P.ctx, n = 60, c1 = P.col("c1"), c2 = P.col("c2");
+    const dx = 6 / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const a = -3 + (i + 0.5) * dx, b = -3 + (j + 0.5) * dx, p = f(a, b);
+      const x0 = Math.floor(P.X(-3 + i * dx)), y0 = Math.floor(P.Y(-3 + (j + 1) * dx)), w = Math.floor(P.X(-3 + (i + 1) * dx)) - x0, h = Math.floor(P.Y(-3 + j * dx)) - y0;
+      ctx.globalAlpha = 0.33 * Math.abs(p - 0.5) * 2 + 0.04; ctx.fillStyle = p > 0.5 ? c1 : c2; ctx.fillRect(x0, y0, w, h);
+    }
+    ctx.globalAlpha = 1;
+    P.grid().axes({ xlabel: "x₁", ylabel: "x₂", frame: true });
+    P.fn(a => 1.2 * Math.sin(1.5 * a) + 0.2 * a, { color: P.col("text"), width: 3 });
+    const res = fit(sigma), c = res.c;
+    const maxw = Math.max(...samples.map(s => s.w));
+    samples.forEach(s => {
+      const r = 1 + 5 * Math.sqrt(s.w / maxw);
+      if (s.w / maxw < 0.01) return;
+      ctx.beginPath(); ctx.arc(P.X(s.a), P.Y(s.b), r, 0, 7); ctx.fillStyle = s.f > 0.5 ? c1 : c2; ctx.globalAlpha = 0.75; ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    if (Math.abs(c[2]) > 1e-6) P.fn(a => (0.5 - c[0] - c[1] * a) / c[2], { color: P.col("c4"), width: 2.5, dash: [8, 5] });
+    else if (Math.abs(c[1]) > 1e-6) { const a0 = (0.5 - c[0]) / c[1]; P.line(a0, -3, a0, 3, { color: P.col("c4"), width: 2.5, dash: [8, 5] }); }
+    const L = Math.hypot(c[1], c[2]) || 1, sc = 0.9 / L;
+    P.arrow(pt.x, pt.y, pt.x + c[1] * sc, pt.y + c[2] * sc, { color: P.col("c4"), width: 2.5 });
+    P.points([{ x: pt.x, y: pt.y }], { r: 7, color: P.col("c5"), strokeColor: P.col("text") });
+    const g = c[0] + c[1] * pt.x + c[2] * pt.y;
+    document.getElementById("limeG").textContent = "g(x) = " + c[0].toFixed(2) + (c[1] >= 0 ? " + " : " − ") + Math.abs(c[1]).toFixed(2) + "·x₁" + (c[2] >= 0 ? " + " : " − ") + Math.abs(c[2]).toFixed(2) + "·x₂";
+    document.getElementById("limeF").textContent = "f(punkt) = " + f(pt.x, pt.y).toFixed(2) + " · g(punkt) = " + g.toFixed(2);
+    document.getElementById("limeR").textContent = "vektet R² = " + res.r2.toFixed(2);
+  }
+  cv.addEventListener("click", e => { const m = P.mouse(e); pt = { x: Math.max(-3, Math.min(3, P.invX(m.px))), y: Math.max(-3, Math.min(3, P.invY(m.py))) }; draw(); });
+  sS.oninput = draw;
+  document.getElementById("limeNew").onclick = () => { seed++; sample(); draw(); };
+  sample();
+  CK.live(draw);
+});
+
+/* ---------- Shapley-kalkulator ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const keys = ["1", "2", "3", "12", "13", "23", "123"];
+  const label = { "1": "v({1})", "2": "v({2})", "3": "v({3})", "12": "v({1,2})", "13": "v({1,3})", "23": "v({2,3})", "123": "v({1,2,3})" };
+  const presets = {
+    exam: [2, 4, 5, 3, 3, 2, 3],
+    proj: [12, 6, 0, 24, 18, 12, 36],
+    dummy: [10, 10, 0, 30, 10, 10, 30],
+    add: [3, 5, 2, 8, 5, 7, 10]
+  };
+  const host = document.getElementById("shInputs");
+  host.innerHTML = keys.map(k => `<label>${label[k]} <input type="text" inputmode="decimal" id="sh_${k}"></label>`).join("");
+  const sel = document.getElementById("shPreset");
+  const P = CK.plot(document.getElementById("shBars"), { xmin: 0, xmax: 4, ymin: 0, ymax: 1, pad: { l: 44, r: 12, t: 16, b: 30 } });
+  let phi = [0, 0, 0];
+  function setPreset() { presets[sel.value].forEach((v, i) => { document.getElementById("sh_" + keys[i]).value = v; }); compute(); }
+  function val(set) {
+    if (!set.length) return 0;
+    const k = set.slice().sort().join("");
+    const v = parseFloat(String(document.getElementById("sh_" + k).value).replace(",", "."));
+    return isNaN(v) ? 0 : v;
+  }
+  const fmt = x => { const r = Math.round(x * 1000) / 1000; return (Math.abs(r - Math.round(r)) < 1e-9 ? String(Math.round(r)) : r.toFixed(3).replace(/0+$/, "")).replace("-", "−"); };
+  function compute() {
+    const perms = [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]];
+    const sum = [0, 0, 0];
+    let html = "<tr><th>Rekkefølge</th><th>bidrag 1</th><th>bidrag 2</th><th>bidrag 3</th></tr>";
+    perms.forEach(p => {
+      const contrib = [0, 0, 0], before = [];
+      p.forEach(i => { const m = val([...before, i]) - val(before); contrib[i - 1] = { m, txt: "v(" + ([...before, i].sort().join("") ) + ") − v(" + (before.length ? before.slice().sort().join("") : "∅") + ")" }; before.push(i); });
+      contrib.forEach((c, i) => sum[i] += c.m);
+      html += "<tr><td>" + p.join(", ") + "</td>" + contrib.map(c => `<td title="${c.txt}">${fmt(c.m)}</td>`).join("") + "</tr>";
+    });
+    phi = sum.map(s => s / 6);
+    html += "<tr><td>Sum</td>" + sum.map(s => `<td>${fmt(s)}</td>`).join("") + "</tr>";
+    html += `<tr class="avg"><td>φ = sum/6</td>` + phi.map(x => `<td>${fmt(x)}</td>`).join("") + "</tr>";
+    document.getElementById("shTable").innerHTML = html;
+    const tot = phi[0] + phi[1] + phi[2];
+    document.getElementById("shSum").textContent = "φ₁ + φ₂ + φ₃ = " + fmt(tot) + "  ·  v({1,2,3}) = " + fmt(val([1, 2, 3])) + "  ✓ effektivitet";
+    draw();
+  }
+  function draw() {
+    const lo = Math.min(0, ...phi), hi = Math.max(0, ...phi);
+    const span = (hi - lo) || 1;
+    P.setView({ ymin: lo - 0.15 * span, ymax: hi + 0.2 * span });
+    P.clear().grid({ xticks: [] }).axes({ xticks: false, frame: false });
+    const cols = ["c1", "c2", "c3"];
+    phi.forEach((v, i) => {
+      P.rect(i + 0.65, Math.min(0, v), i + 1.35, Math.max(0, v), { fill: P.col(cols[i]), alpha: 0.85 });
+      P.text("φ" + "₁₂₃"[i] + " = " + fmt(v), i + 1, v >= 0 ? v + 0.08 * span : v - 0.08 * span, { align: "center", bold: true, size: 13 });
+    });
+  }
+  sel.onchange = setPreset;
+  host.addEventListener("input", compute);
+  setPreset();
+  CK.onTheme(draw);
+});
+
+/* ---------- AI Act-sortering ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const CATS = ["velg …", "Uakseptabel (forbudt)", "Høy risiko (regulert)", "Begrenset (åpenhet)", "Minimal"];
+  const items = [
+    ["Et offentlig system som gir innbyggere en «samfunnspoengsum» basert på atferd, og som brukes til å nekte tjenester.", 1, "Sosial poengberegning er uttrykkelig forbudt."],
+    ["Et system som sorterer og rangerer CV-er for en arbeidsgiver.", 2, "Ansettelse er et høyrisikoområde: tillatt, men med krav til data, dokumentasjon og menneskelig tilsyn."],
+    ["En kundeservice-chatbot i en nettbutikk.", 3, "Begrenset risiko: brukeren skal få vite at hen snakker med KI."],
+    ["Et spamfilter i e-posten.", 4, "Minimal risiko: ingen nye krav."],
+    ["Programvare som overvåker ansattes ansiktsuttrykk for å måle følelser og engasjement.", 1, "Følelsesgjenkjenning på arbeidsplass og i utdanning er forbudt (med unntak for medisinske og sikkerhetsmessige formål)."],
+    ["En modell som avgjør om du får boliglån (kredittvurdering).", 2, "Kredittvurdering av personer er høy risiko fordi den avgjør tilgang til viktige tjenester."],
+    ["KI som finner tegn på kreft i røntgenbilder, solgt som medisinsk utstyr.", 2, "KI som er (del av) medisinsk utstyr, er høy risiko via produktregelverket. Det er ingen egen «helsekategori», men risikonivået blir høyt."],
+    ["Et verktøy som lager realistiske deepfake-videoer.", 3, "Begrenset risiko med åpenhetskrav: innholdet skal merkes som KI-generert."],
+    ["KI-styrte motstandere i et dataspill.", 4, "Minimal risiko."],
+    ["Et leketøy med stemmeassistent som oppmuntrer barn til farlig atferd.", 1, "Manipulasjon som utnytter sårbare grupper (som barn) og kan gi skade, er forbudt."],
+    ["Et system som setter karakter på eksamensbesvarelser eller avgjør opptak til studier.", 2, "Utdanning (opptak og vurdering) er et høyrisikoområde."],
+    ["Et anbefalingssystem som foreslår filmer i en strømmetjeneste.", 4, "Normalt minimal risiko. (Svært store plattformer reguleres i tillegg av andre EU-regler, som DSA.)"]
+  ];
+  const host = document.getElementById("sortList");
+  host.innerHTML = items.map((it, i) => `<div class="sort-item" id="si${i}"><span>${it[0]}</span><select id="ss${i}">${CATS.map((c, k) => `<option value="${k}">${c}</option>`).join("")}</select><div class="fb" id="sf${i}"></div></div>`).join("");
+  document.getElementById("sortCheck").onclick = () => {
+    let ok = 0;
+    items.forEach((it, i) => {
+      const v = +document.getElementById("ss" + i).value, row = document.getElementById("si" + i);
+      const right = v === it[1]; if (right) ok++;
+      row.classList.add("checked"); row.classList.toggle("ok", right); row.classList.toggle("bad", !right);
+      document.getElementById("sf" + i).textContent = (right ? "✓ " : "✕ Riktig: " + CATS[it[1]] + ". ") + it[2];
+    });
+    document.getElementById("sortScore").textContent = ok + " / " + items.length + " riktige";
+  };
+  document.getElementById("sortReset").onclick = () => {
+    items.forEach((it, i) => { document.getElementById("ss" + i).value = 0; document.getElementById("si" + i).classList.remove("checked", "ok", "bad"); });
+    document.getElementById("sortScore").textContent = "";
+  };
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 · Generalisering: validering og bias–varians – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .fig-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: end; }
+  .fig-row3 img { width: 100%; height: auto; }
+  .fig-row3 .sub { text-align: center; font-size: 13px; color: var(--muted); }
+  @media (max-width: 600px) { .fig-row3 { grid-template-columns: 1fr; } }
+  .w-note { font-size: 14.5px; color: var(--text-soft); margin: 10px 0 0; }
+  .controls select { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .lc-verdict { margin-top: 10px; padding: 10px 14px; border-radius: 9px; background: var(--surface-2); font-size: 15px; }
+</style>
+</head>
+<body data-chapter="07">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 07 · Veiledet læring</div>
+  <h1>Generalisering: validering og bias–varians</h1>
+  <p class="lead">Lav treningsfeil er lett å få. Det vanskelige er en modell som fungerer på data den aldri har sett. Dette kapittelet handler om hvordan vi <em>måler</em> generalisering (validering, læringskurver, kryssvalidering), hvorfor feilen oppstår (bias–varians) og en modell som er fleksibel på en annen måte (regresjonstrær).</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare over- og undertilpasning og rollen til trenings-, validerings- og testdata</li>
+    <li>lese læringskurver og bruke early stopping med toleranse og patience</li>
+    <li>forklare kryssvalidering (LOOCV og k-fold) med fordeler og ulemper</li>
+    <li>skrive opp og tolke $\mathbb E[(y-f(x;D))^2]=\text{Bias}^2+\text{Var}+\sigma^2$, og regne bias og varians med tall</li>
+    <li>skille bias i bias–varians fra biasleddet $b$ eller $\beta_0$</li>
+    <li>forklare hvordan regresjonstrær deler datarommet, splittregelen (minst varians etter splitt) og forskjellene mellom trær og regresjon</li>
+  </ul>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="tilpasning"><span class="sec">7.1</span>Over- og undertilpasning</h2>
+
+<p>I <a href="06-regresjon.html#grad">kapittel 6</a> så vi at polynomer av grad 1, 3 og 15 ga svært ulike modeller for de samme dataene. Det er to måter å bomme på:</p>
+
+<div class="two-col">
+<div class="callout def"><span class="label">Undertilpasning (underfitting)</span>
+<p>Modellen er for enkel til å fange sammenhengen i dataene. Feilen er høy <strong>allerede på treningsdataene</strong>. Eksempel: en rett linje til en parabel.</p></div>
+<div class="callout def"><span class="label">Overtilpasning (overfitting)</span>
+<p>Modellen har kapasitet til å tilpasse seg treningsdataene så godt, støyen inkludert, at det går utover generaliseringsevnen. Treningsfeilen er lav, men feilen på <strong>nye data</strong> er høy. Eksempel: grad 15.</p></div>
+</div>
+
+<figure class="card">
+  <div class="fig-row3">
+    <div><img src="../assets/fig/notater/s26_2.png" alt="Grad 1"><div class="sub">grad 1: undertilpasser</div></div>
+    <div><img src="../assets/fig/notater/s26_3.png" alt="Grad 3"><div class="sub">grad 3: passe</div></div>
+    <div><img src="../assets/fig/notater/s26_4.png" alt="Grad 15"><div class="sub">grad 15: overtilpasser</div></div>
+  </div>
+  <figcaption><b>Figur 7.1</b> (Figur 13 i notatene.) Samme data, tre kompleksiteter. Det er bare ved å se på <em>testpunktene</em> (grønn og rød) at vi oppdager at grad 15 er dårlig. Treningspunktene alene ville sagt at den er best.</figcaption>
+</figure>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Eksamenspugging.</strong> En student som pugger fasiten til gamle eksamener ordrett, får full skår på dem (lav treningsfeil), men står fast på nye oppgaver (høy testfeil). Det er overtilpasning. En student som bare har lest overskriftene, gjør det dårlig på begge. Det er undertilpasning. Målet er å forstå mønsteret.</p></div>
+
+<div class="quiz" data-id="07-overfit-def">
+  <p class="q">Hvilken beskrivelse passer best på overtilpasning?</p>
+  <ul>
+    <li>Modellen har høy feil både på trenings- og testdata</li>
+    <li>Modellen trenes for kort tid til at tapet rekker å synke</li>
+    <li>Modellen har høyere feil på treningsdata enn på testdata</li>
+    <li data-correct>Modellen har lav feil på treningsdata, men mye høyere feil på nye data, fordi den har lært støy og tilfeldigheter i treningssettet</li>
+  </ul>
+  <div class="explain">Overtilpasning er gapet mellom trenings- og testytelse som skyldes at modellen har tilpasset seg det spesifikke utvalget. Høy feil på begge er undertilpasning, og for kort trening gir typisk også det. Høyere treningsfeil enn testfeil kan skje tilfeldig (for eksempel med en lett valideringsdel), men det er ikke overtilpasning.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="tre-sett"><span class="sec">7.2</span>Trening, validering og test</h2>
+
+<p>Vi må kunne <strong>oppdage</strong> overtilpasning mens vi jobber, slik at vi kan justere hyperparametre (polynomgrad, tredybde, læringsrate, antall epoker). Hvilke data kan vi bruke til det?</p>
+<ul>
+  <li><strong>Ikke treningsdataene.</strong> Treningen har som mål å tilpasse modellen best mulig til nettopp dem, så treningsfeilen blir alltid kunstig lav. En modell som har pugget alt, ser perfekt ut.</li>
+  <li><strong>Ikke testdataene.</strong> Testdataene skal ikke brukes til noen som helst justering. De skal kun brukes til én endelig test når modellen er ferdig. Bruker vi dem til å velge hyperparametre, har vi ikke lenger usette data å teste den endelige modellen på.</li>
+</ul>
+<p>Løsningen er å dele datasettet i <strong>tre</strong> deler i stedet for to:</p>
+
+<figure class="card">
+<svg viewBox="0 0 600 190" role="img" aria-label="Datasettet delt i trening 60 prosent, validering 20 prosent og test 20 prosent">
+  <g font-size="14">
+    <rect x="20" y="30" width="336" height="44" rx="6" style="fill:var(--accent-soft);stroke:var(--c1)"/>
+    <rect x="356" y="30" width="112" height="44" style="fill:var(--hook-bg);stroke:var(--c3)"/>
+    <rect x="468" y="30" width="112" height="44" rx="6" style="fill:var(--cons-bg);stroke:var(--c2)"/>
+    <text x="188" y="57" text-anchor="middle" font-weight="600">Trening (≈60 %)</text>
+    <text x="412" y="57" text-anchor="middle" font-weight="600">Validering</text>
+    <text x="524" y="57" text-anchor="middle" font-weight="600">Test</text>
+    <text x="188" y="100" text-anchor="middle" font-size="13" style="fill:var(--c1)">tilpasser modellparametrene</text>
+    <text x="188" y="117" text-anchor="middle" font-size="13" style="fill:var(--muted)">(w, b, β via gradient descent)</text>
+    <text x="412" y="100" text-anchor="middle" font-size="13" style="fill:var(--c3)">monitorerer under trening</text>
+    <text x="412" y="117" text-anchor="middle" font-size="13" style="fill:var(--muted)">velger hyperparametre,</text>
+    <text x="412" y="133" text-anchor="middle" font-size="13" style="fill:var(--muted)">early stopping</text>
+    <text x="524" y="100" text-anchor="middle" font-size="13" style="fill:var(--c2)">rapporterer ytelsen</text>
+    <text x="524" y="117" text-anchor="middle" font-size="13" style="fill:var(--muted)">én gang, helt til slutt.</text>
+    <text x="524" y="133" text-anchor="middle" font-size="13" style="fill:var(--muted)">Ingen justering!</text>
+    <text x="20" y="170" font-size="13" style="fill:var(--muted)">De fleste datapunktene settes av til trening. Splittene gjøres tilfeldig.</text>
+  </g>
+</svg>
+<figcaption><b>Figur 7.2</b> De tre datasettene og bruksområdene deres.</figcaption>
+</figure>
+
+<div class="callout why"><span class="label">Hvorfor må testsettet være urørt?</span>
+<p>Hver gang vi tar en avgjørelse basert på et datasett, lekker litt informasjon om det datasettet inn i modellen. Prøver vi 50 hyperparameterkombinasjoner og velger den med best testskår, har vi i praksis «trent» på testsettet. Den skåren er da optimistisk, fordi vi har valgt modellen som tilfeldigvis passet best til akkurat disse punktene. Testsettet er bare et ærlig estimat på fremtidig ytelse hvis det ikke har påvirket noen avgjørelser.</p></div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Trening = lærebok, validering = prøveeksamen, test = den ekte eksamenen.</strong> Du kan ta så mange prøveeksamener du vil og justere lesingen etter dem. Men den ekte eksamenen tar du én gang, og hvis du har sett oppgavene på forhånd, sier karakteren ingenting om hva du kan.</p></div>
+
+<h3>To splitter med train_test_split</h3>
+<p><code>train_test_split</code> fra <code>sklearn.model_selection</code> deler i to. Vi kaller den to ganger og får tre uavhengige sett:</p>
+<pre><code><span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+
+<span class="c"># 1) skill ut testsettet (20 %) og legg det bort</span>
+X_rest, X_test, y_rest, y_test = train_test_split(X, y, test_size=0.2)
+<span class="c"># 2) del resten i trening og validering (25 % av 80 % = 20 % av alt)</span>
+X_train, X_val, y_train, y_val = train_test_split(X_rest, y_rest, test_size=0.25)</code></pre>
+
+<div class="calc" data-id="07-split-count" data-answer="600" data-tol="0">
+  <p class="q">Datasettet har 1000 punkter. Du kjører koden over (først <code>test_size=0.2</code>, så <code>test_size=0.25</code> på resten). Hvor mange punkter havner i treningssettet?</p>
+  <div class="solution">Første split: 200 til test, 800 igjen. Andre split: $0{,}25\cdot800=200$ til validering, $800-200=600$ til trening. Fordelingen blir 60/20/20. En vanlig feil er å tro at <code>test_size=0.25</code> i andre runde betyr 25 % av hele datasettet.</div>
+</div>
+
+<h3>Treningsløkke med validering</h3>
+<p>Treningsløkka fra før må endres slik at den regner ut metrikker på valideringsdataene underveis, for eksempel etter hver epoke eller hver tiende (avhengig av hvor dyrt det er). Notatenes eksempel bruker <code>SGDRegressor</code> (lineær regresjon med stochastic gradient descent):</p>
+<pre><code>model = sklearn.linear_model.SGDRegressor(learning_rate=<span class="s">'constant'</span>, eta0=0.01)
+train_losses, val_losses = [], []
+n_epochs = 100
+<span class="k">for</span> epoch <span class="k">in</span> range(n_epochs):
+    model.partial_fit(X_train, y_train)          <span class="c"># én epoke med SGD på treningsdata</span>
+
+    <span class="c"># Monitor training loss</span>
+    y_train_pred = model.predict(X_train)
+    train_losses.append(sklearn.metrics.mean_squared_error(y_train, y_train_pred))
+
+    <span class="c"># Monitor validation loss (ingen trening her, bare måling)</span>
+    y_val_pred = model.predict(X_val)
+    val_losses.append(sklearn.metrics.mean_squared_error(y_val, y_val_pred))</code></pre>
+<p><code>partial_fit</code> gjør én runde med oppdateringer uten å nullstille modellen, så vi kan måle mellom hver epoke. Resultatet er to arrays som vi plotter mot epoke. Det er <strong>læringskurvene</strong>.</p>
+
+<div class="quiz" data-multi data-id="07-val-role">
+  <p class="q">Hva kan valideringsdataene brukes til?</p>
+  <ul>
+    <li data-correct>Velge hyperparametre, for eksempel polynomgrad eller tredybde</li>
+    <li>Oppdatere vektene med gradient descent</li>
+    <li data-correct>Bestemme når treningen skal stoppe (early stopping)</li>
+    <li data-correct>Oppdage overtilpasning underveis i treningen</li>
+    <li>Rapportere den endelige ytelsen til modellen i en artikkel</li>
+  </ul>
+  <div class="explain">Valideringsdata brukes til å <em>monitorere og justere</em>: hyperparametre, stoppkriterium og diagnose av over- og undertilpasning. Vektene oppdateres bare med treningsdata. Hvis valideringsdata brukes i gradientsteget, er de treningsdata. Den endelige ytelsen rapporteres på testdata. Valideringsskåren er litt optimistisk, nettopp fordi vi har tatt valg basert på den.</div>
+</div>
+
+<div class="quiz" data-id="07-train-detect">
+  <p class="q">Hvorfor kan vi ikke bruke treningsfeilen til å oppdage overtilpasning?</p>
+  <ul>
+    <li data-correct>Fordi treningen nettopp minimerer feilen på treningsdataene, så den fortsetter å synke selv når modellen begynner å lære støy</li>
+    <li>Fordi treningsfeilen alltid er høyere enn testfeilen</li>
+    <li>Fordi treningsfeil bare kan måles for klassifisering, ikke regresjon</li>
+    <li>Fordi treningsfeilen er uavhengig av modellkompleksiteten</li>
+  </ul>
+  <div class="explain">Overtilpasning er ikke synlig fra innsiden: Når modellen pugger støy, blir treningsfeilen enda lavere. Vi trenger data modellen ikke har trent på. Treningsfeilen er normalt <em>lavere</em> enn testfeilen, ikke høyere. Den kan måles for alle oppgaver, og den avhenger sterkt av kompleksiteten (den synker når kompleksiteten øker).</div>
+</div>
+
+<div class="reflect" data-id="07-why-not-test">
+  <p class="q">En medstudent sier: «Jeg prøvde 30 tredybder og valgte den som ga best accuracy på testsettet: 94 %. Da er 94 % et godt estimat på hvordan modellen gjør det i praksis.» Hva er galt?</p>
+  <div class="answer">Testsettet er brukt til å velge en hyperparameter, så det er ikke lenger usett. Blant 30 modeller vil noen gjøre det litt bedre på akkurat disse testpunktene ved en tilfeldighet, og vi plukket den som var heldigst. 94 % er derfor et <strong>optimistisk</strong> anslag. Riktig fremgangsmåte er å velge dybde på et valideringssett (eller med kryssvalidering på treningsdataene), og deretter evaluere den valgte modellen <em>én gang</em> på testsettet.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="laeringskurver"><span class="sec">7.3</span>Læringskurver og early stopping</h2>
+
+<p>Plotter vi trenings- og valideringstap mot epoke, kan vi lese av hvordan treningen går. Figur 7.3 viser tre typiske mønstre fra notatene.</p>
+
+<figure class="card">
+  <div class="fig-row3">
+    <div><img src="../assets/fig/notater/s28_1.png" alt="Treningstap synker, valideringstap flater ut og stiger"><div class="sub">(a) overtilpasser</div></div>
+    <div><img src="../assets/fig/notater/s28_2.png" alt="Begge kurver flate og høye"><div class="sub">(b) undertilpasser</div></div>
+    <div><img src="../assets/fig/notater/s28_3.png" alt="Begge kurver synker og flater ut sammen"><div class="sub">(c) god tilpasning</div></div>
+  </div>
+  <figcaption><b>Figur 7.3</b> (Figur 14 i notatene.) Blå = treningstap, oransje = valideringstap. Legg merke til at $y$-aksene er ulike.</figcaption>
+</figure>
+
+<table>
+  <tr><th>Mønster</th><th>Diagnose</th><th>Typisk tiltak</th></tr>
+  <tr><td>(a) Treningstapet synker jevnt, mens valideringstapet er høyere og flater ut eller stiger</td><td><strong>Overtilpasning</strong>. Modellen er trolig for kompleks.</td><td>Enklere modell, mer data, regularisering, early stopping</td></tr>
+  <tr><td>(b) Begge kurvene flater ut med <em>høyt</em> tap og ligger nær hverandre</td><td><strong>Undertilpasning</strong>. Modellen mangler kapasitet eller riktig form. Det tydeligste tegnet er høyt treningstap.</td><td>Mer kompleks modell, flere eller bedre features</td></tr>
+  <tr><td>(c) Begge synker jevnt og flater ut på omtrent samme nivå</td><td><strong>God tilpasning</strong>. Modellen fanger mønsteret og generaliserer.</td><td>Ferdig. Evaluer på test.</td></tr>
+</table>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Se på gapet og på høyden.</strong> Stort gap (validering ≫ trening) betyr overtilpasning eller høy varians. Begge høye og uten gap betyr undertilpasning eller høy bias. Begge lave og uten gap er målet.</p></div>
+
+<h3>Early stopping</h3>
+<p>Vi trenger ikke bestemme antall epoker på forhånd. Vi kan heller lage et <strong>stoppkriterium</strong> (early stopping criterion): Stopp når valideringstapet ikke har blitt bedre med mer enn en <strong>toleranse</strong> i løpet av de siste $n$ epokene. Antallet $n$ kalles ofte <strong>patience</strong>.</p>
+<ul>
+  <li><strong>Toleranse</strong> (tol): Hvor stor forbedring som teller. Uten toleranse kan støy på 0,0001 holde treningen i gang i det uendelige.</li>
+  <li><strong>Patience</strong>: Hvor mange epoker vi venter uten forbedring før vi gir opp. Valideringstapet er støyete, så én dårlig epoke betyr ikke at det er over.</li>
+  <li>Vanligvis tar vi vare på (eller går tilbake til) parametrene fra epoken med <em>best</em> valideringstap.</li>
+</ul>
+
+<div class="chain">
+  <div><b>Problem</b>Etter hvert begynner modellen å lære støy, og valideringstapet stiger</div><div class="arrow">→</div>
+  <div><b>Løsning</b>Overvåk valideringstapet og stopp når det slutter å bli bedre</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>Mindre overtilpasning, spart regnetid, og antall epoker blir valgt av dataene</div>
+</div>
+
+<p>Læringskurvene kan også brukes til å justere andre hyperparametre underveis. Det er for eksempel vanlig å <strong>senke læringsraten</strong> i løpet av treningen. Store steg i starten kommer raskt ned i dalen, og små steg mot slutten lar oss finjustere i stedet for å hoppe fram og tilbake rundt minimum. Det er særlig viktig for SGD, der gradienten er støyete.</p>
+
+<div class="widget">
+  <h4>Utforsk: læringskurve-tolker med early stopping</h4>
+  <canvas id="lcCanvas" width="680" height="320"></canvas>
+  <div class="controls">
+    <label>modell <select id="lcModel">
+      <option value="A">A: høy kompleksitet (som fig. 14a)</option>
+      <option value="B">B: lav kompleksitet (som fig. 14b)</option>
+      <option value="C">C: passe kompleksitet (som fig. 14c)</option>
+      <option value="D">D: for høy læringsrate</option>
+    </select></label>
+    <label>patience <input type="range" id="lcPat" min="5" max="200" step="5" value="50"><output id="lcPatO">50</output></label>
+    <label>toleranse <input type="range" id="lcTol" min="0" max="1" step="0.05" value="0.1"><output id="lcTolO">0.1</output></label>
+  </div>
+  <div class="readouts" id="lcRead"></div>
+  <div class="lc-verdict" id="lcVerdict"></div>
+  <p class="w-note">Velg en modell og les kurvene før du leser tolkningen under plottet. Den grønne stiplede linjen er der early stopping stopper, og prikken er epoken med lavest valideringstap. <strong>Prøv:</strong> Hva skjer med stoppunktet for modell A når patience er 10 og når den er 200? Med liten patience og toleranse 0 kan støy få treningen til å stoppe for tidlig, mens stor patience kaster bort epoker.</p>
+</div>
+
+<div class="calc" data-id="07-early-epoch" data-answer="7" data-tol="0">
+  <p class="q">Early stopping med patience = 3 og toleranse = 0,05: Treningen stopper når valideringstapet ikke har gått ned med mer enn 0,05 under beste verdi så langt, tre epoker på rad. Valideringstapet etter epoke 1, 2, 3, … er
+  $10{,}0;\ 8{,}0;\ 7{,}0;\ 6{,}50;\ 6{,}48;\ 6{,}52;\ 6{,}55;\ 6{,}60$. Etter hvilken epoke stopper treningen?</p>
+  <div class="solution">Beste verdi oppdateres i epoke 1–4 (hver forbedring er større enn 0,05), og den er 6,50 etter epoke 4.<br>Epoke 5: 6,48 er bare 0,02 bedre, mindre enn toleransen, så teller = 1.<br>Epoke 6: 6,52, teller = 2. Epoke 7: 6,55, teller = 3 = patience, så <strong>stopp etter epoke 7</strong>.<br>Vi går tilbake til parametrene fra epoke 4 (eller 5, avhengig av implementasjon, siden 6,48 er litt lavere selv om forbedringen var under toleransen).</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 4.2 og 4.3</span>
+<p><strong>4.2:</strong> Treningsfeilen blir svært liten, valideringsfeilen slutter å forbedre seg og øker deretter, og prediksjonene endrer seg merkbart med en annen tilfeldig datasplitt. Riktig: <strong>høy varians</strong>, fordi modellen overtilpasser og generaliserer dårlig.<br>
+<strong>4.3:</strong> Polynommodeller A (grad 1: trening 34, validering 34), B (grad 3: 12 / 14) og C (grad 12: 0,02 / 110). Hvilken overtilpasser? Riktig: <strong>modell C</strong>, med nesten null treningsfeil og enorm valideringsfeil. A undertilpasser, og B er den du bør velge.</p></div>
+
+<div class="quiz" data-id="07-lc-pattern">
+  <p class="q">En modell har treningstap 52 og valideringstap 53 etter 500 epoker. Begge har vært flate siden epoke 30. En enkel referansemodell som alltid predikerer gjennomsnittet, har tap 60. Hva er mest sannsynlig?</p>
+  <ul>
+    <li>Overtilpasning. Modellen bør forenkles</li>
+    <li data-correct>Undertilpasning. Modellen mangler kapasitet eller gode features</li>
+    <li>God tilpasning. Kurvene ligger jo nær hverandre</li>
+    <li>For høy læringsrate. Tapet har sluttet å synke</li>
+  </ul>
+  <div class="explain">Lite gap betyr ingen overtilpasning, men tapet er høyt: bare litt bedre enn å gjette gjennomsnittet. Det er mønster (b), undertilpasning eller høy bias. «Kurvene ligger nær hverandre» er bare halve kriteriet for god tilpasning, for nivået må også være lavt. For høy læringsrate gir typisk hopping eller divergens, ikke en jevn, flat kurve.</div>
+</div>
+
+<div class="quiz" data-id="07-high-var-sign">
+  <p class="q">Du trener samme type modell på fem ulike tilfeldige splitter av dataene. Treningsfeilen er nær null hver gang, men valideringsfeilen varierer mellom 15 og 80, og de lærte kurvene ser helt forskjellige ut. Hva indikerer dette?</p>
+  <ul>
+    <li>Høy bias, fordi modellen bommer systematisk</li>
+    <li>Lav varians, fordi treningsfeilen er stabil på tvers av splittene</li>
+    <li>Irredusibel støy, fordi ingen modell kan gjøre det bedre</li>
+    <li data-correct>Høy varians, fordi modellen er svært følsom for hvilke data den ble trent på, og overtilpasser</li>
+  </ul>
+  <div class="explain">Varians handler nettopp om hvor mye $f(x;D)$ endrer seg med datasettet $D$. Helt ulike kurver for ulike splitter, nesten null treningsfeil og høy, ustabil valideringsfeil er klassisk høy varians eller overtilpasning (som eksamen 2025 del 4.2). Stabil treningsfeil (null overalt) sier ingenting om varians i prediksjonene. Høy bias ville gitt høy treningsfeil. Irredusibel støy forklarer ikke at modellen endrer seg så mye.</div>
+</div>
+
+<div class="quiz" data-id="07-table-pick">
+  <p class="q">Du sammenligner polynomgrader. Hvilken modell bør du velge før du evaluerer på testsettet?<br>
+  D: grad 2, trenings-MSE 40, validerings-MSE 41 · E: grad 5, trenings-MSE 15, validerings-MSE 16 · F: grad 9, trenings-MSE 9, validerings-MSE 25</p>
+  <ul>
+    <li>D, fordi gapet mellom trening og validering er minst</li>
+    <li data-correct>E, fordi den har lavest valideringsfeil</li>
+    <li>F, fordi den har lavest treningsfeil</li>
+    <li>Den som gir lavest feil på testsettet</li>
+  </ul>
+  <div class="explain">Vi velger på valideringsfeil, og E er best der (16). D har lite gap, men høyt nivå, så den undertilpasser. F har lavest treningsfeil, men gapet (9 mot 25) viser overtilpasning. Å velge ut fra testsettet er nettopp det vi ikke skal gjøre. Da blir testskåren optimistisk.</div>
+</div>
+
+<div class="quiz" data-id="07-patience">
+  <p class="q">Hvorfor bruker early stopping en patience (vente $n$ epoker) i stedet for å stoppe første gang valideringstapet øker?</p>
+  <ul>
+    <li>Fordi valideringstapet alltid øker de første epokene</li>
+    <li data-correct>Fordi valideringstapet er støyete, så én dårligere epoke kan være tilfeldig og forbedringen kan fortsette etterpå</li>
+    <li>Fordi patience gjør at modellen trener lenger og derfor alltid blir bedre</li>
+    <li>Fordi treningstapet må nå null før vi kan stoppe</li>
+  </ul>
+  <div class="explain">Med SGD og et endelig valideringssett hopper kurven litt opp og ned. Patience hindrer at vi stopper på en tilfeldig topp. Valideringstapet synker vanligvis i starten, ikke omvendt. Lengre trening er ikke alltid bedre, for det er jo derfor vi stopper. Treningstapet trenger ikke nå null, og gjør det sjelden.</div>
+</div>
+
+<div class="quiz" data-id="07-lr-decay">
+  <p class="q">Hva er hensikten med å senke læringsraten i løpet av treningen?</p>
+  <ul>
+    <li>Å unngå at modellen undertilpasser</li>
+    <li>Å gjøre hver epoke raskere å regne ut</li>
+    <li data-correct>Å ta store steg tidlig for rask framgang, og små steg sent så parametrene kan finjusteres i stedet for å hoppe rundt minimum</li>
+    <li>Å øke modellkompleksiteten gradvis</li>
+  </ul>
+  <div class="explain">Læringsraten bestemmer steglengden. Nær minimum gjør en stor steglengde (særlig med støyete SGD-gradienter) at vi hopper fram og tilbake over bunnen. En mindre $\eta$ lar oss lande. Regnetiden per epoke er den samme. Læringsraten endrer ikke modellens kapasitet, og den løser derfor ikke undertilpasning.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="kryssvalidering"><span class="sec">7.4</span>Kryssvalidering</h2>
+
+<p>Notatene spør: Hvordan velger vi hvilke punkter som havner i trenings-, validerings- og testsettet, og påvirker det resultatet? Splitten skal gjøres <strong>tilfeldig</strong>, men den påvirker resultatet. Med en annen tilfeldig splitt får vi et litt annet tall. Vi må altså forvente <strong>varians i testresultatet avhengig av splitten</strong>. I tillegg har vi et annet problem: Hvert punkt vi setter av til validering og test, er et punkt vi ikke kan trene på. Vi vil ha så mye treningsdata som mulig.</p>
+
+<p>Løsningen er <strong>kryssvalidering</strong> (cross-validation): Gjenta splitten flere ganger slik at hvert punkt får være «usett» én gang, og ta gjennomsnittet.</p>
+
+<h3>Leave-one-out (LOOCV)</h3>
+<p>Med $n$ datapunkter: Ta ut ett punkt, tren på de andre $n-1$, og test på det ene. Gjenta for alle $n$ punktene. Vi får $n$ testresultater, hvert basert på ett punkt, og gjennomsnittet er LOOCV-estimatet. Siden samtlige punkter har vært brukt både til trening og testing, er dette det beste estimatet vi kan lage fra dataene. Prisen er at modellen må trenes $n$ ganger.</p>
+
+<h3>k-fold</h3>
+<p>Del dataene i $k$ like store deler (folds). I hver av de $k$ rundene er én fold testdata og resten treningsdata. Modellen tilpasses $k$ ganger, og vi får $k$ resultater som vi tar gjennomsnittet (og gjerne standardavviket) av. LOOCV er spesialtilfellet $k=n$. Typiske valg er $k=5$ eller $k=10$.</p>
+
+<div class="widget">
+  <h4>Utforsk: k-fold og LOOCV</h4>
+  <canvas id="kfCanvas" width="680" height="420"></canvas>
+  <div class="controls">
+    <label>k <input type="range" id="kfK" min="2" max="20" step="1" value="5"><output id="kfKO">5</output></label>
+    <label><input type="checkbox" id="kfShuffle" checked> stokk før oppdeling</label>
+  </div>
+  <div class="readouts" id="kfRead"></div>
+  <p class="w-note">20 datapunkter (sortert etter $x$ fra venstre mot høyre). Hver rad er én runde: oransje = testfold, blå = trening. Til høyre står test-MSE for en lineær regresjon som er trent på de blå punktene i den runden. $k=20$ er LOOCV. <strong>Legg merke til:</strong> (1) Antall modeller som trenes, er lik $k$. (2) Resultatene varierer mye fra fold til fold, og det er nettopp variansen fra splitten. (3) Skru av «stokk». Da blir hver testfold en sammenhengende bit av $x$-aksen, modellen må ekstrapolere, og feilen øker. Derfor stokker vi.</p>
+</div>
+
+<table>
+  <tr><th></th><th>LOOCV ($k=n$)</th><th>k-fold ($k$ = 5–10)</th></tr>
+  <tr><td>Antall treninger</td><td>$n$ (dyrt for store data eller tunge modeller)</td><td>$k$ (billig)</td></tr>
+  <tr><td>Treningsdata per runde</td><td>$n-1$, nesten alt</td><td>$\frac{k-1}{k}n$, litt mindre</td></tr>
+  <tr><td>Estimatet</td><td>Bruker alle data maksimalt og er deterministisk (ingen tilfeldig foldinndeling)</td><td>Avhenger litt av den tilfeldige inndelingen. Hver test bruker mange punkter</td></tr>
+  <tr><td>Når</td><td>Små datasett, raske modeller</td><td>Standardvalget i praksis</td></tr>
+</table>
+
+<div class="reflect" data-id="07-loocv-kfold">
+  <p class="q">Notatenes oppgave: Hva er fordeler og ulemper ved k-fold kryssvalidering sammenlignet med LOOCV?</p>
+  <div class="answer"><strong>Fordeler med k-fold:</strong> Mye billigere, med $k$ treninger i stedet for $n$. Det betyr mye når $n$ er stort eller modellen er tung (et nevralt nett trent 100 000 ganger er uaktuelt). Hvert testresultat er basert på mange punkter i stedet for ett, så hvert enkelt tall er mer meningsfylt.<br><strong>Ulemper med k-fold:</strong> Hver modell trenes på færre punkter ($\frac{k-1}{k}n$ i stedet for $n-1$), så estimatet blir litt pessimistisk (modellen trent på alle data vil være litt bedre). Resultatet avhenger også av den tilfeldige inndelingen i folds, mens LOOCV er entydig.<br>(Fordypning: LOOCV-estimatet kan ha høy varians fordi de $n$ modellene er nesten identiske og dermed sterkt korrelerte. Derfor er $k=5$ eller $10$ ofte et godt kompromiss.)</div>
+</div>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 2</span>
+<p>❓ «What is the purpose of cross-validation?» Et godt svar: Kryssvalidering gir et mer pålitelig estimat av hvordan modellen generaliserer. Den gjentar trening og evaluering på flere splitter av treningsdataene og tar gjennomsnittet, slik at resultatet ikke avhenger av én heldig eller uheldig splitt. Standardavviket viser hvor usikkert estimatet er. Alle punktene blir brukt både til trening og validering, og testsettet holdes urørt. Den brukes typisk til å velge hyperparametre (for eksempel <code>max_depth</code>) eller sammenligne modeller. I prosjektet rapporterte du <code>cv_scores.mean() ± cv_scores.std()</code> fra <code>cross_val_score</code>.</p></div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 18</span>
+<p>«Hva er hovedforskjellen på hvordan data deles opp i kryssvalidering og bootstrapping?» Riktig: Kryssvalidering deler datasettet i <strong>ikke-overlappende</strong> delsett, mens bootstrapping trekker tilfeldig <strong>med tilbakelegging</strong>, slik at samme punkt kan forekomme flere ganger. (Bootstrapping kommer i <a href="08-ensemble.html">kapittel 8</a>.)</p></div>
+
+<div class="quiz" data-id="07-cv-purpose">
+  <p class="q">Hva er hovedhensikten med kryssvalidering?</p>
+  <ul>
+    <li>Å øke nøyaktigheten til den endelige modellen ved å trene den flere ganger</li>
+    <li data-correct>Å få et mer pålitelig estimat av generaliseringsevnen, som ikke avhenger av én tilfeldig splitt, og samtidig utnytte dataene bedre</li>
+    <li>Å erstatte testsettet, slik at vi aldri trenger et testsett</li>
+    <li>Å finne de beste vektene ved å ta gjennomsnittet av vektene fra hver fold</li>
+  </ul>
+  <div class="explain">Kryssvalidering er en <em>evalueringsmetode</em>. Den gjør modellen ikke bedre i seg selv, men gir oss et bedre tall å ta beslutninger på (for eksempel valg av hyperparametre). Vi bør fortsatt ha et urørt testsett for den endelige rapporten, spesielt hvis CV-skåren er brukt til å velge modell. De $k$ modellene kastes etterpå. Vi midler ikke vektene, men trener vanligvis én ny modell på alle treningsdataene med de valgte hyperparametrene.</div>
+</div>
+
+<div class="quiz" data-multi data-id="07-loocv-props">
+  <p class="q">Hvilke utsagn om LOOCV sammenlignet med 5-fold kryssvalidering er riktige?</p>
+  <ul>
+    <li data-correct>LOOCV krever $n$ treninger, mens 5-fold krever 5</li>
+    <li data-correct>I LOOCV trenes hver modell på $n-1$ punkter, altså flere enn i 5-fold</li>
+    <li>LOOCV gir et estimat som avhenger av den tilfeldige inndelingen i folds</li>
+    <li>5-fold bruker hvert datapunkt som testpunkt fem ganger</li>
+  </ul>
+  <div class="explain">LOOCV har nøyaktig én måte å dele opp på (hvert punkt alene), så den er deterministisk. Det er k-fold som avhenger av den tilfeldige inndelingen. I k-fold er hvert punkt testpunkt <em>én</em> gang (i sin egen fold) og treningspunkt $k-1$ ganger.</div>
+</div>
+
+<div class="calc" data-id="07-kfold-size" data-answer="400" data-tol="0">
+  <p class="q">Du har 500 treningspunkter og bruker 5-fold kryssvalidering. Hvor mange punkter trenes hver av de fem modellene på?</p>
+  <div class="solution">Hver fold har $500/5=100$ punkter. I hver runde er én fold validering, så modellen trenes på $500-100=400$ punkter. (Med LOOCV ville det vært 499 punkter, men 500 treninger.)</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="bias-varians"><span class="sec">7.5</span>Bias–varians-avveiningen</h2>
+
+<p>Vi har sett <em>at</em> både for enkle og for komplekse modeller gir høy testfeil. Bias–varians-dekomposisjonen forklarer <em>hvorfor</em>, og deler den forventede feilen i tre deler med hver sin årsak.</p>
+
+<h3>Oppsettet</h3>
+<p>Vi antar at targets følger en ukjent sann funksjon $F$ som «bare universet kjenner», pluss støy vi ikke kontrollerer (måleapparat, eksterne faktorer):</p>
+<div class="eq">
+  <p class="eq-note">Likning 60 i notatene</p>
+  $$y=F(x)+\varepsilon,\qquad \mathbb E[\varepsilon]=0,\quad \text{Var}[\varepsilon]=\sigma^2$$
+</div>
+<p>Dette <strong>irredusible støyet</strong> blir vi ikke kvitt. (Notatene antar normalfordeling med $\sigma=1$, men resultatet gjelder for alle $\sigma$.)</p>
+<p>Når vi samler inn et treningsdatasett, trekker vi tilfeldig $n$ observasjoner fra virkeligheten: $D=\{(x_1,y_1),\dots,(x_n,y_n)\}$. Modellen vi trener, avhenger av akkurat denne trekningen, så vi skriver den som $f(x;D)$. Det har den alltid gjort. Vi har bare ikke skrevet $D$ eksplisitt før, fordi vi har jobbet med gitte data. Nå vil vi se hvordan <em>læringsalgoritmen</em> (estimatoren) oppfører seg over mange tenkte trekninger av $D$.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Tusen parallelle universer.</strong> Tenk deg at tusen forskere i hvert sitt univers samler inn et eget datasett fra samme virkelighet og trener samme type modell. $\mathbb E_D[\cdot]$ betyr gjennomsnittet over alle tusen. <em>Bias</em> er hvor langt gjennomsnittsmodellen deres er fra sannheten. <em>Varians</em> er hvor uenige de er med hverandre.</p></div>
+
+<p>Vi bryr oss om feilen på et <strong>nytt</strong> punkt, i forventning over trekningene av treningsdata. Det viser seg at uansett hvilken modelltype $f$ vi velger, kan den deles opp slik:</p>
+<div class="eq">
+  <p class="eq-note">Bias–varians-dekomposisjonen (likning 63 / 88 i notatene)</p>
+  $$\mathbb E_D\Big[\big(y-f(x;D)\big)^2\Big]=\Big(\text{Bias}_D\big[f(x;D)\big]\Big)^2+\text{Var}_D\big[f(x;D)\big]+\sigma^2$$
+</div>
+
+<h3>Bias</h3>
+<div class="eq">
+  <p class="eq-note">Likning 64–65 i notatene</p>
+  $$\text{Bias}_D\big[f(x;D)\big]=\mathbb E_D\big[f(x;D)-F(x)\big]=\mathbb E_D\big[f(x;D)\big]-F(x)$$
+</div>
+<p>Bias er det <strong>systematiske</strong> avviket: hvor mye gjennomsnittsprediksjonen over mange treningssett bommer på sannheten i punktet $x$. Det er feilen som skyldes de innebygde forenklingene i modellen. En rett linje kan ikke bli en parabel, uansett hvilke data den får. Enkelt sagt: en tendens til alltid å bomme i samme retning.</p>
+
+<div class="callout why"><span class="label">Hvorfor kan $F(x)$ flyttes ut av forventningen?</span>
+<p>Forventningen er tatt over trekninger av datasettet $D$. Den sanne sammenhengen $F$ avhenger ikke av hvilke data vi tilfeldigvis samlet inn. For et gitt $x$ er $F(x)$ bare en <strong>konstant</strong>. Med regnereglene $\mathbb E[X+Y]=\mathbb E[X]+\mathbb E[Y]$ og $\mathbb E[c]=c$ får vi $\mathbb E_D[f-F]=\mathbb E_D[f]-F$.</p></div>
+
+<div class="calc" data-id="07-height-bias" data-answer="-2" data-tol="0.01" data-unit="cm">
+  <p class="q">Notatenes eksempel: Den faktiske gjennomsnittshøyden til norske kvinner er 167 cm. Vi trekker mange tilfeldige utvalg, trener en regresjonsmodell på hvert, og modellene predikerer i gjennomsnitt 165 cm. Hvor stor er biasen til læringsalgoritmen (med fortegn)?</p>
+  <div class="solution">$\text{Bias}=\mathbb E_D[f]-F=165-167=-2$ cm. Algoritmen underestimerer systematisk med 2 cm. Bidraget til den forventede feilen er $\text{Bias}^2=4\ \text{cm}^2$. Fortegnet forsvinner i kvadratet, men det forteller retningen på bommen.</div>
+</div>
+
+<h3>Varians</h3>
+<div class="eq">
+  <p class="eq-note">Likning 66 i notatene</p>
+  $$\text{Var}_D\big[f(x;D)\big]=\mathbb E_D\Big[\big(\mathbb E_D[f(x;D)]-f(x;D)\big)^2\Big]$$
+</div>
+<p>Varians er hvor mye vi kan forvente at modellen varierer rundt sitt eget gjennomsnitt når treningsdataene byttes ut. En læringsalgoritme med høy varians er for følsom for små fluktuasjoner i treningsdataene, og har kanskje modellert tilfeldig støy like mye som faktiske sammenhenger. Komplekse modeller med mange parametre ender opp med ulike parameterverdier for hvert treningssett, og det gir stor varians.</p>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p><strong>Bias i bias–varians har ingenting med biasleddet $b$ eller $\beta_0$ å gjøre.</strong> Notatene skriver at det «heter det samme kun for å forvirre studenter». Biasleddet er en <em>parameter</em> i modellen (skjæringspunktet). Bias i bias–varians er en egenskap ved <em>læringsalgoritmen</em>: det systematiske avviket mellom gjennomsnittsmodellen og sannheten. En modell med stor $\beta_0$ kan ha null bias, og en modell uten $\beta_0$ kan ha stor bias. (Og induktiv bias, fra <a href="01-grunnlag.html">kapittel 1</a>, er en tredje ting: antakelsene modellen gjør for å generalisere.)</p></div>
+
+<figure class="card">
+<svg viewBox="0 0 560 420" role="img" aria-label="Blinkskive-diagram: lav og høy bias mot lav og høy varians">
+  <defs>
+    <g id="bv-target">
+      <circle r="70" style="fill:var(--surface-2);stroke:var(--border)" stroke-width="1.5"/>
+      <circle r="52" style="fill:none;stroke:var(--border)" stroke-width="1.5"/>
+      <circle r="34" style="fill:none;stroke:var(--border)" stroke-width="1.5"/>
+      <circle r="16" style="fill:var(--hook-bg);stroke:var(--c3)" stroke-width="1.5"/>
+    </g>
+  </defs>
+  <g font-size="14" font-weight="600">
+    <text x="215" y="22" text-anchor="middle">Lav varians</text>
+    <text x="425" y="22" text-anchor="middle">Høy varians</text>
+    <text x="40" y="125" text-anchor="middle" transform="rotate(-90 40 125)">Lav bias</text>
+    <text x="40" y="320" text-anchor="middle" transform="rotate(-90 40 320)">Høy bias</text>
+  </g>
+  <!-- lav bias, lav varians -->
+  <g transform="translate(215,125)"><use href="#bv-target"/>
+    <g style="fill:var(--c1)"><circle cx="3" cy="-4" r="4.5"/><circle cx="-5" cy="2" r="4.5"/><circle cx="6" cy="5" r="4.5"/><circle cx="-2" cy="8" r="4.5"/><circle cx="-7" cy="-5" r="4.5"/><circle cx="8" cy="-2" r="4.5"/><circle cx="1" cy="1" r="4.5"/></g></g>
+  <!-- lav bias, høy varians -->
+  <g transform="translate(425,125)"><use href="#bv-target"/>
+    <g style="fill:var(--c1)"><circle cx="30" cy="-25" r="4.5"/><circle cx="-38" cy="10" r="4.5"/><circle cx="12" cy="42" r="4.5"/><circle cx="-20" cy="-40" r="4.5"/><circle cx="45" cy="15" r="4.5"/><circle cx="-30" cy="35" r="4.5"/><circle cx="5" cy="-8" r="4.5"/></g>
+    <circle r="3" style="fill:var(--c2)"/></g>
+  <!-- høy bias, lav varians -->
+  <g transform="translate(215,320)"><use href="#bv-target"/>
+    <g style="fill:var(--c1)"><circle cx="38" cy="-30" r="4.5"/><circle cx="31" cy="-36" r="4.5"/><circle cx="44" cy="-25" r="4.5"/><circle cx="35" cy="-22" r="4.5"/><circle cx="29" cy="-28" r="4.5"/><circle cx="42" cy="-35" r="4.5"/><circle cx="36" cy="-30" r="4.5"/></g></g>
+  <!-- høy bias, høy varians -->
+  <g transform="translate(425,320)"><use href="#bv-target"/>
+    <g style="fill:var(--c1)"><circle cx="20" cy="-50" r="4.5"/><circle cx="55" cy="-10" r="4.5"/><circle cx="35" cy="-35" r="4.5"/><circle cx="62" cy="-42" r="4.5"/><circle cx="10" cy="-20" r="4.5"/><circle cx="48" cy="5" r="4.5"/><circle cx="30" cy="-60" r="4.5"/></g>
+    <circle cx="37" cy="-30" r="3" style="fill:var(--c2)"/></g>
+  <text x="280" y="412" text-anchor="middle" font-size="13" style="fill:var(--muted)">Blinken = sann verdi F(x). Hver prikk = f(x; D) fra ett treningssett. Oransje = gjennomsnittet E[f].</text>
+</svg>
+<figcaption><b>Figur 7.4</b> Blinkskiven. <strong>Bias</strong> er hvor langt midtpunktet av skuddene ligger fra blinken (sikte). <strong>Varians</strong> er hvor spredt skuddene er (skjelving). Øverst til venstre er målet. Nederst til høyre er det verste. Høy bias og lav varians er typisk for for enkle modeller (undertilpasning). Lav bias og høy varians er typisk for for komplekse modeller (overtilpasning).</figcaption>
+</figure>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Bias = skjevt sikte, varians = skjelvende hånd.</strong> Et skjevt sikte gjør at alle skudd havner like langt til siden. Det hjelper ikke å skyte flere ganger (mer data). En skjelvende hånd sprer skuddene, men de sentrerer rundt blinken. Den kan du roe ned med en stødigere hånd (enklere modell, regularisering) eller ved å ta gjennomsnittet av mange skudd (ensembler, <a href="08-ensemble.html">kapittel 8</a>).</p></div>
+
+<h3>Utledningen</h3>
+<p>Vi trenger disse regnereglene for forventning ($X$, $Y$ er tilfeldige variabler og $c$ en konstant):</p>
+<div class="eq">$$\mathbb E[\varepsilon]=0,\qquad \mathbb E[c]=c,\qquad \mathbb E[cX]=c\,\mathbb E[X],\qquad \mathbb E[X+Y]=\mathbb E[X]+\mathbb E[Y],\qquad \mathbb E[XY]=\mathbb E[X]\,\mathbb E[Y]\ \text{(uavhengige)}$$</div>
+
+<details class="steps"><summary>Vis hele utledningen steg for steg</summary><div>
+<p>Vi dropper $\tfrac12$ og indeksen $D$ for enklere notasjon, og skriver $f=f(x;D)$, $F=F(x)$ og $\bar f=\mathbb E[f(x;D)]$ (gjennomsnittsmodellen). $F$ og $\bar f$ er <em>konstanter</em> for gitt $x$: De avhenger ikke av $D$.</p>
+
+<p><strong>Steg 1: Sett inn $y=F+\varepsilon$ og ekspander kvadratet.</strong></p>
+$$\mathbb E\big[(y-f)^2\big]=\mathbb E\big[(F-f+\varepsilon)^2\big]=\mathbb E\big[(F-f)^2\big]+2\,\mathbb E\big[(F-f)\,\varepsilon\big]+\mathbb E\big[\varepsilon^2\big].$$
+
+<p><strong>Steg 2: Kryssleddet med støy er null.</strong> Støyen $\varepsilon$ på det <em>nye</em> testpunktet er uavhengig av treningsdataene, og dermed av $F-f$. Da gir produktregelen for uavhengige variabler $\mathbb E[(F-f)\varepsilon]=\mathbb E[F-f]\cdot\mathbb E[\varepsilon]=\mathbb E[F-f]\cdot 0=0$.</p>
+
+<p><strong>Steg 3: Støyleddet er $\sigma^2$.</strong> Variansen er definert som $\text{Var}[\varepsilon]=\mathbb E[(\varepsilon-\mathbb E[\varepsilon])^2]=\mathbb E[\varepsilon^2]$, siden $\mathbb E[\varepsilon]=0$. Altså er $\mathbb E[\varepsilon^2]=\sigma^2$.</p>
+
+<p><strong>Steg 4: Legg til og trekk fra gjennomsnittsmodellen</strong> i det gjenværende leddet (et standardtriks, vi legger til null):</p>
+$$\mathbb E\big[(F-f)^2\big]=\mathbb E\Big[\big((F-\bar f)+(\bar f-f)\big)^2\Big]=\mathbb E\big[(F-\bar f)^2\big]+\mathbb E\big[(\bar f-f)^2\big]+2\,\mathbb E\big[(F-\bar f)(\bar f-f)\big].$$
+
+<p><strong>Steg 5: Første ledd er Bias².</strong> $F-\bar f$ er en konstant, og $\mathbb E[c]=c$:</p>
+$$\mathbb E\big[(F-\bar f)^2\big]=(F-\bar f)^2=(\bar f-F)^2=\text{Bias}^2 .$$
+
+<p><strong>Steg 6: Andre ledd er variansen,</strong> rett fra definisjonen (likning 66): $\mathbb E\big[(\bar f-f)^2\big]=\text{Var}[f]$.</p>
+
+<p><strong>Steg 7: Tredje ledd er null.</strong> $(F-\bar f)$ er konstant og kan tas ut ($\mathbb E[cX]=c\,\mathbb E[X]$):</p>
+$$2(F-\bar f)\,\mathbb E\big[\bar f-f\big]=2(F-\bar f)\big(\bar f-\mathbb E[f]\big)=2(F-\bar f)(\bar f-\bar f)=0 .$$
+<p>Modellen avviker fra sitt eget gjennomsnitt like mye opp som ned, i forventning.</p>
+
+<p><strong>Steg 8: Sett sammen.</strong></p>
+$$\boxed{\mathbb E\big[(y-f(x;D))^2\big]=\underbrace{\big(\mathbb E[f]-F\big)^2}_{\text{Bias}^2}+\underbrace{\mathbb E\big[(\mathbb E[f]-f)^2\big]}_{\text{Var}}+\underbrace{\sigma^2}_{\text{støy}}}$$
+<p>(Notatene gjør steg 5 og 7 ved å gange ut parentesene helt, likning 78–86. Det blir samme resultat.)</p>
+</div></details>
+
+<p><strong>Tolkning:</strong> Feilen en læringsalgoritme ikke klarer å minimere bort, har tre kilder:</p>
+<ul>
+  <li><strong>Bias²</strong>: feilantakelser modellen gjør generelt (for stiv modellform),</li>
+  <li><strong>Varians</strong>: spesialtilpasning til fluktuasjonene i det konkrete datasettet,</li>
+  <li><strong>$\sigma^2$</strong>: irredusibel støy, utenfor vår kontroll. Ingen modell kan i forventning gjøre det bedre enn $\sigma^2$.</li>
+</ul>
+
+<div class="calc" data-id="07-bv-calc" data-answer="2.5" data-tol="0.01">
+  <p class="q">I et punkt $x_0$ er den sanne verdien $F(x_0)=4$, og støyvariansen er $\sigma^2=1$. Fire modeller trent på fire ulike datasett predikerer $3,\ 5,\ 4,\ 6$ i $x_0$. Bruk disse fire som estimat av fordelingen over $D$. Hva blir den forventede kvadratiske feilen $\text{Bias}^2+\text{Var}+\sigma^2$?</p>
+  <div class="solution">Gjennomsnitt: $\bar f=(3+5+4+6)/4=4{,}5$. Bias $=4{,}5-4=0{,}5$, så Bias² $=0{,}25$.<br>Varians: $\frac14\big((3-4{,}5)^2+(5-4{,}5)^2+(4-4{,}5)^2+(6-4{,}5)^2\big)=\frac14(2{,}25+0{,}25+0{,}25+2{,}25)=1{,}25$.<br>Totalt: $0{,}25+1{,}25+1=2{,}5$.</div>
+</div>
+
+<h3>Avveiningen og kompleksitetskurven</h3>
+<p>Når modellkompleksiteten øker, synker biasen (modellen kan fange mer), mens variansen øker (modellen blir mer følsom for dataene). Summen blir en U-kurve. Å minimere den forventede feilen er derfor en konflikt mellom to feilkilder som trekker i hver sin retning. Det er bias–variance tradeoff: Når den ene minker, øker den andre.</p>
+
+<figure class="card">
+<svg viewBox="0 0 560 290" role="img" aria-label="Kompleksitetskurve: bias i annen synker, varians øker, total feil er U-formet">
+  <rect x="60" y="20" width="150" height="210" style="fill:var(--warn-bg)" opacity="0.7"/>
+  <rect x="340" y="20" width="160" height="210" style="fill:var(--bad-bg)" opacity="0.7"/>
+  <g style="stroke:var(--axis)" stroke-width="1.3"><line x1="60" y1="230" x2="510" y2="230"/><line x1="60" y1="20" x2="60" y2="230"/></g>
+  <line x1="60" y1="207.2" x2="500" y2="207.2" style="stroke:var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <polyline fill="none" style="stroke:var(--c1)" stroke-width="2.5" points="60.0,81.8 71.0,97.0 82.0,110.5 93.0,122.6 104.0,133.4 115.0,143.1 126.0,151.7 137.0,159.5 148.0,166.4 159.0,172.5 170.0,178.0 181.0,183.0 192.0,187.4 203.0,191.3 214.0,194.8 225.0,197.9 236.0,200.7 247.0,203.3 258.0,205.5 269.0,207.5 280.0,209.3 291.0,210.9 302.0,212.3 313.0,213.6 324.0,214.7 335.0,215.7 346.0,216.7 357.0,217.5 368.0,218.2 379.0,218.8 390.0,219.4 401.0,219.9 412.0,220.4 423.0,220.8 434.0,221.2 445.0,221.5 456.0,221.8 467.0,222.1 478.0,222.3 489.0,222.5 500.0,222.7"/>
+  <polyline fill="none" style="stroke:var(--c2)" stroke-width="2.5" points="60.0,228.1 71.0,227.6 82.0,227.0 93.0,226.4 104.0,225.8 115.0,225.1 126.0,224.3 137.0,223.5 148.0,222.5 159.0,221.6 170.0,220.5 181.0,219.3 192.0,218.0 203.0,216.6 214.0,215.1 225.0,213.4 236.0,211.6 247.0,209.6 258.0,207.5 269.0,205.1 280.0,202.6 291.0,199.8 302.0,196.8 313.0,193.5 324.0,190.0 335.0,186.1 346.0,181.8 357.0,177.2 368.0,172.2 379.0,166.7 390.0,160.8 401.0,154.3 412.0,147.3 423.0,139.6 434.0,131.2 445.0,122.1 456.0,112.2 467.0,101.4 478.0,89.7 489.0,76.9 500.0,63.0"/>
+  <polyline fill="none" style="stroke:var(--text)" stroke-width="3" points="60.0,57.1 71.0,71.8 82.0,84.8 93.0,96.3 104.0,106.4 115.0,115.4 126.0,123.3 137.0,130.1 148.0,136.1 159.0,141.3 170.0,145.7 181.0,149.4 192.0,152.6 203.0,155.1 214.0,157.1 225.0,158.5 236.0,159.5 247.0,160.1 258.0,160.2 269.0,159.8 280.0,159.1 291.0,157.9 302.0,156.3 313.0,154.3 324.0,151.9 335.0,149.0 346.0,145.7 357.0,141.9 368.0,137.6 379.0,132.8 390.0,127.4 401.0,121.5 412.0,114.9 423.0,107.6 434.0,99.6 445.0,90.9 456.0,81.3 467.0,70.7 478.0,59.2 489.0,46.7 500.0,32.9"/>
+  <line x1="258" y1="160" x2="258" y2="230" style="stroke:var(--c3)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <g font-size="13">
+    <text x="135" y="40" text-anchor="middle" style="fill:var(--warn)" font-weight="600">undertilpasning</text>
+    <text x="420" y="40" text-anchor="middle" style="fill:var(--bad)" font-weight="600">overtilpasning</text>
+    <text x="258" y="250" text-anchor="middle" style="fill:var(--c3)">beste kompleksitet</text>
+    <text x="95" y="80" style="fill:var(--c1)">Bias²</text>
+    <text x="440" y="150" style="fill:var(--c2)">Varians</text>
+    <text x="300" y="150" font-weight="600">total forventet feil</text>
+    <text x="505" y="202" text-anchor="end" style="fill:var(--muted)">σ² (irredusibel)</text>
+    <text x="505" y="270" text-anchor="end" style="fill:var(--muted)">modellkompleksitet (f.eks. polynomgrad, tredybde) →</text>
+    <text x="50" y="30" text-anchor="end" style="fill:var(--muted)">feil</text>
+  </g>
+</svg>
+<figcaption><b>Figur 7.5</b> Kompleksitetskurven. Venstre side har høy bias og lav varians. Høyre side har lav bias og høy varians. Den totale feilen kan aldri komme under $\sigma^2$. Sammenlign med test-MSE-kurven i polynomwidgeten i kapittel 6. Det er den samme U-en.</figcaption>
+</figure>
+
+<div class="chain">
+  <div><b>For enkel modell</b>høy bias, lav varians</div><div class="arrow">=</div>
+  <div><b>Undertilpasning</b>høy feil på trening og validering</div>
+</div>
+<div class="chain">
+  <div><b>For kompleks modell</b>lav bias, høy varians</div><div class="arrow">=</div>
+  <div><b>Overtilpasning</b>lav treningsfeil, høy valideringsfeil, ustabil mellom datasett</div>
+</div>
+
+<p>Notatene formulerer det som et <em>dilemma</em>: Høy varians tyder på at algoritmen er overdrevent sensitiv for variasjoner i data, altså overtilpasning. Lav varians kan tyde på at algoritmen predikerer for nær gjennomsnittet og ikke utnytter informasjonen i featurene, altså undertilpasning. Høy bias betyr en feil generalisering allerede på treningsdataene, som overskygger subtile, men relevante sammenhenger.</p>
+
+<div class="widget">
+  <h4>Utforsk: bias–varians-simulator</h4>
+  <canvas id="bvCanvas" width="680" height="320"></canvas>
+  <div class="two-col" style="margin-top:8px">
+    <canvas id="bvBars" width="380" height="220"></canvas>
+    <canvas id="bvCurve" width="380" height="220"></canvas>
+  </div>
+  <div class="controls">
+    <label>polynomgrad <input type="range" id="bvDeg" min="0" max="10" step="1" value="1"><output id="bvDegO">1</output></label>
+    <label>antall datasett <select id="bvK"><option value="20">20</option><option value="60" selected>60</option><option value="150">150</option></select></label>
+    <button class="btn ghost" type="button" id="bvNew">Nye trekninger</button>
+  </div>
+  <div class="readouts" id="bvRead"></div>
+  <p class="w-note">Sann funksjon $F(x)=\sin(2\pi x)$ (svart stiplet). Hvert datasett $D$ har 12 punkter med ny støy ($\sigma=0{,}3$), og vi tilpasser et polynom av valgt grad til hvert av dem (tynne linjer). Den tykke oransje kurven er gjennomsnittsmodellen $\mathbb E_D[f(x;D)]$. Stolpene viser Bias², Var og $\sigma^2$ i gjennomsnitt over $x$, og kurven til høyre viser dem for alle grader. <strong>Legg merke til:</strong> Grad 0–1 gir tette bunter som bommer systematisk (bias). Grad 3 treffer i gjennomsnitt og er fortsatt stabil. Grad 9–10 treffer i gjennomsnitt, men de enkelte kurvene spriker vilt (varians).</p>
+</div>
+
+<div class="quiz" data-id="07-bias-def">
+  <p class="q">Hva måler $\text{Bias}_D[f(x;D)]$ i bias–varians-dekomposisjonen?</p>
+  <ul>
+    <li>Verdien til skjæringspunktet $\beta_0$ i den trente modellen</li>
+    <li data-correct>Forskjellen mellom gjennomsnittsprediksjonen over mange treningssett og den sanne verdien $F(x)$</li>
+    <li>Hvor mye prediksjonene varierer mellom ulike treningssett</li>
+    <li>Støyen i målingene av $y$</li>
+  </ul>
+  <div class="explain">$\text{Bias}=\mathbb E_D[f(x;D)]-F(x)$ er det systematiske avviket. Skjæringspunktet $\beta_0$ er en modellparameter, og navnelikheten er en klassisk felle. Variasjonen mellom treningssett er <em>variansen</em>. Støyen i $y$ er $\sigma^2$, det irredusible leddet.</div>
+</div>
+
+<div class="quiz" data-id="07-F-out">
+  <p class="q">I $\mathbb E_D[f(x;D)-F(x)]=\mathbb E_D[f(x;D)]-F(x)$ flyttes $F(x)$ ut av forventningen. Hvorfor er det lov?</p>
+  <ul>
+    <li>Fordi $F(x)=0$ i forventning</li>
+    <li>Fordi $F$ er en lineær funksjon</li>
+    <li data-correct>Fordi $F(x)$ ikke avhenger av datasettet $D$ som vi tar forventningen over. For gitt $x$ er den en konstant, og $\mathbb E[c]=c$</li>
+    <li>Fordi $F(x)$ og $f(x;D)$ er statistisk uavhengige</li>
+  </ul>
+  <div class="explain">Forventningen er over tilfeldige trekninger av treningsdata. Den sanne sammenhengen er den samme uansett hvilke data vi trakk, så den oppfører seg som en konstant. Da gir linearitet $\mathbb E[X-c]=\mathbb E[X]-c$. $F$ trenger verken å være lineær eller null. Uavhengighet brukes for produkter ($\mathbb E[XY]$), ikke for å trekke ut en konstant fra en differanse.</div>
+</div>
+
+<div class="quiz" data-id="07-bias-not-b">
+  <p class="q">En kollega sier: «Modellen vår har høy bias. Vi må senke $\beta_0$.» Hva er galt?</p>
+  <ul>
+    <li>Ingenting. Høy bias betyr at $\beta_0$ er for stor</li>
+    <li>Han burde øke $\beta_0$ i stedet</li>
+    <li>Bias kan bare reduseres med mer data</li>
+    <li data-correct>Han blander to ulike begreper. Høy bias i bias–varians-forstand betyr at modellformen er for enkel, og løses typisk med en mer fleksibel modell eller bedre features, ikke ved å endre én parameter</li>
+  </ul>
+  <div class="explain">Biasleddet $\beta_0$ læres automatisk av gradient descent. Bias i bias–varians beskriver det systematiske avviket til hele læringsalgoritmen, for eksempel at en rett linje ikke kan følge en kurve. Mer data reduserer først og fremst <em>varians</em>. Et skjevt sikte blir ikke rett av flere skudd.</div>
+</div>
+
+<div class="quiz" data-id="07-dartboard">
+  <p class="q">På blinkskiven ligger skuddene (modeller fra ulike treningssett) spredt utover hele skiven, men gjennomsnittet deres ligger midt i blinken. Hva beskriver dette?</p>
+  <ul>
+    <li>Høy bias, lav varians</li>
+    <li data-correct>Lav bias, høy varians</li>
+    <li>Høy bias, høy varians</li>
+    <li>Lav bias, lav varians</li>
+  </ul>
+  <div class="explain">Gjennomsnittet treffer, så biasen er lav. Stor spredning betyr høy varians. Dette er typisk for en for kompleks modell, som grad 15. Høy bias ville betydd at gjennomsnittet ligger utenfor blinken. Lav varians ville betydd at skuddene ligger tett samlet.</div>
+</div>
+
+<div class="quiz" data-multi data-id="07-reduce-var">
+  <p class="q">En modell har høy varians. Hvilke tiltak vil typisk redusere variansen?</p>
+  <ul>
+    <li data-correct>Skaffe flere treningsdata</li>
+    <li data-correct>Bruke en enklere modell, for eksempel lavere polynomgrad eller grunnere tre</li>
+    <li>Legge til flere polynomiske features</li>
+    <li data-correct>Ta gjennomsnittet av mange modeller trent på ulike utvalg (bagging)</li>
+    <li>Trene i flere epoker uten early stopping</li>
+  </ul>
+  <div class="explain">Mer data gjør hvert datasett mer representativt, så modellene blir mer like. Enklere modeller har mindre frihet til å følge støy. Gjennomsnitt av mange modeller jevner ut svingningene (det er ideen bak random forest, kapittel 8). Flere features og lengre trening uten early stopping <em>øker</em> kompleksiteten og dermed variansen.</div>
+</div>
+
+<div class="quiz" data-id="07-irreducible">
+  <p class="q">Hvilket ledd i $\text{Bias}^2+\text{Var}+\sigma^2$ kan ingen modell gjøre noe med?</p>
+  <ul>
+    <li data-correct>$\sigma^2$, støyen i selve dataene ($y=F(x)+\varepsilon$)</li>
+    <li>$\text{Bias}^2$, fordi den er bestemt av den sanne funksjonen</li>
+    <li>$\text{Var}$, fordi treningsdata alltid er tilfeldige</li>
+    <li>Ingen av dem. Med en perfekt modell blir alle tre null</li>
+  </ul>
+  <div class="explain">$\sigma^2$ er variansen til $\varepsilon$, og den er tilstede selv om vi visste $F$ eksakt: Prediksjonen $F(x)$ ville fortsatt bomme med $\varepsilon$ på hvert nye punkt. Bias kan reduseres med mer fleksible modeller, og varians med mer data, enklere modeller eller ensembler. Derfor kan ikke alle tre bli null.</div>
+</div>
+
+<div class="reflect" data-id="07-bv-complex">
+  <p class="q">Forklar med egne ord, uten formler, hvorfor en svært kompleks modell kan ha lav bias og samtidig høy forventet feil.</p>
+  <div class="answer">Lav bias betyr at modellen i gjennomsnitt over mange treningssett treffer sannheten. En fleksibel modell kan forme seg etter hva som helst, så den bommer ikke systematisk. Men fordi den former seg etter <em>hvert</em> datasett, også etter støyen, blir modellen fra ett datasett svært forskjellig fra modellen fra et annet. Det er høy varians. Du får bare ett datasett i praksis, og dermed én av disse modellene. Den ligger typisk langt fra gjennomsnittet, så feilen på nye data blir stor selv om gjennomsnittsmodellen er god.</div>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="regresjonstraer"><span class="sec">7.6</span>Regresjonstrær</h2>
+
+<p>Se på dataene i figur 7.6. Vi har én feature $x_1$ og et target med en tydelig struktur, men tenk deg at du ikke kjenner funksjonsformen. (Den er $y=\lfloor x\rfloor$ med litt støy, laget med <code>np.floor</code>.)</p>
+
+<figure class="card">
+  <img src="../assets/fig/notater/s31_1.png" alt="Trappetrinnsdata" width="420">
+  <figcaption><b>Figur 7.6</b> (Figur 15a i notatene.) Stegvise data: $y=\lfloor x_1\rfloor+\varepsilon$ med $\varepsilon\sim\mathcal N(0,\,0{,}1^2)$. Det siste punktet, i $x_1=4$, har $y\approx4$.</figcaption>
+</figure>
+
+<h3>Hvorfor polynomer feiler</h3>
+<p>Et polynom er glatt overalt, mens dataene har brå hopp og er helt flate mellom hoppene. Et 5.-gradspolynom (figur 15b i notatene) bølger seg gjennom trappene: Det skyter over ved hver kant og bølger på de flate partiene. Høyere grad gir skarpere kanter, men også mer svinging og overtilpasning. Funksjonsformen er feil. Polynomer har feil induktiv bias for disse dataene. (Du kan se det i widgeten under ved å krysse av for polynomet.)</p>
+
+<h3>Ideen: del datarommet i regioner</h3>
+<p>Ved å studere dataene ser vi at de befinner seg i flere regioner, og vi vet fra <a href="05-traer.html">kapittel 5</a> at beslutningstrær er gode til å dele data i regioner. Samme struktur kan brukes til regresjon. Hver splitt deler datarommet i to, og i hver løvnode predikerer treet <strong>én verdi: gjennomsnittet av treningstargetene i regionen</strong>. Resultatet er en trappefunksjon, og det passer perfekt her.</p>
+
+<div class="callout def"><span class="label">Splittregelen for regresjonstrær</span>
+<p>Gini og entropi gir ikke mening for kontinuerlige targets. I stedet velger treet den splitten (feature og terskel) som gir <strong>lavest varians (MSE) i targetene etter splitten</strong>, vektet med antall punkter i hver gren:</p>
+$$\text{MSE}_\text{etter}=\frac{n_V}{n}\,\text{Var}(y_V)+\frac{n_H}{n}\,\text{Var}(y_H)$$
+<p>Det svarer til å maksimere variansreduksjonen. Hvis prediksjonen i hver gren er gjennomsnittet, er variansen i grenen nøyaktig MSE-en til prediksjonen der.</p></div>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 4.4</span>
+<p>Split på feature X gir varians 2,4 etter splitt, og split på feature Y gir 0,9. Hvilken velger treet? Riktig: <strong>Feature Y</strong>, den med lavest varians etter splitt. Distraktorene var tilfeldig valg, X, og «splittet med høyest varians».</p></div>
+
+<div class="calc" data-id="07-tree-split" data-answer="0.25" data-tol="0.005">
+  <p class="q">En node har fire punkter: $(x,y)=(1,\,1),\ (2,\,2),\ (3,\,6),\ (4,\,7)$. Mulige terskler er $x\le1{,}5$, $x\le2{,}5$ og $x\le3{,}5$. Finn den beste splitten, og oppgi den vektede variansen etter splitten.</p>
+  <div class="solution">Før splitt: snitt 4, varians $\frac{9+4+4+9}{4}=6{,}5$.<br>
+  $x\le1{,}5$: venstre $\{1\}$ har varians 0. Høyre $\{2,6,7\}$ har snitt 5 og varians $\frac{9+1+4}{3}\approx4{,}67$. Vektet: $\frac34\cdot4{,}67=3{,}5$.<br>
+  $x\le2{,}5$: venstre $\{1,2\}$ har snitt 1,5 og varians 0,25. Høyre $\{6,7\}$ har snitt 6,5 og varians 0,25. Vektet: $\frac24\cdot0{,}25+\frac24\cdot0{,}25=0{,}25$.<br>
+  $x\le3{,}5$ gir 3,5 (symmetrisk med den første).<br>
+  Beste splitt er $x\le2{,}5$ med vektet varians <strong>0,25</strong> (variansreduksjon $6{,}5-0{,}25=6{,}25$). Bladene predikerer 1,5 og 6,5.</div>
+</div>
+
+<div class="reflect" data-id="07-tree-depth-guess">
+  <p class="q">Notatenes oppgave: Hvis du skulle tilpasse et beslutningstre til trappedataene i figur 7.6, hvor dypt bør det minst være? Hvor dypt tror du det optimale treet er (lavest MSE på testdata)?</p>
+  <div class="answer">Dataene har fire trinn (y ≈ 0, 1, 2, 3 på $[0,1)$, $[1,2)$, $[2,3)$, $[3,4)$), så vi trenger minst fire løvnoder. Et binært tre med dybde $d$ har høyst $2^d$ blader, så <strong>minimum dybde er 2</strong>: rotsplitt ved $x\approx2$, deretter splitter ved $x\approx1$ og $x\approx3$. I notatene var dybde 2 også <strong>optimal</strong>. Dypere trær begynner å splitte på støyen innenfor hvert trinn. Treningsfeilen synker, men testfeilen øker litt. Uten begrensning lagde sklearn et tre med dybde 12 og 85 noder, altså kraftig overtilpasning.</div>
+</div>
+
+<figure class="card">
+<svg viewBox="0 0 560 230" role="img" aria-label="Regresjonstre med dybde 2">
+  <g font-size="13" text-anchor="middle">
+    <g style="stroke:var(--muted)" stroke-width="1.5">
+      <line x1="280" y1="62" x2="150" y2="105"/><line x1="280" y1="62" x2="410" y2="105"/>
+      <line x1="150" y1="147" x2="80" y2="175"/><line x1="150" y1="147" x2="220" y2="175"/>
+      <line x1="410" y1="147" x2="340" y2="175"/><line x1="410" y1="147" x2="480" y2="175"/>
+    </g>
+    <rect x="215" y="12" width="130" height="50" rx="8" style="fill:var(--accent-soft);stroke:var(--c1)"/>
+    <text x="280" y="31" font-weight="600">x₁ ≤ 2,0</text><text x="280" y="50" style="fill:var(--muted)">n=75 · snitt 1,539</text>
+    <rect x="85" y="105" width="130" height="42" rx="8" style="fill:var(--accent-soft);stroke:var(--c1)"/>
+    <text x="150" y="122" font-weight="600">x₁ ≤ 0,99</text><text x="150" y="139" style="fill:var(--muted)">n=37 · 0,527</text>
+    <rect x="345" y="105" width="130" height="42" rx="8" style="fill:var(--accent-soft);stroke:var(--c1)"/>
+    <text x="410" y="122" font-weight="600">x₁ ≤ 3,071</text><text x="410" y="139" style="fill:var(--muted)">n=38 · 2,524</text>
+    <g>
+      <rect x="40" y="175" width="80" height="40" rx="8" style="fill:var(--hook-bg);stroke:var(--c3)"/><text x="80" y="191">n=17</text><text x="80" y="207" font-weight="600">ŷ = 0,0</text>
+      <rect x="180" y="175" width="80" height="40" rx="8" style="fill:var(--hook-bg);stroke:var(--c3)"/><text x="220" y="191">n=20</text><text x="220" y="207" font-weight="600">ŷ = 0,976</text>
+      <rect x="300" y="175" width="80" height="40" rx="8" style="fill:var(--hook-bg);stroke:var(--c3)"/><text x="340" y="191">n=19</text><text x="340" y="207" font-weight="600">ŷ = 2,009</text>
+      <rect x="440" y="175" width="80" height="40" rx="8" style="fill:var(--hook-bg);stroke:var(--c3)"/><text x="480" y="191">n=19</text><text x="480" y="207" font-weight="600">ŷ = 3,04</text>
+    </g>
+    <text x="200" y="88" font-size="12" style="fill:var(--muted)">sann</text><text x="360" y="88" font-size="12" style="fill:var(--muted)">usann</text>
+  </g>
+</svg>
+<figcaption><b>Figur 7.7</b> (Etter figur 16a i notatene.) Et regresjonstre med dybde 2 tilpasset trappedataene. Hver node viser antall treningspunkter og gjennomsnittet av $y$. Bladene predikerer gjennomsnittet i sin region: omtrent 0, 1, 2 og 3. De tre tersklene deler $x_1$-aksen i fire intervaller (figur 16b), nøyaktig der trinnene er.</figcaption>
+</figure>
+
+<div class="widget">
+  <h4>Utforsk: regresjonstre på trappetrinnsdata</h4>
+  <canvas id="trCanvas" width="680" height="320"></canvas>
+  <canvas id="trErr" width="680" height="190" style="margin-top:8px"></canvas>
+  <div class="controls">
+    <label>maks dybde <input type="range" id="trDepth" min="0" max="12" step="1" value="2"><output id="trDepthO">2</output></label>
+    <label><input type="checkbox" id="trPoly"> vis 5.-gradspolynom</label>
+    <button class="btn ghost" type="button" id="trNew">Ny trekning</button>
+  </div>
+  <div class="readouts" id="trRead"></div>
+  <p class="w-note">100 punkter fra $y=\lfloor x\rfloor+\varepsilon$ ($\sigma=0{,}1$), tilfeldig delt i 75 trening (blå) og 25 test (oransje). Treet er bygget grådig med splittregelen over (minst vektet varians), implementert her i nettleseren. Grå stiplede linjer er tersklene, og tykkere linjer er splitter høyere oppe i treet. <strong>Legg merke til:</strong> Dybde 2 gir de fire trinnene. Dypere trær lager flere og flere små trinn som følger støyen. Trenings-MSE går mot 0, mens test-MSE flater ut eller øker. Se også hvilken dybde et ubegrenset tre ender på.</p>
+</div>
+
+<h3>Trær og regresjonsmodeller: forskjeller og likheter</h3>
+<p>Notatenes oppgave er å lage en liste over forskjeller mellom beslutningstrær (for klassifisering og regresjon) og lineær eller logistisk regresjon (med polynomiske features). Tenk selv før du leser tabellen.</p>
+<table>
+  <tr><th>Trær</th><th>Regresjonsmodeller</th></tr>
+  <tr><td><strong>Feature scaling er ikke nødvendig.</strong> Trær deler dataene i regioner med terskler, og en terskel fungerer like godt uansett skala.</td><td><strong>Features bør ha samme størrelsesorden</strong>, helst $\mathcal O(1)$, så tilpasningen av parametrene ikke gir store gradienter (jf. de avlange konturene i kapittel 6).</td></tr>
+  <tr><td>Uten begrensning på dybden kan treet bli for dypt og <strong>overtilpasse</strong>.</td><td><strong>Funksjonsformen er bestemt</strong> på forhånd. Algoritmen kan verken legge til ledd for å få en mer kompleks modell eller fjerne ledd hvis mindre kompleksitet er nok.</td></tr>
+  <tr><td>Har en overordnet struktur, men <strong>arkitekturen</strong> (hvilke splitter og hvor dypt) <strong>bestemmes under trening</strong>.</td><td>Har en <strong>gitt likningsform</strong> med et fast antall ledd. Bare parametrene til hver variabel og variabelkombinasjon tilpasses.</td></tr>
+</table>
+<p><strong>Felles: tolkbarhet.</strong> For regresjonsmodeller sier størrelsen på parameterne hvor viktig hver variabel er. Hvis $\beta_4$ (eller $w_4$) er stor, har $x_4$ stor innflytelse (forutsatt skalerte features). For trær er splittkriteriene forståelige for mennesker, og features som splittes tidlig, er viktigere enn de som splittes senere. Det gjelder ikke for nevrale nettverk (<a href="09-nevrale-nett.html">kapittel 9</a>).</p>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Trær er fleksible i <em>formen</em>: De kan modellere hopp, terskler og vekselvirkninger uten feature engineering. Til gjengjeld har de lett for høy varians, fordi en liten endring i dataene kan gi helt andre splitter. Det er nettopp den svakheten random forest og boosting angriper i <a href="08-ensemble.html">kapittel 8</a>.</p></div>
+
+<div class="quiz" data-id="07-tree-split-q">
+  <p class="q">Et regresjonstre vurderer tre mulige splitter i en node. Vektet varians i targetene etter splitt: A gir 3,1, B gir 0,7 og C gir 1,4. Variansen før splitt er 4,0. Hvilken splitt velges?</p>
+  <ul>
+    <li>A, fordi den bevarer mest av variansen i dataene</li>
+    <li>C, fordi den ligger nærmest gjennomsnittet av alternativene</li>
+    <li data-correct>B, fordi den gir lavest varians etter splitten (størst variansreduksjon, 3,3)</li>
+    <li>Ingen, fordi alle splittene har varians over null</li>
+  </ul>
+  <div class="explain">Regresjonstrær minimerer vektet varians (MSE) etter splitt, slik at punktene i hver gren ligger nær gjennomsnittet som skal predikeres. B reduserer fra 4,0 til 0,7. Å «bevare varians» er målet i PCA (kapittel 12), ikke i trær. Varians over null er normalt. Treet stopper ikke av den grunn, men av stoppkriterier som maks dybde.</div>
+</div>
+
+<div class="quiz" data-id="07-tree-leaf">
+  <p class="q">Hva predikerer et regresjonstre for et nytt punkt som havner i en løvnode?</p>
+  <ul>
+    <li data-correct>Gjennomsnittet av targetene til treningspunktene i den løvnoden</li>
+    <li>Den vanligste targetverdien (flertallet) i løvnoden</li>
+    <li>En lineær regresjon tilpasset punktene i løvnoden</li>
+    <li>Targetverdien til det nærmeste treningspunktet</li>
+  </ul>
+  <div class="explain">Én konstant per region, nemlig gjennomsnittet, fordi det er den konstanten som minimerer MSE i regionen. Flertallsstemme er for klassifiseringstrær. Lineære modeller i bladene finnes (model trees), men det er ikke det standard regresjonstrær gjør. Nærmeste punkt er k-NN med $k=1$.</div>
+</div>
+
+<div class="quiz" data-id="07-poly-fail">
+  <p class="q">Hvorfor fungerer polynomisk regresjon dårlig på trappetrinnsdataene ($y=\lfloor x\rfloor+\varepsilon$)?</p>
+  <ul>
+    <li>Fordi dataene har for mye støy</li>
+    <li>Fordi polynomisk regresjon krever skalerte features</li>
+    <li>Fordi det finnes for få datapunkter</li>
+    <li data-correct>Fordi polynomer er glatte og ikke kan lage brå hopp med flate partier. Funksjonsformen passer ikke</li>
+  </ul>
+  <div class="explain">Med $\sigma=0{,}1$ er støyen liten, og 100 punkter er nok. Problemet er modellformen (induktiv bias): Et polynom kan ikke være konstant på intervaller og hoppe mellom dem. Det bølger seg forbi kantene. Skalering hjelper numerisk, men endrer ikke hvilke former et polynom kan ha.</div>
+</div>
+
+<div class="quiz" data-id="07-tree-scaling">
+  <p class="q">Du bytter fra lineær regresjon til et regresjonstre. Hva gjelder for feature scaling?</p>
+  <ul>
+    <li>Det blir enda viktigere, fordi trær bruker avstander</li>
+    <li data-correct>Det er ikke nødvendig, fordi trær splitter på terskler per feature, og en monoton omskalering flytter bare terskelen</li>
+    <li>Det er nødvendig, fordi variansen i splittregelen avhenger av skalaen på featurene</li>
+    <li>Det er nødvendig for at gradient descent skal konvergere i treet</li>
+  </ul>
+  <div class="explain">Splitten «$x\le 2$» gir nøyaktig samme partisjon som «$10x\le20$». Trær bruker verken avstander eller gradient descent. Variansen i splittregelen er variansen i <em>targetene</em>, ikke i featurene, så featureskalaen påvirker den ikke.</div>
+</div>
+
+<div class="reflect" data-id="07-tree-vs-reg">
+  <p class="q">Du skal predikere boligpris fra areal. Prisen stiger jevnt med arealet, men har et tydelig hopp ved 60 m² (lånereglene endres). Hvilke styrker og svakheter har et regresjonstre og en lineær regresjon her?</p>
+  <div class="answer"><strong>Lineær regresjon</strong> fanger den jevne stigningen elegant med to parametre, og ekstrapolerer fornuftig. Men den kan ikke lage hoppet uten feature engineering (for eksempel en indikatorfeature «areal ≥ 60»). <strong>Treet</strong> finner hoppet automatisk med en splitt ved 60. Men det må tilnærme den jevne stigningen med mange små trinn, noe som krever dybde og gir risiko for overtilpasning. Det kan heller ikke ekstrapolere: For en bolig større enn alle i treningsdataene predikerer det bare gjennomsnittet i det siste bladet. Et godt kompromiss er lineær regresjon med en engineered hopp-feature, eller et ensemble av trær hvis det finnes mange slike terskler.</div>
+</div>
+
+<!-- ===================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Undertilpasning</strong>: høy feil også på trening (for enkel modell). <strong>Overtilpasning</strong>: lav treningsfeil, høy feil på nye data (for kompleks modell).</li>
+    <li><strong>Trening</strong> tilpasser parametre, <strong>validering</strong> monitorerer og velger hyperparametre, og <strong>test</strong> brukes én gang til slutt. Testdata brukt til tuning gir et optimistisk estimat. <code>train_test_split</code> to ganger gir tre sett.</li>
+    <li><strong>Læringskurver</strong>: stort gap betyr overtilpasning, begge høye betyr undertilpasning, og begge lave og like betyr god tilpasning. <strong>Early stopping</strong> stopper når valideringstapet ikke er forbedret med mer enn en toleranse i løpet av patience epoker. Læringsraten senkes ofte underveis.</li>
+    <li><strong>Kryssvalidering</strong> fjerner avhengigheten av én splitt og bruker dataene bedre. LOOCV gir $n$ treninger og er dyr, men deterministisk. k-fold gir $k$ treninger. Kryssvalidering deler i ikke-overlappende folds, mens bootstrap trekker med tilbakelegging.</li>
+    <li>$\mathbb E_D[(y-f(x;D))^2]=\text{Bias}^2+\text{Var}+\sigma^2$, med $\text{Bias}=\mathbb E_D[f]-F$ ($F$ er konstant over $D$) og $\text{Var}=\mathbb E_D[(\mathbb E_D[f]-f)^2]$. $\sigma^2$ er irredusibel.</li>
+    <li>Økt kompleksitet gir lavere bias og høyere varians, og en U-formet total feil. Høy bias svarer til undertilpasning, og høy varians til overtilpasning. Bias her er <em>ikke</em> $\beta_0$ eller $b$.</li>
+    <li><strong>Regresjonstrær</strong> deler datarommet i regioner og predikerer gjennomsnittet i hver. Splitten velges for lavest vektet varians (MSE) etter splitt. De trenger ikke skalering, arkitekturen bestemmes under trening, og ubegrenset dybde overtilpasser (12 mot optimal 2 på trappedataene).</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="front">Valideringssett</div><div class="back">Brukes til å monitorere trening, velge hyperparametre og early stopping. Ikke til å oppdatere vekter, og ikke til sluttrapport.</div></div>
+  <div class="card"><div class="front">Testsett</div><div class="back">Rapporterer ytelsen til den ferdige modellen én gang. Brukes aldri til justering, ellers blir estimatet optimistisk.</div></div>
+  <div class="card"><div class="front">Læringskurve: overtilpasning</div><div class="back">Treningstap synker videre, valideringstap flater ut eller stiger, og gapet vokser.</div></div>
+  <div class="card"><div class="front">Læringskurve: undertilpasning</div><div class="back">Begge flater ut på høyt nivå, nær hverandre. Høyt treningstap er det tydeligste tegnet.</div></div>
+  <div class="card"><div class="front">Early stopping</div><div class="back">Stopp når valideringstapet ikke er forbedret mer enn toleransen i løpet av patience epoker. Behold de beste parametrene.</div></div>
+  <div class="card"><div class="front">k-fold</div><div class="back">Del i $k$ folds. Hver fold er validering én gang. $k$ treninger. Gjennomsnitt ± standardavvik.</div></div>
+  <div class="card"><div class="front">LOOCV</div><div class="back">$k=n$: tren på $n-1$, test på 1, gjenta $n$ ganger. Maksimal databruk og deterministisk, men dyrt.</div></div>
+  <div class="card"><div class="front">Bias–varians</div><div class="back">$\mathbb E[(y-f)^2]=\text{Bias}^2+\text{Var}+\sigma^2$</div></div>
+  <div class="card"><div class="front">Bias (bias–varians)</div><div class="back">$\mathbb E_D[f(x;D)]-F(x)$: systematisk avvik. <em>Ikke</em> $\beta_0$. Høyde: $165-167=-2$ cm.</div></div>
+  <div class="card"><div class="front">Varians</div><div class="back">$\mathbb E_D[(\mathbb E_D[f]-f)^2]$: hvor mye modellen endrer seg med treningssettet.</div></div>
+  <div class="card"><div class="front">$\sigma^2$</div><div class="back">Irredusibel støy, $y=F(x)+\varepsilon$. Nedre grense for forventet feil.</div></div>
+  <div class="card"><div class="front">Regresjonstre: prediksjon</div><div class="back">Gjennomsnittet av treningstargetene i løvnoden. Gir en trappefunksjon.</div></div>
+  <div class="card"><div class="front">Regresjonstre: splittregel</div><div class="back">Velg splitten med lavest vektet varians (MSE) etter splitt, altså størst variansreduksjon.</div></div>
+  <div class="card"><div class="front">Trær vs regresjon</div><div class="back">Trær: ingen skalering, arkitektur læres, overtilpasser uten dybdegrense. Regresjon: skalering viktig, fast funksjonsform. Begge er tolkbare.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+/* ---------- felles hjelpere for kapittel 7 ---------- */
+window.K7 = (function () {
+  function legendre(t, M) {
+    const out = [1]; if (M >= 1) out.push(t);
+    for (let k = 1; k < M; k++) out.push(((2 * k + 1) * t * out[k] - k * out[k - 1]) / (k + 1));
+    return out;
+  }
+  function lstsq(A, y, ridge = 1e-9) {
+    const n = A[0].length; const R = A.map(r => r.slice()), b = y.slice();
+    for (let j = 0; j < n; j++) { const row = new Array(n).fill(0); row[j] = Math.sqrt(ridge); R.push(row); b.push(0); }
+    const m = R.length;
+    for (let k = 0; k < n; k++) {
+      let norm = 0; for (let i = k; i < m; i++) norm += R[i][k] ** 2; norm = Math.sqrt(norm); if (norm < 1e-300) continue;
+      const alpha = R[k][k] > 0 ? -norm : norm; const v = new Array(m).fill(0);
+      for (let i = k; i < m; i++) v[i] = R[i][k]; v[k] -= alpha;
+      let vn = 0; for (let i = k; i < m; i++) vn += v[i] ** 2; if (vn < 1e-300) continue;
+      for (let j = k; j < n; j++) { let s = 0; for (let i = k; i < m; i++) s += v[i] * R[i][j]; s = 2 * s / vn; for (let i = k; i < m; i++) R[i][j] -= s * v[i]; }
+      let s = 0; for (let i = k; i < m; i++) s += v[i] * b[i]; s = 2 * s / vn; for (let i = k; i < m; i++) b[i] -= s * v[i];
+    }
+    const c = new Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) { let s = b[i]; for (let j = i + 1; j < n; j++) s -= R[i][j] * c[j]; c[i] = Math.abs(R[i][i]) < 1e-300 ? 0 : s / R[i][i]; }
+    return c;
+  }
+  function polyfit(pts, M, lo, hi) {
+    const tf = x => 2 * (x - lo) / (hi - lo) - 1;
+    const c = lstsq(pts.map(p => legendre(tf(p.x), M)), pts.map(p => p.y));
+    return x => { const phi = legendre(tf(x), M); let s = 0; for (let j = 0; j <= M; j++) s += c[j] * phi[j]; return s; };
+  }
+  /* regresjonstre (CART, én feature), grådig splitt på minst SSE */
+  function buildTree(pts, depth, maxD) {
+    const n = pts.length, mean = pts.reduce((s, p) => s + p.y, 0) / n;
+    const node = { mean, n, depth };
+    if (depth >= maxD || n < 2) return node;
+    const s = pts.slice().sort((a, b) => a.x - b.x);
+    let tot = 0, tot2 = 0; s.forEach(p => { tot += p.y; tot2 += p.y * p.y; });
+    if (tot2 - tot * tot / n < 1e-12) return node;
+    let best = null, ls = 0, ls2 = 0;
+    for (let i = 0; i < n - 1; i++) {
+      ls += s[i].y; ls2 += s[i].y ** 2; if (s[i].x === s[i + 1].x) continue;
+      const nl = i + 1, nr = n - nl, rs = tot - ls, rs2 = tot2 - ls2;
+      const sse = (ls2 - ls * ls / nl) + (rs2 - rs * rs / nr);
+      if (!best || sse < best.sse - 1e-12) best = { sse, thr: (s[i].x + s[i + 1].x) / 2, i };
+    }
+    if (!best) return node;
+    node.thr = best.thr;
+    node.left = buildTree(s.slice(0, best.i + 1), depth + 1, maxD);
+    node.right = buildTree(s.slice(best.i + 1), depth + 1, maxD);
+    return node;
+  }
+  const predTree = (t, x) => t.left ? predTree(x <= t.thr ? t.left : t.right, x) : t.mean;
+  const depthOf = t => t.left ? 1 + Math.max(depthOf(t.left), depthOf(t.right)) : 0;
+  const leavesOf = t => t.left ? leavesOf(t.left) + leavesOf(t.right) : 1;
+  const nodesOf = t => t.left ? 1 + nodesOf(t.left) + nodesOf(t.right) : 1;
+  function splits(t, out = []) { if (t.left) { out.push({ thr: t.thr, d: t.depth }); splits(t.left, out); splits(t.right, out); } return out; }
+  function clip(P) { P.ctx.save(); P.ctx.beginPath(); P.ctx.rect(P.pad.l, P.pad.t, P.W - P.pad.l - P.pad.r, P.H - P.pad.t - P.pad.b); P.ctx.clip(); }
+  const fmt = (v, d = 3) => (Math.abs(v) >= 1e4 ? v.toExponential(2) : v.toFixed(d)).replace("-", "−");
+  return { polyfit, buildTree, predTree, depthOf, leavesOf, nodesOf, splits, clip, fmt };
+})();
+</script>
+
+<script>
+/* ---------- Widget: læringskurve-tolker ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("lcCanvas"), { xmin: 0, xmax: 500, pad: { l: 48, r: 14, t: 12, b: 36 } });
+  const sel = document.getElementById("lcModel"), pat = document.getElementById("lcPat"), tol = document.getElementById("lcTol");
+  const read = document.getElementById("lcRead"), verdict = document.getElementById("lcVerdict");
+  const E = 500;
+  function gen(kind) {
+    const r = CK.rng({ A: 1, B: 2, C: 3, D: 4 }[kind] * 17);
+    const tr = [], va = [];
+    for (let t = 0; t <= E; t++) {
+      let a, b;
+      if (kind === "A") { a = 34.5 + 28 * Math.exp(-t / 120); b = 39.5 + 8 * Math.exp(-t / 45) + 0.012 * Math.max(0, t - 180) + r.normal(0, 0.7); }
+      else if (kind === "B") { a = 33 + 2.5 * Math.exp(-t / 10) + r.normal(0, 0.05); b = 33.4 + 2.5 * Math.exp(-t / 10) + r.normal(0, 0.15); }
+      else if (kind === "C") { a = 27 + 36 * Math.exp(-t / 25); b = 25 + 29 * Math.exp(-t / 18) + 0.8 * (1 - Math.exp(-t / 150)) + r.normal(0, 0.25); }
+      else { a = 34 + 14 * Math.abs(Math.sin(t * 0.7)) * (0.6 + 0.4 * Math.exp(-t / 300)) + r.normal(0, 1.5); b = a + 2 + r.normal(0, 2.5); }
+      tr.push(a); va.push(b);
+    }
+    return { tr, va };
+  }
+  const texts = {
+    A: "<b>Overtilpasning.</b> Treningstapet fortsetter å synke, mens valideringstapet flater ut og etter hvert stiger, så gapet vokser. Modellen er trolig for kompleks for datamengden. Early stopping kutter treningen nær bunnen av valideringskurven. Alternativt kan du bruke en enklere modell, mer data eller regularisering.",
+    B: "<b>Undertilpasning.</b> Begge kurvene flater ut raskt på et høyt nivå og ligger nær hverandre. Modellen har ikke kapasitet eller riktig form. Mer trening hjelper ikke. Bruk en mer kompleks modell eller bedre features (for eksempel polynomiske).",
+    C: "<b>God tilpasning.</b> Begge synker og flater ut på omtrent samme lave nivå. Litt lavere valideringstap enn treningstap kan skje ved en tilfeldighet med et lite valideringssett, og er ikke et faresignal i seg selv. Early stopping sparer bare regnetid her.",
+    D: "<b>For høy læringsrate.</b> Tapet hopper voldsomt og konvergerer ikke. Stegene skyter over minimum. Senk læringsraten (eller bruk en læringsrate som avtar). Legg merke til at early stopping kan stoppe på en tilfeldig god epoke, så tallene her er ikke til å stole på."
+  };
+  let cur;
+  function draw() {
+    cur = gen(sel.value);
+    const p = +pat.value, tl = +tol.value;
+    document.getElementById("lcPatO").textContent = p; document.getElementById("lcTolO").textContent = tl.toFixed(2);
+    let best = Infinity, bestT = 0, wait = 0, stopT = E;
+    for (let t = 0; t <= E; t++) {
+      if (cur.va[t] < best - tl) { best = cur.va[t]; bestT = t; wait = 0; } else { wait++; if (wait >= p) { stopT = t; break; } }
+    }
+    let bt = 0; for (let t = 1; t <= stopT; t++) if (cur.va[t] < cur.va[bt]) bt = t;
+    const all = cur.tr.concat(cur.va); const lo = Math.floor(Math.min(...all) - 1), hi = Math.min(Math.ceil(Math.max(...all) + 1), lo + 45);
+    P.setView({ ymin: lo, ymax: hi });
+    P.clear().grid().axes({ frame: true, xlabel: "epoke", ylabel: "MSE" });
+    P.rect(stopT, lo, E, hi, { fill: P.col("surface-2"), alpha: 0.7 });
+    K7.clip(P);
+    P.path(cur.tr.map((v, t) => ({ x: t, y: v })), { color: P.col("c1"), width: 2 });
+    P.path(cur.va.map((v, t) => ({ x: t, y: v })), { color: P.col("c2"), width: 1.6 });
+    P.ctx.restore();
+    P.line(stopT, lo, stopT, hi, { color: P.col("c3"), width: 2, dash: [6, 4] });
+    P.points([{ x: bt, y: cur.va[bt] }], { color: P.col("c3"), r: 6 });
+    P.legend([{ color: P.col("c1"), label: "treningstap" }, { color: P.col("c2"), label: "valideringstap" }, { color: P.col("c3"), label: "early stopping" }], { x: P.W - 170 });
+    read.innerHTML = `<span class="readout">stopper etter epoke ${stopT}${stopT === E ? " (nådde maks)" : ""}</span><span class="readout">beste validering: epoke ${bt}, MSE ${cur.va[bt].toFixed(2)}</span><span class="readout">spart: ${E - stopT} epoker</span>`;
+    verdict.innerHTML = texts[sel.value];
+  }
+  sel.onchange = pat.oninput = tol.oninput = draw;
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: k-fold-visualisering ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const cv = document.getElementById("kfCanvas"), P = CK.plot(cv, {}), ctx = P.ctx;
+  const kS = document.getElementById("kfK"), sh = document.getElementById("kfShuffle"), read = document.getElementById("kfRead");
+  const r = CK.rng(5), n = 20, data = [];
+  for (let i = 0; i < n; i++) { const x = 0.5 * i + 0.25 * r(); data.push({ x, y: 2 + 0.8 * x + r.normal(0, 1.2) }); }
+  const perm = data.map((_, i) => i); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+  function ols(pts) { const m = pts.length; let mx = 0, my = 0; pts.forEach(p => { mx += p.x; my += p.y; }); mx /= m; my /= m; let a = 0, b = 0; pts.forEach(p => { a += (p.x - mx) * (p.y - my); b += (p.x - mx) ** 2; }); const b1 = a / b; return x => my - b1 * mx + b1 * x; }
+  function draw() {
+    const k = +kS.value; document.getElementById("kfKO").textContent = k === n ? "20 (LOOCV)" : k;
+    const order = sh.checked ? perm : data.map((_, i) => i);
+    const fold = new Array(n); order.forEach((idx, pos) => { fold[idx] = Math.floor(pos * k / n); });
+    P.clear();
+    const left = 70, right = 170, top = 34, W = P.W - left - right, cw = W / n, rowH = Math.min(36, (P.H - top - 46) / k);
+    ctx.font = "12px " + CK.cssVar("font"); ctx.fillStyle = CK.cssVar("muted"); ctx.textBaseline = "middle";
+    ctx.textAlign = "center"; ctx.fillText("datapunkter, sortert etter x →", left + W / 2, 14);
+    ctx.textAlign = "left"; ctx.fillText("test-MSE", P.W - right + 14, 14);
+    const scores = [];
+    for (let f = 0; f < k; f++) {
+      const trn = data.filter((_, i) => fold[i] !== f), tst = data.filter((_, i) => fold[i] === f);
+      const m = ols(trn); const s = tst.reduce((a, p) => a + (p.y - m(p.x)) ** 2, 0) / tst.length; scores.push(s);
+      const y = top + f * rowH;
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = fold[i] === f ? CK.cssVar("c2") : CK.cssVar("c1"); ctx.globalAlpha = fold[i] === f ? 0.9 : 0.28;
+        ctx.fillRect(left + i * cw + 1, y + 2, cw - 2, rowH - 4);
+      }
+      ctx.globalAlpha = 1; ctx.fillStyle = CK.cssVar("text-soft"); ctx.textAlign = "right";
+      ctx.fillText((rowH >= 14 || f % 2 === 0) ? "runde " + (f + 1) : "", left - 8, y + rowH / 2);
+      ctx.textAlign = "left"; ctx.fillStyle = CK.cssVar("text");
+      if (rowH >= 13 || f % 2 === 0) ctx.fillText(s.toFixed(2), P.W - right + 14, y + rowH / 2);
+      const bw = Math.min(80, s * 12); ctx.fillStyle = CK.cssVar("c2"); ctx.globalAlpha = 0.4; ctx.fillRect(P.W - right + 60, y + rowH / 2 - 4, bw, 8); ctx.globalAlpha = 1;
+    }
+    const mean = scores.reduce((a, b) => a + b, 0) / k, sd = Math.sqrt(scores.reduce((a, b) => a + (b - mean) ** 2, 0) / k);
+    ctx.fillStyle = CK.cssVar("c2"); ctx.fillRect(left, P.H - 26, 14, 10); ctx.fillStyle = CK.cssVar("text-soft"); ctx.textAlign = "left"; ctx.fillText("test i denne runden", left + 20, P.H - 21);
+    ctx.fillStyle = CK.cssVar("c1"); ctx.globalAlpha = 0.35; ctx.fillRect(left + 170, P.H - 26, 14, 10); ctx.globalAlpha = 1; ctx.fillStyle = CK.cssVar("text-soft"); ctx.fillText("trening", left + 190, P.H - 21);
+    read.innerHTML = `<span class="readout">${k} modeller trenes</span><span class="readout">${Math.round(n * (k - 1) / k * 10) / 10} treningspunkter per modell</span><span class="readout">CV-estimat: MSE = ${mean.toFixed(2)} ± ${sd.toFixed(2)}</span>`;
+  }
+  kS.oninput = sh.onchange = draw;
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: bias–varians-simulator ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const F = x => Math.sin(2 * Math.PI * x), SD = 0.3, N = 12, MAXD = 10;
+  const PC = CK.plot(document.getElementById("bvCanvas"), { xmin: 0.03, xmax: 0.97, ymin: -2.2, ymax: 2.2, pad: { l: 40, r: 12, t: 12, b: 34 } });
+  const PB = CK.plot(document.getElementById("bvBars"), { xmin: 0, xmax: 4, ymin: 0, ymax: 0.7, pad: { l: 40, r: 10, t: 12, b: 34 } });
+  const PK = CK.plot(document.getElementById("bvCurve"), { xmin: -0.5, xmax: 10.5, ymin: 0, ymax: 0.8, pad: { l: 40, r: 10, t: 12, b: 34 } });
+  const deg = document.getElementById("bvDeg"), kSel = document.getElementById("bvK"), read = document.getElementById("bvRead");
+  const grid = []; for (let i = 0; i <= 60; i++) grid.push(0.05 + 0.9 * i / 60);
+  let seed = 11, sets, stats;
+  function sim() {
+    const r = CK.rng(seed), K = +kSel.value; sets = [];
+    for (let k = 0; k < K; k++) { const p = []; for (let i = 0; i < N; i++) { const x = (i + 0.5) / N; p.push({ x, y: F(x) + r.normal(0, SD) }); } sets.push(p); }
+    stats = [];
+    for (let M = 0; M <= MAXD; M++) {
+      const fs = sets.map(p => K7.polyfit(p, M, 0, 1));
+      const preds = fs.map(f => grid.map(f));
+      let b2 = 0, v = 0; const mean = grid.map((x, j) => preds.reduce((s, q) => s + q[j], 0) / K);
+      grid.forEach((x, j) => { b2 += (mean[j] - F(x)) ** 2; v += preds.reduce((s, q) => s + (q[j] - mean[j]) ** 2, 0) / K; });
+      stats.push({ M, b2: b2 / grid.length, v: v / grid.length, fs, mean });
+    }
+  }
+  function draw() {
+    const M = +deg.value; document.getElementById("bvDegO").textContent = M;
+    const st = stats[M];
+    PC.clear().grid().axes({ xlabel: "x", ylabel: "y" });
+    K7.clip(PC); PC.ctx.globalAlpha = 0.35;
+    st.fs.slice(0, 60).forEach(f => PC.fn(f, { color: PC.col("c1"), width: 1.2, samples: 150 }));
+    PC.ctx.restore();
+    K7.clip(PC);
+    PC.fn(F, { color: PC.col("text"), width: 2, dash: [6, 4] });
+    PC.path(grid.map((x, j) => ({ x, y: st.mean[j] })), { color: PC.col("c2"), width: 3.5 });
+    PC.ctx.restore();
+    PC.points(sets[0], { color: PC.col("c4"), r: 4 });
+    PC.legend([{ color: PC.col("c1"), label: "f(x; D) for hvert datasett" }, { color: PC.col("c2"), label: "gjennomsnitt E[f]" }, { color: PC.col("text"), label: "sann F(x)" }, { color: PC.col("c4"), label: "ett av datasettene" }], { x: PC.W - 230 });
+    // stolper
+    const s2 = SD * SD, tot = st.b2 + st.v + s2, cap = 0.7;
+    PB.clear().grid({ xticks: [] }).axes({ frame: true, xticks: false });
+    const bars = [["Bias²", st.b2, "c1"], ["Var", st.v, "c2"], ["σ²", s2, "muted"], ["Total", tot, "c3"]];
+    bars.forEach(([lab, v, c], i) => {
+      PB.rect(i + 0.15, 0, i + 0.85, Math.min(cap, v), { fill: PB.col(c), alpha: 0.75 });
+      PB.text(lab, i + 0.5, -0.045, { align: "center", baseline: "top", color: PB.col("text-soft"), size: 12 });
+      PB.text(v > cap ? v.toFixed(2) + " ↑" : v.toFixed(3), i + 0.5, Math.min(cap, v) + 0.01, { align: "center", baseline: "bottom", size: 12 });
+    });
+    // kurve over grader
+    PK.clear().grid({ xticks: [0, 2, 4, 6, 8, 10] }).axes({ frame: true, xticks: [0, 2, 4, 6, 8, 10], xlabel: "grad" });
+    K7.clip(PK);
+    PK.path(stats.map(s => ({ x: s.M, y: s.b2 })), { color: PK.col("c1"), width: 2 });
+    PK.path(stats.map(s => ({ x: s.M, y: s.v })), { color: PK.col("c2"), width: 2 });
+    PK.path(stats.map(s => ({ x: s.M, y: s.b2 + s.v + s2 })), { color: PK.col("c3"), width: 2.5 });
+    PK.line(-0.5, s2, 10.5, s2, { color: PK.col("muted"), width: 1, dash: [4, 3] });
+    PK.ctx.restore();
+    PK.line(M, 0, M, 0.8, { color: PK.col("text"), width: 1, dash: [3, 3] });
+    PK.legend([{ color: PK.col("c1"), label: "Bias²" }, { color: PK.col("c2"), label: "Var" }, { color: PK.col("c3"), label: "Total" }], { x: PK.W - 90 });
+    const bestM = stats.reduce((a, b) => (b.b2 + b.v < a.b2 + a.v ? b : a)).M;
+    read.innerHTML = `<span class="readout">Bias² = ${st.b2.toFixed(3)}</span><span class="readout">Var = ${st.v.toFixed(3)}</span><span class="readout">σ² = ${s2.toFixed(2)}</span><span class="readout">forventet feil = ${tot.toFixed(3)}</span><span class="readout">lavest total ved grad ${bestM}</span>`;
+  }
+  deg.oninput = draw;
+  kSel.onchange = () => { sim(); draw(); };
+  document.getElementById("bvNew").onclick = () => { seed++; sim(); draw(); };
+  sim(); CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: regresjonstre på trappetrinnsdata ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const PT = CK.plot(document.getElementById("trCanvas"), { xmin: -0.15, xmax: 4.15, ymin: -0.6, ymax: 4.4, pad: { l: 40, r: 12, t: 12, b: 34 } });
+  const PE = CK.plot(document.getElementById("trErr"), { xmin: -0.5, xmax: 12.5, ymin: 0, ymax: 0.4, pad: { l: 52, r: 12, t: 12, b: 34 } });
+  const dS = document.getElementById("trDepth"), polyC = document.getElementById("trPoly"), read = document.getElementById("trRead");
+  let seed = 2, train, test, errs, full;
+  const mse = (ps, t) => ps.reduce((s, p) => s + (p.y - K7.predTree(t, p.x)) ** 2, 0) / ps.length;
+  function gen() {
+    const r = CK.rng(seed), all = [];
+    for (let i = 0; i < 100; i++) { const x = 4 * i / 99; all.push({ x, y: Math.floor(x) + r.normal(0, 0.1) }); }
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    train = all.slice(0, 75); test = all.slice(75);
+    errs = []; for (let d = 0; d <= 12; d++) { const t = K7.buildTree(train, 0, d); errs.push({ d, tr: mse(train, t), te: mse(test, t) }); }
+    full = K7.buildTree(train, 0, 99);
+  }
+  function draw() {
+    const d = +dS.value; document.getElementById("trDepthO").textContent = d;
+    const t = K7.buildTree(train, 0, d);
+    PT.clear().grid().axes({ xlabel: "x₁", ylabel: "y" });
+    K7.splits(t).forEach(s => PT.line(s.thr, -0.6, s.thr, 4.4, { color: PT.col("axis"), width: Math.max(0.6, 3 / (s.d + 1)), dash: [3, 3] }));
+    PT.fn(x => Math.floor(x), { color: PT.col("muted"), width: 1.2, dash: [5, 4], samples: 800 });
+    if (polyC.checked) { const pf = K7.polyfit(train, 5, 0, 4); K7.clip(PT); PT.fn(pf, { color: PT.col("c4"), width: 2.2 }); PT.ctx.restore(); }
+    PT.fn(x => K7.predTree(t, x), { color: PT.col("c3"), width: 2.8, samples: 1200 });
+    PT.points(train, { color: PT.col("c1"), r: 3.5 });
+    PT.points(test, { color: PT.col("c2"), r: 3.5 });
+    const leg = [{ color: PT.col("c1"), label: "trening" }, { color: PT.col("c2"), label: "test" }, { color: PT.col("c3"), label: "tre, dybde " + d }];
+    if (polyC.checked) leg.push({ color: PT.col("c4"), label: "polynom, grad 5" });
+    PT.legend(leg);
+    // feil mot dybde
+    const top = Math.max(0.12, Math.min(0.4, Math.max(...errs.slice(2).map(e => e.te)) * 1.6));
+    PE.setView({ ymax: top });
+    PE.clear().grid({ xticks: [0, 2, 4, 6, 8, 10, 12] }).axes({ frame: true, xticks: [0, 2, 4, 6, 8, 10, 12], xlabel: "maks dybde", ylabel: "MSE" });
+    K7.clip(PE);
+    PE.path(errs.map(e => ({ x: e.d, y: e.tr })), { color: PE.col("c1"), width: 2 });
+    PE.path(errs.map(e => ({ x: e.d, y: e.te })), { color: PE.col("c2"), width: 2 });
+    PE.points(errs.map(e => ({ x: e.d, y: e.tr })), { color: PE.col("c1"), r: 3 });
+    PE.points(errs.map(e => ({ x: e.d, y: e.te })), { color: PE.col("c2"), r: 3 });
+    PE.ctx.restore();
+    PE.line(d, 0, d, top, { color: PE.col("c3"), width: 1.5, dash: [4, 3] });
+    PE.legend([{ color: PE.col("c1"), label: "trenings-MSE" }, { color: PE.col("c2"), label: "test-MSE" }], { x: PE.W - 150 });
+    const e = errs[d], bestD = errs.reduce((a, b) => b.te < a.te ? b : a).d;
+    read.innerHTML = `<span class="readout">trenings-MSE = ${e.tr.toFixed(4)}</span><span class="readout">test-MSE = ${e.te.toFixed(4)}</span><span class="readout">blader = ${K7.leavesOf(t)}</span><span class="readout">lavest test-MSE ved dybde ${bestD}</span><span class="readout">ubegrenset tre: dybde ${K7.depthOf(full)}, ${K7.nodesOf(full)} noder</span>`;
+  }
+  dS.oninput = draw; polyC.onchange = draw;
+  document.getElementById("trNew").onclick = () => { seed++; gen(); draw(); };
+  gen(); CK.live(draw);
+});
+</script>
+</body>
+</html>

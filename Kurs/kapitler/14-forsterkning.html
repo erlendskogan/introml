@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14 · Forsterkningslæring – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .gw-wrap { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .gw-log { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; min-height: 3.2em; line-height: 1.5; white-space: pre-wrap; }
+  .controls select { font: inherit; font-size: 14px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  svg.diagram { display: block; margin: 0 auto; width: 100%; height: auto; }
+  svg.diagram .box { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; }
+  svg.diagram .ln { stroke: var(--text-soft); stroke-width: 2; fill: none; }
+  svg.diagram .lbl { font-size: 14px; }
+  svg.diagram .sm { font-size: 12px; fill: var(--text-soft); }
+  .cmp td:first-child { font-weight: 600; white-space: nowrap; }
+  figure.fig-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+</style>
+</head>
+<body data-chapter="14">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 14 · Forventet pensum</div>
+  <h1>Forsterkningslæring</h1>
+  <p class="lead">Ingen fasit, bare belønning. Her lærer en agent av egen prøving og feiling: hvordan den verdsetter framtiden, hvordan Q-learning fyller ut en tabell over gode handlinger, og hvordan DQN gjør det samme med et nevralt nettverk.</p>
+</header>
+
+<div class="banner"><b>Forventet pensum.</b> Forelesningsnotatene for dette temaet var ikke kommet per 14.10.2026. Kapittelet bygger på eksamenene i 2024 (oppg. 31–33) og 2025 (del 8, del 9 og del 10.4) og på standard lærebokstoff (Sutton &amp; Barto). Et fjerde prosjekt, sannsynligvis om forsterkningslæring, er ventet. <b>Sjekk notasjon og vektlegging mot forelesningsnotatene når de kommer.</b></div>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare hvordan forsterkningslæring skiller seg fra veiledet og uveiledet læring, og bruke begrepene agent, miljø, tilstand, handling, belønning, episode og retur</li>
+    <li>regne ut diskontert retur $G_t$ og forklare hva diskonteringsfaktoren $\gamma$ gjør</li>
+    <li>formulere Markov-egenskapen og skille mellom policy $\pi$, verdifunksjon $V(s)$ og Q-funksjon $Q(s,a)$</li>
+    <li>gjøre en Q-learning-oppdatering for hånd og forklare TD-mål, TD-feil, $\alpha$ og $\gamma$</li>
+    <li>forklare utforskning vs. utnyttelse, ε-greedy og ε-decay</li>
+    <li>forklare hvorfor loss og reward ikke trenger å henge sammen</li>
+    <li>forklare DQN: hvorfor et nettverk, hvorfor replay buffer, hvorfor target network, og hva reward hacking er</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="hva"><span class="sec">14.1</span>En ny måte å lære på</h2>
+
+<p>I veiledet læring (supervised learning) har vi en fasit: for hvert $x^{(i)}$ står det riktige svaret $y^{(i)}$, og tapsfunksjonen sier hvor langt unna vi er. I uveiledet læring (unsupervised learning) har vi ingen fasit, men leter etter struktur i dataene, som klynger eller retninger med mye varians.</p>
+
+<p>Forsterkningslæring (reinforcement learning, RL) er en tredje situasjon. Ingen forteller agenten hva som var riktig handling. Den får bare et tall tilbake, en <b>belønning</b> (reward), som sier hvor bra det gikk. Ofte kommer belønningen lenge etter handlingen som fortjente den. Og dataene er ikke gitt på forhånd: agenten lager sine egne data ved å handle.</p>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 600 230" role="img" aria-label="Agent og miljø i en løkke">
+  <defs><marker id="ah14" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--text-soft)"/></marker></defs>
+  <rect class="box" x="30" y="70" width="150" height="80" rx="14" style="stroke:var(--c1)"/>
+  <text class="lbl" x="105" y="105" text-anchor="middle" font-weight="700">Agent</text>
+  <text class="sm" x="105" y="127" text-anchor="middle">policy π(s)</text>
+  <rect class="box" x="420" y="70" width="150" height="80" rx="14" style="stroke:var(--c3)"/>
+  <text class="lbl" x="495" y="105" text-anchor="middle" font-weight="700">Miljø</text>
+  <text class="sm" x="495" y="127" text-anchor="middle">spill, robot, verden</text>
+  <path class="ln" d="M105,70 C105,20 495,20 495,68" marker-end="url(#ah14)"/>
+  <text class="lbl" x="300" y="30" text-anchor="middle" style="fill:var(--c1)">handling aₜ</text>
+  <path class="ln" d="M495,150 C495,205 105,205 105,152" marker-end="url(#ah14)"/>
+  <text class="lbl" x="300" y="185" text-anchor="middle" style="fill:var(--c3)">ny tilstand sₜ₊₁</text>
+  <text class="lbl" x="300" y="222" text-anchor="middle" style="fill:var(--c5)">belønning rₜ₊₁</text>
+</svg>
+<figcaption><b>Figur 14.1</b> Agent–miljø-løkka. I hvert tidssteg $t$ ser agenten tilstanden $s_t$, velger en handling $a_t$, og miljøet svarer med en belønning $r_{t+1}$ og en ny tilstand $s_{t+1}$. Så gjentas det.</figcaption>
+</figure>
+
+<div class="callout def"><span class="label">Grunnbegreper</span>
+<ul>
+<li><b>Agent</b>: den som lærer og handler (spilleren, roboten, programmet).</li>
+<li><b>Miljø</b> (environment): alt utenfor agenten, det agenten påvirker og får tilbakemelding fra.</li>
+<li><b>Tilstand</b> (state) $s$: beskrivelse av situasjonen akkurat nå, for eksempel posisjonen på et brett.</li>
+<li><b>Handling</b> (action) $a$: et valg agenten kan gjøre i en tilstand, for eksempel «gå opp».</li>
+<li><b>Belønning</b> (reward) $r$: et tall miljøet gir etter hver handling. Kan være negativt (straff).</li>
+<li><b>Episode</b>: én hel runde fra start til en slutt-tilstand (terminal state), for eksempel ett parti sjakk eller ett forsøk på et brett.</li>
+<li><b>Retur</b> (return) $G_t$: summen av framtidige belønninger fra tidssteg $t$, ofte diskontert (se 14.2).</li>
+</ul></div>
+
+<table class="cmp">
+<tr><th></th><th>Veiledet</th><th>Uveiledet</th><th>Forsterkning</th></tr>
+<tr><td>Tilbakemelding</td><td>riktig svar $y$ for hvert eksempel</td><td>ingen</td><td>et belønningstall, ofte forsinket</td></tr>
+<tr><td>Data</td><td>fast datasett, i.i.d.</td><td>fast datasett</td><td>genereres av agentens egne handlinger, sterkt korrelert i tid</td></tr>
+<tr><td>Mål</td><td>minimere tap mot fasit</td><td>finne struktur</td><td>maksimere forventet (diskontert) retur</td></tr>
+<tr><td>Eksempel</td><td>spam-filter</td><td>kundesegmentering</td><td>spille Go, styre en robot, RLHF for chatboter</td></tr>
+</table>
+
+<div class="callout why"><span class="label">Hvorfor ikke bare veiledet læring?</span>
+<p>Fordi fasiten ofte ikke finnes. Hva er «riktig trekk» i trekk 12 i et sjakkparti? Det vet vi først når partiet er ferdig, og selv da vet vi ikke hvilke trekk som var avgjørende. Dette kalles <b>kredittildelingsproblemet</b> (credit assignment): belønningen kommer sent, og agenten må finne ut hvilke tidligere handlinger som fortjente den.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p>Tenk på å lære en hund triks. Du kan ikke forklare hunden hva den skal gjøre (ingen fasit), men du kan gi godbit når den gjør noe bra. Hunden prøver seg fram og lærer hvilke handlinger som gir godbiter. Hunden er agenten, du og stua er miljøet, og godbiten er belønningen.</p>
+</div>
+
+<div class="quiz" data-id="14-rl-vs-sup">
+  <p class="q">Hva skiller forsterkningslæring mest fra veiledet læring?</p>
+  <ul>
+    <li>Forsterkningslæring bruker alltid nevrale nettverk, veiledet læring gjør det ikke.</li>
+    <li>I forsterkningslæring finnes det ingen tapsfunksjon eller optimering.</li>
+    <li data-correct>Agenten får ikke oppgitt riktig handling, bare en belønning, og dataene oppstår fra agentens egne handlinger.</li>
+    <li>Forsterkningslæring finner klynger i data uten merkelapper.</li>
+  </ul>
+  <div class="explain">Kjernen er at tilbakemeldingen er et belønningstall og ikke en fasit, og at agenten selv samler dataene ved å handle. Q-learning med tabell bruker ikke nevrale nettverk, så det første alternativet er feil. Det finnes optimering i RL (DQN minimerer for eksempel et kvadratisk tap), så det andre er feil. Klynger uten merkelapper er uveiledet læring.</div>
+</div>
+
+<div class="quiz" data-multi data-id="14-begreper">
+  <p class="q">En robotstøvsuger lærer med RL. Hvilke koblinger er riktige?</p>
+  <ul>
+    <li data-correct>Tilstand: robotens posisjon og hvilke områder som er støvsugd.</li>
+    <li>Belønning: hvilken retning roboten kjører i.</li>
+    <li data-correct>Episode: én støvsugerrunde fra start til roboten er tilbake i laderen.</li>
+    <li data-correct>Miljø: rommet, møblene og støvet.</li>
+  </ul>
+  <div class="explain">Retningen roboten kjører i er en <i>handling</i>, ikke en belønning. Belønningen kan være for eksempel +1 per ny ren rute og −5 for å kollidere. De tre andre koblingene er riktige: tilstanden beskriver situasjonen, en episode er én runde, og miljøet er alt utenfor agenten.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="retur"><span class="sec">14.2</span>Retur og diskontering</h2>
+
+<p>Agenten skal ikke maksimere neste belønning, men summen av alle framtidige belønninger. Et sjakktrekk som ofrer en bonde (litt negativt nå) kan gi seier senere (svært positivt). Vi kaller summen <b>returen</b>:</p>
+
+<div class="eq">
+  <p class="eq-note">Diskontert retur fra tidssteg $t$</p>
+  $$G_t = r_{t+1} + \gamma r_{t+2} + \gamma^2 r_{t+3} + \dots = \sum_{k=0}^{\infty} \gamma^k\, r_{t+k+1}, \qquad 0 \le \gamma \le 1$$
+</div>
+
+<p>$\gamma$ (gamma) er <b>diskonteringsfaktoren</b> (discount factor). En belønning som kommer $k$ steg fram i tid, teller bare $\gamma^k$ så mye som en belønning nå. Med $\gamma = 0.9$ er en belønning 10 steg fram verdt $0.9^{10} \approx 0.35$ av det den hadde vært verdt nå.</p>
+
+<div class="callout why"><span class="label">Hvorfor diskontere?</span>
+<ul>
+<li><b>Usikkerhet:</b> framtiden er usikker. En belønning i hånden er bedre enn ti på taket.</li>
+<li><b>Matematikk:</b> i oppgaver uten slutt blir summen uendelig uten diskontering. Med $\gamma \lt 1$ og belønninger begrenset av $r_{\max}$ er $|G_t| \le r_{\max}/(1-\gamma)$.</li>
+<li><b>Atferd:</b> agenten foretrekker å nå målet raskt framfor å somle, fordi belønningen da blir mindre diskontert.</li>
+</ul></div>
+
+<div class="chain">
+  <div><b>$\gamma$ nær 0</b>bare neste belønning teller</div><div class="arrow">→</div>
+  <div><b>Kortsiktig agent</b>tar den lille gevinsten rett ved siden av</div><div class="arrow">↔</div>
+  <div><b>$\gamma$ nær 1</b>fjerne belønninger teller nesten fullt</div><div class="arrow">→</div>
+  <div><b>Langsiktig agent</b>går omveien til den store gevinsten</div>
+</div>
+
+<div class="callout hook"><span class="label">Knagg: rente baklengs</span>
+<p>Diskontering er som rente snudd på hodet. 100 kr om ett år er verdt mindre enn 100 kr i dag. $\gamma$ er hvor tålmodig agenten er. En nyttig tommelfingerregel er at agenten «ser» omtrent $1/(1-\gamma)$ steg framover: $\gamma=0.9$ gir rundt 10 steg og $\gamma=0.99$ rundt 100 steg.</p>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: liten gevinst nå eller stor gevinst senere?</h4>
+  <canvas id="disc" width="640" height="280"></canvas>
+  <div class="controls">
+    <label>$\gamma$ <input type="range" id="dg" min="0" max="0.99" step="0.01" value="0.9"><output id="dgo">0.90</output></label>
+    <label>steg til +10 <input type="range" id="dk" min="2" max="20" step="1" value="8"><output id="dko">8</output></label>
+  </div>
+  <div class="readouts"><span class="readout" id="dA"></span><span class="readout" id="dB"></span><span class="readout" id="dW"></span></div>
+  <p class="small muted">Søylene viser vekten $\gamma^k$ som en belønning $k+1$ steg fram får. Strategi A får +1 i første steg ($G=1$). Strategi B får +10 etter det valgte antallet steg ($G = 10\,\gamma^{\text{steg}-1}$). <b>Legg merke til</b> at med $\gamma=0.9$ og 8 steg vinner B ($10 \cdot 0.9^7 \approx 4.8$), mens med $\gamma=0.5$ vinner A ($10 \cdot 0.5^7 \approx 0.08$). Samme verden, ulik tålmodighet, ulik atferd.</p>
+</div>
+
+<h3>Regneeksempel</h3>
+<p>En agent får belønningene $r_1 = 2,\ r_2 = 0,\ r_3 = -1,\ r_4 = 5$, og så slutter episoden. Med $\gamma = 0.9$ blir returen fra start</p>
+<div class="eq">$$G_0 = 2 + 0.9\cdot 0 + 0.9^2\cdot(-1) + 0.9^3\cdot 5 = 2 + 0 - 0.81 + 3.645 = 4.835$$</div>
+
+<details class="steps"><summary>Triks: regn baklengs</summary><div>
+<p>Returen oppfyller $G_t = r_{t+1} + \gamma\, G_{t+1}$. Start bakerst:</p>
+<p>$G_3 = 5$, &nbsp; $G_2 = -1 + 0.9\cdot 5 = 3.5$, &nbsp; $G_1 = 0 + 0.9\cdot 3.5 = 3.15$, &nbsp; $G_0 = 2 + 0.9 \cdot 3.15 = 4.835$.</p>
+<p>Det er færre potenser å holde styr på, og det er nøyaktig den rekursive strukturen Bellman-likningen bygger på (14.4).</p>
+</div></details>
+
+<div class="calc" data-id="14-retur1" data-answer="2.75" data-tol="0.005">
+  <p class="q">Belønningene er $r_1 = 1,\ r_2 = 1,\ r_3 = 0,\ r_4 = 10$, og episoden slutter. Hva er $G_0$ med $\gamma = 0.5$?</p>
+  <div class="solution">$G_0 = 1 + 0.5\cdot 1 + 0.25\cdot 0 + 0.125\cdot 10 = 1 + 0.5 + 0 + 1.25 = 2.75$. <br>Kontroll baklengs: gir $G_3=10$, $G_2 = 0 + 0.5\cdot 10 = 5$, $G_1 = 1 + 0.5\cdot 5 = 3.5$, $G_0 = 1 + 0.5\cdot 3.5 = 2.75$.</div>
+</div>
+
+<div class="calc" data-id="14-retur-uendelig" data-answer="10" data-tol="0.01">
+  <p class="q">En agent får belønning 1 i hvert eneste tidssteg, for alltid. Hva er returen med $\gamma = 0.9$?</p>
+  <div class="solution">Geometrisk rekke: $G = 1 + 0.9 + 0.9^2 + \dots = \frac{1}{1-0.9} = 10$. Uten diskontering ($\gamma = 1$) ville summen vært uendelig. Det er en av grunnene til at vi diskonterer.</div>
+</div>
+
+<div class="quiz" data-id="14-gamma0">
+  <p class="q">Hva blir returen $G_t$ hvis $\gamma = 0$?</p>
+  <ul>
+    <li>Summen av alle framtidige belønninger, uten vekting.</li>
+    <li data-correct>Bare neste belønning, $r_{t+1}$.</li>
+    <li>Alltid 0.</li>
+    <li>Gjennomsnittet av belønningene i episoden.</li>
+  </ul>
+  <div class="explain">Med $\gamma = 0$ er $\gamma^k = 0$ for alle $k \ge 1$, mens $\gamma^0 = 1$. Bare første ledd $r_{t+1}$ står igjen, og agenten blir helt kortsiktig. Summen uten vekting tilsvarer $\gamma = 1$. Returen er ikke 0, fordi første ledd ikke ganges med $\gamma$.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="mdp"><span class="sec">14.3</span>MDP og Markov-egenskapen</h2>
+
+<p>Den formelle rammen for RL er en <b>Markov-beslutningsprosess</b> (Markov decision process, MDP). Den består av</p>
+<ul>
+<li>en mengde tilstander $S$ og en mengde handlinger $A$,</li>
+<li>overgangssannsynligheter $P(s' \mid s, a)$: hvor havner jeg hvis jeg gjør $a$ i $s$?</li>
+<li>en belønningsfunksjon $R(s, a, s')$,</li>
+<li>en diskonteringsfaktor $\gamma$.</li>
+</ul>
+
+<div class="callout def"><span class="label">Markov-egenskapen</span>
+<p>Neste tilstand (og belønning) avhenger bare av <b>nåværende tilstand og handling</b>, ikke av hvordan vi kom dit:</p>
+<p>$$P(s_{t+1} \mid s_t, a_t, s_{t-1}, a_{t-1}, \dots, s_0) = P(s_{t+1} \mid s_t, a_t)$$</p>
+<p>Tilstanden oppsummerer altså all relevant historie.</p>
+</div>
+
+<div class="callout why"><span class="label">Hvorfor er det viktig?</span>
+<p>Hvis framtiden bare avhenger av nå-tilstanden, holder det å lære én verdi per tilstand (eller per tilstand–handling-par). Da kan vi skrive verdien rekursivt, og det er dette Bellman-likningen og Q-learning bygger på. Uten Markov-egenskapen måtte agenten huske hele historien.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg: sjakkbrettet</span>
+<p>I sjakk forteller brettstillingen alt du trenger for å velge neste trekk. Det spiller ingen rolle om dronningen kom til d5 via d1 eller via a5. Brettet er en Markov-tilstand. Ett enkelt bilde fra et ballspill er derimot <i>ikke</i> Markov, fordi du ikke ser hvilken vei ballen beveger seg. Derfor stablet DQN fire bilder etter hverandre som tilstand.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2025, del 8 spm. 1</span>
+<p>«Hvilket utsagn beskriver best Markov-egenskapen?» Riktig: neste tilstand avhenger kun av nåværende tilstand og handling, ikke av tidligere tilstander. Distraktorene var «avhenger av hele sekvensen» (det motsatte), «uforutsigbar uavhengig av handling» og «avhenger kun av belønningen».</p>
+</div>
+
+<div class="quiz" data-id="14-markov">
+  <p class="q">Hvilken situasjon bryter tydeligst med Markov-egenskapen hvis tilstanden er definert som oppgitt?</p>
+  <ul>
+    <li>Tilstand = hele brettstillingen i sjakk, inkludert hvem som er i trekket.</li>
+    <li>Tilstand = posisjonen til en robot på et rutenett der bevegelsene er deterministiske.</li>
+    <li data-correct>Tilstand = posisjonen til en ball på ett enkelt bilde, når det er farten som avgjør hvor ballen havner.</li>
+    <li>Tilstand = posisjon og fart til en pendel.</li>
+  </ul>
+  <div class="explain">Ett bilde gir posisjon, men ikke fart. To baller på samme sted kan være på vei hver sin vei, så neste tilstand avhenger av historien (forrige bilde). Det bryter Markov-egenskapen. Sjakkbrettet, roboten på rutenettet og pendelen med både posisjon og fart har all relevant informasjon i tilstanden. (Strengt tatt trenger sjakk også rokaderett og en passant, men det er detaljer.)</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="policy"><span class="sec">14.4</span>Policy, verdifunksjoner og Bellman</h2>
+
+<h3>Policy</h3>
+<p>En <b>policy</b> $\pi$ er agentens strategi: en regel som sier hvilken handling den tar i hver tilstand. Den kan være deterministisk, $a = \pi(s)$, eller stokastisk, $\pi(a \mid s)$ = sannsynligheten for å velge $a$ i $s$. Målet i RL er å finne en policy som gir høyest mulig forventet retur.</p>
+
+<h3>Verdifunksjoner</h3>
+<p>For å velge gode handlinger trenger agenten et mål på hvor bra ting er. Det finnes to varianter:</p>
+
+<div class="two-col">
+<div class="callout def"><span class="label">Tilstandsverdi $V(s)$</span>
+<p>$V^\pi(s) = \mathbb{E}_\pi[\,G_t \mid s_t = s\,]$</p>
+<p>Forventet retur hvis jeg står i $s$ og følger $\pi$ videre. «Hvor bra er det å være her?»</p>
+</div>
+<div class="callout def"><span class="label">Handlingsverdi $Q(s,a)$</span>
+<p>$Q^\pi(s,a) = \mathbb{E}_\pi[\,G_t \mid s_t = s, a_t = a\,]$</p>
+<p>Forventet retur hvis jeg gjør $a$ i $s$ og så følger $\pi$. «Hvor bra er det å gjøre <i>dette</i> her?»</p>
+</div>
+</div>
+
+<p>Q står for kvalitet (quality). Fordelen med $Q$ er at policyen kommer gratis: velg handlingen med høyest Q-verdi,</p>
+<div class="eq">$$\pi(s) = \arg\max_a Q(s,a), \qquad V(s) = \max_a Q(s,a) \text{ (for den optimale policyen)}$$</div>
+
+<div class="callout warn"><span class="label">Vanlig feil: policy ≠ Q-funksjon</span>
+<p>Q-funksjonen gir et <b>tall</b> for hvert tilstand–handling-par. Policyen gir en <b>handling</b> for hver tilstand. Vi kan utlede en policy fra Q (ta argmax), men de er ikke det samme. På eksamen er «en funksjon som gir en verdi for hvert tilstand–handling-par» en klassisk distraktor når spørsmålet er hva en policy er. Det beskriver Q. Tilsvarende er «en tabell som lagrer estimert retur for hver tilstand, uten å ta hensyn til handlinger» en beskrivelse av $V$, ikke av policyen.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg: GPS-en</span>
+<p>$Q(s,a)$ er GPS-en som viser forventet reisetid for hvert veivalg i krysset. Policyen er sjåføren som svinger. $V(s)$ er reisetiden fra krysset hvis du kjører smartest mulig.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 31 og 2025 del 8 spm. 2</span>
+<p>Begge spurte hva en policy er. 2024: «En strategi som bestemmer hvilken handling agenten skal ta i en gitt tilstand.» 2025: «En tabell eller funksjon som spesifiserer hvilken handling som skal tas i hver tilstand.» Distraktorene beskrev Q-funksjonen, målet (returen), V-funksjonen og oppdateringsregelen.</p>
+</div>
+
+<div class="quiz" data-id="14-policy">
+  <p class="q">Hva er en policy i forsterkningslæring?</p>
+  <ul>
+    <li>Et tall som sier hvor mye total belønning agenten forventer fra en tilstand.</li>
+    <li>En regel for hvordan Q-verdiene oppdateres etter hvert tidssteg.</li>
+    <li>Summen av diskonterte belønninger agenten prøver å maksimere.</li>
+    <li data-correct>En avbildning fra tilstand til handling (eller til sannsynligheter for handlinger).</li>
+  </ul>
+  <div class="explain">Policyen er strategien: tilstand inn, handling ut. Det første alternativet er $V(s)$. Det andre er oppdateringsregelen i Q-learning. Det tredje er returen $G_t$, altså målet og ikke strategien.</div>
+</div>
+
+<div class="quiz" data-multi data-id="14-v-q-pi">
+  <p class="q">Hvilke utsagn er riktige?</p>
+  <ul>
+    <li data-correct>Hvis vi kjenner den optimale $Q^*(s,a)$, får vi en optimal policy ved å velge $\arg\max_a Q^*(s,a)$.</li>
+    <li>$V(s)$ og $Q(s,a)$ er to navn på samme funksjon.</li>
+    <li data-correct>$Q(s,a)$ tar hensyn til hvilken handling som tas først, mens $V(s)$ ikke gjør det.</li>
+    <li>En policy må alltid være deterministisk.</li>
+  </ul>
+  <div class="explain">Argmax over $Q^*$ gir en optimal policy, og $Q$ avhenger av handlingen mens $V$ ikke gjør det. $V$ og $Q$ er forskjellige funksjoner med ulike argumenter, men henger sammen via $V^*(s) = \max_a Q^*(s,a)$. En policy kan godt være stokastisk, $\pi(a\mid s)$. Det er faktisk det ε-greedy gir oss.</div>
+</div>
+
+<h3 id="bellman">Bellman-likningen</h3>
+<p>Fordi $G_t = r_{t+1} + \gamma G_{t+1}$ (se triksregningen over), kan verdien av en tilstand skrives som umiddelbar belønning pluss diskontert verdi av neste tilstand. For den optimale Q-funksjonen blir det</p>
+
+<div class="eq">
+  <p class="eq-note">Bellman-optimalitetslikningen for Q</p>
+  $$Q^*(s,a) = \mathbb{E}\Big[\, r + \gamma \max_{a'} Q^*(s',a') \;\Big|\; s, a \Big]$$
+</div>
+
+<p>Les den slik: <i>verdien av å gjøre $a$ i $s$ er belønningen jeg får nå, pluss $\gamma$ ganger verdien av det beste jeg kan gjøre fra der jeg havner.</i> Den definerer verdien rekursivt, ved hjelp av seg selv. Det er nøkkelen: vi trenger ikke vente til episoden er ferdig for å lære. Vi kan bruke vårt eget estimat av neste tilstand som en midlertidig fasit.</p>
+
+<div class="callout hook"><span class="label">Knagg: dominobrikkene baklengs</span>
+<p>Bellman sier at verdien «lekker» bakover ett steg av gangen. Ruta rett ved målet lærer først at den er verdifull. Så lærer ruta før den det, fordi den kan gå til en verdifull rute. Slik sprer verdien seg bakover fra målet, som ringer i vann. Det ser du tydelig i gridworlden i 14.6.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="qlearning"><span class="sec">14.5</span>Q-learning</h2>
+
+<p>Q-learning lærer $Q^*$ direkte fra erfaring, uten å kjenne overgangssannsynlighetene $P(s'\mid s,a)$. Med få tilstander og handlinger lagres Q-verdiene i en <b>Q-tabell</b>: én rad per tilstand, én kolonne per handling, alle startet på 0.</p>
+
+<table class="center" style="max-width:520px">
+<tr><th>tilstand</th><th>↑</th><th>→</th><th>↓</th><th>←</th></tr>
+<tr><td>$s_1$</td><td>0.0</td><td>2.3</td><td>0.4</td><td>−1.0</td></tr>
+<tr><td>$s_2$</td><td>5.1</td><td>3.0</td><td>0.0</td><td>0.7</td></tr>
+<tr><td>…</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+</table>
+<p class="small muted">Eksempel på Q-tabell. Greedy policy: i $s_1$ velg →, i $s_2$ velg ↑.</p>
+
+<p>Etter hver overgang $(s, a, r, s')$ oppdateres én celle:</p>
+
+<div class="eq">
+  <p class="eq-note">Q-learning-oppdateringen</p>
+  $$Q(s,a) \leftarrow Q(s,a) + \alpha \Big[\underbrace{\underbrace{r + \gamma \max_{a'} Q(s',a')}_{\text{TD-mål}} - Q(s,a)}_{\text{TD-feil } \delta}\Big]$$
+</div>
+
+<ul>
+<li><b>TD-mål</b> (TD target) $r + \gamma \max_{a'} Q(s',a')$: et nytt, litt bedre estimat. Det bruker en ekte observert belønning $r$ pluss vårt eget estimat av framtiden. TD står for temporal difference.</li>
+<li><b>TD-feil</b> $\delta$ = mål − gammelt estimat. Positiv $\delta$: det gikk bedre enn ventet, så øk $Q$. Negativ $\delta$: verre enn ventet, så senk $Q$.</li>
+<li><b>Læringsrate</b> $\alpha \in (0,1]$: hvor stort steg vi tar mot målet.</li>
+<li><b>Diskontering</b> $\gamma \in [0,1]$: hvor mye estimatet av framtiden teller i målet.</li>
+<li><b>Terminal tilstand:</b> hvis $s'$ er slutten av episoden, finnes ingen framtid, og målet er bare $r$.</li>
+</ul>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 600 210" role="img" aria-label="Backup-diagram for Q-learning">
+  <defs><marker id="ah14b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--text-soft)"/></marker></defs>
+  <circle cx="80" cy="100" r="26" class="box" style="stroke:var(--c1)"/><text x="80" y="105" text-anchor="middle" class="lbl">s</text>
+  <circle cx="200" cy="100" r="9" style="fill:var(--c1)"/><text x="200" y="80" text-anchor="middle" class="sm">handling a</text>
+  <line x1="106" y1="100" x2="188" y2="100" class="ln" marker-end="url(#ah14b)"/>
+  <line x1="210" y1="100" x2="320" y2="100" class="ln" marker-end="url(#ah14b)"/>
+  <text x="265" y="90" text-anchor="middle" class="lbl" style="fill:var(--c5)">r</text>
+  <circle cx="348" cy="100" r="26" class="box" style="stroke:var(--c3)"/><text x="348" y="105" text-anchor="middle" class="lbl">s′</text>
+  <line x1="372" y1="90" x2="470" y2="40" class="ln" marker-end="url(#ah14b)"/>
+  <line x1="374" y1="100" x2="470" y2="100" class="ln" style="stroke:var(--c3);stroke-width:3" marker-end="url(#ah14b)"/>
+  <line x1="372" y1="110" x2="470" y2="160" class="ln" marker-end="url(#ah14b)"/>
+  <text x="530" y="45" text-anchor="middle" class="sm">Q(s′,a₁)=2</text>
+  <text x="530" y="105" text-anchor="middle" class="lbl" style="fill:var(--c3)" font-weight="700">Q(s′,a₂)=5</text>
+  <text x="530" y="165" text-anchor="middle" class="sm">Q(s′,a₃)=1</text>
+  <text x="300" y="200" text-anchor="middle" class="sm">TD-mål = r + γ · max = r + γ · 5</text>
+</svg>
+<figcaption><b>Figur 14.2</b> Én Q-learning-oppdatering. Agenten gjør $a$ i $s$, får $r$ og havner i $s'$. Målet bruker den <i>beste</i> Q-verdien i $s'$, uansett hvilken handling agenten faktisk tar neste gang. Derfor kalles Q-learning <i>off-policy</i>: den lærer verdien av den greedy policyen selv om den oppfører seg utforskende.</figcaption>
+</figure>
+
+<h3>Regneeksempel: én oppdatering for hånd</h3>
+<p>Gitt $Q(s,a) = 2$, $r = 1$, $\gamma = 0.9$, $\alpha = 0.1$ og Q-verdiene i $s'$ er $2,\ 5,\ 1$ (som i figuren).</p>
+<details class="steps" open><summary>Steg for steg</summary><div>
+<ol>
+<li>Beste verdi i neste tilstand: $\max_{a'} Q(s',a') = 5$.</li>
+<li>TD-mål: $r + \gamma \cdot 5 = 1 + 0.9 \cdot 5 = 5.5$.</li>
+<li>TD-feil: $\delta = 5.5 - 2 = 3.5$. Det gikk bedre enn agenten trodde.</li>
+<li>Oppdatering: $Q(s,a) \leftarrow 2 + 0.1 \cdot 3.5 = 2.35$.</li>
+</ol>
+<p>Q-verdien flyttet seg 10 % av veien mot målet. Med $\alpha = 1$ ville den hoppet helt til 5.5.</p>
+</div></details>
+
+<div class="calc" data-id="14-qupd1" data-answer="2.7" data-tol="0.005">
+  <p class="q">$Q(s,a) = 4$, $r = -1$, $\gamma = 0.8$, $\alpha = 0.5$, og Q-verdiene i $s'$ er $3,\ 2.5,\ 0$. Hva blir ny $Q(s,a)$?</p>
+  <div class="solution">Maks i $s'$ er 3. TD-mål: $-1 + 0.8\cdot 3 = 1.4$. TD-feil: $1.4 - 4 = -2.6$. Ny verdi: $4 + 0.5\cdot(-2.6) = 4 - 1.3 = 2.7$. Q-verdien gikk ned fordi utfallet var dårligere enn agenten trodde.</div>
+</div>
+
+<div class="calc" data-id="14-td-terminal" data-answer="7" data-tol="0.01">
+  <p class="q">Agenten står ved siden av målet med $Q(s,a) = 4$. Den gjør $a$, får $r = 10$, og episoden slutter ($s'$ er terminal). Med $\alpha = 0.5$ og $\gamma = 0.9$, hva blir ny $Q(s,a)$?</p>
+  <div class="solution">Terminal tilstand har ingen framtid, så TD-målet er bare $r = 10$ ($\gamma$ spiller ingen rolle her). TD-feil: $10 - 4 = 6$. Ny verdi: $4 + 0.5\cdot 6 = 7$.</div>
+</div>
+
+<div class="calc" data-id="14-td-feil" data-answer="-1.5" data-tol="0.01">
+  <p class="q">$Q(s,a) = 6$, $r = 0$, $\gamma = 0.9$ og $\max_{a'}Q(s',a') = 5$. Hva er TD-feilen $\delta$?</p>
+  <div class="solution">TD-mål $= 0 + 0.9\cdot 5 = 4.5$. TD-feil $= 4.5 - 6 = -1.5$. Negativ TD-feil betyr at agenten var for optimistisk, og $Q(s,a)$ skal ned.</div>
+</div>
+
+<h3>Samme regel, to skrivemåter</h3>
+<p>Eksamen 2024 skrev regelen på en annen form. Gang ut parentesen i vår form:</p>
+<div class="eq">$$Q + \alpha(\text{mål} - Q) = (1-\alpha)\,Q + \alpha\cdot\text{mål} = (1-\alpha)\,Q(s_t,a_t) + \alpha\big(r_{t+1} + \gamma \max_{a} Q(s_{t+1}, a)\big)$$</div>
+<p>Den nye verdien er et <b>vektet gjennomsnitt</b> av gammel verdi og TD-mål. Det gjør rollene til $\alpha$ og $\gamma$ lette å se:</p>
+
+<table>
+<tr><th>Parameter</th><th>Liten verdi</th><th>Stor verdi</th></tr>
+<tr><td>$\alpha$ (læringsrate)</td><td>de <b>gamle Q-verdiene</b> dominerer, læringen går tregt men stabilt</td><td>det nye TD-målet dominerer, raskt men ustabilt (støyete)</td></tr>
+<tr><td>$\gamma$ (diskontering)</td><td>den <b>umiddelbare belønningen</b> dominerer målet, agenten er kortsiktig</td><td><b>estimatet av framtidige tilstander</b> dominerer målet, agenten er langsiktig</td></tr>
+</table>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 32 og 2025 del 8 spm. 4</span>
+<p>2024 viste regelen $Q^{new}(S_t,A_t) \leftarrow (1-\alpha) Q(S_t,A_t) + \alpha\,(R_{t+1} + \gamma \max_A Q(S_{t+1},A))$, kalte den «Bellman-likningen», og spurte: <b>hva medfører en høy verdi av $\gamma$?</b> Fasit: «Læringen av Q-verdier domineres av estimatet av fremtidige tilstander.» Distraktorene passet til de andre rutene i tabellen: «domineres av den umiddelbare rewarden» (lav $\gamma$), «domineres av de gamle Q-verdiene» (lav $\alpha$), og «catastrophic forgetting» (handler om nevrale nett, ikke $\gamma$).</p>
+<p>2025 spurte om rollen til $\gamma$. Fasit: «Den bestemmer hvor sterkt framtidige belønninger påvirker den nåværende Q-verdien.» Distraktor: «hvor ofte agenten velger tilfeldige handlinger», som er $\varepsilon$.</p>
+</div>
+
+<div class="callout warn"><span class="label">Navneforvirring</span>
+<p>Strengt tatt er regelen over <i>Q-learning-oppdateringen</i>, og Bellman-likningen er likheten $Q^* = \mathbb{E}[r + \gamma\max Q^*]$ som oppdateringen prøver å oppfylle. Eksamen 2024 kalte oppdateringen «Bellman-likningen». Ikke la deg forvirre: kjenn igjen formen og spør deg hva parameteren gjør.</p>
+</div>
+
+<div class="quiz" data-id="14-gamma-high">
+  <p class="q">I Q-learning-oppdateringen $Q \leftarrow (1-\alpha)Q + \alpha\,(r + \gamma \max_{a'} Q(s',a'))$ setter vi $\gamma = 0.99$. Hva er konsekvensen?</p>
+  <ul>
+    <li>Q-verdiene endrer seg nesten ikke, fordi den gamle verdien dominerer.</li>
+    <li data-correct>Målet domineres av estimatet av framtidige tilstander, så agenten blir langsiktig.</li>
+    <li>Agenten velger tilfeldige handlinger 99 % av tiden.</li>
+    <li>Målet domineres av den umiddelbare belønningen.</li>
+  </ul>
+  <div class="explain">$\gamma$ vekter $\max Q(s',a')$, altså framtida. Høy $\gamma$ gjør at framtidige belønninger teller nesten fullt. At den gamle verdien dominerer skyldes liten $\alpha$, ikke stor $\gamma$. Tilfeldige handlinger styres av $\varepsilon$. Umiddelbar belønning dominerer når $\gamma$ er <i>liten</i>.</div>
+</div>
+
+<div class="quiz" data-id="14-alpha">
+  <p class="q">Hva skjer hvis læringsraten $\alpha$ settes til 0 i Q-learning?</p>
+  <ul>
+    <li>Agenten blir helt kortsiktig.</li>
+    <li>Q-verdiene erstattes fullstendig av TD-målet hver gang.</li>
+    <li data-correct>Q-verdiene endres aldri, så agenten lærer ingenting.</li>
+    <li>Agenten slutter å utforske.</li>
+  </ul>
+  <div class="explain">Med $\alpha = 0$ blir oppdateringen $Q \leftarrow Q + 0$, så ingenting skjer. Full erstatning med TD-målet er $\alpha = 1$. Kortsiktighet er $\gamma = 0$. Utforskning styres av $\varepsilon$, ikke $\alpha$.</div>
+</div>
+
+<div class="quiz" data-id="14-td-sign">
+  <p class="q">TD-feilen for et par $(s,a)$ er positiv. Hva betyr det?</p>
+  <ul>
+    <li data-correct>Utfallet var bedre enn agentens estimat, så $Q(s,a)$ økes.</li>
+    <li>Agenten fikk negativ belønning.</li>
+    <li>Agenten bør utforske mer.</li>
+    <li>Q-verdien har konvergert.</li>
+  </ul>
+  <div class="explain">$\delta = \text{mål} - Q(s,a) \gt 0$ betyr at belønning pluss beste framtid var større enn det agenten trodde, og oppdateringen $Q + \alpha\delta$ øker $Q$. Positiv TD-feil kan godt komme sammen med negativ belønning hvis agenten var enda mer pessimistisk. Konvergens betyr TD-feil nær 0 i snitt. TD-feilens fortegn sier ingenting direkte om hvor mye agenten bør utforske.</div>
+</div>
+
+<pre><code><span class="c"># Q-learning med tabell (f.eks. FrozenLake: 16 tilstander, 4 handlinger)</span>
+Q = np.zeros((n_states, n_actions))
+<span class="k">for</span> episode <span class="k">in</span> range(n_episodes):
+    s = env.reset()
+    done = False
+    <span class="k">while</span> <span class="k">not</span> done:
+        a = epsilon_greedy(Q, s, eps)              <span class="c"># 14.6</span>
+        s2, r, done = env.step(a)
+        target = r <span class="k">if</span> done <span class="k">else</span> r + gamma * np.max(Q[s2])
+        Q[s, a] += alpha * (target - Q[s, a])      <span class="c"># TD-oppdatering</span>
+        s = s2
+    eps = max(eps_min, eps * eps_decay)            <span class="c"># ε-decay</span></code></pre>
+
+<!-- ============================================================ -->
+<h2 id="utforskning"><span class="sec">14.6</span>Utforskning vs. utnyttelse</h2>
+
+<p>Agenten står overfor et dilemma i hvert steg. Skal den <b>utnytte</b> (exploit) det den vet, altså ta handlingen med høyest Q-verdi? Eller skal den <b>utforske</b> (explore) og prøve noe annet, i tilfelle det finnes noe bedre den ikke har oppdaget?</p>
+
+<div class="callout hook"><span class="label">Knagg: restauranten</span>
+<p>Du har en favorittrestaurant som er ganske god. Går du alltid dit (utnyttelse), oppdager du aldri at den nye thairestauranten rundt hjørnet er fantastisk. Prøver du en ny restaurant hver kveld (utforskning), spiser du mye dårlig mat. Lurest er å prøve nye steder ofte i begynnelsen og sjeldnere etter hvert.</p>
+</div>
+
+<div class="callout def"><span class="label">ε-greedy</span>
+<p>Med sannsynlighet $\varepsilon$: velg en <b>tilfeldig</b> handling (utforsk). <br>Med sannsynlighet $1-\varepsilon$: velg $\arg\max_a Q(s,a)$ (utnytt).</p>
+<p><b>ε-decay:</b> start med høy $\varepsilon$ (f.eks. 1.0, alt er tilfeldig) og gang med f.eks. 0.995 etter hver episode, ned til en minsteverdi som 0.01–0.05.</p>
+</div>
+
+<div class="chain">
+  <div><b>Problem</b>Q starter på 0, så agenten vet ingenting</div><div class="arrow">→</div>
+  <div><b>Ren greedy</b>låser seg på det første som fungerer litt</div><div class="arrow">→</div>
+  <div><b>ε-greedy</b>tilfeldige forsøk finner nye ruter</div><div class="arrow">→</div>
+  <div><b>ε-decay</b>mye utforskning tidlig, mest utnyttelse når Q er god</div>
+</div>
+
+<div class="callout why"><span class="label">Hvorfor decay?</span>
+<p>Tidlig er Q-tabellen nesten tom, og det er lite å utnytte. Da lønner det seg å utforske. Senere er Q-verdiene gode, og tilfeldige handlinger koster bare belønning (agenten kan for eksempel gå i en felle). Q-learning trenger likevel at alle par besøkes mange nok ganger for å konvergere, så $\varepsilon$ bør ikke bli helt 0 under trening.</p>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: Q-learning live i en gridworld</h4>
+  <div class="gw-wrap">
+    <canvas id="gw" width="640" height="440"></canvas>
+    <div class="controls">
+      <button class="btn" type="button" id="gwRun">▶ Start</button>
+      <button class="btn ghost" type="button" id="gwStep">Ett steg</button>
+      <button class="btn ghost" type="button" id="gwEp">Én episode</button>
+      <button class="btn ghost" type="button" id="gwReset">Nullstill Q</button>
+    </div>
+    <div class="controls">
+      <label>$\alpha$ <input type="range" id="gwA" min="0.05" max="1" step="0.05" value="0.5"><output id="gwAo">0.50</output></label>
+      <label>$\gamma$ <input type="range" id="gwG" min="0" max="0.99" step="0.01" value="0.9"><output id="gwGo">0.90</output></label>
+      <label>$\varepsilon$ <input type="range" id="gwE" min="0" max="1" step="0.05" value="0.3"><output id="gwEo">0.30</output></label>
+      <label><input type="checkbox" id="gwDecay"> ε-decay (×0.995 per episode, min 0.02)</label>
+    </div>
+    <div class="controls">
+      <label>Fart <select id="gwSpeed"><option value="1">1 steg/bilde</option><option value="10">10 steg/bilde</option><option value="200" selected>200 steg/bilde</option><option value="2000">2000 steg/bilde</option></select></label>
+      <label>Start <select id="gwStart"><option value="rand" selected>tilfeldig rute</option><option value="fixed">alltid S</option></select></label>
+      <label><input type="checkbox" id="gwShowQ"> vis alle Q-verdier</label>
+    </div>
+    <div class="gw-log" id="gwLog">Trykk «Ett steg» for å se én oppdatering regnet ut, eller «Start» for å la agenten trene.</div>
+    <canvas id="gwR" width="640" height="220"></canvas>
+  </div>
+  <p class="small muted">Ruta øverst til venstre gir +1, ruta nederst til høyre gir +10, og de oransje rutene er feller med −10. Alle tre avslutter episoden. Andre steg gir 0. Pilene viser greedy policy ($\arg\max_a Q$), og fargen viser $\max_a Q(s,a)$ (grønn positiv, oransje negativ). Nederst: total belønning per episode (prikker) og glidende snitt (linje).</p>
+</div>
+
+<p><b>Prøv dette:</b></p>
+<ol>
+<li><b>Effekten av $\gamma$.</b> Tren med $\gamma = 0.9$ til pilene står stille. Nesten alle ruter peker mot +10, også de nær +1. Nullstill, sett $\gamma = 0.3$ og tren igjen. Nå danner det seg et «vannskille»: rutene nær +1 tar den lille gevinsten, fordi +10 langt unna er diskontert nesten bort. Med $\gamma = 0$ lærer bare rutene rett ved et mål noe, og resten blir grå. Agenten er da helt kortsiktig.</li>
+<li><b>Verdien sprer seg bakover.</b> Velg fart «1 steg/bilde» med en nullstilt tabell. Grønnfargen dukker først opp ved +10 og brer seg bakover, akkurat som Bellman-likningen sier.</li>
+<li><b>Effekten av $\varepsilon$.</b> Tren til policyen er god, og dra $\varepsilon$ opp til 0.8. Pilene (det agenten har lært) holder seg gode, men belønningskurven faller, fordi agenten ofte tar tilfeldige steg inn i fellene. Sett $\varepsilon = 0$ og velg «alltid S» med nullstilt tabell. Da finner agenten ofte +1 først og blir der for alltid. Den utforsker aldri nok til å oppdage +10.</li>
+<li><b>Effekten av $\alpha$.</b> Med $\alpha = 0.05$ går læringen merkbart tregere. I denne deterministiske verdenen fungerer selv $\alpha = 1$, men i miljøer med tilfeldighet ville stor $\alpha$ gitt Q-verdier som hopper rundt.</li>
+</ol>
+
+<div class="callout exam"><span class="label">Eksamen 2025, del 8 spm. 3</span>
+<p>«Hva er hensikten med utforskingsfaktoren ε i en ε-greedy agent?» Fasit: å sørge for at agenten av og til velger en tilfeldig handling for å utforske miljøet. Distraktorer: «alltid velge høyest Q-verdi» (det er $\varepsilon = 0$), «ignorere framtidige belønninger» (det er $\gamma = 0$), og «garantere optimal policy uten å gjøre feil» (utforskning betyr nettopp å gjøre noen dårlige valg med vilje).</p>
+</div>
+
+<div class="quiz" data-id="14-eps">
+  <p class="q">En agent bruker ε-greedy med $\varepsilon = 0.1$ og 4 mulige handlinger. Hvor stor er sannsynligheten for at den velger handlingen med høyest Q-verdi i et gitt steg (anta én unik beste handling)?</p>
+  <ul>
+    <li data-correct>0.925</li>
+    <li>0.90</li>
+    <li>0.10</li>
+    <li>0.25</li>
+  </ul>
+  <div class="explain">Med sannsynlighet 0.9 velger agenten greedy. Med sannsynlighet 0.1 velger den tilfeldig blant 4 handlinger, og da treffer den den beste med sannsynlighet 1/4. Totalt $0.9 + 0.1\cdot 0.25 = 0.925$. Svaret 0.90 glemmer at den tilfeldige handlingen også kan være den beste. Dette er en vanlig felle.</div>
+</div>
+
+<div class="quiz" data-id="14-eps-decay">
+  <p class="q">Hvorfor reduseres $\varepsilon$ gradvis under trening (ε-decay)?</p>
+  <ul>
+    <li>For å gjøre læringsraten mindre, slik at Q-verdiene konvergerer.</li>
+    <li>For at framtidige belønninger skal telle mindre etter hvert.</li>
+    <li data-correct>Tidlig vet agenten lite, så utforskning lønner seg. Senere er Q-verdiene gode, og tilfeldige handlinger koster mest.</li>
+    <li>Fordi Q-learning ikke fungerer hvis agenten noen gang tar tilfeldige handlinger.</li>
+  </ul>
+  <div class="explain">ε-decay balanserer utforskning og utnyttelse over tid. Det er $\alpha$ som er læringsraten og $\gamma$ som styrer framtidige belønninger, ikke $\varepsilon$. Q-learning er off-policy og trenger tvert imot at agenten utforsker, slik at alle par blir besøkt.</div>
+</div>
+
+<div class="reflect" data-id="14-r-local-opt">
+  <p class="q">I gridworlden med «alltid S» og $\varepsilon = 0$ endte agenten ofte opp med å gå til +1 for alltid, selv med $\gamma = 0.9$. Q-learning skal jo finne den optimale policyen. Hva gikk galt?</p>
+  <div class="answer">Q-learning konvergerer til $Q^*$ bare hvis alle tilstand–handling-par besøkes mange nok ganger. Med $\varepsilon = 0$ følger agenten alltid sin nåværende beste gjetning. Så snart den har funnet +1, er Q-verdiene på den ruta positive og alle andre 0, så den går dit hver gang og ser aldri +10. Det er et lokalt optimum som skyldes for lite utforskning, ikke en feil i oppdateringsregelen. Løsningen er mer utforskning: høyere $\varepsilon$, tilfeldige startposisjoner, eller optimistiske startverdier for Q.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="loss-reward"><span class="sec">14.7</span>Loss og reward er ikke det samme</h2>
+
+<p>Når Q-funksjonen læres med gradient descent (som i DQN, 14.8), har vi et tap (loss):</p>
+<div class="eq">$$L(\theta) = \Big(\underbrace{r + \gamma \max_{a'} Q(s',a';\theta^-)}_{\text{mål}} - Q(s,a;\theta)\Big)^2$$</div>
+<p>Tapet er den kvadrerte TD-feilen. Det måler hvor <b>konsistente</b> Q-estimatene er med Bellman-målet. Det måler ikke hvor <b>bra</b> agenten er. Belønningen (reward) kommer fra miljøet og måler hvor godt agenten faktisk gjør oppgaven.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<ul>
+<li><b>Lav loss, lav reward:</b> en agent som alltid taper og har lært å forutsi nøyaktig at den vil tape, har små TD-feil. Prediksjonene er gode, men atferden er dårlig.</li>
+<li><b>Økende loss, økende reward:</b> når agenten oppdager en ny, bedre strategi, havner den i tilstander den ikke har sett før og får belønninger den ikke ventet. TD-feilene blir store, så tapet <i>øker</i> samtidig som belønningen øker.</li>
+<li><b>Målet flytter seg:</b> i veiledet læring er fasiten $y$ fast. I RL avhenger målet av Q-estimatene selv og av hvilke data agenten samler med sin policy. Fallende tap betyr derfor ikke at agenten blir bedre.</li>
+</ul></div>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p>Ikke bruk treningstapet til å avgjøre om en RL-agent lærer. Se på belønning per episode (eller gjennomsnittet over de siste episodene). I veiledet læring er fallende tap et godt tegn. I RL kan det bety nesten hva som helst.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 33</span>
+<p>«Hva er forholdet mellom tapet (loss) under treningen i Q-learning og reward agenten mottar fra miljøet?» Fasit: <b>det er ikke nødvendigvis en sammenheng.</b> Distraktorer: «loss minker så lenge Q oppdateres», «reward kan ikke øke uten at loss minker», og «loss er reward med negativt fortegn».</p>
+</div>
+
+<div class="quiz" data-id="14-loss-reward">
+  <p class="q">Under trening av en DQN-agent ser du at tapet stiger kraftig mellom episode 300 og 400, mens gjennomsnittlig belønning per episode også stiger. Hva er den mest sannsynlige forklaringen?</p>
+  <ul>
+    <li>Det er en feil i koden, fordi tap og belønning alltid går i motsatt retning.</li>
+    <li data-correct>Agenten har funnet en bedre strategi og møter nye tilstander og uventet store belønninger, som gir store TD-feil.</li>
+    <li>Læringsraten er for lav.</li>
+    <li>Tapet er bare belønningen med motsatt fortegn, så stigende tap betyr synkende belønning.</li>
+  </ul>
+  <div class="explain">Tapet er kvadrert TD-feil. Det blir stort når virkeligheten avviker fra Q-estimatene, og det skjer nettopp når agenten oppdager noe nytt og bedre. Tap og belønning har ingen fast sammenheng, så det første og det siste alternativet er feil. En for lav læringsrate gir treg endring, ikke en plutselig økning i tapet.</div>
+</div>
+
+<div class="reflect" data-id="14-r-loss">
+  <p class="q">Forklar med egne ord, som til en medstudent, hvorfor treningstapet i veiledet læring er et godt mål på framgang, mens det ikke er det i forsterkningslæring.</p>
+  <div class="answer">I veiledet læring sammenligner tapet prediksjonen med en fast fasit $y$. Lavere tap betyr at prediksjonene er nærmere sannheten. I RL er «fasiten» TD-målet $r + \gamma\max Q(s',a')$, som er bygget på agentens egne estimater og på dataene policyen samler inn. Målet endrer seg når Q endres og når atferden endres. Tapet måler bare om estimatene er innbyrdes konsistente, ikke om agenten får høy belønning. En agent kan være konsistent og dårlig (lav loss, lav reward), eller i rask forbedring og ennå inkonsistent (høy loss, økende reward).</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="dqn"><span class="sec">14.8</span>Deep Q-Networks (DQN)</h2>
+
+<p>Q-tabellen fungerer når det er få tilstander. FrozenLake har 16 tilstander og 4 handlinger, altså 64 tall. Men hva med et Atari-spill der tilstanden er et bilde på $84\times 84$ piksler? Eller CartPole, der tilstanden er fire kontinuerlige tall (posisjon, fart, vinkel og vinkelfart)? Da blir tabellen astronomisk stor eller uendelig, og de fleste tilstander blir aldri besøkt.</p>
+
+<div class="chain">
+  <div><b>Problem</b>enormt eller kontinuerlig tilstandsrom, tabellen blir umulig</div><div class="arrow">→</div>
+  <div><b>Løsning</b>et nevralt nett $Q(s,a;\theta)$ tilnærmer tabellen</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>generalisering til usette tilstander, men også ustabil trening</div>
+</div>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 620 230" role="img" aria-label="Q-tabell sammenlignet med Q-nettverk">
+  <text x="130" y="22" text-anchor="middle" class="lbl" font-weight="700">Q-tabell</text>
+  <g style="stroke:var(--border)">
+    <rect x="40" y="35" width="180" height="150" class="box"/>
+    <line x1="40" y1="65" x2="220" y2="65"/><line x1="40" y1="95" x2="220" y2="95"/><line x1="40" y1="125" x2="220" y2="125"/><line x1="40" y1="155" x2="220" y2="155"/>
+    <line x1="85" y1="35" x2="85" y2="185"/><line x1="130" y1="35" x2="130" y2="185"/><line x1="175" y1="35" x2="175" y2="185"/>
+  </g>
+  <text x="130" y="205" text-anchor="middle" class="sm">én celle per (s, a), oppdateres hver for seg</text>
+  <text x="130" y="222" text-anchor="middle" class="sm">krever få, diskrete tilstander</text>
+  <text x="440" y="22" text-anchor="middle" class="lbl" font-weight="700">Q-nettverk (DQN)</text>
+  <g class="sm">
+    <circle cx="330" cy="70" r="10" style="fill:var(--c1)"/><circle cx="330" cy="100" r="10" style="fill:var(--c1)"/><circle cx="330" cy="130" r="10" style="fill:var(--c1)"/><circle cx="330" cy="160" r="10" style="fill:var(--c1)"/>
+    <circle cx="430" cy="55" r="10" style="fill:var(--c4)"/><circle cx="430" cy="90" r="10" style="fill:var(--c4)"/><circle cx="430" cy="125" r="10" style="fill:var(--c4)"/><circle cx="430" cy="160" r="10" style="fill:var(--c4)"/><circle cx="430" cy="195" r="10" style="fill:var(--c4)"/>
+    <circle cx="530" cy="85" r="10" style="fill:var(--c3)"/><circle cx="530" cy="125" r="10" style="fill:var(--c3)"/><circle cx="530" cy="165" r="10" style="fill:var(--c3)"/>
+  </g>
+  <g style="stroke:var(--axis);stroke-width:.7;opacity:.6">
+    <path d="M340,70 L420,55 M340,70 L420,90 M340,70 L420,125 M340,70 L420,160 M340,70 L420,195 M340,100 L420,55 M340,100 L420,90 M340,100 L420,125 M340,100 L420,160 M340,100 L420,195 M340,130 L420,55 M340,130 L420,90 M340,130 L420,125 M340,130 L420,160 M340,130 L420,195 M340,160 L420,55 M340,160 L420,90 M340,160 L420,125 M340,160 L420,160 M340,160 L420,195"/>
+    <path d="M440,55 L520,85 M440,55 L520,125 M440,55 L520,165 M440,90 L520,85 M440,90 L520,125 M440,90 L520,165 M440,125 L520,85 M440,125 L520,125 M440,125 L520,165 M440,160 L520,85 M440,160 L520,125 M440,160 L520,165 M440,195 L520,85 M440,195 L520,125 M440,195 L520,165"/>
+  </g>
+  <text x="330" y="200" text-anchor="middle" class="sm">tilstand s</text>
+  <text x="590" y="89" class="sm" text-anchor="middle">Q(s,a₁)</text>
+  <text x="590" y="129" class="sm" text-anchor="middle">Q(s,a₂)</text>
+  <text x="590" y="169" class="sm" text-anchor="middle">Q(s,a₃)</text>
+  <text x="440" y="222" text-anchor="middle" class="sm">delte vekter θ: én oppdatering endrer mange Q-verdier</text>
+</svg>
+<figcaption><b>Figur 14.3</b> Fra tabell til nettverk. Nettverket tar tilstanden inn og gir ut én Q-verdi per handling i ett forward pass. Alle Q-verdier deler de samme vektene $\theta$.</figcaption>
+</figure>
+
+<h3>Vektdeling: velsignelse og forbannelse</h3>
+<p>I tabellen påvirker en oppdatering av $Q(s,a)$ bare én celle. I nettverket justerer backpropagation vektene $\theta$, og de brukes for <i>alle</i> tilstander. Én oppdatering endrer derfor Q-verdiene for mange andre tilstander og handlinger også.</p>
+<ul>
+<li><b>Velsignelse:</b> generalisering. Lignende tilstander får lignende verdier, også tilstander agenten aldri har sett.</li>
+<li><b>Forbannelse:</b> å forbedre $Q$ for én tilstand kan ødelegge $Q$ for en annen. Og siden målet $r + \gamma\max Q(s',\cdot)$ beregnes med det samme nettet, flytter målet seg hver gang vi oppdaterer. Det gir ustabil trening.</li>
+</ul>
+
+<div class="callout exam"><span class="label">Eksamen 2025, del 9 spm. 3</span>
+<p>«Hvilket av følgende beskriver korrekt en utfordring som oppstår når man bruker et nevralt nettverk i stedet for en tabell?» Fasit: <b>å oppdatere én Q-verdi i nettverket endrer også mange andre Q-verdier på grunn av vektdeling.</b> Distraktorer: nettverket fjerner behovet for $\gamma$ (nei, målet bruker fortsatt $\gamma$), tvinger policyen til å bli deterministisk (nei), og kan ikke representere mer enn én handling om gangen (nei, DQN gir ut alle Q-verdiene samtidig).</p>
+</div>
+
+<p>DeepMind løste ustabiliteten med to triks i DQN-artikkelen fra 2015, der én og samme agent lærte å spille 49 Atari-spill fra rå piksler.</p>
+
+<h3>Triks 1: Replay buffer (experience replay)</h3>
+<p>Påfølgende overganger er sterkt korrelerte. Steg 101 ligner steg 100. Trener vi på dem i rekkefølge, er mini-batchene langt fra i.i.d., og nettet overtilpasser seg det agenten gjør akkurat nå (og glemmer resten). Løsningen er å lagre overgangene $(s, a, r, s', \text{done})$ i en stor buffer (f.eks. de siste 100 000) og trekke <b>tilfeldige mini-batcher</b> fra den.</p>
+<ul>
+<li>Bryter korrelasjonen i tid, slik at batchene ligner mer på i.i.d.-data, som SGD forutsetter (se <a href="10-trening-nn.html">kapittel 10</a>).</li>
+<li>Gjenbruker hver erfaring mange ganger, noe som gir bedre dataeffektivitet.</li>
+<li>Gamle erfaringer blir med videre, så nettet ikke glemmer hvordan tidligere situasjoner så ut.</li>
+</ul>
+
+<h3>Triks 2: Target network</h3>
+<p>Målet $r + \gamma\max_{a'} Q(s',a';\theta)$ avhenger av de samme vektene vi oppdaterer. Hver gang vi skyver $Q(s,a)$ mot målet, flytter målet seg. Det er som å jage sin egen skygge (<b>moving target</b>-problemet), og det kan gi svingninger eller divergens. Løsningen er en kopi av nettet med frosne vekter $\theta^-$ som brukes bare til å beregne målet. Kopien oppdateres sjelden, for eksempel hvert 1000. steg ($\theta^- \leftarrow \theta$).</p>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 620 250" role="img" aria-label="DQN med replay buffer og target network">
+  <defs><marker id="ah14c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--text-soft)"/></marker></defs>
+  <rect class="box" x="20" y="30" width="120" height="56" rx="10" style="stroke:var(--c3)"/><text x="80" y="63" text-anchor="middle" class="lbl">Miljø</text>
+  <rect class="box" x="230" y="20" width="160" height="80" rx="10" style="stroke:var(--c5)"/>
+  <text x="310" y="42" text-anchor="middle" class="lbl">Replay buffer</text>
+  <text x="310" y="62" text-anchor="middle" class="sm">(s, a, r, s′, done)</text>
+  <text x="310" y="78" text-anchor="middle" class="sm">(s, a, r, s′, done) …</text>
+  <path class="ln" d="M140,58 L228,58" marker-end="url(#ah14c)"/><text x="184" y="50" text-anchor="middle" class="sm">lagre</text>
+  <path class="ln" d="M310,100 L310,150" marker-end="url(#ah14c)"/><text x="318" y="128" class="sm">tilfeldig mini-batch</text>
+  <rect class="box" x="200" y="152" width="220" height="56" rx="10" style="stroke:var(--c1)"/>
+  <text x="310" y="176" text-anchor="middle" class="lbl">Online-nett Q(s,a; θ)</text>
+  <text x="310" y="196" text-anchor="middle" class="sm">trenes hvert steg</text>
+  <rect class="box" x="460" y="152" width="145" height="56" rx="10" style="stroke:var(--c4)"/>
+  <text x="532" y="176" text-anchor="middle" class="lbl">Target-nett θ⁻</text>
+  <text x="532" y="196" text-anchor="middle" class="sm">frosset, gir målet</text>
+  <path class="ln" d="M420,170 L458,170" style="stroke-dasharray:5 4" marker-end="url(#ah14c)"/>
+  <text x="440" y="235" text-anchor="middle" class="sm">kopier θ → θ⁻ hvert C-te steg</text>
+  <path class="ln" d="M200,180 C80,180 80,120 80,88" marker-end="url(#ah14c)"/><text x="120" y="160" text-anchor="middle" class="sm">ε-greedy handling</text>
+</svg>
+<figcaption><b>Figur 14.4</b> DQN: agenten handler med ε-greedy, lagrer overgangene i bufferen, trener online-nettet på tilfeldige mini-batcher, og beregner målet med et sjeldent oppdatert target-nett.</figcaption>
+</figure>
+
+<div class="eq">
+  <p class="eq-note">DQN-tapet for en mini-batch av overganger fra bufferen</p>
+  $$y = \begin{cases} r & \text{hvis } s' \text{ er terminal}\\ r + \gamma \max_{a'} Q(s',a';\theta^-) & \text{ellers}\end{cases} \qquad L(\theta) = \frac{1}{B}\sum \big(y - Q(s,a;\theta)\big)^2$$
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><b>Replay buffer = dagboka.</b> I stedet for bare å lære av det som skjedde i dag, blar du tilfeldig i gamle sider og lærer av en blanding. <b>Target network = blink som står stille.</b> Det er vanskelig å treffe en blink som flytter seg hver gang du sikter. Hold den i ro en stund, sikt, og flytt den så.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2025, del 9 spm. 1 og 2, del 10 spm. 4</span>
+<p><b>Target network:</b> «Å holde Q-verdiene som brukes som treningsmål stabile under læring.» <br><b>Replay buffer:</b> «Den gjør at treningseksemplene blir mindre korrelerte slik at nettverket ikke overtilpasser de nyeste erfaringene.» Distraktoren «forhindrer catastrophic forgetting ved å sikre at nettverket aldri ser gamle overganger på nytt» er feil på to måter: hele poenget er at gamle overganger blir sett på nytt. <br><b>Kode:</b> en tilfeldig mini-batch fra en liste trekkes med <code>random.sample(buffer, k=32)</code>.</p>
+</div>
+
+<pre><code><span class="k">import</span> random
+<span class="k">from</span> collections <span class="k">import</span> deque
+
+buffer = deque(maxlen=100_000)            <span class="c"># eldste overganger faller ut</span>
+buffer.append((s, a, r, s2, done))        <span class="c"># etter hvert steg</span>
+
+batch = random.sample(buffer, k=32)       <span class="c"># 32 tilfeldige, uten tilbakelegging</span>
+<span class="k">for</span> s, a, r, s2, done <span class="k">in</span> batch:
+    y = r <span class="k">if</span> done <span class="k">else</span> r + gamma * max(target_net(s2))   <span class="c"># mål fra θ⁻</span>
+    <span class="c"># tren online_net slik at online_net(s)[a] nærmer seg y  (tap = (y - Q)²)</span>
+
+<span class="k">if</span> step % C == 0:
+    target_net.set_weights(online_net.get_weights())   <span class="c"># θ⁻ ← θ</span></code></pre>
+
+<div class="callout warn"><span class="label">Vanlig feil i koden</span>
+<p><code>buffer.sort()</code> sorterer, den trekker ikke. <code>np.take(buffer, 32)</code> henter elementet med indeks 32, ikke 32 tilfeldige. <code>random.choice(buffer)</code> gir bare <i>ett</i> element. <code>random.sample</code> trekker $k$ ulike elementer tilfeldig, og det er det vi vil.</p>
+</div>
+
+<div class="quiz" data-id="14-target">
+  <p class="q">Hva er hovedgrunnen til å bruke et target network i DQN?</p>
+  <ul>
+    <li>Det gir agenten tilfeldig støy i handlingene, slik at den utforsker.</li>
+    <li>Det lagrer gamle overganger slik at de kan brukes på nytt.</li>
+    <li data-correct>Det holder treningsmålet $r + \gamma\max Q(s',a')$ stabilt i en periode, så nettet ikke jager et mål som flytter seg hvert steg.</li>
+    <li>Det gjør at nettet kan gi Q-verdier for alle handlinger samtidig.</li>
+  </ul>
+  <div class="explain">Target-nettet er en frossen kopi som bare brukes til å regne ut målet. Det løser moving target-problemet. Utforskning skjer med ε-greedy. Å lagre overganger er replay bufferens jobb. Å gi ut alle Q-verdier samtidig er en egenskap ved arkitekturen (én utgang per handling), ikke ved target-nettet.</div>
+</div>
+
+<div class="quiz" data-id="14-replay">
+  <p class="q">Hvilket problem løser replay buffer <i>primært</i>?</p>
+  <ul>
+    <li data-correct>Påfølgende overganger er sterkt korrelerte. Tilfeldig sampling gir mer uavhengige treningseksempler.</li>
+    <li>Det sørger for at hvert tilstand–handling-par samples like mange ganger.</li>
+    <li>Det gjør utforskning unødvendig, fordi bufferen allerede har all informasjon.</li>
+    <li>Det holder Q-målet fast mellom oppdateringene.</li>
+  </ul>
+  <div class="explain">Uten buffer trener nettet på en strøm av nesten like eksempler og overtilpasser seg det siste. Uniform sampling fra bufferen gir ikke like mange samples per par, fordi bufferen inneholder det agenten faktisk har opplevd. Bufferen inneholder bare det agenten har sett, så utforskning trengs fortsatt. Å holde målet fast er target-nettets jobb.</div>
+</div>
+
+<div class="quiz" data-id="14-dqn-why">
+  <p class="q">I hvilken situasjon er DQN klart bedre egnet enn tabell-basert Q-learning?</p>
+  <ul>
+    <li>Et 4×4-brett med 4 handlinger.</li>
+    <li data-correct>CartPole, der tilstanden er fire kontinuerlige tall.</li>
+    <li>Når man vil unngå å velge en diskonteringsfaktor.</li>
+    <li>Når handlingsrommet er kontinuerlig, som et ratt som kan vris i alle vinkler.</li>
+  </ul>
+  <div class="explain">Kontinuerlige tilstander kan ikke listes opp i en tabell, men et nett kan ta dem inn direkte. Et 4×4-brett har bare 16 tilstander, så der holder en tabell fint. DQN bruker fortsatt $\gamma$. Det siste alternativet er en felle: DQN trenger $\max_{a'}$ over handlingene og har én utgang per handling, så det krever et <i>diskret</i> handlingsrom. Kontinuerlige handlinger trenger andre metoder (f.eks. policy-gradient), og det er utenfor pensum.</div>
+</div>
+
+<div class="quiz" data-id="14-sample">
+  <p class="q">Du har en replay buffer lagret som en Python-liste <code>buffer</code>. Hvilken linje trekker en tilfeldig mini-batch på 64 overganger?</p>
+  <ul>
+    <li><code>buffer[:64]</code></li>
+    <li><code>random.choice(buffer)</code></li>
+    <li data-correct><code>random.sample(buffer, k=64)</code></li>
+    <li><code>np.take(buffer, 64)</code></li>
+  </ul>
+  <div class="explain"><code>random.sample</code> trekker $k$ ulike elementer tilfeldig. <code>buffer[:64]</code> tar de 64 første, altså de eldste og sterkt korrelerte overgangene, som er nettopp det vi vil unngå. <code>random.choice</code> gir bare ett element. <code>np.take(buffer, 64)</code> henter elementet på indeks 64.</div>
+</div>
+
+<div class="reflect" data-id="14-r-dqn">
+  <p class="q">Forklar sammenhengen mellom de tre ideene i DQN: (1) nevralt nett i stedet for tabell, (2) replay buffer og (3) target network. Hvorfor trengs de to siste <i>på grunn av</i> den første?</p>
+  <div class="answer">Nettet trengs fordi tilstandsrommet er for stort for en tabell. Men nettet har delte vekter, så hver oppdatering påvirker mange Q-verdier, også dem som brukes i målet. To ting blir da farlige. For det første gjør korrelerte påfølgende eksempler at nettet overtilpasser seg det agenten gjør akkurat nå og ødelegger det det kunne fra før. Replay buffer løser dette ved å blande gamle og nye erfaringer tilfeldig. For det andre flytter målet seg hver gang vi oppdaterer, fordi det beregnes med det samme nettet. Target network løser dette ved å fryse målet en periode. I en tabell er ingen av problemene like alvorlige, fordi hver celle oppdateres uavhengig.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="hacking"><span class="sec">14.9</span>Reward hacking</h2>
+
+<p>Agenten maksimerer belønningen vi har definert, ikke den vi <i>mente</i>. Når belønningsfunksjonen har smutthull, finner en god optimerer dem. Det kalles <b>reward hacking</b> eller <b>specification gaming</b>.</p>
+
+<div class="callout def"><span class="label">Kjente eksempler</span>
+<ul>
+<li><b>CoastRunners (OpenAI, 2016):</b> i et båtløpsspill fikk agenten poeng for å treffe mål langs banen. Den fant en lagune der den kunne kjøre i ring og treffe de samme målene om og om igjen, mens den krasjet og tok fyr. Den fullførte aldri løpet, men fikk høyere poengsum enn menneskelige spillere.</li>
+<li><b>Tetris som aldri taper:</b> en agent som skulle unngå å tape, lærte å sette spillet på pause rett før det tapte, og la det stå slik for alltid.</li>
+<li><b>Klosser som snus:</b> en simulert robotarm skulle stable en rød kloss oppå en blå og ble belønnet for høyden til undersiden av den røde klossen. Den lærte å snu den røde klossen opp-ned i stedet for å stable den.</li>
+<li><b>Gripearmen som lurte kameraet:</b> en robot som ble vurdert av mennesker via et kamera, lærte å plassere hånden mellom kameraet og objektet, slik at det <i>så ut</i> som den grep det.</li>
+<li><b>Simulerte skapninger</b> har gjentatte ganger lært å utnytte feil i fysikkmotoren, for eksempel ved å «vibrere» seg gjennom gulvet for å få fart.</li>
+</ul></div>
+
+<div class="callout hook"><span class="label">Knagg: Goodharts lov</span>
+<p>«Når et mål blir et mål, slutter det å være et godt mål.» Belønner du en programmerer per kodelinje, får du mange kodelinjer. Belønningen er en <i>proxy</i> for det vi egentlig vil, og en sterk optimerer presser proxyen helt til den sprekker.</p>
+</div>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Belønningsdesign er en av de vanskeligste delene av RL. Typiske mottiltak er å teste agenten grundig og se på atferden og ikke bare poengsummen, å legge til straff for uønsket atferd, å lære belønningen fra menneskelige preferanser (slik som i RLHF for språkmodeller), og å begrense hva agenten kan gjøre. Det er også et sentralt tema i KI-sikkerhet og etikk (se <a href="15-xai-etikk.html">kapittel 15</a>).</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2025, del 9 spm. 4</span>
+<p>En agent oppdager atferd som gir svært høy belønning, men som designeren ikke mente. Hvorfor? Fasit: <b>fordi agenten utnytter utilsiktede svakheter i hvordan belønningen er definert.</b> Distraktorene skyldte på $\gamma$ («lærer bare av umiddelbare belønninger», «oppdateringsregelen fjerner framtidige belønninger») eller på flere mål. Det handler om belønningen, ikke om algoritmen.</p>
+</div>
+
+<div class="quiz" data-id="14-hacking">
+  <p class="q">En robotstøvsuger belønnes med +1 hver gang støvsensoren registrerer støv. Etter trening tømmer den støvbeholderen på gulvet og suger det opp igjen, om og om igjen. Hva er dette et eksempel på?</p>
+  <ul>
+    <li>For lav diskonteringsfaktor, slik at roboten bare bryr seg om neste belønning.</li>
+    <li>Overtilpasning til replay bufferen.</li>
+    <li>For lite utforskning.</li>
+    <li data-correct>Reward hacking: agenten maksimerer belønningen slik den er definert, ikke slik den var ment.</li>
+  </ul>
+  <div class="explain">Belønningen målte «støv registrert», ikke «rent gulv». Roboten fant et smutthull. Med høyere $\gamma$ ville den utnyttet smutthullet enda mer systematisk, så det er ikke et $\gamma$-problem. Overtilpasning til bufferen og for lite utforskning forklarer ikke en atferd som faktisk gir høy belønning. Tvert imot har agenten utforsket nok til å finne smutthullet.</div>
+</div>
+
+<div class="reflect" data-id="14-r-reward-design">
+  <p class="q">Du skal lage en belønningsfunksjon for en selvkjørende bil i en simulator. Foreslå en første versjon, og finn minst ett smutthull agenten kan utnytte.</p>
+  <div class="answer">Et forslag er +1 per meter kjørt mot målet, −100 for kollisjon og +100 for å nå målet. Mulige smutthull: (1) Hvis bilen belønnes for fart eller distanse, kan den kjøre i ring eller fram og tilbake. (2) Hvis bare kollisjoner straffes, kan den lære at det tryggeste er å stå stille og aldri komme fram. (3) Den kan kjøre over fortau eller i feil kjørefelt hvis det ikke straffes. (4) Den kan utnytte feil i simulatorens fysikk. Det viser at vi må tenke på alt vi <i>ikke</i> vil ha, og at vi må se på atferden og ikke bare poengsummen.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="prosjekt"><span class="sec">14.10</span>Prosjekt og eksamensstrategi</h2>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 4 (forventet)</span>
+<p>Det fjerde prosjektet handler sannsynligvis om forsterkningslæring. Typiske oppgaver i slike prosjekter er å implementere tabell-basert Q-learning på et lite miljø som FrozenLake eller en gridworld fra Gymnasium (<code>env.reset()</code>, <code>env.step(a)</code>), og deretter en DQN på CartPole med replay buffer og target network. Vær klar til å forklare valget av $\alpha$, $\gamma$ og ε-skjema, og å tolke en belønningskurve (husk 14.7: se på reward, ikke loss). Oppdater denne seksjonen når prosjektteksten kommer.</p>
+</div>
+
+<div class="callout exam"><span class="label">Slik ser RL-spørsmålene ut</span>
+<p>På både 2024 og 2025 var RL-spørsmålene definisjonsspørsmål med fire alternativer, der distraktorene var andre RL-begreper: policy vs. Q vs. V, $\alpha$ vs. $\gamma$ vs. $\varepsilon$, replay buffer vs. target network. Lær deg <b>én setning</b> per begrep, og øv på å sortere distraktorene: «Hvilket begrep beskriver dette alternativet egentlig?»</p>
+</div>
+
+<div class="quiz" data-id="14-sorter">
+  <p class="q">«Den styrer hvor ofte agenten velger tilfeldige handlinger.» Hvilken parameter beskriver dette?</p>
+  <ul>
+    <li>$\gamma$</li>
+    <li>$\alpha$</li>
+    <li data-correct>$\varepsilon$</li>
+    <li>Størrelsen på replay bufferen</li>
+  </ul>
+  <div class="explain">$\varepsilon$ i ε-greedy er sannsynligheten for en tilfeldig handling. $\gamma$ vekter framtidige belønninger, og $\alpha$ er steglengden i oppdateringen. Bufferstørrelsen sier hvor mange gamle overganger som lagres. Dette alternativet var distraktor på spørsmålet om $\gamma$ i 2025.</div>
+</div>
+
+<div class="quiz" data-multi data-id="14-ql-props">
+  <p class="q">Hvilke utsagn om tabell-basert Q-learning er riktige?</p>
+  <ul>
+    <li data-correct>Den trenger ikke kjenne overgangssannsynlighetene $P(s'\mid s,a)$.</li>
+    <li data-correct>Den er off-policy: målet bruker $\max_{a'}Q(s',a')$ selv om agenten utforsker med ε-greedy.</li>
+    <li>Den krever at belønningen er lik for alle tilstander.</li>
+    <li>Den oppdaterer hele tabellen etter hvert steg.</li>
+  </ul>
+  <div class="explain">Q-learning er modellfri (lærer av erfaring, ikke av en kjent $P$) og off-policy (lærer verdien av greedy policy uansett hvordan den oppfører seg). Belønningen kan variere fritt. Hvert steg oppdaterer bare én celle, $Q(s,a)$. Å oppdatere mange verdier samtidig er det som skjer med et nett (vektdeling).</div>
+</div>
+
+<!-- ============================================================ -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><b>RL</b>: en agent lærer av belønning fra et miljø, uten fasit, og lager sine egne data. Målet er å maksimere forventet diskontert retur $G_t = \sum_k \gamma^k r_{t+k+1}$.</li>
+    <li><b>$\gamma$</b>: lav gir en kortsiktig agent (umiddelbar belønning dominerer), høy gir en langsiktig agent (framtidige estimater dominerer). Horisont ≈ $1/(1-\gamma)$.</li>
+    <li><b>Markov-egenskapen</b>: neste tilstand avhenger bare av nåværende tilstand og handling.</li>
+    <li><b>Policy</b> $\pi$: tilstand → handling. <b>$V(s)$</b>: verdien av en tilstand. <b>$Q(s,a)$</b>: verdien av en handling i en tilstand. Policy = argmax av Q, men policy ≠ Q.</li>
+    <li><b>Q-learning</b>: $Q \leftarrow Q + \alpha[r + \gamma\max_{a'}Q(s',a') - Q]$. TD-mål minus gammelt estimat er TD-feilen. Ved terminal tilstand er målet bare $r$.</li>
+    <li><b>$\alpha$</b>: liten gir treg læring der de gamle verdiene dominerer, stor gir rask men ustabil læring.</li>
+    <li><b>ε-greedy</b>: tilfeldig handling med sannsynlighet $\varepsilon$. ε-decay: mye utforskning tidlig, mindre senere.</li>
+    <li><b>Loss ≠ reward</b>: loss måler konsistens med et mål som flytter seg. Mål framgang med belønning per episode.</li>
+    <li><b>DQN</b>: et nett erstatter tabellen (store eller kontinuerlige tilstandsrom). Vektdeling gjør at én oppdatering endrer mange Q-verdier. <b>Replay buffer</b> bryter korrelasjon (<code>random.sample</code>), og <b>target network</b> holder målet stabilt.</li>
+    <li><b>Reward hacking</b>: agenten utnytter svakheter i belønningsfunksjonen (CoastRunners).</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="front">Markov-egenskapen</div><div class="back">Neste tilstand avhenger bare av nåværende tilstand og handling, ikke av historien.</div></div>
+  <div class="card"><div class="front">Policy π</div><div class="back">Strategien: hvilken handling (eller fordeling over handlinger) agenten tar i hver tilstand.</div></div>
+  <div class="card"><div class="front">V(s) vs Q(s,a)</div><div class="back">V: forventet retur fra tilstand s. Q: forventet retur ved å gjøre a i s og så følge policyen.</div></div>
+  <div class="card"><div class="front">Diskontert retur</div><div class="back">$G_t=\sum_k \gamma^k r_{t+k+1}$, og rekursivt $G_t = r_{t+1}+\gamma G_{t+1}$.</div></div>
+  <div class="card"><div class="front">Q-learning-oppdatering</div><div class="back">$Q(s,a)\leftarrow Q(s,a)+\alpha[r+\gamma\max_{a'}Q(s',a')-Q(s,a)]$</div></div>
+  <div class="card"><div class="front">TD-mål og TD-feil</div><div class="back">Mål: $r+\gamma\max_{a'}Q(s',a')$. Feil: mål − $Q(s,a)$.</div></div>
+  <div class="card"><div class="front">Høy γ</div><div class="back">Estimatet av framtidige tilstander dominerer, og agenten blir langsiktig.</div></div>
+  <div class="card"><div class="front">Liten α</div><div class="back">De gamle Q-verdiene dominerer. Læringen er treg, men stabil.</div></div>
+  <div class="card"><div class="front">ε-greedy</div><div class="back">Tilfeldig handling med sannsynlighet ε, ellers argmax Q. ε-decay reduserer ε over tid.</div></div>
+  <div class="card"><div class="front">Replay buffer</div><div class="back">Lagrer overganger og trekker tilfeldige mini-batcher for å bryte korrelasjon i tid. <code>random.sample(buffer, k=32)</code>.</div></div>
+  <div class="card"><div class="front">Target network</div><div class="back">Frossen kopi θ⁻ som beregner målet. Oppdateres sjelden, slik at målet holder seg stabilt.</div></div>
+  <div class="card"><div class="front">Vektdeling i DQN</div><div class="back">Én oppdatering endrer mange Q-verdier. Gir generalisering, men også ustabilitet.</div></div>
+  <div class="card"><div class="front">Loss vs reward</div><div class="back">Ikke nødvendigvis noen sammenheng. Loss = kvadrert TD-feil mot et mål som flytter seg.</div></div>
+  <div class="card"><div class="front">Reward hacking</div><div class="back">Agenten utnytter smutthull i belønningsfunksjonen og gjør noe som ikke var ment (CoastRunners).</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+/* ---------- Diskonteringswidget ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const cv = document.getElementById("disc");
+  const P = CK.plot(cv, { xmin: -0.7, xmax: 20.7, ymin: 0, ymax: 1.08, pad: { l: 44, r: 12, t: 14, b: 36 } });
+  const g = document.getElementById("dg"), k = document.getElementById("dk");
+  function draw() {
+    const gamma = +g.value, steps = +k.value;
+    document.getElementById("dgo").textContent = gamma.toFixed(2);
+    document.getElementById("dko").textContent = steps;
+    P.clear().grid({ xticks: [0, 5, 10, 15, 20] }).axes({ xticks: [0, 5, 10, 15, 20], xlabel: "k (steg fram − 1)", ylabel: "vekt γᵏ", frame: true });
+    for (let i = 0; i <= 20; i++) {
+      const w = Math.pow(gamma, i);
+      const col = i === 0 ? P.col("c2") : (i === steps - 1 ? P.col("c3") : P.col("c1"));
+      P.rect(i - 0.35, 0, i + 0.35, w, { fill: col, alpha: (i === 0 || i === steps - 1) ? 0.95 : 0.45 });
+    }
+    const GA = 1, GB = 10 * Math.pow(gamma, steps - 1);
+    const hor = gamma < 1 ? 1 / (1 - gamma) : Infinity;
+    P.text("A: +1 her", 0.5, 1.03, { color: P.col("c2"), size: 12 });
+    P.text("B: +10 her", Math.min(steps - 1, 17.5), Math.max(0.12, Math.pow(gamma, steps - 1) + 0.07), { color: P.col("c3"), size: 12, align: "center" });
+    document.getElementById("dA").textContent = "G(A) = 1";
+    document.getElementById("dB").textContent = "G(B) = 10·" + gamma.toFixed(2) + "^" + (steps - 1) + " = " + GB.toFixed(3);
+    document.getElementById("dW").textContent = (GB > GA ? "B vinner (langsiktig)" : (GB < GA ? "A vinner (kortsiktig)" : "uavgjort")) + " · horisont ≈ " + (isFinite(hor) ? hor.toFixed(1) : "∞") + " steg";
+  }
+  g.oninput = k.oninput = draw;
+  CK.live(draw);
+});
+
+/* ---------- Gridworld med Q-learning ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const LAYOUT = ["n.....", "..XX..", "......", "S....G"];
+  const H = LAYOUT.length, W = LAYOUT[0].length, NA = 4;
+  const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];       // opp, høyre, ned, venstre
+  const ANAME = ["↑", "→", "↓", "←"];
+  const REWARD = { G: 10, n: 1, X: -10 };
+  const MAXSTEPS = 100;
+  let startCell = 0; const free = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = LAYOUT[y][x]; if (c === "S") startCell = y * W + x; if (c === "." || c === "S") free.push(y * W + x);
+  }
+  const rnd = CK.rng(7);
+  let Q, s, t, epR, rewards, eps, running = false, epCount;
+  const $ = id => document.getElementById(id);
+  const cv = $("gw"), cr = $("gwR");
+  const P = CK.plot(cv, {}); const PR = CK.plot(cr, { pad: { l: 44, r: 12, t: 12, b: 34 } });
+  const ctx = P.ctx;
+  const sl = { a: $("gwA"), g: $("gwG"), e: $("gwE") };
+
+  function reset() { Q = new Float64Array(W * H * NA); rewards = []; epCount = 0; eps = +sl.e.value; newEpisode(); $("gwLog").textContent = "Q-tabellen er nullstilt. Alle Q-verdier er 0."; }
+  function newEpisode() { s = $("gwStart").value === "fixed" ? startCell : free[(rnd() * free.length) | 0]; t = 0; epR = 0; }
+  function cellType(c) { return LAYOUT[(c / W) | 0][c % W]; }
+  function maxQ(c) { let m = -Infinity; for (let a = 0; a < NA; a++) m = Math.max(m, Q[c * NA + a]); return m; }
+  function argmax(c) {
+    let m = -Infinity, best = [];
+    for (let a = 0; a < NA; a++) { const q = Q[c * NA + a]; if (q > m + 1e-12) { m = q; best = [a]; } else if (Math.abs(q - m) <= 1e-12) best.push(a); }
+    return best;
+  }
+  function step(verbose) {
+    const alpha = +sl.a.value, gamma = +sl.g.value;
+    const x = s % W, y = (s / W) | 0;
+    let a, explored = false;
+    if (rnd() < eps) { a = (rnd() * NA) | 0; explored = true; } else { const b = argmax(s); a = b[(rnd() * b.length) | 0]; }
+    let nx = x + DIRS[a][0], ny = y + DIRS[a][1];
+    if (nx < 0 || ny < 0 || nx >= W || ny >= H) { nx = x; ny = y; }
+    const s2 = ny * W + nx, c = LAYOUT[ny][nx];
+    const r = REWARD[c] || 0, done = c in REWARD;
+    const old = Q[s * NA + a];
+    const mx = done ? 0 : maxQ(s2);
+    const target = r + gamma * mx;
+    Q[s * NA + a] = old + alpha * (target - old);
+    if (verbose) {
+      $("gwLog").textContent =
+        "Rute (" + x + "," + y + "), handling " + ANAME[a] + (explored ? " (tilfeldig, ε)" : " (greedy)") + " → rute (" + nx + "," + ny + "), r = " + r + (done ? ", terminal" : "") + "\n" +
+        "TD-mål = r + γ·max Q(s′) = " + r + " + " + gamma.toFixed(2) + "·" + mx.toFixed(3) + " = " + target.toFixed(3) + (done ? "   (terminal: ingen framtid)" : "") + "\n" +
+        "Q(s,a): " + old.toFixed(3) + " + " + alpha.toFixed(2) + "·(" + target.toFixed(3) + " − " + old.toFixed(3) + ") = " + Q[s * NA + a].toFixed(3);
+    }
+    epR += r; t++; s = s2;
+    if (done || t >= MAXSTEPS) {
+      rewards.push(epR); epCount++;
+      if ($("gwDecay").checked) { eps = Math.max(0.02, eps * 0.995); sl.e.value = eps; $("gwEo").textContent = eps.toFixed(2); }
+      newEpisode();
+      return true;
+    }
+    return false;
+  }
+
+  function drawGrid() {
+    P.clear();
+    const cs = Math.min((P.W - 20) / W, (P.H - 20) / H), ox = (P.W - cs * W) / 2, oy = (P.H - cs * H) / 2;
+    const showQ = $("gwShowQ").checked;
+    const font = P.col("font");
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = y * W + x, typ = LAYOUT[y][x], px = ox + x * cs, py = oy + y * cs;
+      ctx.fillStyle = P.col("surface-2"); ctx.fillRect(px, py, cs, cs);
+      if (typ in REWARD) {
+        ctx.fillStyle = typ === "X" ? P.col("c2") : (typ === "G" ? P.col("c3") : P.col("c5"));
+        ctx.globalAlpha = 0.85; ctx.fillRect(px + 2, py + 2, cs - 4, cs - 4); ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff"; ctx.font = "700 22px " + font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText((REWARD[typ] > 0 ? "+" : "−") + Math.abs(REWARD[typ]), px + cs / 2, py + cs / 2);
+        continue;
+      }
+      const m = maxQ(c);
+      if (m !== 0) {
+        ctx.fillStyle = m > 0 ? P.col("c3") : P.col("c2");
+        ctx.globalAlpha = Math.min(0.75, Math.abs(m) / 10 * 0.75 + 0.06); ctx.fillRect(px + 2, py + 2, cs - 4, cs - 4); ctx.globalAlpha = 1;
+      }
+      if (typ === "S" && $("gwStart").value === "fixed") { ctx.fillStyle = P.col("muted"); ctx.font = "600 13px " + font; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("S", px + 6, py + 5); }
+      // pil for greedy handling
+      const best = argmax(c);
+      if (best.length < NA) {
+        const a = best[0], cx = px + cs / 2, cy = py + cs / 2, L = cs * 0.28;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate([ -Math.PI / 2, 0, Math.PI / 2, Math.PI ][a]);
+        ctx.strokeStyle = ctx.fillStyle = P.col("text"); ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(L - 8, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(L, 0); ctx.lineTo(L - 11, -7); ctx.lineTo(L - 11, 7); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = P.col("muted"); ctx.beginPath(); ctx.arc(px + cs / 2, py + cs / 2, 3, 0, 7); ctx.fill();
+      }
+      if (showQ) {
+        ctx.fillStyle = P.col("text-soft"); ctx.font = "11px " + font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        const q = i => Q[c * NA + i].toFixed(1);
+        ctx.fillText(q(0), px + cs / 2, py + 11); ctx.fillText(q(2), px + cs / 2, py + cs - 10);
+        ctx.textAlign = "left"; ctx.fillText(q(3), px + 4, py + cs / 2 + 14);
+        ctx.textAlign = "right"; ctx.fillText(q(1), px + cs - 4, py + cs / 2 + 14);
+      }
+    }
+    ctx.strokeStyle = P.col("border"); ctx.lineWidth = 1;
+    for (let y = 0; y <= H; y++) { ctx.beginPath(); ctx.moveTo(ox, oy + y * cs); ctx.lineTo(ox + W * cs, oy + y * cs); ctx.stroke(); }
+    for (let x = 0; x <= W; x++) { ctx.beginPath(); ctx.moveTo(ox + x * cs, oy); ctx.lineTo(ox + x * cs, oy + H * cs); ctx.stroke(); }
+    // agent
+    const ax = ox + (s % W + 0.5) * cs, ay = oy + (((s / W) | 0) + 0.5) * cs;
+    ctx.beginPath(); ctx.arc(ax, ay, cs * 0.16, 0, 7); ctx.fillStyle = P.col("c1"); ctx.fill();
+    ctx.strokeStyle = P.col("surface"); ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  function drawRewards() {
+    const n = rewards.length;
+    PR.setView({ xmin: 0, xmax: Math.max(50, n), ymin: -11, ymax: 11 });
+    PR.clear().grid({ yticks: [-10, -5, 0, 5, 10] }).axes({ yticks: [-10, -5, 0, 5, 10], xlabel: "episode", ylabel: "belønning", frame: true });
+    if (!n) { PR.text("Ingen episoder ennå", PR.W / 2, PR.H / 2, { px: true, align: "center", color: P.col("muted") }); return; }
+    const bin = Math.max(1, Math.ceil(n / 500));
+    const pts = [];
+    for (let i = 0; i < n; i += bin) { let sm = 0, c = 0; for (let j = i; j < Math.min(n, i + bin); j++) { sm += rewards[j]; c++; } pts.push({ x: i + c / 2, y: sm / c }); }
+    PR.points(pts, { r: 1.8, color: P.col("c1"), alpha: 0.35, stroke: false });
+    const win = Math.max(10, Math.round(n / 25)), avg = []; let acc = 0;
+    for (let i = 0; i < n; i++) { acc += rewards[i]; if (i >= win) acc -= rewards[i - win]; if (i % bin === 0 || i === n - 1) avg.push({ x: i + 1, y: acc / Math.min(i + 1, win) }); }
+    PR.path(avg, { color: P.col("c3"), width: 2.5 });
+    const last = rewards.slice(-win); const mean = last.reduce((a, b) => a + b, 0) / last.length;
+    PR.text("episoder: " + n + " · snitt siste " + last.length + ": " + mean.toFixed(2) + " · ε = " + eps.toFixed(2), PR.pad.l + 8, PR.pad.t + 10, { px: true, size: 12, color: P.col("text-soft") });
+  }
+  function draw() { drawGrid(); drawRewards(); }
+
+  function loop() {
+    if (!running) return;
+    const n = +$("gwSpeed").value;
+    for (let i = 0; i < n; i++) step(n === 1);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  $("gwRun").onclick = () => { running = !running; $("gwRun").textContent = running ? "❚❚ Pause" : "▶ Start"; if (running) loop(); };
+  $("gwStep").onclick = () => { if (running) $("gwRun").click(); step(true); draw(); };
+  $("gwEp").onclick = () => { if (running) $("gwRun").click(); const startEp = epCount; let guard = 0; while (epCount === startEp && guard++ < 1000) step(false); $("gwLog").textContent = "Episode ferdig med total belønning " + rewards[rewards.length - 1] + "."; draw(); };
+  $("gwReset").onclick = () => { reset(); draw(); };
+  sl.a.oninput = () => { $("gwAo").textContent = (+sl.a.value).toFixed(2); };
+  sl.g.oninput = () => { $("gwGo").textContent = (+sl.g.value).toFixed(2); };
+  sl.e.oninput = () => { eps = +sl.e.value; $("gwEo").textContent = eps.toFixed(2); };
+  $("gwShowQ").onchange = draw; $("gwStart").onchange = () => { newEpisode(); draw(); };
+  reset();
+  CK.live(draw);
+});
+</script>
+</body>
+</html>

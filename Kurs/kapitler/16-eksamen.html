@@ -1,0 +1,2362 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16 · Eksamenstrening – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+/* ---------- kapittel 16: eksamensmotor og widgets ---------- */
+.exam-app { margin: 22px 0; }
+.xa-start { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+@media (max-width: 600px) { .xa-start { grid-template-columns: 1fr; } }
+.xa-mode {
+  display: flex; flex-direction: column; gap: 6px; text-align: left; font: inherit; color: var(--text);
+  background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer;
+  box-shadow: var(--shadow); min-height: 120px;
+}
+.xa-mode:hover, .xa-mode:focus-visible { border-color: var(--accent); }
+.xa-mode b { font-size: 18px; }
+.xa-mode span { font-size: 14.5px; color: var(--text-soft); line-height: 1.45; }
+.xa-opts { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 8px 0 4px; font-size: 15px; }
+.xa-opts select { font: inherit; font-size: 15px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); min-height: 44px; }
+.xa-info { font-size: 14.5px; color: var(--text-soft); }
+.xa-bar {
+  position: sticky; top: 56px; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+  background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin: 12px 0; box-shadow: var(--shadow);
+}
+.xa-bar .timer { font-family: var(--mono); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+.xa-bar .timer.low { color: var(--bad); }
+.xa-bar .count { font-size: 14.5px; color: var(--text-soft); }
+.xa-bar .spacer { flex: 1; }
+.xa-bar .btn, .xa-actions .btn { min-height: 44px; }
+.xa-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 14px; }
+.xa-nav button {
+  font: inherit; font-size: 13px; font-weight: 600; min-width: 40px; height: 40px; padding: 0 6px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-soft);
+}
+.xa-nav button.answered { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+.xa-nav button.flagged { box-shadow: inset 0 -3px 0 var(--warn); }
+.xa-nav button.ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.xa-nav button.bad { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+.xa-group { margin: 26px 0 8px; }
+.xa-group > h4 { margin: 0 0 4px; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.xa-group > h4 .gscore { text-transform: none; letter-spacing: 0; font-weight: 700; color: var(--text); }
+.xq {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; margin: 12px 0; box-shadow: var(--shadow); scroll-margin-top: 130px;
+}
+.xq .qhead { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.xq .qhead .tag { font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.xq .qtext { margin-bottom: 10px; }
+.xq .qtext p:last-child { margin-bottom: 0; }
+.xq .qtext table { font-size: 14.5px; width: auto; }
+.xq .qtext img { display: block; margin: 10px auto; max-width: min(100%, 520px); background: #fff; border-radius: 6px; }
+.xq .opts { list-style: none; padding: 0; margin: 0; }
+.xq .opt {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; font: inherit; font-size: 16px; line-height: 1.45; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; margin: 7px 0; cursor: pointer; min-height: 48px;
+}
+.xq .opt:hover { border-color: var(--accent); }
+.xq .opt .let {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--axis); font-size: 13px; font-weight: 700; color: var(--text-soft);
+}
+.xq.multi .opt .let { border-radius: 6px; }
+.xq .opt .otext { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.xq .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
+.xq .opt.sel .let { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.xq.graded .opt { cursor: default; }
+.xq.graded .opt.right { border-color: var(--ok); background: var(--ok-bg); }
+.xq.graded .opt.right .let { background: var(--ok); border-color: var(--ok); color: #fff; }
+.xq.graded .opt.wrong { border-color: var(--bad); background: var(--bad-bg); }
+.xq.graded .opt.wrong .let { background: var(--bad); border-color: var(--bad); color: #fff; }
+.xq.graded .opt.right:not(.sel) { border-style: dashed; }
+.xq .qact { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.xq .qact .btn { min-height: 40px; }
+.xq .verdict { font-weight: 700; }
+.xq .verdict.ok { color: var(--ok); } .xq .verdict.bad { color: var(--bad); } .xq .verdict.blank { color: var(--muted); }
+.xq .ex { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 9px; background: var(--surface-2); font-size: 15.5px; }
+.xq.reveal .ex { display: block; }
+.xq .ex::before { content: "Forklaring"; display: block; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+.xq .ex p:last-child { margin-bottom: 0; }
+.xq .ex .chlink { display: inline-block; margin-top: 6px; font-weight: 600; font-size: 14.5px; }
+.xq .ex .note { border-left: 3px solid var(--warn); padding-left: 10px; margin: 8px 0; }
+.xq .flag { font: inherit; font-size: 13px; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; color: var(--text-soft); cursor: pointer; min-height: 36px; }
+.xq .flag.on { border-color: var(--warn); color: var(--warn); background: var(--warn-bg); }
+.xq .hint-lock { font-size: 13px; color: var(--muted); }
+.xa-result { background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius); padding: 18px 20px; margin: 16px 0; }
+.xa-result .big { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.xa-result .grade { display: inline-block; font-size: 30px; font-weight: 800; color: var(--accent); margin-left: 8px; }
+.xa-result table { font-size: 14.5px; margin-top: 12px; }
+.xa-result td.num, .xa-result th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.xa-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.xa-filter button { font: inherit; font-size: 14px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; min-height: 40px; }
+.xa-filter button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.xa-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.xa-actions .btn + .btn { margin-left: 0; }
+.xa-tally { font-size: 15px; color: var(--text-soft); }
+
+/* temaoversikt */
+.topics { margin: 16px 0; }
+.topics .row { display: grid; grid-template-columns: minmax(130px, 220px) 1fr; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.topics .row a { font-size: 14.5px; line-height: 1.3; text-decoration: none; }
+.topics .row a small { display: block; color: var(--muted); font-size: 12px; }
+.topics .bars { display: flex; flex-direction: column; gap: 3px; }
+.topics .bar { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.topics .bar i { display: block; height: 12px; border-radius: 3px; min-width: 2px; }
+.topics .bar.y24 i { background: var(--c2); }
+.topics .bar.y25 i { background: var(--c1); }
+.topics .legend { display: flex; gap: 16px; font-size: 13.5px; color: var(--text-soft); margin-bottom: 6px; }
+.topics .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--c2); }
+.topics .legend span.l25::before { background: var(--c1); }
+@media (max-width: 520px) { .topics .row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* strategi-kalkulator */
+.gcalc { display: grid; gap: 8px; margin-top: 12px; }
+.gcalc label { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; font-size: 15px; }
+.gcalc select { font: inherit; font-size: 15px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); min-height: 44px; }
+.ev-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-top: 12px; }
+.ev-out div { background: var(--surface-2); border-radius: 9px; padding: 10px 12px; font-size: 14px; color: var(--text-soft); }
+.ev-out b { display: block; font-size: 22px; color: var(--text); font-variant-numeric: tabular-nums; }
+.ev-advice { margin-top: 10px; font-size: 15px; }
+
+/* sjekkliste */
+.checklist { list-style: none; padding: 0; }
+.checklist li { margin: 0; }
+.checklist label { display: flex; gap: 12px; align-items: flex-start; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.checklist input { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--ok); flex: 0 0 auto; }
+.checklist input:checked + span { color: var(--muted); text-decoration: line-through; }
+</style>
+</head>
+<body data-chapter="16">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 16 · Del V · Eksamen</div>
+  <h1>Eksamenstrening</h1>
+  <p class="lead">Begge de tidligere eksamenene som interaktive prøver med forklaring på hvert eneste alternativ, en helt ny prøveeksamen for 2026, og en strategi for poengreglene som faktisk lønner seg.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare poengreglene (+2.5 / −0.83 / 0 og nullgrense per gruppe) og bruke dem til å bestemme når du skal gjette,</li>
+    <li>løse alle oppgavene fra eksamen 2024 og 2025 og forklare hvorfor de fristende feilsvarene er feil,</li>
+    <li>gjennomføre en full prøveeksamen på tid og få et karakterestimat,</li>
+    <li>kjenne igjen de klassiske fellene som går igjen år etter år.</li>
+  </ul>
+</div>
+
+<div class="callout hook"><span class="label">Slik bruker du kapittelet</span>
+<p><b>Uke 1–2 før eksamen:</b> kjør 2024 og 2025 i <i>øvingsmodus</i>. Les forklaringen også når du svarer riktig. Hver forklaring lenker til kapittelet der temaet står. <b>Siste uka:</b> ta prøveeksamen 2026 i <i>eksamensmodus</i> med 4 timers nedtelling, som om det var ekte. <b>Siste kveld:</b> sjekklisten nederst og flashcards i <a href="17-formelark.html">formelarket</a>.</p></div>
+
+<!-- ======================================================= -->
+<h2 id="format"><span class="sec">16.1</span>Eksamensformatet</h2>
+<p>Eksamen er flervalg i Inspera, uten hjelpemidler, med bestemt enkel kalkulator. Fagoversikten sier at pensum er «forelesningene og prosjektene». Formatet har endret seg fra 2024 til 2025, og 2025-formatet er det mest sannsynlige for 2026.</p>
+
+<div class="two-col">
+<div class="callout def"><span class="label">2025 (01.12.2025, 15–19)</span>
+<ul>
+<li>10 grupper (deler) à 4 spørsmål, maks 10 poeng per gruppe, 100 totalt.</li>
+<li>Riktig svar: <b>+2.5</b>. Feil svar: <b>−0.83</b>. Ubesvart: <b>0</b>.</li>
+<li><b>Nullgrense per gruppe:</b> blir summen i en gruppe negativ, settes den til 0.</li>
+<li>Har du først klikket på et alternativ, kan du bytte, men <b>ikke gjøre spørsmålet blankt igjen</b>.</li>
+<li>Bare ett riktig alternativ per spørsmål (men sensor godkjente to alternativer på 6.4 og 7.4).</li>
+</ul></div>
+<div class="callout def"><span class="label">2024 (07.12.2024)</span>
+<ul>
+<li>39 oppgaver, flere av dem med 2–3 delspørsmål (46 delspørsmål totalt).</li>
+<li>Noen spørsmål var «velg ett eller flere».</li>
+<li>Strengere grenser enn NTNU-standard: <b>A ≥ 92 %</b>, <b>B ≥ 82 %</b> (standard er 89 % og 77 %).</li>
+<li>Poengreglene per delspørsmål er ikke oppgitt i løsningsforslaget. Her teller vi 1 poeng per delspørsmål som er helt riktig, uten minuspoeng.</li>
+</ul></div>
+</div>
+
+<div class="callout warn"><span class="label">Karakterestimatet er et anslag</span><p>For 2025-formatet bruker vi NTNUs vanlige prosentskala (A ≥ 89, B ≥ 77, C ≥ 65, D ≥ 53, E ≥ 41), siden grensene for 2025 ikke står i løsningsforslaget. For 2024 bruker vi de oppgitte grensene for A og B og standardskalaen for C–E. Faglærer kan justere grensene.</p></div>
+
+<!-- ======================================================= -->
+<h2 id="strategi"><span class="sec">16.2</span>Strategi: når lønner det seg å gjette?</h2>
+<p>Minuspoengene er laget slik at ren gjetning er verdt null i snitt. Med fire alternativer treffer du med sannsynlighet $\tfrac14$:</p>
+<div class="eq"><p class="eq-note">Forventet poeng for én ren gjetning blant 4 alternativer</p>
+$$E = \tfrac14\cdot 2.5 \;-\; \tfrac34\cdot 0.83 \;=\; 0.625 - 0.6225 \;\approx\; 0$$</div>
+<p>Det er ingen tilfeldighet: $0.83 \approx 2.5/3$. Straffen for feil er tilpasset så gjetning går i null. Men så snart du vet <i>noe</i>, tipper regnestykket i din favør:</p>
+<table class="center">
+<tr><th>Situasjon</th><th>Sannsynlighet for riktig, $p$</th><th>Forventet poeng $2.5p - 0.83(1-p)$</th></tr>
+<tr><td>Ren gjetning (4 igjen)</td><td>0.25</td><td>≈ 0.00</td></tr>
+<tr><td>Utelukket ett (3 igjen)</td><td>0.33</td><td>+0.28</td></tr>
+<tr><td>Utelukket to (2 igjen)</td><td>0.50</td><td>+0.84</td></tr>
+<tr><td>«Ganske sikker»</td><td>0.75</td><td>+1.67</td></tr>
+</table>
+<p>Grensen der det lønner seg å svare er $p^* = \frac{0.83}{2.5+0.83} \approx 0.249$. Med andre ord: <b>kan du utelukke minst ett alternativ med god grunn, skal du svare.</b></p>
+
+<div class="calc" data-id="16-ev-ett-utelukket" data-answer="0.28" data-tol="0.01">
+  <p class="q">Du har utelukket ett av fire alternativer og velger tilfeldig blant de tre som er igjen. Hva er forventet poeng for spørsmålet? (To desimaler.)</p>
+  <div class="solution">$E = \tfrac13\cdot 2.5 - \tfrac23\cdot 0.83 = 0.833 - 0.553 \approx 0.28$. Positivt, så du bør svare.</div>
+</div>
+
+<h3>Nullgrensen gjør gjetning enda bedre</h3>
+<p>Nullgrensen per gruppe betyr at en gruppe aldri kan gi minuspoeng. Det gjør fordelingen skjev i din favør: feilene «koster» bare så lenge de har noe å trekke fra. Har du ingen sikre svar i en gruppe, mister du ingenting på å gjette alle fire. Du kan bare vinne.</p>
+
+<div class="calc" data-id="16-ev-gruppe-gjett" data-answer="1.06" data-tol="0.02">
+  <p class="q">En gruppe der du ikke kan noe: du gjetter tilfeldig på alle fire spørsmålene (4 alternativer hver). Hva er forventet poeng for gruppen <i>med</i> nullgrense? (To desimaler. Tips: antall riktige er binomisk med $n=4$, $p=0.25$.)</p>
+  <div class="solution">
+  <p>Gruppepoeng med $k$ riktige: $\max(0,\ 2.5k - 0.83(4-k))$, som gir 0, 0.01, 3.34, 6.67 og 10 for $k=0,\dots,4$.</p>
+  <p>Sannsynlighetene er $\binom4k 0.25^k 0.75^{4-k}$ = 0.316, 0.422, 0.211, 0.047, 0.004.</p>
+  <p>$E = 0.422\cdot0.01 + 0.211\cdot3.34 + 0.047\cdot6.67 + 0.004\cdot10 \approx 1.06$. Uten nullgrense ville det vært ≈ 0. Nullgrensen er altså verdt omtrent ett poeng i en gruppe du «ikke kan».</p></div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: forventet poeng for en gruppe</h4>
+  <p class="small muted">Velg hvor sikker du er på hvert av de fire spørsmålene i en gruppe. Kalkulatoren regner ut forventet poeng eksakt (alle $2^4$ utfall) med og uten nullgrense, og hva hvert usikre svar er verdt sammenlignet med å la det stå blankt.</p>
+  <canvas id="evplot" width="640" height="260"></canvas>
+  <div class="gcalc" id="gcalc"></div>
+  <div class="ev-out" id="evout"></div>
+  <div class="ev-advice" id="evadvice"></div>
+</div>
+<p><b>Legg merke til:</b> med tre sikre svar er en ren gjetning på det fjerde verdt +0.0025, altså null. Nullgrensen spiller ingen rolle når du allerede har mange poeng i gruppen. Med null eller ett sikkert svar blir gjetningene derimot verdt noe, fordi nullgrensen kutter bort de verste utfallene. Kurven øverst viser forventet poeng for ett enkelt spørsmål som funksjon av $p$. Den krysser null like under $p = 0.25$.</p>
+
+<div class="callout cons"><span class="label">Hva fører reglene til i praksis?</span>
+<ul>
+<li><b>Svar når du kan utelukke ett alternativ.</b> Da er forventningen positiv uansett gruppe.</li>
+<li><b>I en svak gruppe (0–1 sikre svar) bør du gjette på alt.</b> Nullgrensen beskytter deg.</li>
+<li><b>I en sterk gruppe (3 sikre) er ren gjetning på det siste null verdt.</b> Svar hvis du kan utelukke noe, ellers spiller det ingen rolle.</li>
+<li><b>Ikke klikk før du har bestemt deg.</b> Et klikk kan ikke angres til blankt.</li>
+</ul></div>
+
+<div class="callout hook"><span class="label">Knagg</span><p>«Én ute, så skyt.» Har du utelukket ett alternativ, skyter du. Nullgrensen er et sikkerhetsnett under hver gruppe, og det er størst der du er svakest.</p></div>
+
+<h3>Tidsbruk</h3>
+<ul>
+<li><b>4 timer, 40 spørsmål: 6 minutter per spørsmål.</b> De fleste begrepsspørsmål tar under ett minutt, så du har god tid til regneoppgavene.</li>
+<li><b>Runde 1 (ca. 60–75 min):</b> gå gjennom alt. Svar på det du er sikker på. Flagg resten (Inspera har bokmerke/flagg).</li>
+<li><b>Runde 2 (ca. 60–90 min):</b> regneoppgaver og flaggede spørsmål. Skriv mellomregninger på kladd. Eliminer alternativer aktivt.</li>
+<li><b>Runde 3 (30 min):</b> gruppe for gruppe: hvor mange sikre har jeg? Gjett på alt i svake grupper, svar på alt der du har utelukket noe.</li>
+<li><b>Les spørsmålet to ganger.</b> «Hvilken er <i>ikke</i>…», «mest sannsynlig», «korrekt <i>og</i> nødvendig» – ett ord avgjør.</li>
+<li><b>Sjekk enhet og fortegn</b> i regneoppgaver: gradient vs. oppdatert verdi, antall lagt til vs. sluttantall, $N$ vs. $N-1$.</li>
+</ul>
+
+<div class="reflect" data-id="16-r-strategi">
+  <p class="q">Du har to sikre svar i en gruppe, ett spørsmål der du har utelukket to alternativer, og ett du ikke aner noe om. Hva gjør du med de to usikre, og hvorfor?</p>
+  <div class="answer">Svar på det der du har utelukket to: $p=0.5$ gir +0.84 i forventning, og med 5 poeng allerede i gruppen kan summen ikke bli negativ. Det siste er en ren gjetning med forventning ≈ 0. Med 5 sikre poeng i gruppen hjelper ikke nullgrensen (to feil gir fortsatt 5 − 1.66 &gt; 0), så det er likegyldig i snitt. Sett det i kalkulatoren over og se.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="temaer"><span class="sec">16.3</span>Temaoversikt: hva har blitt spurt om?</h2>
+<p>Stolpene viser antall delspørsmål per kapittel i eksamen 2024 (oransje) og 2025 (blå). De telles automatisk fra oppgavene lenger ned. Klikk på kapitteltittelen for å repetere.</p>
+<div class="topics" id="topics"></div>
+<div class="callout exam"><span class="label">Mønsteret</span>
+<ul>
+<li><b>Evaluering og ubalanse</b> (kap. 3) var det største temaet i 2024, med confusion matrix, ROC, precision/recall og resampling. Regn med regneoppgaver her.</li>
+<li><b>Forsterkningslæring</b> (kap. 14) gikk fra 3 delspørsmål i 2024 til 9 i 2025: to hele grupper om Q-learning og DQN (replay buffer, target network) pluss et kodespørsmål.</li>
+<li><b>XAI og etikk</b> (kap. 15) var stort i 2024 (SHAP, LIME, Shapley-regning, AI Act), men fraværende i 2025. Det kan komme tilbake.</li>
+<li><b>Preprosessering</b> (skalering fit på trening, transform på test) har kommet <i>hvert år</i>, i flere varianter. Det er gratispoeng.</li>
+<li>2025 hadde én gruppe med <b>kodeforståelse</b> (sklearn, numpy, Python). Kjenn igjen <code>fit</code>, <code>transform</code>, <code>predict</code>, <code>train_test_split</code> og shapes.</li>
+</ul></div>
+
+<!-- ======================================================= -->
+<h2 id="eksamen-2024"><span class="sec">16.4</span>Eksamen 2024 (interaktiv)</h2>
+<p>Alle 39 oppgavene med fasit fra løsningsforslaget (46 delspørsmål). Formler og figurer er gjengitt fra originalen. Oppgaver merket «velg ett eller flere» krever at du velger <i>alle</i> riktige og ingen gale for å få uttelling.</p>
+<div class="exam-app" data-exam="2024"></div>
+
+<template id="exam-2024" data-rules="2024" data-title="Eksamen 2024">
+
+<section data-title="Oppgave 1 · Lineær modell">
+<div class="x" data-ch="06">
+<div class="q"><p>Hvilken antakelse gjør en lineær modell på formen $y = w_1x_1 + w_2x_2 + w_3x_3 + b$ om dataene den modellerer?</p></div>
+<ol>
+<li data-c>Modellen antar at det ikke er vekselvirkninger mellom features.</li>
+<li>Modellen antar at den har høy bias.</li>
+<li>Modellen antar at den vil undertilpasse treningsdataene.</li>
+<li>Modellen antar at effekten av hver inputvariabel er avhengig av andre inputvariabler.</li>
+</ol>
+<div class="ex"><p>Hver feature bidrar med sitt eget ledd $w_ix_i$, og leddene legges sammen. Å øke $x_1$ med én endrer alltid $y$ med $w_1$, uansett hva $x_2$ og $x_3$ er. Det er det «ingen vekselvirkninger» (additivitet) betyr. Det siste alternativet er det motsatte: da måtte modellen hatt ledd som $x_1x_2$.</p>
+<p>«Høy bias» og «undertilpasning» kan bli <i>konsekvensen</i> hvis dataene ikke er lineære, men det er ikke noe modellen antar. Skill mellom induktiv bias (antakelsen) og resultatet.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 2 · Gradient descent for lineær modell">
+<div class="x" data-ch="06" data-multi>
+<div class="q"><p>Du har en lineær modell $f(x) = wx + b$, som skal brukes til å predikere $y$-verdier basert på input $x$. Modellen trenes med gradient descent for å minimere en tapsfunksjon $\mathcal L$, og oppdateringsregelen er $\theta \leftarrow \theta - \alpha\frac{\partial \mathcal L}{\partial\theta}$. Du bruker MSE, $\mathcal L = \frac12(y - f(x))^2$, og starter med $w, b = 1, 0$.</p>
+<p>Beregn gradientene $\frac{\partial\mathcal L}{\partial w}$ og $\frac{\partial\mathcal L}{\partial b}$ for datapunktet $x=2,\ y=4$. <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li>$\frac{\partial\mathcal L}{\partial b} = 3$</li>
+<li>$\frac{\partial\mathcal L}{\partial w} = 2$</li>
+<li>$\frac{\partial\mathcal L}{\partial w} = -6$</li>
+<li>$\frac{\partial\mathcal L}{\partial b} = -3$</li>
+<li>$\frac{\partial\mathcal L}{\partial b} = 2$</li>
+<li data-c>$\frac{\partial\mathcal L}{\partial b} = -2$</li>
+<li>$\frac{\partial\mathcal L}{\partial w} = 4$</li>
+<li data-c>$\frac{\partial\mathcal L}{\partial w} = -4$</li>
+</ol>
+<div class="ex"><p>$f(2) = 1\cdot 2 + 0 = 2$, så feilen er $y - f = 4 - 2 = 2$. Kjerneregelen gir</p>
+<p>$\frac{\partial\mathcal L}{\partial w} = (y-f)\cdot\frac{\partial(y-f)}{\partial w} = -(y-f)\,x = -2\cdot 2 = -4$ og $\frac{\partial\mathcal L}{\partial b} = -(y-f) = -2$.</p>
+<p>Negativ gradient betyr at tapet minker når parameteren øker, og det stemmer: modellen predikerer for lavt. Fellene er å glemme minustegnet fra den indre deriverte (gir +4 og +2), eller å glemme faktoren $x$ i $\partial\mathcal L/\partial w$.</p></div>
+</div>
+<div class="x" data-ch="06" data-multi>
+<div class="q"><p>Bruk læringsraten $\alpha = 0.1$ og beregn de oppdaterte verdiene av modellparametrene. <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li data-c>$w = 1.4$</li>
+<li>$b = -0.2$</li>
+<li data-c>$b = 0.2$</li>
+<li>$w = 0.6$</li>
+</ol>
+<div class="ex"><p>$w \leftarrow 1 - 0.1\cdot(-4) = 1.4$ og $b \leftarrow 0 - 0.1\cdot(-2) = 0.2$. Begge øker, slik de skal når modellen predikerer for lavt.</p>
+<p>$w = 0.6$ og $b = -0.2$ får du hvis du <i>legger til</i> gradienten i stedet for å trekke den fra. Da går du oppover i tapslandskapet (gradient ascent).</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 3 · Induktiv bias">
+<div class="x" data-ch="01">
+<div class="q"><p>Hva er induktivt bias?</p></div>
+<ol>
+<li>Et resultat av vilkårlige prosesser som kan oppstå i treningsfasen og fører til bias i den resulterende modellen.</li>
+<li>En fellesbetegnelse for over- og undertilpasningen en gitt modell gjør.</li>
+<li data-c>Antakelsene en modell gjør for å generalisere fra treningsdata til usette data.</li>
+<li>En egenskap ved treningsdataene som gir en modell vi tilpasser til dataene en spesifikk type bias.</li>
+</ol>
+<div class="ex"><p>Induktiv bias er antakelsene som gjør det mulig å generalisere fra endelig mange eksempler til nye punkter: at sammenhengen er lineær, at nære punkter ligner hverandre, at beslutningsflater er akseparallelle (trær), og så videre. Uten slike antakelser kan ingen modell si noe om usette data.</p>
+<p>Det første alternativet beskriver tilfeldighet/varians. Det andre blander inn over- og undertilpasning, som er <i>konsekvenser</i>. Det fjerde handler om skjevheter i dataene (data-bias), som er noe annet.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 4 · Preprosessering">
+<div class="x" data-ch="01">
+<div class="q"><p>Du har laget en maskinlæringsmodell og skal nå teste den. Hvilken av disse funksjonene vil du bruke til å preprosessere testdataene?</p></div>
+<ol>
+<li data-c><code>Scaler.transform(x_test)</code>, der Scaler-objektet først ble tilpasset på treningsdataene.</li>
+<li><code>Scaler.fit(x_test)</code>, slik at Scaler-objektet kan gjenbrukes.</li>
+<li><code>Scaler().fit_transform(x_test)</code>, slik at preprosesseringen tilpasses til testdataene før disse transformeres.</li>
+</ol>
+<div class="ex"><p>Skaleringen er en del av modellen. Parametrene (gjennomsnitt og standardavvik, eller min og maks) skal estimeres <b>bare fra treningsdata</b>, og så brukes uendret på testdata.</p>
+<p>Å kalle <code>fit</code> på testdata lekker informasjon fra testsettet og gir testdataene en annen skala enn den modellen ble trent på. <code>Scaler.fit(x_test)</code> returnerer dessuten ikke transformerte data i det hele tatt. Dette temaet har kommet hvert år.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 5 · Confusion matrix og ROC-kurve">
+<div class="x" data-ch="03" data-multi>
+<div class="q"><p>En modell gir følgende confusion matrix for klassifiseringsterskel 0.3:</p>
+<table><tr><th></th><th>Predikert positiv</th><th>Predikert negativ</th></tr><tr><td>Label positiv</td><td>40</td><td>10</td></tr><tr><td>Label negativ</td><td>30</td><td>20</td></tr></table>
+<p>og følgende for terskel 0.7:</p>
+<table><tr><th></th><th>Predikert positiv</th><th>Predikert negativ</th></tr><tr><td>Label positiv</td><td>25</td><td>25</td></tr><tr><td>Label negativ</td><td>10</td><td>40</td></tr></table>
+<p>Se på ROC-kurven (x-akse FPR, y-akse TPR):</p>
+<img src="../assets/fig/eksamen/2024-05-roc.png" alt="ROC-kurve med punkt 1 i (0.1, 0.4), punkt 2 i (0.2, 0.5), punkt 3 i (0.3, 0.6), punkt 4 i (0.6, 0.8) og punkt 5 i (0.8, 0.9)" width="420">
+<p>Hvilke utsagn er riktige? <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li>Punkt 3 tilsvarer klassifiseringsterskel på 0.7</li>
+<li data-c>Punkt 4 tilsvarer klassifiseringsterskel på 0.3</li>
+<li>Punkt 5 tilsvarer klassifiseringsterskel på 0.3</li>
+<li data-c>Punkt 2 tilsvarer klassifiseringsterskel på 0.7</li>
+<li>Punkt 4 tilsvarer klassifiseringsterskel på 0.7</li>
+<li>Punkt 5 tilsvarer klassifiseringsterskel på 0.7</li>
+<li>Punkt 1 tilsvarer klassifiseringsterskel på 0.3</li>
+</ol>
+<div class="ex"><p>Regn ut $\text{TPR} = \frac{TP}{TP+FN}$ og $\text{FPR} = \frac{FP}{FP+TN}$:</p>
+<ul><li>Terskel 0.3: TPR $= 40/50 = 0.8$, FPR $= 30/50 = 0.6$, altså punktet (0.6, 0.8) = <b>punkt 4</b>.</li>
+<li>Terskel 0.7: TPR $= 25/50 = 0.5$, FPR $= 10/50 = 0.2$, altså (0.2, 0.5) = <b>punkt 2</b>.</li></ul>
+<p>Typiske feil er å dele på kolonnesummen (det gir precision) eller å bytte om akser. Huske-regel: begge ratene deles på <i>radsummen</i>, altså antall faktiske positive eller negative.</p></div>
+</div>
+<div class="x" data-ch="03" data-multi>
+<div class="q"><p>Se igjen på ROC-kurven over. Hva svarer punkt 5 til? <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li data-c>Den laveste klassifiseringsterskelen av alle punktene 1–5.</li>
+<li>En klassifiseringsterskel som gir høy presisjon.</li>
+<li>Det nest beste valget av klassifiseringsterskel.</li>
+<li>Den høyeste klassifiseringsterskelen av alle punktene 1–5.</li>
+<li>Klassifiseringsterskel på 0.3.</li>
+<li>Det er ikke mulig å si uten å vite klassifiseringsterskelen.</li>
+</ol>
+<div class="ex"><p>Langs ROC-kurven går terskelen fra 1 i (0, 0) til 0 i (1, 1). Jo lavere terskel, jo flere predikeres positive, og jo høyere blir både TPR og FPR. Punkt 5 har høyest FPR og TPR av punktene og har dermed lavest terskel. Vi trenger ikke tallverdien, bare rekkefølgen langs kurven.</p>
+<p>Lav terskel gir mange falske positive og dermed <i>lav</i> presisjon. 0.3 er punkt 4, som vi regnet ut over. «Nest beste» er meningsløst uten et kriterium.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 6 · ROC AUC">
+<div class="x" data-ch="03">
+<div class="q"><p>Hva betyr det hvis en modell har en ROC AUC på 0.9?</p></div>
+<ol>
+<li>Modellen predikerer riktig klasse i 90 % av tilfellene.</li>
+<li>Modellen har en 90 % sannsynlighet for å korrekt predikere positive tilfeller for enhver klassifiseringsterskel.</li>
+<li data-c>Det er en 90 % sannsynlighet for at modellen rangerer et tilfeldig valgt positivt tilfelle høyere enn et tilfeldig valgt negativt tilfelle.</li>
+<li>Modellen har 90 % nøyaktighet ved terskelen 0.5.</li>
+</ol>
+<div class="ex"><p>ROC AUC er sannsynligheten for at modellen gir et tilfeldig positivt punkt høyere score enn et tilfeldig negativt punkt (slik notatene definerer den). Den oppsummerer <i>alle</i> terskler og er et mål på rangering.</p>
+<p>Første og siste alternativ er accuracy, som avhenger av terskelen. Det andre blander inn TPR, som også varierer med terskelen.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 7 · Precision, recall, spesifisitet og accuracy">
+<div class="x" data-ch="03">
+<div class="q"><p>Du skal levere en modell til et sykehus som vil finne pasienter med en svært sjelden og dødelig sykdom. Det er altså alvorlig om modellen har mange falske negative. Hvilken metrikk er det viktigst at modellen skårer høyt på?</p></div>
+<ol>
+<li>Treffsikkerhet / accuracy</li>
+<li data-c>Recall $= \frac{TP}{TP+FN}$</li>
+<li>Presisjon / precision $= \frac{TP}{TP+FP}$</li>
+</ol>
+<div class="ex"><p>Falske negative er syke pasienter vi overser. Recall har FN i nevneren og straffer nettopp dem. Accuracy er villedende ved sjeldne sykdommer: en modell som sier «frisk» til alle kan få 99.9 %. Precision handler om falske positive, ikke falske negative.</p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>Modellen har høy treffsikkerhet, men sykehuset vil likevel ikke kjøpe den. Du hadde det travelt og studerte verken fordelingen i treningsdataene eller brukte et valideringsdatasett. Hva har sannsynligvis gått galt?</p></div>
+<ol>
+<li data-c>Fordelingen mellom friske og syke pasienter i treningsdataene er ubalansert.</li>
+<li>Modellen har for lav læringsrate, og uten bruk av valideringsdata har du ikke forsikret deg om at valg av hyperparametre er passende.</li>
+<li>Modellen har overtilpasset på pasienter fra det aktuelle sykehuset, og uten valideringsdata klarte du ikke å fange opp overtilpasningen.</li>
+<li>Du brukte cross entropy som tapsfunksjon, som kun bør brukes til lineær modellering.</li>
+</ol>
+<div class="ex"><p>Høy accuracy på en sjelden sykdom er det klassiske tegnet på ubalanserte klasser. Modellen lærer å si «frisk» og blir belønnet for det (notatene kaller det <i>prior probability shift</i>: prediksjonen domineres av $p(C_k)$).</p>
+<p>For lav læringsrate gir en dårlig trent modell, ikke kunstig høy accuracy. Overtilpasning er mulig, men oppgaven peker på at du ikke studerte <i>fordelingen</i>. Cross-entropy er standard for all klassifisering, også i nevrale nett.</p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>Du lager i stedet en modell til politiet, som skal avgjøre om meldinger på Twitter/X er verdt en ressurskrevende og kostbar utrykning. Det er altså viktig å unngå mange falske positive. Hvilken metrikk er viktigst?</p></div>
+<ol>
+<li>Spesifisitet / specificity $= \frac{TN}{TN+FP}$</li>
+<li>Recall $= \frac{TP}{TP+FN}$</li>
+<li data-c>Presisjon / precision $= \frac{TP}{TP+FP}$</li>
+</ol>
+<div class="ex"><p>Falske positive er unødvendige utrykninger. Precision er andelen alarmer som var ekte, og den faller når FP øker.</p>
+<p class="note">Spesifisitet straffer også FP, så den er ikke helt gal. Men når ekte trusler er sjeldne, blir TN enorm og spesifisiteten ligger nær 1 selv med mange falske alarmer. Derfor er precision det beste svaret, og det er fasit. Recall handler om FN.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 8 · Over- og undersampling">
+<div class="x" data-ch="03">
+<div class="q"><p>Et datasett har 2000 datapunkter, der 90 % tilhører klasse $A$ og resten klasse $B$. Du vil gjøre <b>undersampling</b> for å få et balansert datasett. Hvor mange datapunkter kan du beholde fra klasse $A$?</p></div>
+<ol><li data-c>200</li><li>100</li><li>400</li><li>1800</li><li>900</li></ol>
+<div class="ex"><p>$A$ har 1800 punkter og $B$ har 200. Undersampling trekker like mange fra majoritetsklassen som det finnes i minoritetsklassen: <b>200</b>. 1800 er antallet du har, ikke antallet du beholder. 400 er størrelsen på hele det balanserte datasettet.</p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>Du vil heller prøve <b>oversampling</b>. Hvor mange datapunkter må da legges til i klasse $B$?</p></div>
+<ol><li>200</li><li>1800</li><li>100</li><li data-c>1600</li><li>400</li><li>2000</li></ol>
+<div class="ex"><p>$B$ skal opp fra 200 til 1800, så du legger til $1800 - 200 = \mathbf{1600}$ kopier. 1800 er sluttantallet, og det er den vanligste fellen: les om spørsmålet gjelder «hvor mange blir det» eller «hvor mange legges til».</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 9 · Cross-entropy loss">
+<div class="x" data-ch="02">
+<div class="q"><p>Hvilken av disse er en korrekt implementasjon av binary cross entropy loss?</p></div>
+<ol>
+<li><code>-y*np.log(1-y_pred) - (1-y)*np.log(y_pred)</code></li>
+<li><code>-y_pred*np.log(1-y) - (1-y_pred)*np.log(y)</code></li>
+<li data-c><code>-y*np.log(y_pred) - (1-y)*np.log(1-y_pred)</code></li>
+<li><code>-y_pred*np.log(y) - (1-y_pred)*np.log(1-y)</code></li>
+</ol>
+<div class="ex"><p>$\mathcal L = -y\ln\hat y - (1-y)\ln(1-\hat y)$. Sjekk med $y=1$: bare $-\ln\hat y$ står igjen, og den er stor når $\hat y \to 0$. Det er riktig oppførsel.</p>
+<p>Det første alternativet bytter om logaritmene, så modellen straffes for riktige svar. De to andre tar logaritmen av labelen $y \in \{0,1\}$, og $\log 0 = -\infty$.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 10 · Vektet cross-entropy">
+<div class="x" data-ch="03">
+<div class="q"><p>Hvilken er en korrekt implementasjon av vektet cross entropy loss? Vekten $w_0$ gjelder klassen med target $y=0$, og $w_1$ klassen med $y=1$.</p></div>
+<ol>
+<li><code>-w_0*y*np.log(y_pred) - w_1*(1-y)*np.log(1-y_pred)</code></li>
+<li><code>-w_0*y_pred*np.log(y) - w_1*(1-y_pred)*np.log(1-y)</code></li>
+<li><code>-w_1*y_pred*np.log(1-y) - w_0*(1-y_pred)*np.log(y)</code></li>
+<li data-c><code>-w_1*y*np.log(y_pred) - w_0*(1-y)*np.log(1-y_pred)</code></li>
+</ol>
+<div class="ex"><p>Leddet med $y$ er bare aktivt når $y=1$, så det skal ganges med $w_1$. Leddet med $(1-y)$ er bare aktivt når $y=0$, så det skal ganges med $w_0$: $\mathcal L = -w_1 y\ln\hat y - w_0(1-y)\ln(1-\hat y)$ (notatene, likning 43).</p>
+<p>Det første alternativet er den lumske fellen: riktig form, men vektene er byttet om. De to i midten tar log av $y$.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 11 · Ubalanserte klasser">
+<div class="x" data-ch="03">
+<div class="q"><p>Klasse A har 9000 datapunkter og klasse B har 1000. Hvilken kombinasjon av vekter bør du velge i en vektet cross entropy loss?</p></div>
+<ol>
+<li>$w_A = 0.0001,\ w_B = 0.009$</li>
+<li>$w_A = 1,\ w_B = 0.1$</li>
+<li data-c>$w_A = 0.1,\ w_B = 1$</li>
+</ol>
+<div class="ex"><p>Vektene skal være omvendt proporsjonale med klassestørrelsen, så minoritetsklassen B får størst vekt. Eksakt balanse ville vært $w_A/w_B = 1000/9000 \approx 0.11$, og $0.1/1$ er nærmest.</p>
+<p>Det andre alternativet går feil vei og forsterker ubalansen. Det første har riktig retning, men forholdet er $0.009/0.0001 = 90$, altså ti ganger for kraftig. Det er forholdet som teller, ikke størrelsen.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 12 · Læringsrate">
+<div class="x" data-ch="02">
+<div class="q"><p>Hvilken type parameter er læringsraten?</p></div>
+<ol><li>En testparameter</li><li>En modellparameter</li><li>En treningsparameter</li><li data-c>En hyperparameter</li></ol>
+<div class="ex"><p>Læringsraten styrer <i>hvordan</i> treningen foregår, men er ikke en del av den ferdige modellen. Modellparametrene er $w$ og $b$, som læres fra data. Notatene: «Hyperparametre er parametre som definerer læringsprosessen, men ikke modellen.» «Treningsparameter» er ikke et begrep i pensum.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 13 · Batch size">
+<div class="x" data-ch="10">
+<div class="q"><p>Hva angir batch size?</p></div>
+<ol>
+<li>Antall ganger modellen oppdateres per epoke</li>
+<li>Antall ganger modellen trenes på hele datasettet</li>
+<li data-c>Antall treningsdatapunkter som brukes per iterasjon av treningen</li>
+<li>Antall egenskaper (features) som brukes i treningen</li>
+</ol>
+<div class="ex"><p>Batch size $B$ er antall datapunkter som brukes til å estimere gradienten i én oppdatering. Det første alternativet er $N/B$ (iterasjoner per epoke), det andre er antall epoker, og det siste er antall features.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 14 · Epoker">
+<div class="x" data-ch="10">
+<div class="q"><p>Et treningsdatasett har 10 000 datapunkter, og du bruker batch size 500. Hvor mange iterasjoner blir det i én epoke?</p></div>
+<ol><li data-c>20</li><li>50</li><li>100</li><li>5</li></ol>
+<div class="ex"><p>Én epoke = alle punktene har vært med én gang. Mini-batch SGD gir $N/B = 10\,000/500 = 20$ oppdateringer per epoke.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 15 · Splitt i beslutningstrær">
+<div class="x" data-ch="05">
+<div class="q"><p>Hvordan bestemmer et beslutningstre hvilken feature det skal dele på i en gitt node?</p></div>
+<ol>
+<li>Det velger egenskapen med færrest mulige verdier for å minimere entropi.</li>
+<li>Det velger alltid den første egenskapen i datasettet.</li>
+<li data-c>Det velger egenskapen som maksimalt reduserer usikkerhet i datasettet.</li>
+<li>Det velger tilfeldig en egenskap fra de tilgjengelige egenskapene.</li>
+</ol>
+<div class="ex"><p>Treet prøver kandidatsplitt (feature og terskel) og velger det som gir størst reduksjon i urenhet, målt med Gini eller entropi (informasjonsgevinst). Antall verdier i en feature er ikke kriteriet. Tilfeldige features brukes i isolation forest, og random forest velger det beste splittet blant et tilfeldig utvalg features, men et vanlig beslutningstre gjør ingen av delene.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 16 · Random forest">
+<div class="x" data-ch="08">
+<div class="q"><p>Hva er viktig for å lage en god random forest-modell basert på beslutningstrær?</p></div>
+<ol>
+<li>Beslutningstrærne har ulike dybder, som til sammen gir en god balanse mellom over- og undertilpasning.</li>
+<li data-c>Beslutningstrærne er diverse, som betyr at de bruker ulike deler av data og features, og uavhengige.</li>
+<li>Beslutningstrærne har i gjennomsnitt lært de samme mønstrene fra dataene, som betyr at de bruker et representativt utvalg av data og features.</li>
+<li>Beslutningstrærne er trent på samme bootstrap-trekning fra treningsdataene for å oppnå en modell med lavest mulig varians.</li>
+</ol>
+<div class="ex"><p>Et gjennomsnitt av mange modeller reduserer variansen bare hvis feilene deres er lite korrelerte. Random forest får det til med bootstrap av datapunkter og et tilfeldig utvalg features ved hver splitt.</p>
+<p>Det tredje og fjerde alternativet beskriver like trær, og da gir ensemblet ingen gevinst. Ulik dybde er ikke mekanismen.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 17 · Gradient boosting">
+<div class="x" data-ch="08">
+<div class="q"><p>Hvilket utsagn er riktig i konteksten gradient boosting?</p></div>
+<ol>
+<li>Gradientens verdi indikerer hvor mange trær som skal legges til i modellen.</li>
+<li>For å unngå å bygge en for kompleks modell legger gradient boosting til ett tre av gangen under treningsprosessen.</li>
+<li>Alle beslutningstrærne trenes samtidig for å finne den beste kombinasjonen av feature splits.</li>
+<li data-c>Hvert påfølgende beslutningstre trenes til å minimere residualene fra det forrige treet.</li>
+</ol>
+<div class="ex"><p>Hver ny modell tilpasses pseudo-residualene $y - \hat y$ og legges til med en læringsrate. Det er gradient descent i rommet av funksjoner.</p>
+<p class="note">Fasit forenkler: residualene er til <i>hele ensemblet</i> så langt, ikke bare til forrige tre. Det andre alternativet er halvsant. Gradient boosting legger faktisk til ett tre om gangen, men ikke «for å unngå en for kompleks modell». Flere trær gjør modellen mer kompleks. Trærne trenes sekvensielt, ikke samtidig.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 18 · Kryssvalidering og bootstrap">
+<div class="x" data-ch="07">
+<div class="q"><p>Hva er hovedforskjellen i hvordan data deles opp i kryssvalidering og bootstrapping?</p></div>
+<ol>
+<li>Kryssvalidering kan brukes for alle typer modeller, mens bootstrapping brukes for beslutningstrær og skoger.</li>
+<li>Kryssvalidering brukes på store datasett, mens bootstrapping er basert på tilfeldig sampling med tilbakelegging, og derfor brukes på små datasett.</li>
+<li>Kryssvalidering bruker kun treningsdata, mens bootstrapping bruker kun testdata.</li>
+<li data-c>Kryssvalidering deler datasettet i ikke-overlappende delsett, mens bootstrapping bruker tilfeldig sampling med tilbakelegging, som kan inkludere overlappende datapunkter.</li>
+<li>Kryssvalidering deler datasettet i overlappende delsett, mens bootstrapping deler i ikke-overlappende delsett.</li>
+</ol>
+<div class="ex"><p>k-fold deler dataene i $k$ disjunkte folder, og hvert punkt er i valideringsfolden nøyaktig én gang. Bootstrap trekker med tilbakelegging, så samme punkt kan komme flere ganger, og omtrent 37 % kommer aldri med. Bootstrap er en generell statistisk teknikk og ikke begrenset til trær. Det siste alternativet er det omvendte av det riktige.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 19 · Backpropagation">
+<div class="x" data-ch="10">
+<div class="q"><p>Hva er hovedformålet med backpropagation i et nevralt nettverk?</p></div>
+<ol>
+<li data-c>Å justere vektene i nettverket for å minimere feilen mellom predikert og faktisk verdi.</li>
+<li>Å finne prediksjonen basert på input data i et nevralt nettverk, også kjent som en forward pass.</li>
+<li>Å legge til flere lag i nettverket for å forbedre nøyaktigheten.</li>
+<li>Å initialisere vektene i nettverket tilfeldig.</li>
+</ol>
+<div class="ex"><p>Backpropagation sender feilen bakover gjennom nettverket med kjerneregelen og gir $\partial\mathcal L/\partial w$ for alle vekter. Gradienten brukes til å justere vektene slik at tapet minker. Strengt tatt er det gradient descent som gjør selve justeringen, mens backprop regner ut gradienten (jf. 2025, del 5.4). Det andre alternativet er forward pass.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 20 · Globalt minimum">
+<div class="x" data-ch="02">
+<div class="q"><p>I hvilket tilfelle vet vi at gradient descent vil finne et globalt minimum?</p></div>
+<ol><li>Lineær regresjon</li><li data-c>Konvekse funksjoner</li><li>Nevrale nettverk</li><li>Monotone funksjoner</li></ol>
+<div class="ex"><p>For en konveks funksjon er ethvert lokalt minimum også globalt, så gradient descent med passende læringsrate ender i det globale minimumet. Nevrale nett har ikke-konvekse tapsflater. Monotone funksjoner har ofte ikke noe minimum i det hele tatt.</p>
+<p class="note">Lineær regresjon med MSE er også konveks, så «Lineær regresjon» er strengt tatt ikke feil. Det er et spesialtilfelle av det generelle svaret, men fasiten godtok bare «Konvekse funksjoner». Velg det mest generelle og presise svaret.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 21 · Anomalideteksjon">
+<div class="x" data-ch="13">
+<div class="q"><p>Hva betyr det hvis en modell for anomalideteksjon gir mange falske positive?</p></div>
+<ol>
+<li data-c>Modellen identifiserer mange normale datapunkter som anomalier.</li>
+<li>Modellen har høy accuracy, men lav recall.</li>
+<li>Modellen er trent på for få anomalier.</li>
+<li>Modellen klarer ikke å identifisere alle anomaliene.</li>
+</ol>
+<div class="ex"><p>«Positiv» betyr her «anomali». En falsk positiv er et normalt punkt som flagges som anomali, altså en falsk alarm. Det siste alternativet beskriver falske negative (lav recall).</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 22 · Kategorier av clustering">
+<div class="x" data-ch="11">
+<div class="q"><p>Hvilken kategori tilhører k-means?</p></div>
+<ol><li data-c>Sentroidebasert</li><li>Tetthetsbasert</li><li>Hierarkibasert</li><li>Fordelingsbasert</li></ol>
+<div class="ex"><p>k-means starter med sentroider, tilordner hvert punkt til nærmeste og flytter sentroidene til gjennomsnittet: sentroidebasert.</p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>Hvilken kategori tilhører DBSCAN?</p></div>
+<ol><li data-c>Tetthetsbasert</li><li>Sentroidebasert</li><li>Hierarkibasert</li><li>Fordelingsbasert</li></ol>
+<div class="ex"><p>DBSCAN definerer klynger som områder med høy tetthet (minst <code>min_samples</code> naboer innen $\varepsilon$). Isolerte punkter blir outliers. Fordelingsbasert (f.eks. Gauss-blandinger) og hierarkibasert skal du ha hørt om, men ikke kunne i detalj.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 23 · Isolation Forest">
+<div class="x" data-ch="13">
+<div class="q"><p>Hva brukes Isolation Forest til i konteksten av anomalideteksjon?</p></div>
+<ol>
+<li>Klassifisering av data gjennom flere beslutningstrær.</li>
+<li>Å bygge lineære modeller for å separere normale data fra anomalier.</li>
+<li>Dimensjonsreduksjon for identifisering av outliers.</li>
+<li data-c>Å isolere datapunkter ved å dele opp dataene gjennom beslutningstrær.</li>
+</ol>
+<div class="ex"><p>Isolation Forest bygger trær med tilfeldige splitt (tilfeldig feature og verdi) til hvert punkt ligger i sin egen løvnode. Anomalier er «få og annerledes» og isoleres etter få splitt, altså en kort sti fra roten. Det er trær, men ikke klassifisering, siden det ikke finnes labels. Det første alternativet er derfor den fristende fellen.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 24 · PCA">
+<div class="x" data-ch="12">
+<div class="q"><p>Hva er fordelen ved å bruke PCA?</p></div>
+<ol>
+<li>Hovedkomponentene reduserer datasettets varians til et lavere antall dimensjoner for enklere visualisering.</li>
+<li>Hovedkomponentene bevarer informasjon om alle originale funksjoner i dataene.</li>
+<li data-c>Hovedkomponentene er ukorrelerte, og ved å bruke dem reduserer vi datasettets dimensjoner samtidig som mest mulig varians beholdes.</li>
+<li>Hovedkomponentene er alltid korrelerte og fanger opp maksimal informasjon om variasjoner i dataene.</li>
+</ol>
+<div class="ex"><p>PC-ene er ortogonale (ukorrelerte) retninger sortert etter hvor mye varians de forklarer. Vi beholder de første og mister minst mulig varians. Målet er å <i>bevare</i> varians, ikke å redusere den. Kutter vi komponenter, mister vi noe informasjon. Det siste alternativet sier det motsatte av sannheten.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 25 · PCA 2">
+<div class="x" data-ch="12">
+<div class="q"><p>Hva er prinsipalkomponentene vi finner når vi gjør PCA?</p></div>
+<ol>
+<li>De representerer de opprinnelige dataenes sentrale punkt.</li>
+<li data-c>De er egenvektorene til kovariansmatrisen til dataene.</li>
+<li>De representerer antall features som beholdes etter dimensjonsreduksjon.</li>
+<li>De representerer den lineære delen av kovariansen i datasettet.</li>
+</ol>
+<div class="ex"><p>PC-ene er egenvektorene til kovariansmatrisen $S$, og egenverdiene er variansen langs hver av dem. Det sentrale punktet er gjennomsnittet, som vi trekker fra før vi regner kovarians. Antall komponenter som beholdes er en hyperparameter, ikke selve komponentene.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 26 · t-SNE">
+<div class="x" data-ch="12">
+<div class="q"><p>Hva er vanlig bruk av t-SNE i maskinlæring?</p></div>
+<ol>
+<li>t-SNE brukes til å klynge datapunkter, basert på sannsynlighet for naboskap.</li>
+<li>t-SNE brukes for å finne ut hvilke høydimensjonale datapunkter som følger en t-fordeling i en lavere dimensjon.</li>
+<li data-c>t-SNE brukes ofte til å redusere dimensjonene i datasett for visualisering.</li>
+<li>t-SNE brukes hovedsakelig til klassifisering.</li>
+</ol>
+<div class="ex"><p>t-SNE brukes mest til å lage 2D- eller 3D-kart over høydimensjonale data. Klynger kan bli <i>synlige</i> i plottet, men t-SNE tilordner ingen klyngelabels. t-fordelingen er et designvalg for $Q$ i lavdimensjonalt rom, ikke noe dataene «følger».</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 27 · DBSCAN">
+<div class="x" data-ch="11">
+<div class="q"><p>Hvilken av disse egenskapene gjør DBSCAN særlig robust?</p></div>
+<ol>
+<li>Den kan bruke ulike hyperparametre i ulike klynger.</li>
+<li>Hvorvidt et punkt identifiseres som kjernepunkt er ikke sensitivt for valg av epsilon.</li>
+<li data-c>Den identifiserer outliers og prøver ikke å putte disse i klynger.</li>
+<li>Hyperparameteren som angir antall klynger er valgfri.</li>
+</ol>
+<div class="ex"><p>DBSCAN merker punkter i områder med lav tetthet som støy (label −1) i stedet for å tvinge dem inn i en klynge. Dermed drar ikke outliers klyngene skjevt, slik de drar k-means-sentroider.</p>
+<p>$\varepsilon$ og <code>min_samples</code> er globale, og det er en kjent <i>svakhet</i>. Om et punkt er kjernepunkt avhenger direkte av $\varepsilon$. DBSCAN har ingen parameter for antall klynger.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 28 · KL-divergens">
+<div class="x" data-ch="12">
+<div class="q"><p>Hvilken rolle spiller Kullback–Leibler-divergens i t-SNE?</p></div>
+<ol>
+<li data-c>KL-divergens brukes til å måle forskjellen mellom sannsynlighetsfordelingen i det høydimensjonale rommet og den projiserte sannsynlighetsfordelingen i det lavdimensjonale rommet.</li>
+<li>KL-divergens brukes til å måle korrelasjonen mellom datapunkter i det høydimensjonale rommet og representasjonen av dataene i det lavdimensjonale rommet.</li>
+<li>KL-divergens brukes til å øke ytelsen til t-SNE sammenlignet med PCA.</li>
+<li>KL-divergensen påvirker hvor mange nabopunkter som tas med i tilpasningen av den gaussiske fordelingen i det høydimensjonale rommet og t-fordelingen i det lavdimensjonale rommet.</li>
+</ol>
+<div class="ex"><p>$D_{KL}(P\|Q) = \sum P\log\frac{P}{Q}$ er tapsfunksjonen. t-SNE flytter punktene i lavdimensjonalt rom med gradient descent for at naboskapsfordelingen $Q$ skal ligne $P$. Det er ikke en korrelasjon. Antall naboer styres av <i>perplexity</i>.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 29 · k-means">
+<div class="x" data-ch="11">
+<div class="q"><p>Når bør vi bruke k-means?</p></div>
+<ol>
+<li>Når vi ikke har en god hypotese om hvor mange klynger som finnes.</li>
+<li>Når features har ulike størrelsesordener.</li>
+<li>Når klyngene ikke er lineært separerbare.</li>
+<li data-c>Når avstanden innad i klyngen er mindre enn avstandene mellom klyngene.</li>
+</ol>
+<div class="ex"><p>k-means måler likhet som avstand til sentroiden, så den fungerer når klyngene er kompakte og godt atskilt (liten avstand innad, stor avstand mellom). Den krever at du velger $k$. Den er avstandsbasert, så features må skaleres. Den feiler på ringer og andre ikke-konvekse former.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 30 · DBSCAN-smiley">
+<div class="x" data-ch="11">
+<div class="q"><p>Figuren viser resultatet av en DBSCAN-modell med dårlig valg av parameter. Fargene er klynger, og hvite punkter er støy. Hvilket dårlig parametervalg har skjedd?</p>
+<img src="../assets/fig/eksamen/2024-30-dbscan-smiley.png" alt="Smiley-datasett der ringen, øynene og munnen er delt opp i mange små fargede klynger, med mange hvite støypunkter" width="460"></div>
+<ol><li data-c>For lav verdi av epsilon.</li><li>For lav verdi av min_points.</li><li>For høy verdi av min_points.</li><li>For høy verdi av epsilon.</li></ol>
+<div class="ex"><p>Ringen og munnen burde vært hver sin sammenhengende klynge, men er delt opp i mange små fragmenter, og det er mange støypunkter. Det skjer når $\varepsilon$ er for liten: nabolagene rekker ikke over til neste punkt, så kjedene brytes. For stor $\varepsilon$ ville slått sammen ring, øyne og munn til én klynge. For lav <code>min_points</code> gir færre støypunkter, ikke flere.</p>
+<p class="note">For høy <code>min_points</code> kan også gi mer støy og noe oppsplitting, men mange korte, tette fragmenter er det typiske tegnet på for liten $\varepsilon$, og det er fasit.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 31 · Policy">
+<div class="x" data-ch="14">
+<div class="q"><p>Hva er en policy i reinforcement learning?</p></div>
+<ol>
+<li>En funksjon som gir en verdi for hver tilstand-handling-par.</li>
+<li>Et mål som agenten prøver å maksimere over tid.</li>
+<li>Et funksjonsestimat som representerer kvaliteten på en action basert på agentens umiddelbare belønning.</li>
+<li data-c>En strategi som bestemmer hvilken handling agenten skal ta i en gitt tilstand.</li>
+</ol>
+<div class="ex"><p>En policy $\pi(s)$ sier hvilken handling agenten tar i hver tilstand. Det første alternativet er Q-funksjonen $Q(s,a)$, og det andre er den (diskonterte) kumulative belønningen. Policyen kan <i>utledes</i> fra Q, f.eks. greedy $\pi(s) = \arg\max_a Q(s,a)$, men den er ikke det samme som Q.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 32 · Bellman-likningen">
+<div class="x" data-ch="14">
+<div class="q"><p>Bellman-likningen er $Q^{new}(S_t,A_t) \leftarrow (1-\alpha)\cdot Q(S_t,A_t) + \alpha\cdot\left(R_{t+1} + \gamma\max_A Q(S_{t+1},A)\right)$. Hva medfører en høy verdi av $\gamma$?</p></div>
+<ol>
+<li>Læringen av Q-verdiene blir svak for såkalt «catastrophic forgetting», hvor agenten glemmer Q-verdier lært tidlig i treningen.</li>
+<li data-c>Læringen av Q-verdier domineres av estimatet av fremtidige tilstander.</li>
+<li>Læringen av Q-verdier domineres av den umiddelbare rewarden fra environmentet.</li>
+<li>Læringen av Q-verdier domineres av de gamle Q-verdiene.</li>
+</ol>
+<div class="ex"><p>$\gamma$ ganges med estimatet av fremtidig verdi, $\max_A Q(S_{t+1},A)$. Med $\gamma$ nær 1 veier fremtiden tungt. Med liten $\gamma$ dominerer umiddelbar reward, som er det tredje alternativet. Gamle Q-verdier dominerer når <i>$\alpha$</i> er liten. Catastrophic forgetting hører til nevrale nett og DQN.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 33 · Loss og reward">
+<div class="x" data-ch="14">
+<div class="q"><p>Hva er forholdet mellom tapet (loss) under treningen i Q-learning og rewarden agenten mottar fra miljøet?</p></div>
+<ol>
+<li>Loss minker så lenge reward er slik at Q-verdien oppdateres under læring.</li>
+<li>Reward kan ikke øke uten at loss samtidig minker.</li>
+<li>Loss er det samme som reward, med negativt fortegn.</li>
+<li data-c>Det er ikke nødvendigvis en sammenheng mellom loss i agentens trening og reward agenten mottar fra miljøet.</li>
+</ol>
+<div class="ex"><p>Tapet måler hvor godt Q-estimatet treffer TD-målet $r + \gamma\max Q$, og det målet flytter seg selv. Når agenten blir bedre og oppdager nye tilstander, kan tapet <i>øke</i> fordi Q-verdiene endrer seg. Tapet kan også minke mens rewarden står stille. Loss er ikke −reward.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 34 · LIME">
+<div class="x" data-ch="15">
+<div class="q"><p>Hvilket utsagn er korrekt om LIME?</p></div>
+<ol>
+<li>LIME produserer globale feature importances for en hvilken som helst maskinlæringsmodell.</li>
+<li data-c>LIME tilpasser en tolkbar modell i nabolaget rundt et enkelt datapunkt.</li>
+<li>LIME kan brukes til å minimere kompleksiteten til en hvilken som helst maskinlæringsmodell, slik at denne kan tolkes direkte.</li>
+<li>LIME brukes ofte til å erstatte nevrale nettverk med tolkbare modeller som beslutningstrær.</li>
+</ol>
+<div class="ex"><p>LIME (Local Interpretable Model-agnostic Explanations) lager små variasjoner rundt ett datapunkt, vekter dem etter nærhet og tilpasser en enkel, lineær modell lokalt. Forklaringen er lokal, ikke global. Den originale modellen endres eller erstattes ikke.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 35 · SHAP-plott">
+<div class="x" data-ch="15">
+<div class="q"><p>Se på SHAP-plottet (Titanic, modellen predikerer overlevelse). Hvilken feature påvirker modellprediksjonen mest?</p>
+<img src="../assets/fig/eksamen/2024-35-shap.png" alt="SHAP beeswarm-plott med features fra topp til bunn: Sex, Pclass, Age, Fare, Embarked_S, SibSp, Parch, Embarked_Q. Farge fra blå (lav verdi) til rød (høy verdi)" width="520"></div>
+<ol><li>Embarked_S</li><li>Pclass</li><li>Age</li><li data-c>Sex</li></ol>
+<div class="ex"><p>I et SHAP-beeswarm-plott er featurene sortert etter gjennomsnittlig $|\text{SHAP}|$, med den viktigste øverst. Sex har også størst spredning, fra omtrent −1.4 til +2.3.</p></div>
+</div>
+<div class="x" data-ch="15">
+<div class="q"><p>Hvordan påvirker det modellprediksjonen om feature Pclass har en høy verdi?</p></div>
+<ol>
+<li>Det driver modellprediksjonen opp sammenliknet med gjennomsnittsprediksjonen.</li>
+<li data-c>Det trekker modellprediksjonen ned sammenliknet med gjennomsnittsprediksjonen.</li>
+<li>Det forteller oss at passasjerer med en høy verdi av Pclass ofte har en lav verdi av Sex.</li>
+<li>Det gjør at modellen predikerer lav sannsynlighet for overlevelse.</li>
+<li>Det fører alltid til en høy modellprediksjon.</li>
+</ol>
+<div class="ex"><p>For Pclass ligger de røde punktene (høy verdi, altså 3. klasse) til venstre for 0. Negativ SHAP-verdi trekker prediksjonen ned fra gjennomsnittsprediksjonen (base value).</p>
+<p>Alternativet om lav sannsynlighet for overlevelse er fristende, men SHAP sier noe om <i>bidraget relativt til gjennomsnittet</i>, ikke om sluttverdien. Andre features kan dra prediksjonen opp igjen. Plottet viser heller ikke korrelasjon mellom features.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 36 · Shapley-verdier">
+<div class="x" data-ch="15">
+<div class="q"><p>Shapley-verdien til spiller $i$ i et spill med $N$ spillere er</p>
+<p>$$\phi_i(v) = \sum_{S\subseteq N\setminus\{i\}} \frac{|S|!\,(N-|S|-1)!}{N!}\bigl(v(S\cup\{i\}) - v(S)\bigr)$$</p>
+<p>Gitt $N=3$ spillere og den karakteristiske funksjonen</p>
+<p>$v(1)=2,\ v(2)=4,\ v(3)=5,\ v(\{1,2\})=3,\ v(\{1,3\})=3,\ v(\{2,3\})=2,\ v(\{1,2,3\})=3$.</p>
+<p>Hva er Shapley-verdiene til de tre spillerne?</p></div>
+<ol>
+<li>$\phi_1=\frac12,\ \phi_2=1,\ \phi_3=2$</li>
+<li>$\phi_1=\frac12,\ \phi_2=\frac32,\ \phi_3=\frac12$</li>
+<li>$\phi_1=\frac12,\ \phi_2=\frac32,\ \phi_3=1$</li>
+<li data-c>$\phi_1=\frac12,\ \phi_2=1,\ \phi_3=\frac32$</li>
+</ol>
+<div class="ex"><p>Vektene for $N=3$ er $\frac13$ når $|S|=0$, $\frac16$ når $|S|=1$ og $\frac13$ når $|S|=2$. Vi bruker $v(\emptyset)=0$.</p>
+<ul>
+<li>$\phi_1 = \frac13(2-0) + \frac16(3-4) + \frac16(3-5) + \frac13(3-2) = \frac23 - \frac16 - \frac13 + \frac13 = \frac12$</li>
+<li>$\phi_2 = \frac13(4) + \frac16(3-2) + \frac16(2-5) + \frac13(3-3) = \frac43 + \frac16 - \frac12 = 1$</li>
+<li>$\phi_3 = \frac13(5) + \frac16(3-2) + \frac16(2-4) + \frac13(3-3) = \frac53 + \frac16 - \frac13 = \frac32$</li>
+</ul>
+<p><b>Snarvei:</b> effektivitet krever $\sum\phi_i = v(\{1,2,3\}) = 3$. Det utelukker de to første alternativene (summer 3.5 og 2.5). Regn så ut bare $\phi_2$ for å skille de to siste.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 37 · AI Act">
+<div class="x" data-ch="15" data-multi>
+<div class="q"><p>Hvilke utsagn er sanne om AI Act? <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li data-c>AI Act er verdens første AI-spesifikke regulering.</li>
+<li data-c>AI Act vil regulere AI-systemer basert på samfunnsrisiko.</li>
+<li>AI Act deler AI-systemer inn i flere kategorier, hvor AI-systemer til bruk i helsesektoren har en egen kategori.</li>
+<li>AI-systemer som medfører høy samfunnsrisiko vil bli forbudt av AI Act.</li>
+</ol>
+<div class="ex"><p>AI Act er risikobasert: uakseptabel risiko er forbudt, høy risiko er tillatt med strenge krav, begrenset risiko får åpenhetskrav, og minimal risiko er fri. Helse har ingen egen kategori (helsesystemer havner ofte i høyrisiko). Høyrisikosystemer forbys ikke, bare de med uakseptabel risiko.</p>
+<p class="note">«Verdens første AI-spesifikke regulering» er fasit, men omdiskutert. Kina hadde regler for anbefalingsalgoritmer og generativ KI før 2024. Mer presist er «verdens første omfattende AI-lov».</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 38 · Velgjørenhet">
+<div class="x" data-ch="15">
+<div class="q"><p>Hva betyr velgjørenhet som et etisk prinsipp for AI?</p></div>
+<ol>
+<li>AI skal ikke fremme kommersielle mål.</li>
+<li>AI skal være tilgjengelig for alle.</li>
+<li data-c>AI-systemer skal fremme menneskelig velferd og gjøre godt.</li>
+<li>AI-systemer skal operere uten feil.</li>
+</ol>
+<div class="ex"><p>Velgjørenhet (beneficence) betyr å gjøre godt og fremme velferd. Ikke-skade (non-maleficence) er et eget prinsipp. Tilgjengelighet for alle hører til rettferdighet. Feilfrihet er urealistisk og ikke et etisk prinsipp.</p></div>
+</div>
+</section>
+
+<section data-title="Oppgave 39 · Autonomi">
+<div class="x" data-ch="15" data-multi>
+<div class="q"><p>Hvordan kan et AI-system bryte med det etiske prinsippet autonomi? <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li>Ved å gi brukeren full kontroll over sine data.</li>
+<li>Ved å alltid kreve menneskelig godkjenning før det tar en beslutning.</li>
+<li data-c>Ved å tvinge beslutninger på brukeren uten deres samtykke eller kontroll.</li>
+<li data-c>Ved å manipulere brukere uten at disse vet at de blir påvirket.</li>
+<li>Ved å redusere effektiviteten i en organisasjon.</li>
+</ol>
+<div class="ex"><p>Autonomi er menneskers rett til å ta egne, informerte valg. Beslutninger uten samtykke og skjult manipulasjon bryter med den. Full kontroll over egne data og krav om menneskelig godkjenning <i>styrker</i> autonomien. Effektivitet er ikke et etisk prinsipp.</p></div>
+</div>
+</section>
+
+</template>
+
+<!-- ======================================================= -->
+<h2 id="eksamen-2025"><span class="sec">16.5</span>Eksamen 2025 (interaktiv)</h2>
+<p>Ti grupper à fire spørsmål med fasit fra løsningsforslaget, inkludert endringene sensor gjorde i «Kommentar til sensur»: på 6.4 og 7.4 ble to alternativer godkjent. Spørsmålene sensor diskuterte uten å endre fasit (2.1, 2.2, 2.3, 4.4, 6.3, 9.4 og 10.4) er merket i forklaringen. Eksamensmodus bruker de ekte 2025-reglene.</p>
+<div class="exam-app" data-exam="2025"></div>
+
+<template id="exam-2025" data-rules="2025" data-title="Eksamen 2025">
+
+<section data-title="Del 1 · Logistisk regresjon og preprosessering">
+<div class="x" data-ch="01">
+<div class="q"><p>Du har et datasett med <i>Region</i> (kategorisk, 5 mulige verdier), <i>Daily_usage</i> (kontinuerlig), <i>Paid_user</i> (kategorisk, {yes, no}) og <i>Converted</i> (target, {0,1}). Du planlegger å trene en logistisk regresjonsmodell. Hvilket preprosesseringssteg er <b>korrekt</b> og <b>nødvendig</b>?</p></div>
+<ol>
+<li data-c>Transformer de kategoriske variablene Region og Paid_user til numeriske verdier før trening</li>
+<li>Normaliser Converted slik at gjennomsnittet er 0 før trening</li>
+<li>Tilpass skaleringen av Daily_usage på hele datasettet for å sikre konsistent skalering</li>
+<li>Fjern alle kategoriske variabler fordi logistisk regresjon kun støtter numeriske input</li>
+</ol>
+<div class="ex"><p>Logistisk regresjon regner $w^Tx+b$ og trenger tall, så kategoriske variabler må enkodes: 0/1 for Paid_user og gjerne one-hot for Region. Label encoding av Region (0–4) ville lagt inn en kunstig rekkefølge.</p>
+<p>Target skal være 0/1, ikke sentreres. Skalering tilpasset på hele datasettet er datalekkasje. Å fjerne de kategoriske variablene kaster bort informasjon når du heller kan enkode dem. Det er riktig at modellen trenger numeriske input, men det er ikke en grunn til å fjerne dem.</p></div>
+</div>
+<div class="x" data-ch="02">
+<div class="q"><p>En logistisk regresjonsmodell predikerer med $\hat y = \sigma(w^Tx + b)$, der $\sigma(z) = \frac{1}{1+e^{-z}}$. Hvilket utsagn beskriver korrekt hva outputen $\hat y$ er?</p></div>
+<ol>
+<li>Outputen er alltid nøyaktig 0 eller 1</li>
+<li>Outputen er garantert å være lik den sanne sannsynligheten for hendelsen</li>
+<li data-c>Outputen er en verdi i intervallet (0,1) og kan tolkes som modellens estimerte sannsynlighet</li>
+<li>Outputen avhenger ikke av modellparametrene w og b etter trening</li>
+</ol>
+<div class="ex"><p>Sigmoid avbilder $\mathbb R$ på det åpne intervallet $(0,1)$, og $\hat y$ tolkes som et <i>estimat</i> av $p(y=1\mid x)$. Det er ikke garantert lik den sanne sannsynligheten: modellen kan være feilspesifisert eller dårlig kalibrert. Du får 0 eller 1 først når du bruker en terskel.</p></div>
+</div>
+<div class="x" data-ch="02">
+<div class="q"><p>Under trening av en logistisk regresjonsmodell med gradient descent begynner treningstapet å <b>oscillere</b> i stedet for å minke jevnt. Anta at implementasjonen er korrekt. Hva er den mest sannsynlige årsaken?</p></div>
+<ol>
+<li>Modellen inneholder for mange parametere til at gradient descent kan brukes</li>
+<li>Datasettet er perfekt lineært separerbart</li>
+<li>Sigmoid-funksjonen σ(z) er ikke deriverbar</li>
+<li data-c>Læringsraten er for høy</li>
+</ol>
+<div class="ex"><p>Med for stor $\eta$ hopper hvert steg over minimumet, frem og tilbake, og tapet oscillerer eller divergerer. Er dataene perfekt separerbare, vokser vektene uten grense mens tapet går jevnt mot 0, uten å oscillere. Sigmoid er deriverbar overalt. Antall parametre hindrer ikke gradient descent, som også trener nevrale nett med millioner av parametre.</p></div>
+</div>
+<div class="x" data-ch="01">
+<div class="q"><p>Du bruker min–maks-skalering på en feature $x$. Hva er riktig måte å utføre skaleringen på når du trener og evaluerer en modell?</p></div>
+<ol>
+<li>Tilpass skaleringen på hele datasettet, og splitt deretter i trening og test</li>
+<li>Tilpass skaleringen kun på testdatasettet, og bruk den deretter på treningsdatasettet</li>
+<li data-c>Splitt datasettet i trening og test, tilpass skaleringen kun på treningsdatasettet, og bruk den på testdatasettet</li>
+<li>Tilpass separate skaleringer uavhengig på treningsdatasettet og testdatasettet</li>
+</ol>
+<div class="ex"><p>Først splitte, så <code>fit</code> på trening og <code>transform</code> på begge. Å tilpasse på hele datasettet lekker min/maks fra testdataene. Separate skaleringer gir trening og test ulik skala: verdien 0.5 betyr da forskjellige ting i de to settene, og modellen evalueres på data i en annen skala enn den ble trent på.</p></div>
+</div>
+</section>
+
+<section data-title="Del 2 · Bayes, ubalanse og trær">
+<div class="x" data-ch="04">
+<div class="q"><p>I en binær klassifikasjonssetting beregnes posteriorsannsynligheten som $p(C=1\mid x) = \frac{p(C=1)\,p(x\mid C=1)}{p(x)}$. Hva er hensikten med leddet $p(x)$?</p></div>
+<ol>
+<li>Det er avhengig av klasseverdien og må beregnes separat for hver klasse</li>
+<li>Det representerer sannsynligheten for å observere $x$ når klassen er $C = 1$</li>
+<li data-c>Det sikrer at posteriorsannsynlighetene over alle klasser utgjør en gyldig sannsynlighetsfordeling</li>
+<li>Det bestemmer hvilken klasse som har størst posteriorsannsynlighet</li>
+</ol>
+<div class="ex"><p>$p(x) = \sum_k p(x\mid C_k)p(C_k)$ er evidensen, en normaliseringskonstant som gjør at posteriorene summerer til 1. Den er lik for alle klasser, så den påvirker <i>ikke</i> hvilken klasse som vinner. Derfor kan naiv Bayes droppe den og bruke $p(C_k\mid x) \propto p(x\mid C_k)p(C_k)$. Det andre alternativet beskriver likelihooden $p(x\mid C=1)$. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+<div class="x" data-ch="04">
+<div class="q"><p>En naiv Bayes-klassifikator brukes på e-poster med features $x_1$ (antall «offer»), $x_2$ (antall «free») og $x_3$ (antall lenker). Likelihood beregnes som</p>
+<p>$p(x_1,x_2,x_3\mid C=spam) = p(x_1\mid C=spam)\,p(x_2\mid C=spam)\,p(x_3\mid C=spam)$.</p>
+<p>Hvilket utsagn er korrekt?</p></div>
+<ol>
+<li>Uavhengighetsantakelsen kreves kun for numeriske features</li>
+<li>Feature-ene må være statistisk uavhengige i det faktiske datasettet</li>
+<li data-c>Modellen antar betinget uavhengighet selv om den sanne datadistribusjonen bryter denne antakelsen</li>
+<li>Hvis feature-ene er avhengige, kan klassifikatoren ikke beregne posterior</li>
+</ol>
+<div class="ex"><p>Naiv Bayes <i>antar</i> at featurene er uavhengige gitt klassen. Det er en forenkling, og den holder sjelden helt («offer» og «free» opptrer trolig sammen). Modellen kan likevel regne ut et ukalibrert estimat og klassifisere godt, fordi vi ofte bare trenger riktig rangering mellom klassene. Antakelsen gjelder alle typer features. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>I et produksjonsdatasett med 10 000 enheter er 9 800 merket som <i>normale</i> og 200 som <i>defekte</i>. Random oversampling brukes ved å duplisere minoritetsklassen til begge klasser har lik størrelse. Hvilket utfall er mest sannsynlig?</p></div>
+<ol>
+<li>Oversampling endrer den underliggende sannsynlighetsfordelingen til minoritetsklassen</li>
+<li>Oversampling reduserer antall eksempler i majoritetsklassen</li>
+<li>Klassifikatoren blir mindre tilbøyelig til å overtilpasse fordi klassene er numerisk balanserte</li>
+<li data-c>Klassifikatoren kan overtilpasse fordi identiske eksempler fra minoritetsklassen gjentas i treningsdataene</li>
+</ol>
+<div class="ex"><p>Hver defekt enhet gjentas omtrent 49 ganger. Modellen kan pugge akkurat disse 200 punktene i stedet for å lære et generelt mønster. Notatene sier rett ut at oversampling kan føre til overtilpasning.</p>
+<p>Det er undersampling som reduserer majoritetsklassen. Det første alternativet er fristende: klassefordelingen (prioren) i treningsdataene endres, men fordelingen <i>innen</i> minoritetsklassen gjør det ikke, for det er de samme punktene. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+<div class="x" data-ch="05">
+<div class="q"><p>Et beslutningstre vurderer tre features for rotnoden. Gini-urenheten $G$ etter splitt er: A: 0.28, B: 0.41, C: 0.07. Hvilken feature bør velges?</p></div>
+<ol>
+<li>Alle features gir gyldige split, så valget påvirker ikke impuriteten</li>
+<li>Feature A</li>
+<li data-c>Feature C</li>
+<li>Feature B</li>
+</ol>
+<div class="ex"><p>Lavest (vektet) Gini etter splitt betyr renest barn og størst reduksjon i urenhet. Det er C med 0.07. Fellen er å tro at høy verdi er bra. Det gjelder <i>informasjonsgevinst</i> (reduksjonen), ikke urenheten selv.</p></div>
+</div>
+</section>
+
+<section data-title="Del 3 · Ensemble">
+<div class="x" data-ch="08">
+<div class="q"><p><b>Bagging</b> trener flere modeller på ulike bootstrap-samples (sampling med tilbakelegging). Hva er den primære effekten av å bruke bootstrap-samples i denne sammenhengen?</p></div>
+<ol>
+<li data-c>Det øker variabilitet mellom modellene ved å sikre at modellene trenes på ulike datasett</li>
+<li>Det endrer modellarkitekturen slik at trærne ikke kan vokse dypt</li>
+<li>Det gjør alle modellene identiske fordi de mottar lignende treningsinput</li>
+<li>Det reduserer bias ved å tvinge hver modell til å bruke alle de opprinnelige treningsdataene</li>
+</ol>
+<div class="ex"><p>Hver modell ser et litt ulikt datasett og blir dermed litt ulik. Når ulike modeller med lite korrelerte feil midles, går variansen ned. Bootstrap endrer ikke arkitekturen. Hver modell ser bare omtrent 63 % av de unike punktene, så den bruker <i>ikke</i> alle dataene, og bagging reduserer først og fremst varians, ikke bias.</p></div>
+</div>
+<div class="x" data-ch="08">
+<div class="q"><p><b>Random forests</b> introduserer tilfeldighet ved (1) å sample treningsdata med tilbakelegging og (2) å velge et tilfeldig subsett av features ved hver splitt. Hva er hensikten med å bruke begge disse idéene?</p></div>
+<ol>
+<li data-c>Å redusere korrelasjonen mellom trærne slik at ensemblet blir mer robust</li>
+<li>Å sikre at hvert tre undersøker alle features like ofte</li>
+<li>Å garantere at alle trær vokser til samme maksimale dybde</li>
+<li>Å unngå å bruke bootstrapping når trærne bygges</li>
+</ol>
+<div class="ex"><p>Uten feature-subsampling ville én sterk feature valgt toppsplittet i nesten alle trær. Trærne blir da like (korrelerte), og gjennomsnittet hjelper lite. Tilfeldige features ved hver splitt <i>dekorrelerer</i> trærne. Det finnes ingen garanti for lik bruk av features eller lik dybde, og RF <i>bruker</i> bootstrapping.</p></div>
+</div>
+<div class="x" data-ch="08">
+<div class="q"><p>I <b>AdaBoost</b> starter alle datapunkter med samme vekt. Etter at en svak læringsmodell er trent, oppdateres vektene. Hvilke datapunkter får økt vekt?</p></div>
+<ol>
+<li>Datapunkter som tilhører klassen med flest observasjoner</li>
+<li>Et tilfeldig utvalg datapunkter valgt før hver iterasjon</li>
+<li>Datapunkter som ble klassifisert riktig av den forrige modellen</li>
+<li data-c>Datapunkter som ble klassifisert feil av den forrige modellen</li>
+</ol>
+<div class="ex"><p>AdaBoost øker vekten på punktene som ble feilklassifisert, slik at neste svake modell konsentrerer seg om dem. Det er det som skiller AdaBoost fra gradient boosting, som i stedet tilpasser residualer. Tilfeldig utvalg hører til bagging.</p></div>
+</div>
+<div class="x" data-ch="08">
+<div class="q"><p>I <b>gradient boosting</b> for regresjon trenes hver nye svake modell til å approksimere forskjellen mellom sann target-verdi og den nåværende modellens prediksjon, kalt pseudo-residualer. Hva er hensikten med å tilpasse hver ny modell til disse?</p></div>
+<ol>
+<li data-c>Å modellere den gjenværende feilen slik at hver ny modell fokuserer på det de forrige modellene ikke klarte å predikere</li>
+<li>Å beregne klassesannsynligheter som brukes i majoritetsvotering i den endelige prediksjonen</li>
+<li>Å tilføre tilfeldig variasjon i modellen for å gjøre trærne mer ulike</li>
+<li>Å bestemme hyperparametere som antall boosting-runder</li>
+</ol>
+<div class="ex"><p>Residualen $y - \hat y$ er det ensemblet ennå ikke har forklart. Den er også den negative gradienten av $\frac12(y-\hat y)^2$ med hensyn på $\hat y$, så hvert nytt tre tar et gradient descent-steg i funksjonsrommet. Majoritetsvotering og tilfeldig variasjon hører til bagging og random forest. Antall runder velges med validering.</p></div>
+</div>
+</section>
+
+<section data-title="Del 4 · Regresjon og bias–varians">
+<div class="x" data-ch="06">
+<div class="q"><p>Lineær regresjon trenes ofte ved å minimere $MSE = \frac{1}{2N}\sum(\hat y^{(i)} - f(x^{(i)}))^2$. Hvorfor er MSE et naturlig valg under standardantakelsene for lineær regresjon?</p></div>
+<ol>
+<li data-c>Fordi det å minimere MSE tilsvarer å maksimere likelihood under Gaussisk støy</li>
+<li>Fordi MSE gjør at man slipper å beregne deriverte</li>
+<li>Fordi MSE alltid gir sparse parameterverdier (dvs. mange verdier blir 0)</li>
+<li>Fordi MSE garanterer at outliers har liten innflytelse</li>
+</ol>
+<div class="ex"><p>Er $y = f(x) + \varepsilon$ med normalfordelt $\varepsilon$, blir log-likelihooden $-\frac{1}{2\sigma^2}\sum(y - f(x))^2 + \text{konst}$. Å maksimere den er det samme som å minimere MSE. Det er parallellen til at cross-entropy er −log-likelihood for logistisk regresjon.</p>
+<p>Vi <i>deriverer</i> MSE i gradient descent. Sparsitet kommer fra L1-regularisering. Kvadreringen gjør outliers ekstra innflytelsesrike, ikke mindre.</p>
+<p class="note">Oppgaveteksten skriver $\hat y^{(i)}$ for target. I notatene er target $y^{(i)}$ og prediksjonen $f(x^{(i)})$.</p></div>
+</div>
+<div class="x" data-ch="07">
+<div class="q"><p>En regresjonsmodell trenes og evalueres på et treningssett og et separat valideringssett. Du ser at (1) treningsfeilen blir svært liten, (2) valideringsfeilen slutter å forbedre seg og øker deretter, og (3) prediksjonene endrer seg merkbart når modellen trenes på en annen tilfeldig datasplitt. Hva indikerer dette i henhold til definisjonene av bias og varians?</p></div>
+<ol>
+<li>Lav varians, fordi modellen er stabil på tvers av ulike treningssett</li>
+<li>Høy bias, fordi modellen er systematisk forskjøvet bort fra de sanne verdiene</li>
+<li data-c>Høy varians, fordi modellen overtilpasser seg treningsdataene og dermed generaliserer dårlig</li>
+<li>Undertilpasning, fordi både trenings- og valideringsfeil forblir høye</li>
+</ol>
+<div class="ex"><p>Varians er nettopp hvor mye $f(x;D)$ endrer seg med datasettet $D$ (punkt 3). Sammen med liten treningsfeil og økende valideringsfeil er dette lærebokbildet på overtilpasning. Høy bias og undertilpasning ville gitt høy <i>treningsfeil</i>, og det første alternativet sier det motsatte av punkt 3.</p></div>
+</div>
+<div class="x" data-ch="07">
+<div class="q"><p>Et regresjonsproblem modelleres med polynomer av ulike grader:</p>
+<table><tr><th>Modell</th><th>Maks orden</th><th>Trenings-MSE</th><th>Validerings-MSE</th></tr><tr><td>A</td><td>1</td><td>34</td><td>34</td></tr><tr><td>B</td><td>3</td><td>12</td><td>14</td></tr><tr><td>C</td><td>12</td><td>0.02</td><td>110</td></tr></table>
+<p>Hvilken modell overtilpasser?</p></div>
+<ol><li>Modell B</li><li>Ingen</li><li>Modell A</li><li data-c>Modell C</li></ol>
+<div class="ex"><p>C har nesten null treningsfeil, men enorm valideringsfeil. Den har pugget støyen. A har høy og lik feil på begge, altså undertilpasning (høy bias). B har lav feil og et lite gap og er den beste balansen.</p></div>
+</div>
+<div class="x" data-ch="07">
+<div class="q"><p>Et regresjonstre skal splitte dataene i en node. Variansen i target-verdiene <b>etter splitten</b> blir 2.4 ved splitt på X og 0.9 ved splitt på Y. Hvilken feature vil treet velge?</p></div>
+<ol><li>Det velger tilfeldig mellom de to</li><li>Feature X</li><li data-c>Feature Y</li><li>Det velger splittet med høyest varians</li></ol>
+<div class="ex"><p>Regresjonstrær velger splittet som minimerer (vektet) varians, altså MSE rundt gjennomsnittet i hvert barn. Det tilsvarer størst variansreduksjon. Y gir 0.9 og er renest. Det er samme logikk som Gini for klassifisering, med varians som urenhetsmål. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+</section>
+
+<section data-title="Del 5 · Nevrale nettverk">
+<div class="x" data-ch="09">
+<div class="q"><p>Et perceptron regner ut en vektet sum av inputene og bruker Heaviside-stegfunksjonen. Hvilken egenskap ved Heaviside-funksjonen gjør den uegnet for gradientbasert optimalisering?</p></div>
+<ol>
+<li>Den returnerer negative verdier for noen input</li>
+<li>Den er avhengig av antall input-features</li>
+<li data-c>Den er ikke deriverbar overalt, og har samtidig derivert null nesten overalt</li>
+<li>Den produserer output-verdier utenfor intervallet [0,1]</li>
+</ol>
+<div class="ex"><p>Den deriverte er 0 overalt unntatt i hoppet, der den ikke finnes. Gradienten forteller dermed ingenting om hvilken vei vektene skal flyttes. Heaviside gir bare 0 eller 1, så den gir verken negative verdier eller verdier utenfor [0,1].</p></div>
+</div>
+<div class="x" data-ch="09">
+<div class="q"><p>Se på datasettet:</p>
+<table><tr><th>$x_1$</th><th>$x_2$</th><th>$y$</th></tr><tr><td>0</td><td>0</td><td>0</td></tr><tr><td>0</td><td>1</td><td>1</td></tr><tr><td>1</td><td>0</td><td>1</td></tr><tr><td>1</td><td>1</td><td>0</td></tr></table>
+<p>Hvorfor kan <b>ikke</b> et enkelt perceptron lære denne sammenhengen?</p></div>
+<ol>
+<li>Fordi et perceptron kun kan lære problemer med mer enn to features</li>
+<li data-c>Fordi XOR-mønsteret ikke er lineært separerbart</li>
+<li>Fordi perceptroner krever kontinuerlige labels, ikke binære labels</li>
+<li>Fordi perceptronens bias må være null for binære input</li>
+</ol>
+<div class="ex"><p>Ett perceptron lager én rett linje (et hyperplan). Ingen linje skiller (0,1) og (1,0) fra (0,0) og (1,1). Med to lag går det: XOR = AND(OR, NAND). Perceptronet er laget nettopp for binære labels, og biasen kan være hva som helst.</p></div>
+</div>
+<div class="x" data-ch="09">
+<div class="q"><p>Å erstatte Heaviside-stegfunksjonen med sigmoid i et nevron endrer modellens oppførsel. Hva er den viktigste konsekvensen?</p></div>
+<ol>
+<li>Modellen støtter ikke lenger binær klassifikasjon</li>
+<li data-c>Nevronet blir deriverbart og kan trenes med gradient descent</li>
+<li>Nevronet blir lineært både i parametrene og inputene</li>
+<li>Nevronet gir alltid enten 0 eller 1 som output</li>
+</ol>
+<div class="ex"><p>Sigmoid er glatt, med $\sigma'(z) = \sigma(z)(1-\sigma(z)) \gt 0$, så gradienten bærer informasjon, og backpropagation virker. Binær klassifikasjon går fortsatt med en terskel. Sigmoid er ikke-lineær, og det var stegfunksjonen som ga bare 0 eller 1.</p></div>
+</div>
+<div class="x" data-ch="10">
+<div class="q"><p>Under trening av et nevralt nettverk med gradient descent brukes backpropagation for å oppdatere vektene. Hva er hovedformålet med backpropagation-algoritmen?</p></div>
+<ol>
+<li data-c>Å beregne hvordan endringer i hver vekt påvirker loss ved å bruke kjerneregelen bakover gjennom nettverket</li>
+<li>Å søke tilfeldig etter vektverdier til modellen presterer godt</li>
+<li>Å sikre at alle nevroner aktiveres med samme output-verdi</li>
+<li>Å fjerne skjulte lag som ikke forbedrer treningsnøyaktigheten</li>
+</ol>
+<div class="ex"><p>Backpropagation regner ut $\partial\mathcal L/\partial w$ for alle vektene effektivt ved å bruke kjerneregelen lag for lag, fra output og bakover. Gradient descent bruker så gradienten til oppdateringen. Det er ikke tilfeldig søk, og arkitekturen endres ikke.</p></div>
+</div>
+</section>
+
+<section data-title="Del 6 · Clustering">
+<div class="x" data-ch="11">
+<div class="q"><p>Hvilken størrelse forsøker <b>k-means</b> å minimere?</p></div>
+<ol>
+<li>Den gjennomsnittlige avstanden mellom ulike cluster-sentroider</li>
+<li data-c>Summen av kvadrerte avstander mellom hvert punkt og den tildelte sentroiden</li>
+<li>Silhouette-koeffisienten</li>
+<li>Calinski–Harabasz-scoren</li>
+</ol>
+<div class="ex"><p>k-means minimerer inertia: $\sum_i \lVert x^{(i)} - \mu_{c(i)}\rVert^2$. Både tilordningssteget og gjennomsnittssteget senker denne summen. Silhouette og Calinski–Harabasz er evalueringsmetrikker man regner ut etterpå, og for dem er høy verdi bra. Avstanden <i>mellom</i> sentroider vil man helst ha stor, men den optimeres ikke direkte.</p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>Ved initialisering i <b>k-means++</b> velges neste sentroid ved å sample et datapunkt med sannsynlighet proporsjonal med kvadratet av avstanden til nærmeste eksisterende sentroid. Hvorfor er dette å foretrekke fremfor å alltid velge punktet som ligger lengst unna?</p></div>
+<ol>
+<li>Den garanterer lik avstand mellom alle sentroider</li>
+<li>Den velger kun punkter med lav varians</li>
+<li>Den foretrekker punkter som ligger nær allerede valgte sentroider</li>
+<li data-c>Den sprer sentroidene samtidig som den beholder tilfeldighet, noe som gjør det mer sannsynlig at sentroidene plasseres nær sentrum av de ekte klyngene i stedet for ute ved kantene</li>
+</ol>
+<div class="ex"><p>Punktet lengst unna er ofte en outlier eller ligger i ytterkanten av en klynge. Med sannsynlighet $\propto d^2$ er fjerne områder fortsatt mest sannsynlige, men punktet trekkes tilfeldig, og siden det er flest punkter inne i klyngene, havner sentroiden oftere der. Ingen garanti for lik avstand. Det tredje alternativet er det motsatte.</p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>Hvorfor er det vanskelig å velge antall klynger $k$ i k-means?</p></div>
+<ol>
+<li>Det finnes én enkelt metrikk som alltid gir det optimale k, men denne er beregningstung og det er vanskelig å approksimere den</li>
+<li>K-means velger automatisk det beste k under trening</li>
+<li data-c>Ulike metrikker kan foreslå ulike verdier for k</li>
+<li>Den optimale verdien av k er alltid lik antall klasser i datasettet, men dette tallet er ukjent</li>
+</ol>
+<div class="ex"><p>Inertia synker alltid med $k$ (den er 0 med én sentroide per punkt), og silhouette og Calinski–Harabasz kan peke på forskjellige $k$. Det finnes ingen fasitmetrikk. $k$ er en hyperparameter du velger selv. Klynger trenger ikke samsvare med klasser. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>Ifølge <b>DBSCAN</b> tilhører to punkter samme klynge dersom:</p></div>
+<ol>
+<li data-c>De har identiske feature-vektorer</li>
+<li>De begge ligger langt unna sin nærmeste sentroid</li>
+<li>De befinner seg i samme Voronoi-region fra k-means</li>
+<li data-c>Det ene kan nås fra det andre gjennom en kjede av punkter der hvert skritt i kjeden har lengde som ikke overstiger ε</li>
+</ol>
+<div class="ex"><p>I DBSCAN vokser klyngen fra kjernepunkter til alle punkter innen $\varepsilon$, og videre fra de nye kjernepunktene. To punkter er i samme klynge når de er <i>tetthetsforbundet</i> gjennom en slik kjede. Fasit er det siste alternativet. Det utelater kravet om at punktene i kjeden må være kjernepunkter (minst <code>min_samples</code> naboer), men er den beste beskrivelsen. DBSCAN har verken sentroider eller Voronoi-regioner, som hører til k-means.</p>
+<p class="note">Sensor godkjente også «identiske feature-vektorer». Det er faglig tvilsomt: to identiske punkter i et ellers tomt område er begge støy. Lær deg kjede-definisjonen.</p></div>
+</div>
+</section>
+
+<section data-title="Del 7 · PCA, t-SNE og anomalier">
+<div class="x" data-ch="12">
+<div class="q"><p>PCA konstruerer nye akser (prinsipalkomponenter) som er lineære kombinasjoner av de opprinnelige featurene. Hva er hensikten med å tvinge disse komponentene til å være ortogonale?</p></div>
+<ol>
+<li>Å sikre at hver komponent fanger opp samme mengde varians som de andre</li>
+<li data-c>Å sikre at hver komponent forklarer en ulik del av variansen uten overlappende informasjon</li>
+<li>Å gjøre komponentene så korrelerte som mulig med hverandre</li>
+<li>Å tvinge hovedkomponentene til å kode redundant informasjon</li>
+</ol>
+<div class="ex"><p>Ortogonale komponenter gir ukorrelerte projeksjoner. Hver nye PC fanger varians som de forrige ikke har fanget, uten overlapp (notatene: «gir en garanti for at de inneholder ulik informasjon»). Komponentene har <i>synkende</i> varians, ikke lik. De to siste alternativene sier det motsatte.</p></div>
+</div>
+<div class="x" data-ch="12">
+<div class="q"><p>t-SNE produserer en lavdimensjonal embedding av treningsdatasettet. Hvorfor kan ikke denne embeddingen brukes direkte på nye, usette data?</p></div>
+<ol>
+<li>Fordi t-SNE forsøker å lære en global lineær mapping fra høy til lav dimensjon</li>
+<li data-c>Fordi t-SNE optimaliserer de lavdimensjonale posisjonene til de opprinnelige datapunktene direkte i stedet for å lære en transformasjon</li>
+<li>Fordi projeksjonsmatrisen som t-SNE beregner er for stor til å lagres, og derfor ikke kan gjenbrukes</li>
+<li>Fordi t-SNE krever at alle punkter beholder globale avstander, noe som ikke kan håndheves for nye data</li>
+</ol>
+<div class="ex"><p>t-SNE er ikke-parametrisk. Den flytter selve punktene $y_i$ med gradient descent og lærer ingen funksjon $x \mapsto y$, og det er derfor du bare har <code>fit_transform</code>. Den lineære avbildningen med projeksjonsmatrise er PCA. t-SNE bevarer <i>lokale</i> naboskap, ikke globale avstander.</p></div>
+</div>
+<div class="x" data-ch="12">
+<div class="q"><p>I SNE og t-SNE minimeres KL-divergensen mellom den høydimensjonale fordelingen $P$ og den lavdimensjonale fordelingen $Q$. Hva er hensikten med denne minimeringen?</p></div>
+<ol>
+<li>Å tvinge den lavdimensjonale mappingen til å forandre nabolagene mest mulig</li>
+<li>Å sikre at punkter som er fjernt fra hverandre i høydimensjonalt rom havner tett sammen i lavdimensjonalt rom</li>
+<li>Å garantere at alle klynger blir strengt lineært separerbare i embeddingen</li>
+<li data-c>Å bevare nabolagsrelasjoner ved å sørge for at like punkter forblir nære hverandre i lavdimensjonalt rom</li>
+</ol>
+<div class="ex"><p>Liten $D_{KL}(P\|Q)$ betyr at naboskapssannsynlighetene i lav dimensjon ligner dem i høy dimensjon. KL straffer spesielt tilfellene der $P$ er stor og $Q$ liten, altså naboer som rives fra hverandre. Det andre alternativet er det motsatte, og t-SNE gir ingen garanti om lineær separerbarhet.</p></div>
+</div>
+<div class="x" data-ch="13">
+<div class="q"><p>Isolation Forest gir anomaliscore basert på antall splitt som trengs for å isolere et punkt. Punkter som isoleres med færre splitt får høyere score. Hvorfor får anomalier typisk høyere score?</p></div>
+<ol>
+<li data-c>Fordi anomalier har en tendens til å bli isolert tidligere i den rekursive oppdelingen, noe som gir kortere sti-lengder</li>
+<li>Fordi anomalier krever dypere trær for å separeres på grunn av avstanden fra klyngesentrene</li>
+<li data-c>Fordi anomalier ofte ligger i områder med lav data-tetthet, noe som gjør dem enklere å isolere med få splitt</li>
+<li>Fordi anomalier generelt har færre naboer, noe som bidrar til kortere isolasjonsstier</li>
+</ol>
+<div class="ex"><p>En tilfeldig splitt skiller lett et punkt som ligger alene fra resten. Anomalier er «få og annerledes», ligger i tomme områder og isoleres etter få splitt, altså med kort sti fra roten. Fasit er det første alternativet. Sensor godkjente også alternativet om lav tetthet. Det andre er det motsatte (anomalier trenger <i>grunnere</i> trær), og Isolation Forest har ingen klyngesentre.</p>
+<p class="note">Alternativet «færre naboer» er nært beslektet med «lav tetthet», men står ikke som godkjent i sensurkommentaren. Her regnes det derfor som feil.</p></div>
+</div>
+</section>
+
+<section data-title="Del 8 · Forsterkningslæring">
+<div class="x" data-ch="14">
+<div class="q"><p>Hvilket utsagn beskriver best Markov-egenskapen slik den brukes i reinforcement learning?</p></div>
+<ol>
+<li>Den neste tilstanden avhenger av hele sekvensen av tidligere tilstander og handlinger</li>
+<li>Den neste tilstanden er uforutsigbar uavhengig av agentens handling</li>
+<li data-c>Den neste tilstanden avhenger kun av den nåværende tilstanden og handlingen, og ikke av tidligere tilstander</li>
+<li>Den neste tilstanden avhenger kun av belønningen og ikke av handlingen</li>
+</ol>
+<div class="ex"><p>Markov: $P(s_{t+1}\mid s_t, a_t, s_{t-1}, \dots) = P(s_{t+1}\mid s_t, a_t)$. Nåtilstanden inneholder alt som er relevant fra historien. Det første alternativet er det motsatte. Handlingen påvirker overgangen, og belønningen er en konsekvens, ikke en årsak.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>I reinforcement learning velger agenten handlinger i henhold til en policy. Hva beskriver best hva en policy er?</p></div>
+<ol>
+<li>En regel som velger en handling kun basert på belønningen mottatt i forrige tidssteg</li>
+<li>En mekanisme som oppdaterer Q-verdier basert på temporal-difference-feil</li>
+<li>En tabell eller funksjon som lagrer estimert retur for hver tilstand, uten å ta hensyn til handlinger</li>
+<li data-c>En tabell eller funksjon som spesifiserer hvilken handling som skal tas i hver tilstand</li>
+</ol>
+<div class="ex"><p>Policy $\pi$: tilstand → handling. Alternativet om estimert retur per tilstand beskriver verdifunksjonen $V(s)$, og TD-oppdateringen er selve Q-learning-algoritmen. Samme tema som 2024, oppgave 31.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>Hva er hensikten med utforskingsfaktoren $\varepsilon$ i en ε-greedy agent?</p></div>
+<ol>
+<li>Å garantere at agenten lærer den optimale policyen uten noen gang å gjøre feil</li>
+<li>Å tvinge agenten til alltid å velge handlingen med høyest Q-verdi</li>
+<li>Å få agenten til å ignorere framtidige belønninger fullstendig</li>
+<li data-c>Å sørge for at agenten av og til velger en tilfeldig handling for å utforske miljøet</li>
+</ol>
+<div class="ex"><p>Med sannsynlighet $\varepsilon$ velges en tilfeldig handling (utforskning), ellers den beste kjente (utnyttelse). Uten utforskning kan agenten bli sittende fast i en suboptimal vane. «Alltid høyest Q» er $\varepsilon = 0$. Å ignorere framtiden er $\gamma = 0$, som er en helt annen parameter.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>Under Q-learning bruker oppdateringen en diskonteringsfaktor $\gamma$. Hva er rollen til $\gamma$?</p></div>
+<ol>
+<li>Den styrer hvor ofte agenten velger tilfeldige utforskende handlinger</li>
+<li>Den bestemmer om policyen er deterministisk eller stokastisk</li>
+<li data-c>Den bestemmer hvor sterkt framtidige belønninger påvirker den nåværende Q-verdien</li>
+<li>Den tvinger agenten til å alltid ignorere framtidige konsekvenser fullstendig</li>
+</ol>
+<div class="ex"><p>$\gamma$ ganges med $\max_{a'} Q(s',a')$. Nær 1 gjør agenten langsiktig, nær 0 gjør den kortsiktig. Utforskning styres av $\varepsilon$. Det siste alternativet gjelder bare spesialtilfellet $\gamma = 0$.</p></div>
+</div>
+</section>
+
+<section data-title="Del 9 · Deep Q-learning">
+<div class="x" data-ch="14">
+<div class="q"><p>I Deep Q-Networks (DQN) erstattes Q-tabellen med et nevralt nettverk som predikerer Q-verdier. Hva er hovedgrunnen til at et <b>target network</b> brukes?</p></div>
+<ol>
+<li>Å sørge for at agenten alltid utforsker ved å legge til tilfeldig støy i den valgte handlingen</li>
+<li data-c>Å holde Q-verdiene som brukes som treningsmål stabile under læring</li>
+<li>Å garantere at nettverket aldri overtilpasser replay-bufferet</li>
+<li>Å la agenten beregne neste handling uten å bruke policyen</li>
+</ol>
+<div class="ex"><p>TD-målet $r + \gamma\max_{a'} Q(s',a')$ regnes med det samme nettet som trenes. Uten et target network ville målet flyttet seg ved hver oppdatering, som å jage sin egen hale. Target-nettet er en kopi som bare oppdateres av og til, slik at målet holder seg stabilt en stund. Det har ingenting med utforskning eller overtilpasning å gjøre.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>I DQN lagres overgangene (state, action, reward, next-state, done) i en <b>replay buffer</b>, og mini-batcher samples under treningen. Hvilket problem adresserer replay bufferen primært?</p></div>
+<ol>
+<li data-c>Den gjør at treningseksemplene blir mindre korrelerte slik at nettverket ikke overtilpasser de nyeste erfaringene</li>
+<li>Den forhindrer «catastrophic forgetting» ved å sikre at nettverket aldri ser gamle overganger på nytt</li>
+<li>Den garanterer at hvert state–action-par blir samplet like mange ganger</li>
+<li>Den gjør utforskning unødvendig, siden tidligere overganger allerede inneholder all nyttig informasjon</li>
+</ol>
+<div class="ex"><p>Overganger som kommer rett etter hverandre ligner hverandre sterkt. Trening i rekkefølge gir korrelerte, skjeve mini-batcher. Tilfeldig trekning fra bufferen bryter korrelasjonen og gjenbruker gammel erfaring. Det andre alternativet er selvmotsigende: bufferen gjør nettopp at gamle overganger sees <i>igjen</i>, og det motvirker forgetting. Utforskning trengs fortsatt.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>Tradisjonell Q-learning bruker en tabell med Q-verdier, mens DQN bruker et nevralt nettverk som funksjonsapproksimator. Hvilket av følgende beskriver korrekt en utfordring som oppstår med et nevralt nettverk i stedet for en tabell?</p></div>
+<ol>
+<li>Nettverket fjerner behovet for en diskonteringsfaktor γ</li>
+<li>Nettverket tvinger policyen til å bli deterministisk</li>
+<li data-c>Å oppdatere én Q-verdi i nettverket endrer også mange andre Q-verdier på grunn av vektdeling</li>
+<li>Nettverket kan ikke representere Q-verdier for mer enn én handling om gangen</li>
+</ol>
+<div class="ex"><p>I en tabell påvirker en oppdatering bare én celle. I et nett deler alle tilstander de samme vektene, så et gradientsteg for én $(s,a)$ flytter også Q-verdiene til andre tilstander. Det gir generalisering, men også ustabilitet, og det er grunnen til at vi trenger replay buffer og target network. DQN gir vanligvis én output per handling samtidig, og $\gamma$ trengs fortsatt.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>En agent trenes til å maksimere en belønningsfunksjon og oppdager en atferd som gir svært høy belønning, men som tydeligvis ikke er det designeren mente. Hvorfor skjer dette?</p></div>
+<ol>
+<li data-c>Fordi agenten utnytter utilsiktede svakheter i hvordan belønningen er definert.</li>
+<li>Fordi agenten bare kan lære av umiddelbare belønninger og ignorerer langsiktige konsekvenser.</li>
+<li>Fordi agenten ikke kan håndtere situasjoner der mer enn ett mål er til stede.</li>
+<li>Fordi oppdateringsregelen fjerner innflytelsen fra fremtidige belønninger fullstendig.</li>
+</ol>
+<div class="ex"><p>Dette kalles reward hacking eller specification gaming. Agenten optimerer det du <i>skrev</i>, ikke det du <i>mente</i>. Et kjent eksempel er båtspillet der agenten kjørte i ring og samlet bonuspoeng i stedet for å fullføre løpet. De andre alternativene beskriver $\gamma = 0$ eller er generelt usanne. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+</section>
+
+<section data-title="Del 10 · Kodeforståelse">
+<div class="x" data-ch="01">
+<div class="q"><pre><code>from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+scaler.fit(X_train)
+X_train_scaled = scaler.transform(X_train)</code></pre>
+<p>Du har trent en modell med koden over og vil evaluere den på <code>X_test</code>. Hvilken kodelinje bruker samme skalering på testdataene?</p></div>
+<ol>
+<li><code>X_test_scaled = StandardScaler().fit_transform(X_test)</code></li>
+<li><code>X_test_scaled = X_test / X_train.mean(axis=0)</code></li>
+<li data-c><code>X_test_scaled = scaler.transform(X_test)</code></li>
+<li><code>X_test_scaled = scaler.fit(X_test)</code></li>
+</ol>
+<div class="ex"><p>Det samme <code>scaler</code>-objektet har lagret gjennomsnitt og standardavvik fra treningsdataene, og <code>transform</code> bruker dem. Det første alternativet lager en ny skalering fra testdataene (lekkasje og ulik skala). Det andre er ikke standardisering, siden det verken trekker fra gjennomsnittet eller deler på standardavviket. Det siste tilpasser på nytt og returnerer scaler-objektet, ikke data.</p></div>
+</div>
+<div class="x" data-ch="02">
+<div class="q"><pre><code>import numpy as np
+z = np.matmul(X, w)
+y_pred = 1 / (1 + np.exp(-z))</code></pre>
+<p>Anta at <code>X</code> er et 2D NumPy-array med shape <code>(n_samples, n_features)</code> og <code>w</code> et 1D-array med shape <code>(n_features,)</code>. Hva inneholder <code>y_pred</code>?</p></div>
+<ol>
+<li>For hvert sample får vi en score som kan anta hvilken som helst reell verdi</li>
+<li>Logaritmen av de predikerte sannsynlighetene for hvert sample</li>
+<li data-c>Predikerte sannsynligheter i intervallet (0, 1) for hvert sample</li>
+<li>Klasse-labels 0 eller 1 for hvert sample</li>
+</ol>
+<div class="ex"><p><code>matmul</code> gir én score $z$ per sample, med shape <code>(n_samples,)</code>. Sigmoiden brukes elementvis og gir sannsynligheter i (0,1). Det første alternativet beskriver <code>z</code> <i>før</i> sigmoiden. Labels krever en terskel, f.eks. <code>y_pred &gt; 0.5</code>. Merk at koden mangler bias $b$, men det endrer ikke svaret.</p></div>
+</div>
+<div class="x" data-ch="01">
+<div class="q"><p>Du vil splitte datasettet i en treningsdel og en testdel. Hvilken funksjon gjør dette?</p></div>
+<ol>
+<li><code>numpy.random.separate(X, y)</code></li>
+<li data-c><code>sklearn.model_selection.train_test_split(X, y)</code></li>
+<li><code>pandas.Series.split_dataset(X, y)</code></li>
+<li><code>matplotlib.pyplot.partition(X, y)</code></li>
+</ol>
+<div class="ex"><p><code>train_test_split</code> fra <code>sklearn.model_selection</code> er standardverktøyet (brukt i alle prosjektene). For tre sett bruker du den to ganger. De andre funksjonene finnes ikke.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><pre><code>buffer = [...]</code></pre>
+<p>Du har en replay buffer lagret som en liste med overganger. Hvilken Python-funksjon brukes for å trekke en tilfeldig minibatch?</p></div>
+<ol>
+<li><code>np.take(buffer, 32)</code></li>
+<li data-c><code>random.sample(buffer, k=32)</code></li>
+<li><code>np.take(buffer, 32)</code></li>
+<li><code>buffer.sort()</code></li>
+</ol>
+<div class="ex"><p><code>random.sample(buffer, k=32)</code> trekker 32 ulike elementer tilfeldig, uten tilbakelegging. <code>np.take(buffer, 32)</code> henter elementet på indeks 32, som er ett bestemt element og ikke tilfeldig. <code>sort()</code> sorterer listen.</p>
+<p class="note">Alternativet <code>np.take</code> står to ganger i originaloppgaven. <i>Diskutert av sensor, uten endring.</i></p></div>
+</div>
+</section>
+
+</template>
+
+<!-- ======================================================= -->
+<h2 id="proveeksamen-2026"><span class="sec">16.6</span>Prøveeksamen 2026</h2>
+<p>En helt ny eksamen i 2025-formatet: ti grupper à fire spørsmål, én gruppe per hovedtema i pensum. Omtrent en tredjedel er regneoppgaver som kan løses med enkel kalkulator (Gini, entropi, precision/recall, oppdateringer per epoke, parametertelling, bootstrap, k-means, kovarians, Q-oppdatering, Shapley). Fem er kodeforståelse. Ta den i eksamensmodus med nedtelling, og les forklaringene etterpå.</p>
+<div class="callout exam"><span class="label">Om spørsmålene</span><p>Spørsmålene er laget fra forelesningsnotatene 2026, prosjektene og mønsteret i tidligere eksamener. Forsterkningslæring og XAI er tatt med fordi de var på eksamen i 2024 og 2025, selv om de ikke står i notatene ennå (se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>).</p></div>
+<div class="exam-app" data-exam="2026"></div>
+
+<template id="exam-2026" data-rules="2025" data-title="Prøveeksamen 2026">
+
+<section data-title="Del 1 · Logistisk regresjon og gradient descent">
+<div class="x" data-ch="02">
+<div class="q"><p>En logistisk regresjonsmodell med én feature har $w = 0.5$ og $b = -1$. For datapunktet $x = 4$, $y = 0$ gjør du ett gradient descent-steg med cross-entropy-tap og læringsrate $\eta = 0.1$. Bruk $\sigma(1) \approx 0.731$. Hva blir den nye verdien av $w$?</p></div>
+<ol>
+<li>$w \approx 0.43$</li>
+<li>$w \approx 0.79$</li>
+<li data-c>$w \approx 0.21$</li>
+<li>$w \approx -2.42$</li>
+</ol>
+<div class="ex"><p>$z = 0.5\cdot4 - 1 = 1$, så $\hat y = \sigma(1) = 0.731$. Gradienten for cross-entropy er $\frac{\partial\mathcal L}{\partial w} = (\hat y - y)x = 0.731\cdot4 = 2.92$. Da blir $w \leftarrow 0.5 - 0.1\cdot2.92 = 0.21$.</p>
+<p>0.43 får du hvis du glemmer faktoren $x$. 0.79 får du med feil fortegn, altså $(y - \hat y)$ eller pluss i stedet for minus. −2.42 får du hvis du glemmer læringsraten. Sjekk retningen: $y = 0$, men modellen sier 0.73, så $w$ bør <i>minke</i> når $x \gt 0$.</p></div>
+</div>
+<div class="x" data-ch="02">
+<div class="q"><p>Hvorfor trener vi logistisk regresjon ved å minimere cross-entropy i stedet for å maksimere accuracy direkte?</p></div>
+<ol>
+<li data-c>Accuracy er stykkevis konstant i $w$ og $b$, så gradienten er null nesten overalt og gir ingen retning</li>
+<li>Accuracy kan bare beregnes på testdata</li>
+<li>Cross-entropy gir alltid høyere accuracy på testdata enn noen annen tapsfunksjon</li>
+<li>Accuracy kan ikke brukes for binær klassifisering</li>
+</ol>
+<div class="ex"><p>En liten endring i $w$ endrer vanligvis ingen klassifiseringer, så accuracy står stille, og når den endrer seg, hopper den. Gradient descent trenger en deriverbar tapsfunksjon. Cross-entropy er glatt og er i tillegg −log-likelihood. Accuracy kan regnes på alle datasett og er en fin <i>metrikk</i>, men en dårlig tapsfunksjon. Ingen tapsfunksjon garanterer best accuracy.</p></div>
+</div>
+<div class="x" data-ch="02">
+<div class="q"><p>Etter 1000 epoker minker treningstapet fortsatt jevnt og har ikke flatet ut. Valideringstapet følger treningstapet tett. Hva er det mest fornuftige neste steget?</p></div>
+<ol>
+<li>Modellen overtilpasser, så stopp treningen umiddelbart</li>
+<li>Senk læringsraten, siden tapet minker</li>
+<li>Bytt til MSE som tapsfunksjon</li>
+<li data-c>Tren flere epoker eller øk læringsraten forsiktig, siden modellen ikke er ferdig trent</li>
+</ol>
+<div class="ex"><p>Et tap som fortsatt synker og ikke har flatet ut, sammen med et valideringstap som følger tett, betyr at treningen ikke er ferdig. Det er ingen tegn til overtilpasning, for da ville valideringstapet flatet ut eller økt mens treningstapet sank. En lavere læringsrate ville gjort treningen enda tregere. MSE passer ikke til sannsynligheter og løser ikke problemet.</p></div>
+</div>
+<div class="x" data-ch="02">
+<div class="q"><p>Hvorfor er vi trygge på at gradient descent for logistisk regresjon finner det globale minimumet (med passende læringsrate), mens vi ikke har noen slik garanti for et nevralt nett?</p></div>
+<ol>
+<li>Logistisk regresjon har færre datapunkter</li>
+<li data-c>Cross-entropy-tapet til logistisk regresjon er konvekst i $(w, b)$, mens tapet til et nevralt nett med skjulte lag ikke er det</li>
+<li>Sigmoid er deriverbar, mens ReLU ikke er det</li>
+<li>Nevrale nett bruker mini-batcher, og de finner aldri minimum</li>
+</ol>
+<div class="ex"><p>Konveksitet betyr ett minimum, så et lokalt minimum er også globalt. Med skjulte lag og ikke-lineære aktiveringer blir tapsflaten ikke-konveks med mange lokale minima og sadelpunkter. Antall datapunkter avgjør ikke dette. ReLU er ikke deriverbar i 0, men det er ikke årsaken. Mini-batch SGD konvergerer fint, bare med mer støy.</p></div>
+</div>
+</section>
+
+<section data-title="Del 2 · Evaluering og ubalanserte data">
+<div class="x" data-ch="03">
+<div class="q"><p>En modell for svindeldeteksjon testes på 1000 transaksjoner og gir TP = 30, FN = 20, FP = 10 og TN = 940. Hvilket utsagn er riktig?</p></div>
+<ol>
+<li>Precision = 0.60 og recall = 0.75</li>
+<li data-c>Precision = 0.75 og recall = 0.60</li>
+<li>Accuracy = 0.97 viser at modellen fanger nesten alle svindeltilfellene</li>
+<li>Recall = 30/970 ≈ 0.03</li>
+</ol>
+<div class="ex"><p>Precision $= \frac{TP}{TP+FP} = \frac{30}{40} = 0.75$. Recall $= \frac{TP}{TP+FN} = \frac{30}{50} = 0.60$. Det første alternativet bytter dem om, og det er den vanligste feilen. Accuracy er $970/1000 = 0.97$, men modellen overser 40 % av svindelen. Dette er et skoleeksempel på at accuracy lurer deg ved ubalanse.</p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>Du senker klassifiseringsterskelen fra 0.5 til 0.2 for en ferdig trent modell. Hva skjer?</p></div>
+<ol>
+<li data-c>TPR og FPR øker eller forblir uendret</li>
+<li>TPR øker og FPR minker</li>
+<li>ROC AUC øker</li>
+<li>Precision øker alltid</li>
+</ol>
+<div class="ex"><p>Lavere terskel gjør at flere punkter predikeres positive. Noen av dem er ekte positive (TPR opp) og noen falske (FPR opp). Du flytter deg oppover og mot høyre langs <i>samme</i> ROC-kurve. AUC er uavhengig av terskel, så den endres ikke. Precision synker typisk fordi FP øker, men den kan gå begge veier. Å endre terskelen forbedrer ikke modellen.</p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>Et treningssett har 1000 punkter i klasse 0 og 200 i klasse 1. Du bruker vektet cross-entropy $\mathcal L = -w_1y\ln\hat y - w_0(1-y)\ln(1-\hat y)$ med $w_0 = 1$. Hvilken $w_1$ gjør at de to klassene får like stor total vekt i tapet?</p></div>
+<ol>
+<li>$w_1 = 0.2$</li>
+<li>$w_1 = 1.2$</li>
+<li>$w_1 = 6$</li>
+<li data-c>$w_1 = 5$</li>
+</ol>
+<div class="ex"><p>Total vekt for klasse 0 er $1000\cdot1$. Klasse 1 må få $200\cdot w_1 = 1000$, altså $w_1 = 5$. Vekten skal være omvendt proporsjonal med klassestørrelsen. 0.2 går feil vei og forsterker ubalansen. 6 er $1200/200$, som gir feil forhold.</p></div>
+</div>
+<div class="x" data-ch="03">
+<div class="q"><p>Modell A har ROC AUC 0.5 og modell B har ROC AUC 0.2 på samme testsett. Hva er riktig?</p></div>
+<ol>
+<li>B er dårligere enn A og har ingen nytteverdi</li>
+<li>B klassifiserer riktig i 20 % av tilfellene</li>
+<li data-c>Hvis vi snur B sine scorer (bruker $1 - \hat y$), får vi en modell med AUC 0.8</li>
+<li>ROC AUC kan ikke være under 0.5, så det har skjedd en beregningsfeil</li>
+</ol>
+<div class="ex"><p>AUC = P(positiv rangeres over negativ). For B er den 0.2, så B rangerer feil vei i 80 % av parene. Snur du rangeringen, blir det riktig i 80 %. A (0.5) er som myntkast og helt uten informasjon. B er systematisk feil, og det er nyttig informasjon. AUC kan godt være under 0.5, typisk på grunn av byttede labels. AUC er ikke accuracy.</p></div>
+</div>
+</section>
+
+<section data-title="Del 3 · Entropi, Bayes og dimensjonsforbannelsen">
+<div class="x" data-ch="04">
+<div class="q"><p>En tilfeldig variabel har tre utfall med sannsynlighet $(0.25,\ 0.25,\ 0.5)$. Hva er entropien $H = -\sum p_i\log_2 p_i$?</p></div>
+<ol>
+<li>1.0 bit</li>
+<li data-c>1.5 bit</li>
+<li>0.5 bit</li>
+<li>2.0 bit</li>
+</ol>
+<div class="ex"><p>$-0.25\log_2 0.25 = 0.25\cdot2 = 0.5$, to ganger, pluss $-0.5\log_2 0.5 = 0.5$. Til sammen $0.5 + 0.5 + 0.5 = 1.5$ bit. Maksimal entropi for tre utfall er $\log_2 3 \approx 1.58$ (uniform fordeling). 2.0 er maks for fire like sannsynlige utfall. 1.0 er maks for to.</p></div>
+</div>
+<div class="x" data-ch="04">
+<div class="q"><p>Et naivt Bayes-filter har $p(\text{spam}) = 0.4$ og $p(\text{ham}) = 0.6$, og</p>
+<table><tr><th></th><th>spam</th><th>ham</th></tr><tr><td>$p(\text{«gratis»}\mid\cdot)$</td><td>0.5</td><td>0.1</td></tr><tr><td>$p(\text{«møte»}\mid\cdot)$</td><td>0.1</td><td>0.4</td></tr></table>
+<p>En e-post inneholder både «gratis» og «møte». Hvordan klassifiseres den?</p></div>
+<ol>
+<li>Spam, fordi $p(\text{«gratis»}\mid\text{spam})$ er den største sannsynligheten i tabellen</li>
+<li>Spam, fordi $0.4\cdot0.5 \gt 0.6\cdot0.1$</li>
+<li>Kan ikke avgjøres uten å kjenne $p(x)$</li>
+<li data-c>Ham, fordi $0.6\cdot0.1\cdot0.4 = 0.024 \gt 0.4\cdot0.5\cdot0.1 = 0.020$</li>
+</ol>
+<div class="ex"><p>Naiv Bayes: $p(C\mid x) \propto p(C)\prod_i p(x_i\mid C)$. Spam gir $0.4\cdot0.5\cdot0.1 = 0.020$ og ham gir $0.6\cdot0.1\cdot0.4 = 0.024$, så ham vinner. Normalisert er $p(\text{spam}\mid x) = 0.020/0.044 \approx 0.45$. Det andre alternativet glemmer ordet «møte». $p(x)$ er lik for begge klasser og trengs ikke for å <i>sammenligne</i> dem.</p></div>
+</div>
+<div class="x" data-ch="04">
+<div class="q"><p>Du vil estimere fordelingen til 5 kontinuerlige features med et histogram med 10 bins per feature og minst 10 datapunkter per bin. Hvor mange datapunkter trenger du omtrent?</p></div>
+<ol>
+<li>500</li>
+<li>$10^5$</li>
+<li data-c>$10^6$</li>
+<li>$10^{50}$</li>
+</ol>
+<div class="ex"><p>Antall bins er $10^d = 10^5$, og med 10 punkter per bin trengs $10^6$ punkter. Behovet vokser eksponentielt med antall dimensjoner, og det er dimensjonsforbannelsen. 500 er lineær tenkning ($10\cdot10\cdot5$). $10^5$ er antall bins, ikke antall punkter.</p></div>
+</div>
+<div class="x" data-ch="04">
+<div class="q"><p>En modell for en sjelden sykdom har 99 % accuracy, men oppdager nesten ingen syke. I notatenes Bayes-perspektiv: hva har skjedd?</p></div>
+<ol>
+<li data-c>Prior probability shift: prediksjonen domineres av $p(C_k)$ i stedet for av featurene</li>
+<li>Dimensjonsforbannelsen: for mange features gjør at modellen ikke finner de syke</li>
+<li>For høy læringsrate har gjort at modellen ikke konvergerte</li>
+<li>Naiv Bayes-antakelsen er brutt fordi featurene er avhengige</li>
+</ol>
+<div class="ex"><p>Når 99 % er friske, belønnes modellen for å si «frisk» hele tiden. Prioren $p(C_k)$ overdøver likelihooden $p(x\mid C_k)$. Notatene kaller dette <i>prior probability shift</i>. Løsninger er å flytte terskelen, resample eller bruke vektet tap. De andre alternativene kan gi en dårlig modell, men forklarer ikke mønsteret med høy accuracy og lav recall.</p></div>
+</div>
+</section>
+
+<section data-title="Del 4 · Beslutningstrær">
+<div class="x" data-ch="05">
+<div class="q"><p>En node inneholder 6 punkter av klasse A og 2 av klasse B. Hva er Gini-urenheten?</p></div>
+<ol>
+<li>0.25</li>
+<li>0.811</li>
+<li>0.625</li>
+<li data-c>0.375</li>
+</ol>
+<div class="ex"><p>$p_A = 0.75$ og $p_B = 0.25$, så $\text{Gini} = 1 - (0.75^2 + 0.25^2) = 1 - 0.625 = 0.375$. 0.811 er <i>entropien</i> til samme fordeling. 0.625 er $\sum p_i^2$, der du har glemt «1 minus». Gini for to klasser ligger i [0, 0.5].</p></div>
+</div>
+<div class="x" data-ch="05">
+<div class="q"><p>En node har $p = 4$ positive og $n = 4$ negative punkter. En splitt gir barna (4 positive, 1 negativ) og (0 positive, 3 negative). Hva er informasjonsgevinsten $\Delta I$? Bruk $I(0.8, 0.2) \approx 0.722$.</p></div>
+<ol>
+<li data-c>≈ 0.55</li>
+<li>≈ 0.45</li>
+<li>≈ 0.28</li>
+<li>1.0</li>
+</ol>
+<div class="ex"><p>Før: $I(0.5, 0.5) = 1$. Etter: $\frac58\cdot0.722 + \frac38\cdot0 = 0.451$. Gevinst: $1 - 0.451 \approx 0.55$. 0.45 er entropien <i>etter</i> splitten, ikke gevinsten. Har du glemt vektingen $\frac{p_i+n_i}{p+n}$, får du $1 - 0.722 = 0.28$. 1.0 ville krevd to helt rene barn.</p></div>
+</div>
+<div class="x" data-ch="05">
+<div class="q"><p>Hvorfor trenger beslutningstrær ikke feature-skalering, mens logistisk regresjon gjør det?</p></div>
+<ol>
+<li>Trær bruker alltid entropi, som er skalauavhengig</li>
+<li data-c>Et splitt er en terskel på én feature om gangen, og en monoton omskalering endrer ikke rekkefølgen av punktene, så de samme splittene finnes</li>
+<li>Trær skalerer dataene automatisk internt</li>
+<li>Trær kan bare brukes på kategoriske features</li>
+</ol>
+<div class="ex"><p>Splittet «$x_j \le t$» deler punktene på samme måte etter at $x_j$ er skalert, bare med en ny terskel $t'$. Logistisk regresjon multipliserer features med vekter og bruker gradienter. Ulik skala gir der ulike gradientstørrelser og treg eller ustabil trening (notatene, tabell 8). Valg av Gini eller entropi har ingenting med skala å gjøre. Trær skalerer ikke internt og takler fint kontinuerlige features.</p></div>
+</div>
+<div class="x" data-ch="05">
+<div class="q"><pre><code>clf = DecisionTreeClassifier(max_depth=None)
+clf.fit(X_train, y_train)
+print(clf.score(X_train, y_train))   # 1.00
+print(clf.score(X_val, y_val))       # 0.71</code></pre>
+<p>Hva bør du gjøre?</p></div>
+<ol>
+<li>Øke <code>max_depth</code> enda mer for å fange flere mønstre</li>
+<li>Skalere features med <code>StandardScaler</code></li>
+<li data-c>Begrense treet, f.eks. prøve <code>max_depth</code> = 2, 3, …, 10 og velge den som gir best valideringsscore</li>
+<li>Bytte <code>criterion</code> fra <code>"gini"</code> til <code>"entropy"</code> for å fjerne overtilpasningen</li>
+</ol>
+<div class="ex"><p>100 % på trening og 71 % på validering betyr overtilpasning. Et ubegrenset tre vokser til hvert blad er rent og pugger støyen. Maksimal dybde er en hyperparameter som velges på valideringsdata. Dypere tre gjør det verre. Skalering påvirker ikke trær. Gini og entropi gir nesten like trær og løser ikke overtilpasning.</p></div>
+</div>
+</section>
+
+<section data-title="Del 5 · Regresjon, generalisering og bias–varians">
+<div class="x" data-ch="06">
+<div class="q"><p>Modellen $f(x) = \beta_0 + \beta_1x$ har $\beta_0 = 1$ og $\beta_1 = 2$. Datapunktene er $(x, y) = (1, 2)$ og $(2, 7)$. Med $\text{MSE} = \frac{1}{2N}\sum(y - f(x))^2$: hva er $\frac{\partial\,\text{MSE}}{\partial\beta_1}$?</p></div>
+<ol>
+<li>$1.5$</li>
+<li>$-0.5$</li>
+<li>$-3.0$</li>
+<li data-c>$-1.5$</li>
+</ol>
+<div class="ex"><p>Prediksjonene er $f(1) = 3$ og $f(2) = 5$, så $f - y$ blir $1$ og $-2$. Notatene gir $\frac{\partial L}{\partial\beta_1} = \frac1N\sum x^{(i)}(f(x^{(i)}) - y^{(i)}) = \frac12(1\cdot1 + 2\cdot(-2)) = \frac12(-3) = -1.5$.</p>
+<p>−0.5 er $\partial L/\partial\beta_0$, der du har glemt $x$. −3.0 er summen uten å dele på $N$. +1.5 har feil fortegn, altså $(y - f)$ i stedet for $(f - y)$. Negativ gradient betyr at $\beta_1$ bør øke, og det stemmer, siden modellen bommer mest nedover der $x$ er størst.</p></div>
+</div>
+<div class="x" data-ch="06">
+<div class="q"><pre><code>from sklearn.preprocessing import PolynomialFeatures
+poly = PolynomialFeatures(degree=2)          # include_bias=True
+X_poly = poly.fit_transform(X_train)         # X_train har 2 features</code></pre>
+<p>Hvor mange kolonner har <code>X_poly</code>?</p></div>
+<ol>
+<li>4</li>
+<li data-c>6</li>
+<li>5</li>
+<li>9</li>
+</ol>
+<div class="ex"><p>Med $x_1, x_2$ og grad 2 får du $1,\ x_1,\ x_2,\ x_1^2,\ x_1x_2,\ x_2^2$, altså 6 kolonner. Fellene er å glemme biaskolonnen (5) eller kryssleddet $x_1x_2$. Modellen er fortsatt <i>lineær i parametrene</i>, så vanlig lineær regresjon brukes på de nye featurene.</p></div>
+</div>
+<div class="x" data-ch="07">
+<div class="q"><p>Fem modeller av samme type trenes på fem ulike tilfeldige treningssett. For et bestemt $x$ predikerer de 9, 11, 10, 12 og 8. Den sanne verdien er $F(x) = 12$. Hva er bias og varians (definert som i notatene) i dette punktet?</p></div>
+<ol>
+<li data-c>Bias $= -2$, varians $= 2$</li>
+<li>Bias $= 2$, varians $= 4$</li>
+<li>Bias $= -2$, varians $= 10$</li>
+<li>Bias $= 0$, varians $= 2$</li>
+</ol>
+<div class="ex"><p>$E_D[f] = 10$, så $\text{Bias} = E_D[f] - F(x) = 10 - 12 = -2$: modellene bommer systematisk nedover. $\text{Var} = E_D[(E_D[f] - f)^2] = \frac15(1 + 1 + 0 + 4 + 4) = 2$. 10 er summen av kvadratavvikene uten å dele på 5. Bias er ikke 0, siden snittet bommer med 2. Bias i bias–varians har ingenting med $\beta_0$ å gjøre.</p></div>
+</div>
+<div class="x" data-ch="07">
+<div class="q"><p>Du bruker 5-fold kryssvalidering på 1000 datapunkter. Hvor mange ganger trenes modellen, og hvor mange punkter er i hver valideringsfold?</p></div>
+<ol>
+<li>1 gang, 200 punkter</li>
+<li>5 ganger, 800 punkter</li>
+<li data-c>5 ganger, 200 punkter</li>
+<li>1000 ganger, 1 punkt</li>
+</ol>
+<div class="ex"><p>Dataene deles i 5 disjunkte folder à 200. Modellen trenes 5 ganger, hver gang på 800 punkter, og valideres på de 200 som er igjen. 800 er treningsstørrelsen. 1000 ganger med 1 punkt er LOOCV, det dyre spesialtilfellet $k = n$.</p></div>
+</div>
+</section>
+
+<section data-title="Del 6 · Ensemble-modeller">
+<div class="x" data-ch="08">
+<div class="q"><p>Et datasett har $n = 4$ punkter. Du trekker et bootstrap-utvalg av størrelse 4 med tilbakelegging. Hva er sannsynligheten for at et bestemt punkt <b>ikke</b> kommer med?</p></div>
+<ol>
+<li>0.25</li>
+<li data-c>≈ 0.32</li>
+<li>0.75</li>
+<li>≈ 0.37</li>
+</ol>
+<div class="ex"><p>For hver av de 4 trekningene er sjansen for å <i>ikke</i> trekke punktet $3/4$. Trekningene er uavhengige, så $(3/4)^4 = 0.316$. Når $n \to \infty$, går $(1 - 1/n)^n \to e^{-1} \approx 0.37$. Det er tallet bak at hvert tre i en random forest ser omtrent 63 % av de unike punktene. 0.37 er altså grenseverdien, ikke svaret for $n = 4$.</p></div>
+</div>
+<div class="x" data-ch="08">
+<div class="q"><p>Hva skjer hvis du setter <code>max_features</code> lik antall features i en random forest, slik at alle features vurderes ved hver splitt?</p></div>
+<ol>
+<li>Skogen blir umulig å trene</li>
+<li>Trærne blir mer ulike, og variansen faller mer</li>
+<li data-c>Skogen blir vanlig bagging av trær: trærne blir mer korrelerte, og variansreduksjonen blir mindre</li>
+<li>Bootstrappingen slås automatisk av</li>
+</ol>
+<div class="ex"><p>Da er den eneste kilden til ulikhet bootstrap-utvalget. Sterke features velges øverst i nesten alle trær, så trærne ligner hverandre. Et gjennomsnitt av korrelerte modeller reduserer variansen mindre. Det er nettopp feature-subsamplingen som skiller random forest fra bagging.</p></div>
+</div>
+<div class="x" data-ch="08">
+<div class="q"><p>Gradient boosting for regresjon med targets $y = (3, 5, 10)$. Startmodellen predikerer gjennomsnittet. Det første treet tilpasser residualene perfekt, og læringsraten er $0.1$. Hva blir ensemblets prediksjon for det tredje punktet etter ett tre?</p></div>
+<ol>
+<li>6.0</li>
+<li>5.6</li>
+<li data-c>6.4</li>
+<li>10</li>
+</ol>
+<div class="ex"><p>Startprediksjonen er $F_0 = \bar y = 6$. Residualene $y - F_0$ er $-3, -1, 4$. Treet predikerer 4 for punkt 3, så $F_1 = F_0 + \eta\cdot h = 6 + 0.1\cdot4 = 6.4$. 10 får du uten læringsrate, og 5.6 med feil fortegn.</p>
+<p class="note">Notatene skriver regelen som <code>previous_ensemble - learning_rate * new_tree</code>, der treet tilpasser gradienten $-(y - \hat y)$. Det er det samme som å <i>legge til</i> et tre som tilpasser residualen $y - \hat y$.</p></div>
+</div>
+<div class="x" data-ch="08">
+<div class="q"><p>Hvilket utsagn skiller AdaBoost fra gradient boosting?</p></div>
+<ol>
+<li data-c>AdaBoost øker vekten på datapunkter som ble predikert feil, mens gradient boosting trener hver ny modell på pseudo-residualene</li>
+<li>AdaBoost tilpasser residualer, mens gradient boosting vekter datapunktene</li>
+<li>AdaBoost trener modellene parallelt, gradient boosting sekvensielt</li>
+<li>Bare gradient boosting kombinerer svake modeller</li>
+</ol>
+<div class="ex"><p>Begge er sekvensielle og bygger en sterk modell av svake. AdaBoost endrer <i>vektene på dataene</i>. Gradient boosting endrer <i>targetene</i> til residualer, altså negative gradienter. Det andre alternativet bytter om de to, og det er fellen. Parallell trening er bagging.</p></div>
+</div>
+</section>
+
+<section data-title="Del 7 · Nevrale nettverk">
+<div class="x" data-ch="10">
+<div class="q"><pre><code>model = keras.Sequential()
+model.add(keras.Input(shape=(4,)))
+model.add(Dense(8, activation="relu"))
+model.add(Dense(3, activation="softmax"))</code></pre>
+<p>Hvor mange trenbare parametre har modellen?</p></div>
+<ol>
+<li>56</li>
+<li>40</li>
+<li data-c>67</li>
+<li>76</li>
+</ol>
+<div class="ex"><p>Hvert Dense-lag har (input × output) vekter pluss én bias per node. Lag 1: $4\cdot8 + 8 = 40$. Lag 2: $8\cdot3 + 3 = 27$. Til sammen 67. 56 er uten biaser ($32 + 24$). 40 er bare første lag. Input-laget har ingen parametre.</p></div>
+</div>
+<div class="x" data-ch="09">
+<div class="q"><p>Et perceptron med Heaviside-aktivering har vekter $(w_1, w_2) = (1, 1)$ og bias $b = -1.5$, med binære input $x_1, x_2 \in \{0, 1\}$. Hvilken logisk operasjon gjør det?</p></div>
+<ol>
+<li>OR</li>
+<li>XOR</li>
+<li>NOT</li>
+<li data-c>AND</li>
+</ol>
+<div class="ex"><p>$x_1 + x_2 - 1.5 \ge 0$ bare når begge er 1 ($2 - 1.5 = 0.5$). Med én av dem lik 1 får du $-0.5$, altså output 0. Det er AND. OR har $b = -0.5$. XOR kan ikke lages med ett perceptron. NOT har bare én input ($w = -1$, $b = 0.5$).</p></div>
+</div>
+<div class="x" data-ch="10">
+<div class="q"><p>Du trener med <code>model.fit(x_train, y_train, batch_size=64, epochs=10)</code>, og <code>x_train</code> har 12 800 datapunkter. Hvor mange vektoppdateringer gjøres totalt?</p></div>
+<ol>
+<li>200</li>
+<li data-c>2000</li>
+<li>128 000</li>
+<li>20</li>
+</ol>
+<div class="ex"><p>$N/B = 12\,800/64 = 200$ oppdateringer per epoke, og 10 epoker gir 2000. 200 er per epoke. 128 000 er $N\cdot$epoker, som ville vært riktig med batch size 1 (ren SGD). Full-batch GD ville gitt 10.</p></div>
+</div>
+<div class="x" data-ch="09">
+<div class="q"><p>Du skal predikere boligpris (et kontinuerlig tall) med et nevralt nett. Hvilket siste lag er riktig?</p></div>
+<ol>
+<li data-c><code>Dense(1)</code> uten aktiveringsfunksjon (lineær)</li>
+<li><code>Dense(1, activation="sigmoid")</code></li>
+<li><code>Dense(2, activation="softmax")</code></li>
+<li><code>Dense(64, activation="relu")</code></li>
+</ol>
+<div class="ex"><p>Regresjon trenger én output per target og ingen begrensning på verdiområdet, altså lineær aktivering (notatene, avsnitt 2.2). Sigmoid låser outputen til (0,1). Softmax gir sannsynligheter over klasser. Et siste lag med 64 noder gir 64 outputer, mens outputlaget må ha like mange noder som targets.</p></div>
+</div>
+</section>
+
+<section data-title="Del 8 · Clustering">
+<div class="x" data-ch="11">
+<div class="q"><p>Etter tilordningssteget i k-means består en klynge av punktene $(1, 2)$, $(3, 4)$ og $(5, 0)$. Hvor flyttes sentroiden?</p></div>
+<ol>
+<li>$(3, 3)$</li>
+<li>$(2, 3)$</li>
+<li>$(9, 6)$</li>
+<li data-c>$(3, 2)$</li>
+</ol>
+<div class="ex"><p>Sentroiden er gjennomsnittet koordinat for koordinat: $\left(\frac{1+3+5}{3}, \frac{2+4+0}{3}\right) = (3, 2)$. $(9, 6)$ er summen uten å dele på 3. $(2, 3)$ har byttet om koordinatene.</p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>Data består av $k = 3$ like store, godt separerte klynger. Du velger 3 startsentroider helt tilfeldig blant datapunktene. Hva er sannsynligheten for at hver klynge får nøyaktig én sentroide?</p></div>
+<ol>
+<li>$1/3$</li>
+<li data-c>$2/9 \approx 0.22$</li>
+<li>$1/9 \approx 0.11$</li>
+<li>$1/2$</li>
+</ol>
+<div class="ex"><p>$\frac{k!}{k^k} = \frac{3!}{3^3} = \frac{6}{27} = \frac29$. Trinnvis: den første kan havne hvor som helst (1), den andre må unngå én klynge ($2/3$), den tredje må treffe den siste ($1/3$). $1\cdot\frac23\cdot\frac13 = \frac29$. Sannsynligheten faller eksponentielt med $k$, og det er motivasjonen for k-means++.</p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>DBSCAN kjøres med $\varepsilon = 1$ og <code>min_samples</code> = 4. Punktet $P$ har bare 2 naboer innen $\varepsilon$, men én av dem er et kjernepunkt. Hva blir $P$?</p></div>
+<ol>
+<li>Et kjernepunkt, fordi det ligger nær et kjernepunkt</li>
+<li data-c>Et ikke-kjernepunkt (randpunkt) som tilhører kjernepunktets klynge</li>
+<li>En outlier, fordi det har færre enn <code>min_samples</code> naboer</li>
+<li>En egen klynge</li>
+</ol>
+<div class="ex"><p>For få naboer betyr at $P$ ikke er kjernepunkt. Men $P$ ligger innen $\varepsilon$ fra et kjernepunkt og blir derfor med i klyngen som randpunkt. Det bidrar ikke til å utvide klyngen videre. Outlier blir bare et punkt som verken er kjernepunkt eller ligger nær ett. Det er den vanligste misforståelsen.</p></div>
+</div>
+<div class="x" data-ch="11">
+<div class="q"><p>For et punkt er gjennomsnittlig avstand til punktene i egen klynge $a = 2$, og til punktene i nærmeste andre klynge $b = 6$. Hva er silhouette-koeffisienten $s = \frac{b - a}{\max(a, b)}$?</p></div>
+<ol>
+<li data-c>≈ 0.67</li>
+<li>≈ −0.67</li>
+<li>≈ 0.33</li>
+<li>4</li>
+</ol>
+<div class="ex"><p>$s = (6 - 2)/6 = 0.67$. Positiv verdi betyr at punktet ligger nærmere sin egen klynge enn nabo-klyngen, og 1 er best. −0.67 får du med $(a - b)$, som ville betydd at punktet er i feil klynge. 4 er telleren uten å dele. Silhouette ligger alltid i $[-1, 1]$.</p></div>
+</div>
+</section>
+
+<section data-title="Del 9 · PCA, t-SNE og anomalideteksjon">
+<div class="x" data-ch="12">
+<div class="q"><p>Featurene er $x_1 = (2, 4, 6)$ og $x_2 = (1, 1, 4)$ for tre datapunkter. Hva er $\text{cov}(x_1, x_2)$ med formelen $\frac{1}{N-1}\sum_k(x_{1,k} - \bar x_1)(x_{2,k} - \bar x_2)$?</p></div>
+<ol>
+<li>2</li>
+<li data-c>3</li>
+<li>6</li>
+<li>−3</li>
+</ol>
+<div class="ex"><p>$\bar x_1 = 4$ og $\bar x_2 = 2$. Avvikene er $(-2, 0, 2)$ og $(-1, -1, 2)$. Produktene er $2 + 0 + 4 = 6$, og delt på $N - 1 = 2$ gir det 3. 2 får du ved å dele på $N = 3$. 6 er summen uten deling. Fortegnet er positivt fordi featurene stiger sammen.</p></div>
+</div>
+<div class="x" data-ch="12">
+<div class="q"><p>Kovariansmatrisen til et datasett med to features har egenverdier $\lambda_1 = 4.5$ og $\lambda_2 = 0.5$. Hvor stor andel av variansen beholdes om du reduserer til én dimensjon med PCA?</p></div>
+<ol>
+<li>50 %</li>
+<li>4.5 %</li>
+<li data-c>90 %</li>
+<li>81 %</li>
+</ol>
+<div class="ex"><p>Egenverdiene er variansen langs hver PC. Den første forklarer $\frac{4.5}{4.5 + 0.5} = 0.9$, altså 90 %. Vi beholder PC1, egenvektoren med størst egenverdi. 81 % er $0.9^2$, og det er en ren felle.</p></div>
+</div>
+<div class="x" data-ch="12">
+<div class="q"><p>Hva styrer hyperparameteren <code>perplexity</code> i t-SNE?</p></div>
+<ol>
+<li>Antall dimensjoner i embeddingen</li>
+<li data-c>Variansen til gaussen rundt hvert punkt i høydimensjonalt rom, omtrent hvor mange naboer hvert punkt «bryr seg om»</li>
+<li>Læringsraten i gradient descent</li>
+<li>Antall klynger som skal finnes</li>
+</ol>
+<div class="ex"><p>Perplexity angir entropien til den betingede gaussiske fordelingen. Algoritmen justerer variansen per punkt for å treffe den, så den fungerer som et effektivt antall naboer. Lav perplexity gir fokus på svært lokal struktur. Antall dimensjoner er <code>n_components</code>, og t-SNE har ingen klynge-parameter.</p></div>
+</div>
+<div class="x" data-ch="13">
+<div class="q"><pre><code>kmeans.fit(X_train)
+distances = kmeans.transform(X_test).min(axis=1)
+threshold = np.percentile(distances, 95)
+outliers  = distances &gt; threshold</code></pre>
+<p>Hva gjør koden?</p></div>
+<ol>
+<li>Markerer de 95 % testpunktene som ligger nærmest en sentroide som anomalier</li>
+<li>Bruker avstanden til den <i>fjerneste</i> sentroiden for hvert punkt</li>
+<li>Trenger labels for å finne anomaliene</li>
+<li data-c>Markerer omtrent de 5 % testpunktene med størst avstand til nærmeste sentroide som anomalier</li>
+</ol>
+<div class="ex"><p><code>transform</code> gir avstanden til alle sentroidene, og <code>.min(axis=1)</code> velger den nærmeste for hvert punkt. 95-persentilen er terskelen som 95 % av avstandene ligger under. Alt over den, omtrent 5 %, flagges. Det er nøyaktig metoden fra notatene (avsnitt 3.3.1) og er helt uveiledet. Terskelen er et valg uten fasit.</p></div>
+</div>
+</section>
+
+<section data-title="Del 10 · Forsterkningslæring og forklarbar KI">
+<div class="x" data-ch="14">
+<div class="q"><p>Q-learning med $\alpha = 0.5$ og $\gamma = 0.9$. Agenten står i $s$, tar $a$, får $r = 1$ og havner i $s'$. Før oppdateringen er $Q(s,a) = 2$ og $\max_{a'} Q(s', a') = 4$. Hva blir den nye $Q(s,a)$ med $Q \leftarrow (1-\alpha)Q + \alpha(r + \gamma\max_{a'} Q(s',a'))$?</p></div>
+<ol>
+<li>3.5</li>
+<li>4.6</li>
+<li data-c>3.3</li>
+<li>2.3</li>
+</ol>
+<div class="ex"><p>TD-målet er $1 + 0.9\cdot4 = 4.6$, og $Q_{ny} = 0.5\cdot2 + 0.5\cdot4.6 = 1 + 2.3 = 3.3$. 4.6 er målet alene, som tilsvarer $\alpha = 1$. 3.5 får du hvis du glemmer $\gamma$. 2.3 er bare det andre leddet.</p></div>
+</div>
+<div class="x" data-ch="14">
+<div class="q"><p>En ε-greedy agent har $\varepsilon = 0.1$ og 4 mulige handlinger. Den tilfeldige handlingen trekkes uniformt blant <i>alle</i> 4. Hva er sannsynligheten for at agenten velger handlingen med høyest Q-verdi?</p></div>
+<ol>
+<li>0.9</li>
+<li>0.1</li>
+<li data-c>0.925</li>
+<li>0.975</li>
+</ol>
+<div class="ex"><p>Den greedy handlingen velges i 90 % av tilfellene, og i tillegg i $\frac14$ av de 10 % tilfeldige: $0.9 + 0.1\cdot\frac14 = 0.925$. 0.9 glemmer at den tilfeldige trekningen også kan treffe den beste handlingen. Les alltid hvordan oppgaven definerer det tilfeldige valget.</p></div>
+</div>
+<div class="x" data-ch="15">
+<div class="q"><p>En modell predikerer overlevelse. Gjennomsnittsprediksjonen (base value) er 0.30. For én passasjer er prediksjonen 0.80. SHAP-verdiene er $+0.35$ for Sex, $+0.20$ for Pclass, og modellen har bare én feature til, Age. Hva er SHAP-verdien til Age?</p></div>
+<ol>
+<li>+0.05</li>
+<li data-c>−0.05</li>
+<li>+0.25</li>
+<li>+0.80</li>
+</ol>
+<div class="ex"><p>Effektivitetsegenskapen sier at SHAP-verdiene summerer til prediksjon minus gjennomsnitt: $0.80 - 0.30 = 0.50$. Da er $0.35 + 0.20 + \phi_{Age} = 0.50$, så $\phi_{Age} = -0.05$. Age trekker altså litt ned. +0.05 får du med fortegnsfeil. +0.25 er $0.80 - 0.35 - 0.20$, der du har glemt base value.</p></div>
+</div>
+<div class="x" data-ch="15">
+<div class="q"><p>Hvilket utsagn om EUs AI Act er riktig?</p></div>
+<ol>
+<li>Alle AI-systemer med høy risiko blir forbudt</li>
+<li>AI Act regulerer bare offentlig sektor</li>
+<li>AI Act deler inn systemer etter teknologi, for eksempel nevrale nett eller beslutningstrær</li>
+<li data-c>AI Act er risikobasert: systemer med uakseptabel risiko forbys, mens høyrisikosystemer er tillatt med strenge krav</li>
+</ol>
+<div class="ex"><p>Nivåene er uakseptabel (forbudt, f.eks. sosial poengsetting), høy (krav til data, dokumentasjon, menneskelig tilsyn), begrenset (åpenhetskrav, f.eks. chatboter) og minimal. Inndelingen er etter <i>bruk og risiko</i>, ikke teknologi, og loven gjelder både privat og offentlig sektor. Samme felle som 2024, oppgave 37.</p></div>
+</div>
+</section>
+
+</template>
+
+<details class="more"><summary>Oversikt: oppgaver der fasiten er omdiskutert <span class="tag">nyttig å vite</span></summary><div>
+<ul>
+<li><b>2024 oppg. 7c</b> (precision vs. spesifisitet): begge straffer falske positive. Precision er fasit og det beste svaret når positive er sjeldne.</li>
+<li><b>2024 oppg. 17</b> (gradient boosting): fasit sier «residualene fra det forrige treet». Presist er det residualene til hele ensemblet så langt. Alternativet «ett tre av gangen» er halvsant.</li>
+<li><b>2024 oppg. 20</b> (globalt minimum): «Lineær regresjon» (med MSE) er også konveks, men bare «Konvekse funksjoner» ble godtatt.</li>
+<li><b>2024 oppg. 30</b> (DBSCAN-smiley): for liten $\varepsilon$ er fasit. For høy <code>min_points</code> kan gi lignende symptomer.</li>
+<li><b>2024 oppg. 37</b> (AI Act): «verdens første AI-spesifikke regulering» er omdiskutert. Kina hadde tidligere, smalere regler.</li>
+<li><b>2025 del 4.1</b>: MSE-formelen bruker $\hat y^{(i)}$ for target. Svaret påvirkes ikke.</li>
+<li><b>2025 del 6.4</b> (DBSCAN): sensor godkjente også «identiske feature-vektorer», og det er faglig tvilsomt. Fasitalternativet utelater kravet om kjernepunkter.</li>
+<li><b>2025 del 7.4</b> (Isolation Forest): «lav tetthet» ble også godkjent. «Færre naboer» er nært beslektet, men ble ikke nevnt.</li>
+<li><b>2025 del 10.4</b>: alternativet <code>np.take(buffer, 32)</code> står to ganger.</li>
+<li>Sensor diskuterte 2025 del 2.1, 2.2, 2.3, 4.4, 6.3, 9.4 og 10.4 uten å endre fasit.</li>
+</ul></div></details>
+
+<!-- ======================================================= -->
+<h2 id="feller"><span class="sec">16.7</span>Klassiske feller</h2>
+<p>Disse fellene går igjen i begge eksamenene, i prosjektene og i de fleste studentbesvarelser. Spørsmålene her teller med i kapittelets poengsum.</p>
+
+<div class="quiz" data-id="16-felle-precision-recall">
+  <p class="q">Det finnes 100 positive i testsettet. Modellen finner 90 av dem, men flagger også 900 negative som positive. Hva er riktig?</p>
+  <ul>
+    <li>Både precision og recall er høye, siden modellen finner 90 %</li>
+    <li data-correct>Recall er 0.90, men precision er bare omtrent 0.09</li>
+    <li>Precision er 0.90 og recall omtrent 0.09</li>
+    <li>Precision og recall er like, fordi TP er den samme i begge</li>
+  </ul>
+  <div class="explain">Recall $= 90/100 = 0.90$, altså andelen av de positive vi fant. Precision $= 90/(90+900) \approx 0.09$, altså andelen av alarmene som var ekte. Begge har TP i telleren, men nevnerne er forskjellige: faktisk positive (FN) for recall og predikert positive (FP) for precision. Huskeregel: <b>p</b>recision handler om <b>p</b>redikerte positive.</div>
+</div>
+
+<div class="quiz" data-id="16-felle-bias">
+  <p class="q">Hvilket utsagn om «bias» er riktig?</p>
+  <ul>
+    <li>Høy bias i bias–varians betyr at $\beta_0$ (eller $b$) er stor</li>
+    <li>En modell uten biasledd $b$ har null bias i bias–varians-forstand</li>
+    <li data-correct>Bias i bias–varians er det systematiske avviket $E_D[f(x;D)] - F(x)$ og har ingenting med det konstante leddet å gjøre</li>
+    <li>Induktiv bias og bias i bias–varians er det samme</li>
+  </ul>
+  <div class="explain">Ordet brukes på tre måter. (1) Biasleddet $b$ eller $\beta_0$ er en modellparameter. (2) Bias i bias–varians er en egenskap ved læringsalgoritmen: hvor mye snittmodellen bommer systematisk. (3) Induktiv bias er antakelsene modellen gjør. Notatene: bias i bias–varians «har ingenting med det konstante leddet i lineære modeller å gjøre, og heter det samme kun for å forvirre studenter».</div>
+</div>
+
+<div class="quiz" data-id="16-felle-scaler">
+  <p class="q">Hvilken av disse kodelinjene lekker informasjon fra testdataene inn i modellen?</p>
+  <ul>
+    <li><code>X_tr = sc.fit_transform(X_train)</code></li>
+    <li><code>X_te = sc.transform(X_test)</code></li>
+    <li data-correct><code>X_all = sc.fit_transform(X); X_train, X_test = train_test_split(X_all)</code></li>
+    <li><code>X_train, X_test = train_test_split(X)</code></li>
+  </ul>
+  <div class="explain">I det tredje alternativet beregnes gjennomsnitt og standardavvik (eller min og maks) med testpunktene inkludert, før splitten. Testdataene har da påvirket preprosesseringen, og testscoren blir optimistisk. Riktig rekkefølge er splitt → <code>fit</code> på trening → <code>transform</code> på begge. Dette har vært på eksamen to år på rad.</div>
+</div>
+
+<div class="quiz" data-id="16-felle-gini-max">
+  <p class="q">Hva er den høyeste mulige Gini-urenheten for en node med <b>tre</b> klasser?</p>
+  <ul>
+    <li>0.5</li>
+    <li>1.0</li>
+    <li data-correct>$2/3 \approx 0.67$</li>
+    <li>$\log_2 3 \approx 1.58$</li>
+  </ul>
+  <div class="explain">Maks urenhet får du når klassene er like store: $1 - 3\cdot(1/3)^2 = 2/3$. Notatene skriver at Gini ligger i $[0, 0.5]$, men det gjelder bare for <i>to</i> klasser. Generelt er maks $1 - 1/k$. $\log_2 3$ er maks <i>entropi</i> for tre klasser.</div>
+</div>
+
+<div class="quiz" data-id="16-felle-epoke">
+  <p class="q">Du trener med ren SGD (batch size 1) på 500 datapunkter i 3 epoker. Hvor mange parameteroppdateringer blir det?</p>
+  <ul>
+    <li>3</li>
+    <li>500</li>
+    <li data-correct>1500</li>
+    <li>167</li>
+  </ul>
+  <div class="explain">SGD oppdaterer én gang per datapunkt, så det blir 500 per epoke og 1500 på 3 epoker. En epoke er alltid én runde gjennom alle punktene. Antall oppdateringer per epoke er $N/B$: 1 for full batch, $N$ for SGD og $N/B$ for mini-batch.</div>
+</div>
+
+<div class="quiz" data-id="16-felle-pca-skala">
+  <p class="q">Du kjører PCA på uskalerte data med featurene «inntekt i kroner» (varians ~$10^{10}$) og «alder i år» (varians ~$10^2$). Hva skjer?</p>
+  <ul>
+    <li>PCA er skalauavhengig, så resultatet blir det samme som med skalerte data</li>
+    <li data-correct>PC1 blir nesten bare inntekt, fordi PCA maksimerer varians og inntekt har enormt mye større varians</li>
+    <li>PC1 blir nesten bare alder, fordi alder har minst støy</li>
+    <li>PCA feiler, fordi kovariansmatrisen ikke kan regnes ut</li>
+  </ul>
+  <div class="explain">PCA finner retningene med mest varians i de tallene du gir den. Med ulike enheter vinner den featuren med størst tall. Standardiser først hvis featurene har ulike enheter. Samme logikk gjelder k-means og DBSCAN, som er avstandsbaserte. Trær er unntaket.</div>
+</div>
+
+<div class="quiz" data-id="16-felle-tsne">
+  <p class="q">I et t-SNE-plott ligger klynge A og B langt fra hverandre, mens B og C ligger tett. Hva kan du konkludere?</p>
+  <ul>
+    <li>B og C ligner hverandre mer enn A og B i det opprinnelige rommet</li>
+    <li>Avstanden fra A til B er omtrent den samme som i det opprinnelige rommet</li>
+    <li data-correct>Lite. t-SNE bevarer lokale naboskap, ikke avstander mellom klynger, så avstander mellom klynger i plottet er ikke pålitelige</li>
+    <li>t-SNE har funnet tre klynger, og kan brukes til å klassifisere nye punkter</li>
+  </ul>
+  <div class="explain">t-SNE minimerer $D_{KL}(P\|Q)$, og det straffer hovedsakelig at <i>naboer</i> rives fra hverandre. Store avstander bevares dårlig, og klyngestørrelser og avstander mellom klynger kan være misvisende. t-SNE tilordner ingen klynger og kan ikke brukes på nye punkter (ikke-parametrisk).</div>
+</div>
+
+<div class="quiz" data-multi data-id="16-felle-hyperparametre">
+  <p class="q">Hvilke av disse er hyperparametre? (Velg alle.)</p>
+  <ul>
+    <li data-correct>Læringsraten $\eta$</li>
+    <li>Vektene $w$ i et nevralt nett</li>
+    <li data-correct><code>max_depth</code> i et beslutningstre</li>
+    <li data-correct>$k$ i k-means</li>
+    <li>Sentroidenes posisjoner i k-means</li>
+    <li data-correct>Graden i <code>PolynomialFeatures</code></li>
+  </ul>
+  <div class="explain">Hyperparametre velges <i>før</i> treningen og styrer læringsprosessen eller modellkompleksiteten: $\eta$, batch size, epoker, <code>max_depth</code>, $k$, polynomgrad, $\varepsilon$ og <code>min_samples</code>, perplexity. Parametre læres fra data: vekter, biaser og sentroideposisjoner. Notatene stiller spørsmålet om polynomgraden eksplisitt. Den er en hyperparameter.</div>
+</div>
+
+<div class="quiz" data-id="16-felle-alpha-gamma">
+  <p class="q">I Q-learning: hva skjer hvis du setter læringsraten $\alpha$ svært lav (nær 0)?</p>
+  <ul>
+    <li>Agenten blir kortsiktig og bryr seg bare om umiddelbar reward</li>
+    <li data-correct>Q-verdiene endrer seg svært lite per oppdatering, og de gamle verdiene dominerer</li>
+    <li>Agenten utforsker mer</li>
+    <li>Agenten ignorerer gamle Q-verdier og bruker bare TD-målet</li>
+  </ul>
+  <div class="explain">$Q \leftarrow (1-\alpha)Q + \alpha\cdot\text{mål}$. Liten $\alpha$ betyr at du nesten beholder den gamle verdien, som i 2024, oppgave 32, alternativ D. Kortsiktighet styres av $\gamma$ og utforskning av $\varepsilon$. Å bare bruke TD-målet er $\alpha = 1$. Tre greske bokstaver med tre ulike roller: $\alpha$ hvor fort, $\gamma$ hvor langt frem, $\varepsilon$ hvor nysgjerrig.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="sjekkliste"><span class="sec">16.8</span>Siste-kvelden-sjekkliste</h2>
+<p>Huk av etter hvert. Avkrysningene lagres i nettleseren. Alle formlene står i <a href="17-formelark.html">formelarket</a>.</p>
+<ul class="checklist" id="checklist">
+<li><label><input type="checkbox" data-k="sigmoid"><span>Sigmoid $\sigma(z) = \frac{1}{1+e^{-z}}$, $\sigma' = \sigma(1-\sigma)$, og gradienten $(\hat y - y)x_j$ for logistisk regresjon.</span></label></li>
+<li><label><input type="checkbox" data-k="ce"><span>Cross-entropy $-y\ln\hat y - (1-y)\ln(1-\hat y)$ og den vektede varianten (hvilken vekt ganges med hvilket ledd).</span></label></li>
+<li><label><input type="checkbox" data-k="gd"><span>Oppdateringsregelen $\theta \leftarrow \theta - \eta\,\partial\mathcal L/\partial\theta$. For høy $\eta$ oscillerer, for lav går tregt. Konveks betyr globalt minimum.</span></label></li>
+<li><label><input type="checkbox" data-k="cm"><span>Confusion matrix: precision, recall (TPR), FPR, spesifisitet, accuracy. Hvilken bruker du når FN eller FP er dyrt?</span></label></li>
+<li><label><input type="checkbox" data-k="roc"><span>ROC: lav terskel øverst til høyre, AUC er rangeringssannsynlighet, og myntkast gir diagonalen.</span></label></li>
+<li><label><input type="checkbox" data-k="resample"><span>Under- og oversampling: regn ut antall som beholdes eller legges til. Oversampling kan gi overtilpasning, undersampling undertilpasning.</span></label></li>
+<li><label><input type="checkbox" data-k="bayes"><span>Bayes: prior, likelihood, evidens. Naiv Bayes ganger sammen likelihoods og dropper $p(x)$.</span></label></li>
+<li><label><input type="checkbox" data-k="entropi"><span>Entropi $-\sum p\log_2 p$ (0.94 for 9/5), Gini $1 - \sum p^2$, informasjonsgevinst med vekting $\frac{n_i}{n}$.</span></label></li>
+<li><label><input type="checkbox" data-k="mse"><span>MSE med $\frac{1}{2N}$ og gradientene for $\beta_0$ og $\beta_1$. Polynomfeatures gir fortsatt lineær regresjon.</span></label></li>
+<li><label><input type="checkbox" data-k="bv"><span>Bias–varians: $\text{Bias}^2 + \text{Var} + \sigma^2$. Læringskurver for over- og undertilpasning, early stopping, k-fold og LOOCV.</span></label></li>
+<li><label><input type="checkbox" data-k="ens"><span>Bootstrap ($\approx 63$ % unike), bagging, random forest (dekorrelerte trær), AdaBoost (vekter feil) og gradient boosting (residualer).</span></label></li>
+<li><label><input type="checkbox" data-k="nn"><span>Perseptron (AND/OR/NOT-vekter, XOR krever flere lag), ReLU, sigmoid og softmax i riktig lag, og parametertelling (inn·ut + ut).</span></label></li>
+<li><label><input type="checkbox" data-k="sgd"><span>GD, SGD og mini-batch: oppdateringer per epoke er $1$, $N$ og $N/B$. Batch size er en hyperparameter.</span></label></li>
+<li><label><input type="checkbox" data-k="kmeans"><span>k-means-stegene, inertia, $k!/k^k$, k-means++ ($\propto d^2$), silhouette $\frac{b-a}{\max(a,b)}$ og Calinski–Harabasz.</span></label></li>
+<li><label><input type="checkbox" data-k="dbscan"><span>DBSCAN: kjernepunkt, randpunkt og outlier. $\varepsilon$ og <code>min_samples</code> er globale. Tegnene på for liten og for stor $\varepsilon$.</span></label></li>
+<li><label><input type="checkbox" data-k="pca"><span>Kovarians med $N-1$, egenverdier som varians og forklart varians $\lambda_1/\sum\lambda$. PCA kan gjenbrukes, t-SNE ikke.</span></label></li>
+<li><label><input type="checkbox" data-k="anom"><span>Anomali: k-means-avstand og persentil, DBSCAN label −1, Isolation Forest (kort sti betyr anomali).</span></label></li>
+<li><label><input type="checkbox" data-k="rl"><span>Q-oppdateringen med tall, rollene til $\alpha$, $\gamma$ og $\varepsilon$, Markov, policy, replay buffer og target network.</span></label></li>
+<li><label><input type="checkbox" data-k="xai"><span>LIME er lokal. For SHAP: summen er prediksjon minus base value, og les beeswarm-plott. Shapley-formelen med vektene 1/3, 1/6, 1/3 for $N = 3$. AI Act-nivåene.</span></label></li>
+<li><label><input type="checkbox" data-k="prakt"><span>Praktisk: godkjent kalkulator, legitimasjon, mat og drikke. Sov. Les hvert spørsmål to ganger. Ikke klikk før du har bestemt deg.</span></label></li>
+</ul>
+
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li>2025-formatet: +2.5 / −0.83 / 0, nullgrense per gruppe, og et klikk kan ikke angres til blankt.</li>
+    <li>Ren gjetning er verdt ≈ 0. Har du utelukket ett alternativ, er svaret verdt +0.28, og med to utelukket +0.84. <b>Svar når du kan utelukke noe.</b></li>
+    <li>Nullgrensen gjør at du bør gjette på alt i grupper der du er svak (≈ +1 poeng i forventning).</li>
+    <li>Gjengangere: skalering (fit på trening), precision vs. recall, ROC og terskel, ubalanse, Gini/entropi, bias–varians, ensemble-mekanismer, k-means/DBSCAN, PCA/t-SNE, Q-learning.</li>
+    <li>Regneoppgavene er små: hold styr på fortegn, $N$ vs. $N-1$, «lagt til» vs. «totalt», og om det spørres om gradienten eller den oppdaterte verdien.</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="front">Forventet poeng for ren gjetning (4 alt.)</div><div class="back">$0.25\cdot2.5 - 0.75\cdot0.83 \approx 0$</div></div>
+  <div class="card"><div class="front">Grense for når det lønner seg å svare</div><div class="back">$p^* = 0.83/3.33 \approx 0.25$. Utelukk ett alternativ og svar.</div></div>
+  <div class="card"><div class="front">Hva gjør nullgrensen?</div><div class="back">En gruppe kan ikke gi under 0. Gjett på alt i svake grupper (≈ +1.06 i forventning ved fire rene gjetninger).</div></div>
+  <div class="card"><div class="front">Tidsbudsjett</div><div class="back">4 t / 40 spørsmål = 6 min per spørsmål. Tre runder: sikre, regning, gjettestrategi.</div></div>
+  <div class="card"><div class="front">Precision vs. recall</div><div class="back">Precision = TP/(TP+FP), «av alarmene». Recall = TP/(TP+FN), «av de positive».</div></div>
+  <div class="card"><div class="front">$\alpha$, $\gamma$, $\varepsilon$ i Q-learning</div><div class="back">$\alpha$ hvor fort man lærer, $\gamma$ hvor langt frem man ser, $\varepsilon$ hvor ofte man utforsker.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+/* =====================================================================
+   Kapittel 16 – eksamensmotor, temaoversikt, strategikalkulator, sjekkliste
+   Oppgavedata ligger i <template id="exam-XXXX"> (HTML slik at KaTeX kan
+   skrives uten escaping) og leses inn til JS-objekter:
+   { id, label, q, opts[], c[] (riktige indekser), multi, ex, ch }
+   ===================================================================== */
+document.addEventListener("DOMContentLoaded", () => {
+  "use strict";
+  const KOPTS = {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "\\[", right: "\\]", display: true },
+      { left: "\\(", right: "\\)", display: false },
+      { left: "$", right: "$", display: false }
+    ],
+    ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "canvas"],
+    throwOnError: false
+  };
+  const math = el => { try { if (window.renderMathInElement) renderMathInElement(el, KOPTS); } catch (e) { console.error(e); } };
+  const CH = {}; CK.CHAPTERS.forEach(c => { CH[c.id] = c; });
+  const LET = "ABCDEFGH";
+  const fmt = (x, d = 2) => { const v = Math.round(x * 10 ** d) / 10 ** d; return String(Object.is(v, -0) ? 0 : v); };
+
+  /* ---------------- les oppgavedata ---------------- */
+  function parseExam(id) {
+    const t = document.getElementById("exam-" + id);
+    if (!t) return null;
+    const rules = t.dataset.rules;
+    const groups = [];
+    let num = 0;
+    Array.from(t.content.querySelectorAll("section")).forEach((s, gi) => {
+      const g = { title: s.dataset.title, qs: [] };
+      const xs = Array.from(s.querySelectorAll(".x"));
+      xs.forEach((x, qi) => {
+        const lis = Array.from(x.querySelectorAll(":scope > ol > li"));
+        num++;
+        const label = rules === "2024"
+          ? "Oppgave " + (gi + 1) + (xs.length > 1 ? "abcdef"[qi] : "")
+          : "Spørsmål " + (gi + 1) + "." + (qi + 1);
+        g.qs.push({
+          id: id + "-" + (gi + 1) + "-" + (qi + 1), num, g: gi, label,
+          q: x.querySelector(".q").innerHTML,
+          opts: lis.map(li => li.innerHTML),
+          c: lis.map((li, i) => li.hasAttribute("data-c") ? i : -1).filter(i => i >= 0),
+          multi: x.hasAttribute("data-multi"),
+          ex: x.querySelector(".ex").innerHTML,
+          ch: x.dataset.ch
+        });
+      });
+      groups.push(g);
+    });
+    return { id, rules, title: t.dataset.title, groups, qs: groups.flatMap(g => g.qs) };
+  }
+  const EXAMS = {};
+  ["2024", "2025", "2026"].forEach(id => { const e = parseExam(id); if (e) EXAMS[id] = e; });
+
+  /* ---------------- poeng og karakter ---------------- */
+  function isCorrect(q, picks) {
+    if (!picks || !picks.length) return false;
+    if (q.multi) return picks.length === q.c.length && q.c.every(i => picks.includes(i));
+    return picks.length === 1 && q.c.includes(picks[0]);
+  }
+  function status(q, st) { const p = st.ans[q.id] || []; return !p.length ? "blank" : isCorrect(q, p) ? "ok" : "bad"; }
+  function grade(pct, rules) {
+    const lim = rules === "2024" ? [92, 82, 65, 53, 41] : [89, 77, 65, 53, 41];
+    const L = ["A", "B", "C", "D", "E"];
+    for (let i = 0; i < 5; i++) if (pct >= lim[i] - 1e-9) return L[i];
+    return "F";
+  }
+  function score(ex, st, onlyIds) {
+    const use = q => !onlyIds || onlyIds.has(q.id);
+    if (ex.rules === "2025") {
+      let total = 0, rawTot = 0, saved = 0; const rows = [];
+      ex.groups.forEach(g => {
+        let raw = 0, r = 0, w = 0, b = 0;
+        g.qs.filter(use).forEach(q => {
+          const s = status(q, st);
+          if (s === "blank") b++; else if (s === "ok") { raw += 2.5; r++; } else { raw -= 0.83; w++; }
+        });
+        const fl = Math.max(0, raw); total += fl; rawTot += raw; saved += fl - raw;
+        rows.push({ title: g.title, raw, fl, r, w, b });
+      });
+      const n = ex.qs.filter(use).length, max = n * 2.5;
+      return { total, max, pct: max ? total / max * 100 : 0, rows, saved, rawTot };
+    }
+    let r = 0, n = 0;
+    ex.qs.filter(use).forEach(q => { n++; if (status(q, st) === "ok") r++; });
+    return { total: r, max: n, pct: n ? r / n * 100 : 0 };
+  }
+  function topicTable(ex, st) {
+    const m = {};
+    ex.qs.forEach(q => { (m[q.ch] = m[q.ch] || { n: 0, r: 0 }); m[q.ch].n++; if (status(q, st) === "ok") m[q.ch].r++; });
+    return Object.keys(m).sort().map(k => {
+      const c = CH[k]; const v = m[k]; const pct = Math.round(100 * v.r / v.n);
+      return `<tr><td><a href="${c.file}">${+k} · ${c.title}</a></td><td class="num">${v.r} / ${v.n}</td><td class="num" style="color:var(${pct >= 75 ? "--ok" : pct >= 50 ? "--warn" : "--bad"})">${pct} %</td></tr>`;
+    }).join("");
+  }
+
+  /* ---------------- motor per prøve ---------------- */
+  function ExamApp(host) {
+    const ex = EXAMS[host.dataset.exam];
+    if (!ex) return;
+    const KEY = "exam:" + ex.id;
+    const fresh = () => ({ mode: null, ans: {}, chk: {}, flag: {}, submitted: false, end: null, dur: 0, timeout: false });
+    let st = Object.assign(fresh(), CK.store.get(KEY, {}) || {});
+    const save = () => CK.store.set(KEY, st);
+    let timer = null, filter = "all";
+    const is25 = ex.rules === "2025";
+    const nQ = ex.qs.length;
+
+    const top = () => { const y = host.getBoundingClientRect().top + scrollY - 70; scrollTo({ top: y, behavior: "smooth" }); };
+
+    function chLink(q) {
+      const c = CH[q.ch]; if (!c) return "";
+      return `<a class="chlink" href="${c.file}">Repeter: kapittel ${+q.ch} · ${c.title} →</a>`;
+    }
+    function card(q, mode) {
+      const multi = q.multi;
+      const head = `<div class="qhead"><span>${q.label}</span><span class="tag">${multi ? "Velg ett eller flere" : (q.c.length > 1 && mode === "review" ? "To alternativer godkjent" : "")}${mode === "exam" ? ` <button type="button" class="flag${st.flag[q.id] ? " on" : ""}" data-act="flag" aria-pressed="${!!st.flag[q.id]}">⚑ Merk</button>` : ""}</span></div>`;
+      const opts = q.opts.map((o, i) => `<button type="button" class="opt" data-i="${i}"><span class="let">${LET[i]}</span><span class="otext">${o}</span></button>`).join("");
+      let act = "";
+      if (mode === "practice") act = `<div class="qact">${multi ? `<button type="button" class="btn" data-act="check">Sjekk svar</button>` : ""}<button type="button" class="btn ghost" data-act="retry" style="display:none">Prøv igjen</button><span class="verdict"></span></div>`;
+      if (mode === "review") act = `<div class="qact"><span class="verdict"></span></div>`;
+      if (mode === "exam" && is25 && !multi) act = `<div class="qact"><span class="hint-lock"></span></div>`;
+      return `<div class="xq${multi ? " multi" : ""}" id="xq-${q.id}" data-qid="${q.id}">${head}<div class="qtext">${q.q}</div><div class="opts" role="group" aria-label="Svaralternativer">${opts}</div>${act}<div class="ex">${q.ex}${chLink(q)}</div></div>`;
+    }
+    const qById = id => ex.qs.find(q => q.id === id);
+    const cardEl = q => host.querySelector(`#xq-${CSS.escape(q.id)}`);
+
+    function paintSel(q) {
+      const el = cardEl(q); if (!el) return;
+      const p = st.ans[q.id] || [];
+      el.querySelectorAll(".opt").forEach((b, i) => { const on = p.includes(i); b.classList.toggle("sel", on); b.setAttribute("aria-pressed", on); });
+      const hl = el.querySelector(".hint-lock");
+      if (hl) hl.textContent = p.length ? "Besvart. Du kan bytte svar, men ikke gjøre spørsmålet blankt igjen (som i Inspera 2025)." : "";
+    }
+    function paintGraded(q, reveal = true) {
+      const el = cardEl(q); if (!el) return;
+      const p = st.ans[q.id] || [];
+      el.classList.add("graded"); el.classList.toggle("reveal", reveal);
+      el.querySelectorAll(".opt").forEach((b, i) => {
+        const pick = p.includes(i), right = q.c.includes(i);
+        b.classList.toggle("sel", pick);
+        b.classList.toggle("right", right);
+        b.classList.toggle("wrong", pick && !right);
+        b.disabled = false;
+      });
+      const v = el.querySelector(".verdict");
+      if (v) {
+        const s = status(q, st);
+        v.className = "verdict " + s;
+        v.textContent = s === "ok" ? (is25 ? "Riktig  (+2.5)" : "Riktig") : s === "bad" ? (is25 ? "Feil  (−0.83)" : (q.multi ? "Ikke helt riktig, se fasit" : "Feil")) : "Ikke besvart  (0)";
+      }
+      const ck = el.querySelector('[data-act="check"]'); if (ck) ck.style.display = "none";
+      const rt = el.querySelector('[data-act="retry"]'); if (rt) rt.style.display = "";
+    }
+    function unpaint(q) {
+      const el = cardEl(q); if (!el) return;
+      el.classList.remove("graded", "reveal");
+      el.querySelectorAll(".opt").forEach(b => b.classList.remove("sel", "right", "wrong"));
+      const v = el.querySelector(".verdict"); if (v) { v.textContent = ""; v.className = "verdict"; }
+      const ck = el.querySelector('[data-act="check"]'); if (ck) ck.style.display = "";
+      const rt = el.querySelector('[data-act="retry"]'); if (rt) rt.style.display = "none";
+    }
+
+    function groupsHTML(mode) {
+      return ex.groups.map((g, gi) => {
+        let gs = "";
+        if (mode === "review" && is25) { const s = score(ex, st).rows[gi]; gs = `<span class="gscore">${fmt(s.fl)} / 10 p${s.raw < 0 ? ` (rå ${fmt(s.raw)}, nullgrense)` : ""}</span>`; }
+        return `<div class="xa-group" data-g="${gi}"><h4><span>${g.title}</span>${gs}</h4>${g.qs.map(q => card(q, mode)).join("")}</div>`;
+      }).join("");
+    }
+    function navHTML(mode) {
+      return `<div class="xa-nav" aria-label="Gå til spørsmål">${ex.qs.map(q => {
+        let cls = "";
+        if (mode === "review") cls = status(q, st) === "ok" ? "ok" : status(q, st) === "bad" ? "bad" : "";
+        else { if ((st.ans[q.id] || []).length) cls = "answered"; if (st.flag[q.id]) cls += " flagged"; }
+        return `<button type="button" class="${cls}" data-go="${q.id}" title="${q.label}">${q.num}</button>`;
+      }).join("")}</div>`;
+    }
+    function refreshNav() {
+      host.querySelectorAll(".xa-nav button").forEach(b => {
+        const id = b.dataset.go;
+        b.classList.toggle("answered", (st.ans[id] || []).length > 0);
+        b.classList.toggle("flagged", !!st.flag[id]);
+      });
+      const c = host.querySelector(".xa-bar .count");
+      if (c) { const a = ex.qs.filter(q => (st.ans[q.id] || []).length).length; c.textContent = `${a} av ${nQ} besvart`; }
+    }
+
+    /* ---- visninger ---- */
+    function viewStart() {
+      stopTimer();
+      const fmtTxt = is25 ? `${ex.groups.length} grupper à 4 spørsmål. Poeng etter 2025-reglene: +2.5 riktig, −0.83 feil, 0 blankt, nullgrense per gruppe.` : `${ex.groups.length} oppgaver, ${nQ} delspørsmål. 1 poeng per helt riktig delspørsmål, ingen minuspoeng. Karaktergrenser 2024: A ≥ 92 %, B ≥ 82 %.`;
+      host.innerHTML = `
+        <p class="xa-info"><b>${ex.title}:</b> ${fmtTxt} Fremdriften lagres i nettleseren din.</p>
+        <div class="xa-start">
+          <button type="button" class="xa-mode" data-act="practice"><b>Øvingsmodus</b><span>Fasit og forklaring rett etter hvert svar. Du kan prøve igjen. Best for å lære.</span></button>
+          <button type="button" class="xa-mode" data-act="exam"><b>Eksamensmodus</b><span>Ingen fasit før du leverer. Valgfri nedtelling, poeng etter eksamensreglene, karakterestimat og full gjennomgang til slutt.</span></button>
+        </div>
+        <div class="xa-opts"><label>Nedtelling i eksamensmodus:
+          <select data-role="dur"><option value="240">4 timer (som eksamen)</option><option value="180">3 timer</option><option value="120">2 timer</option><option value="60">1 time</option><option value="30">30 minutter</option><option value="0">Ingen tidsgrense</option></select></label></div>`;
+    }
+    function viewPractice() {
+      stopTimer();
+      host.innerHTML = `
+        <div class="xa-bar"><span class="xa-tally" data-role="tally"></span><span class="spacer"></span>
+          <button type="button" class="btn ghost" data-act="reset">Nullstill / bytt modus</button></div>
+        ${groupsHTML("practice")}`;
+      math(host);
+      ex.qs.forEach(q => { if (st.chk[q.id]) paintGraded(q); else paintSel(q); });
+      tally();
+    }
+    function tally() {
+      const el = host.querySelector('[data-role="tally"]'); if (!el) return;
+      const ids = new Set(Object.keys(st.chk).filter(k => st.chk[k]));
+      const done = ex.qs.filter(q => ids.has(q.id));
+      const ok = done.filter(q => status(q, st) === "ok").length;
+      let s = `<b>Øvingsmodus:</b> ${ok} riktige av ${done.length} besvart (${nQ} totalt)`;
+      if (is25 && done.length) { const sc = score(ex, st, ids); s += ` · ${fmt(sc.total)} poeng etter eksamensreglene`; }
+      el.innerHTML = s;
+    }
+    function viewExam() {
+      host.innerHTML = `
+        <div class="xa-bar"><span class="timer" data-role="timer">${st.end ? "" : "Ingen tidsgrense"}</span><span class="count"></span><span class="spacer"></span>
+          <button type="button" class="btn ghost" data-act="reset">Avbryt</button>
+          <button type="button" class="btn" data-act="submit">Lever</button></div>
+        ${navHTML("exam")}
+        ${groupsHTML("exam")}
+        <div class="xa-actions"><button type="button" class="btn" data-act="submit">Lever prøven</button></div>`;
+      math(host);
+      ex.qs.forEach(paintSel);
+      refreshNav();
+      startTimer();
+    }
+    function viewResult() {
+      stopTimer();
+      const sc = score(ex, st);
+      const g = grade(sc.pct, ex.rules);
+      const nOk = ex.qs.filter(q => status(q, st) === "ok").length, nBad = ex.qs.filter(q => status(q, st) === "bad").length, nBl = nQ - nOk - nBad;
+      let tbl = "";
+      if (is25) {
+        tbl = `<table><tr><th>Gruppe</th><th class="num">R</th><th class="num">F</th><th class="num">B</th><th class="num">Rå sum</th><th class="num">Poeng</th></tr>${sc.rows.map(r => `<tr><td>${r.title}</td><td class="num">${r.r}</td><td class="num">${r.w}</td><td class="num">${r.b}</td><td class="num">${fmt(r.raw)}</td><td class="num"><b>${fmt(r.fl)}</b></td></tr>`).join("")}</table>
+        <p class="small">Minuspoeng fra feil svar: −${fmt(nBad * 0.83)}. ${sc.saved > 0.001 ? `Nullgrensen reddet deg <b>${fmt(sc.saved)}</b> poeng.` : "Nullgrensen slo ikke inn."}</p>`;
+      }
+      host.innerHTML = `
+        <div class="xa-result">
+          ${st.timeout ? `<p><b>Tiden er ute.</b> Prøven ble levert automatisk.</p>` : ""}
+          <div><span class="big">${fmt(sc.total)} / ${fmt(sc.max)}</span> <span class="muted">${is25 ? "poeng" : "delspørsmål riktig"} (${fmt(sc.pct, 1)} %)</span></div>
+          <div style="margin-top:6px">Karakterestimat: <span class="grade">${g}</span></div>
+          <p class="small muted" style="margin-top:6px">${nOk} riktige, ${nBad} feil, ${nBl} blanke. ${is25 ? "Skala: NTNUs standard (A ≥ 89 %, B ≥ 77 %, C ≥ 65 %, D ≥ 53 %, E ≥ 41 %)." : "Skala: A ≥ 92 %, B ≥ 82 % (2024), C–E etter NTNU-standard."} Estimatet er veiledende.</p>
+          ${tbl}
+          <h4 style="margin:14px 0 4px">Per tema – hva bør du repetere?</h4>
+          <table><tr><th>Kapittel</th><th class="num">Riktige</th><th class="num">Andel</th></tr>${topicTable(ex, st)}</table>
+        </div>
+        <div class="xa-actions"><button type="button" class="btn" data-act="restart">Ta prøven på nytt</button><button type="button" class="btn ghost" data-act="topractice">Øv på den i øvingsmodus</button></div>
+        <h4>Gjennomgang med forklaringer</h4>
+        <div class="xa-filter" role="group" aria-label="Filter">
+          <button type="button" data-f="all">Alle (${nQ})</button><button type="button" data-f="bad">Feil (${nBad})</button><button type="button" data-f="blank">Blanke (${nBl})</button><button type="button" data-f="ok">Riktige (${nOk})</button></div>
+        ${navHTML("review")}
+        ${groupsHTML("review")}`;
+      math(host);
+      ex.qs.forEach(q => paintGraded(q));
+      applyFilter();
+    }
+    function applyFilter() {
+      host.querySelectorAll(".xa-filter button").forEach(b => b.classList.toggle("on", b.dataset.f === filter));
+      ex.qs.forEach(q => { const el = cardEl(q); if (el) el.style.display = (filter === "all" || status(q, st) === filter) ? "" : "none"; });
+      host.querySelectorAll(".xa-group").forEach(gEl => {
+        const any = Array.from(gEl.querySelectorAll(".xq")).some(c => c.style.display !== "none");
+        gEl.style.display = any ? "" : "none";
+      });
+    }
+    function render() {
+      if (!st.mode) viewStart();
+      else if (st.mode === "practice") viewPractice();
+      else if (st.submitted) viewResult();
+      else viewExam();
+    }
+
+    /* ---- tid ---- */
+    function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+    function startTimer() {
+      stopTimer();
+      if (!st.end) return;
+      const tick = () => {
+        const el = host.querySelector('[data-role="timer"]');
+        const left = st.end - Date.now();
+        if (left <= 0) { st.timeout = true; submit(true); return; }
+        const s = Math.floor(left / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+        if (el) { el.textContent = `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`; el.classList.toggle("low", left < 10 * 60 * 1000); }
+      };
+      tick(); timer = setInterval(tick, 1000);
+    }
+    function submit(auto) {
+      if (!auto) {
+        const blank = ex.qs.filter(q => !(st.ans[q.id] || []).length).length;
+        const msg = blank ? `Du har ${blank} ubesvarte spørsmål. Vil du levere likevel?` : "Levere prøven nå?";
+        if (!confirm(msg)) return;
+      }
+      st.submitted = true; st.end = null; save(); filter = "all"; viewResult(); top();
+    }
+
+    /* ---- hendelser ---- */
+    host.addEventListener("click", e => {
+      const go = e.target.closest("[data-go]");
+      if (go) { const el = host.querySelector("#xq-" + CSS.escape(go.dataset.go)); if (el) { el.style.display = ""; el.closest(".xa-group").style.display = ""; el.scrollIntoView({ behavior: "smooth", block: "start" }); } return; }
+      const f = e.target.closest("[data-f]");
+      if (f) { filter = f.dataset.f; applyFilter(); return; }
+      const actEl = e.target.closest("[data-act]");
+      const optEl = e.target.closest(".opt");
+      const cEl = e.target.closest(".xq");
+      const q = cEl ? qById(cEl.dataset.qid) : null;
+      if (actEl) {
+        const act = actEl.dataset.act;
+        if (act === "practice") { st = fresh(); st.mode = "practice"; save(); viewPractice(); top(); }
+        else if (act === "exam") {
+          const d = +host.querySelector('[data-role="dur"]').value;
+          st = fresh(); st.mode = "exam"; st.dur = d; st.end = d ? Date.now() + d * 60000 : null; save(); viewExam(); top();
+        }
+        else if (act === "reset") { if (confirm("Nullstille denne prøven og gå tilbake til valg av modus? Svarene dine slettes.")) { st = fresh(); save(); viewStart(); top(); } }
+        else if (act === "restart") { st = fresh(); save(); viewStart(); top(); }
+        else if (act === "topractice") { st = fresh(); st.mode = "practice"; save(); viewPractice(); top(); }
+        else if (act === "submit") submit(false);
+        else if (act === "flag" && q) { st.flag[q.id] = !st.flag[q.id]; save(); actEl.classList.toggle("on", st.flag[q.id]); actEl.setAttribute("aria-pressed", st.flag[q.id]); refreshNav(); }
+        else if (act === "check" && q) {
+          if (!(st.ans[q.id] || []).length) { const v = cEl.querySelector(".verdict"); v.className = "verdict"; v.textContent = "Velg minst ett alternativ."; return; }
+          st.chk[q.id] = true; save(); paintGraded(q); tally();
+        }
+        else if (act === "retry" && q) { delete st.ans[q.id]; delete st.chk[q.id]; save(); unpaint(q); tally(); }
+        return;
+      }
+      if (optEl && q) {
+        const i = +optEl.dataset.i;
+        if (st.mode === "practice") {
+          if (st.chk[q.id]) return;
+          if (q.multi) {
+            const p = new Set(st.ans[q.id] || []); p.has(i) ? p.delete(i) : p.add(i);
+            st.ans[q.id] = Array.from(p).sort(); save(); paintSel(q);
+          } else { st.ans[q.id] = [i]; st.chk[q.id] = true; save(); paintGraded(q); tally(); }
+        } else if (st.mode === "exam" && !st.submitted) {
+          const p = st.ans[q.id] || [];
+          if (q.multi) { const s = new Set(p); s.has(i) ? s.delete(i) : s.add(i); st.ans[q.id] = Array.from(s).sort(); }
+          else if (p[0] === i && !is25) st.ans[q.id] = [];          // 2024: kan fjerne svar
+          else st.ans[q.id] = [i];                                   // 2025: kan bytte, ikke blanke
+          save(); paintSel(q); refreshNav();
+        }
+      }
+    });
+
+    /* oppstart: utløpt tid mens siden var lukket → lever automatisk */
+    if (st.mode === "exam" && !st.submitted && st.end && st.end <= Date.now()) { st.timeout = true; st.submitted = true; st.end = null; save(); }
+    render();
+  }
+  document.querySelectorAll(".exam-app").forEach(h => ExamApp(h));
+
+  /* ---------------- temaoversikt ---------------- */
+  (function topics() {
+    const host = document.getElementById("topics"); if (!host) return;
+    const cnt = {};
+    ["2024", "2025"].forEach(y => (EXAMS[y] ? EXAMS[y].qs : []).forEach(q => { cnt[q.ch] = cnt[q.ch] || { "2024": 0, "2025": 0 }; cnt[q.ch][y]++; }));
+    const ids = CK.CHAPTERS.map(c => c.id).filter(id => +id <= 15);
+    const max = Math.max(1, ...ids.map(id => Math.max((cnt[id] || {})["2024"] || 0, (cnt[id] || {})["2025"] || 0)));
+    host.innerHTML = `<div class="legend"><span>2024 (${EXAMS["2024"].qs.length} delspørsmål)</span><span class="l25">2025 (${EXAMS["2025"].qs.length} spørsmål)</span></div>` +
+      ids.map(id => {
+        const c = CH[id], v = cnt[id] || { "2024": 0, "2025": 0 };
+        const bar = (y, cls) => `<div class="bar ${cls}"><i style="width:${v[y] / max * 85}%"></i>${v[y]}</div>`;
+        return `<div class="row"><a href="${c.file}">${+id} · ${c.title}<small>${v["2024"] + v["2025"]} totalt</small></a><div class="bars">${bar("2024", "y24")}${bar("2025", "y25")}</div></div>`;
+      }).join("");
+  })();
+
+  /* ---------------- strategikalkulator ---------------- */
+  (function strategy() {
+    const cv = document.getElementById("evplot"); if (!cv) return;
+    const P = CK.plot(cv, { xmin: 0, xmax: 1, ymin: -1, ymax: 2.7, pad: { l: 44, r: 14, t: 12, b: 36 } });
+    const EV = p => 2.5 * p - 0.83 * (1 - p);
+    const CHOICES = [["1", "Sikker (100 %)"], ["0.75", "Ganske sikker (75 %)"], ["0.5", "50/50, utelukket to"], ["0.3333", "Utelukket ett (1/3)"], ["0.25", "Ren gjetning (1/4)"], ["-1", "Blankt"]];
+    const defaults = ["0.3333", "0.25", "0.25", "0.25"];
+    const gc = document.getElementById("gcalc");
+    gc.innerHTML = defaults.map((d, i) => `<label>Spørsmål ${i + 1}<select data-i="${i}">${CHOICES.map(([v, t]) => `<option value="${v}"${v === d ? " selected" : ""}>${t}</option>`).join("")}</select></label>`).join("");
+    const sels = Array.from(gc.querySelectorAll("select"));
+    function expGroup(ps, floor = true) {
+      const a = ps.filter(p => p >= 0); let e = 0;
+      for (let m = 0; m < (1 << a.length); m++) {
+        let pr = 1, s = 0;
+        a.forEach((p, k) => { if (m >> k & 1) { pr *= p; s += 2.5; } else { pr *= 1 - p; s -= 0.83; } });
+        e += pr * (floor ? Math.max(0, s) : s);
+      }
+      return e;
+    }
+    function draw() {
+      const ps = sels.map(s => +s.value);
+      P.clear().grid().axes({ xlabel: "p = sannsynlighet for riktig", ylabel: "forventet poeng" });
+      P.line(0, 0, 1, 0, { color: P.col("axis"), width: 1.5 });
+      P.fn(EV, { color: P.col("c1"), width: 2.6 });
+      [[0.25, "gjett"], [1 / 3, "1 ute"], [0.5, "2 ute"]].forEach(([p, t]) => { P.points([{ x: p, y: EV(p) }], { color: P.col("c2"), r: 5 }); P.text(t, p + 0.015, EV(p) + 0.28, { size: 12, color: P.col("text-soft") }); });
+      ps.filter(p => p >= 0 && p < 1).forEach(p => P.points([{ x: p, y: EV(p) }], { color: P.col("c3"), r: 4 }));
+      const wf = expGroup(ps, true), nf = expGroup(ps, false);
+      const blank = ps.map(p => p >= 0 ? p : -1);
+      const out = document.getElementById("evout");
+      out.innerHTML = `<div><b>${fmt(wf)}</b>forventet gruppepoeng med nullgrense</div><div><b>${fmt(nf)}</b>uten nullgrense</div><div><b>${fmt(wf - nf)}</b>verdien av nullgrensen</div>`;
+      const adv = [];
+      ps.forEach((p, i) => {
+        if (p < 0 || p === 1) return;
+        const without = blank.slice(); without[i] = -1;
+        const gain = wf - expGroup(without, true);
+        adv.push(`Spørsmål ${i + 1}: å svare er verdt <b>${gain >= 0 ? "+" : ""}${fmt(gain, 3)}</b> poeng sammenlignet med blankt${gain > 0.05 ? ". Svar!" : gain > -0.005 ? ". Omtrent likegyldig." : ". La stå blankt."}`);
+      });
+      document.getElementById("evadvice").innerHTML = adv.length ? adv.join("<br>") : "Ingen usikre spørsmål valgt. Velg «ren gjetning» eller «utelukket ett» for å se verdien av å svare.";
+    }
+    sels.forEach(s => s.addEventListener("change", draw));
+    CK.live(draw);
+  })();
+
+  /* ---------------- sjekkliste ---------------- */
+  (function checklist() {
+    const ul = document.getElementById("checklist"); if (!ul) return;
+    const KEY = "16:sjekkliste";
+    const st = CK.store.get(KEY, {}) || {};
+    ul.querySelectorAll("input[data-k]").forEach(inp => {
+      inp.checked = !!st[inp.dataset.k];
+      inp.addEventListener("change", () => { st[inp.dataset.k] = inp.checked; CK.store.set(KEY, st); });
+    });
+  })();
+});
+</script>
+</body>
+</html>

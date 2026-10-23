@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13 · Anomalideteksjon – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .k13 .f1 { fill: var(--c1); } .k13 .f2 { fill: var(--c2); } .k13 .f3 { fill: var(--c3); }
+  .k13 .fm { fill: var(--muted); } .k13 .fs { fill: var(--surface-2); } .k13 .fbg { fill: var(--surface); }
+  .k13 .s1 { stroke: var(--c1); } .k13 .s2 { stroke: var(--c2); } .k13 .s3 { stroke: var(--c3); }
+  .k13 .sm { stroke: var(--muted); } .k13 .st { stroke: var(--text); } .k13 .sb { stroke: var(--border); }
+  .k13 .nf { fill: none; }
+  .k13 text { font-size: 13px; }
+  .k13 text.t-s { font-size: 11.5px; fill: var(--text-soft); }
+  .k13 text.t-b { font-weight: 700; }
+  .controls select { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .k13-status { font-size: 14.5px; color: var(--text-soft); margin-top: 8px; min-height: 1.5em; }
+  .k13-key { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; font-size: 14px; color: var(--text-soft); }
+  .k13-key i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+  table.k13-cmp td:first-child { font-weight: 650; white-space: nowrap; }
+</style>
+</head>
+<body data-chapter="13">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 13 · Del III · Uveiledet læring</div>
+  <h1>Anomalideteksjon</h1>
+  <p class="lead">Hvordan finner du nålen i høystakken når du aldri har sett en nål? Vi gjenbruker k-means og DBSCAN, og lærer en ny metode, Isolation Forest, som bygger på en enkel idé: det som er sjeldent og annerledes, er lett å isolere.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare hva anomalideteksjon er, gi eksempler, og hvorfor det vanligvis er en uveiledet oppgave</li>
+    <li>forklare hva falske positive betyr i anomalideteksjon, og hvorfor de er et stort problem når anomalier er sjeldne</li>
+    <li>bruke k-means til anomalideteksjon med avstand til nærmeste sentroide og en persentil-terskel</li>
+    <li>bruke DBSCAN til anomalideteksjon (label $-1$), og forklare hvorfor DBSCAN trenger alle data samtidig</li>
+    <li>forklare hvordan et isolasjonstre bygges, og hvorfor anomalier får kort sti</li>
+    <li>sammenligne de tre metodene og velge riktig metode for en situasjon</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="hva"><span class="sec">13.1</span>Hva er en anomali, og hvorfor bry seg?</h2>
+
+<p><strong>Anomalideteksjon (anomaly detection, outlier detection)</strong> handler om å finne datapunktene som ikke ligner majoriteten. De kalles anomalier eller outliers. Typiske eksempler fra notatene:</p>
+<ul>
+  <li><strong>Antihvitvasking:</strong> transaksjonsmønstre som skiller seg ut fra vanlige kunders.</li>
+  <li><strong>Kredittkortsvindel:</strong> et kjøp i et annet land, til et uvanlig beløp, klokka fire om natta.</li>
+  <li><strong>Serverangrep:</strong> trafikk som ikke ligner den vanlige belastningen.</li>
+</ul>
+<p>Felles for disse er at vi vet godt hvordan <em>normale</em> datapunkter ser ut, men ikke nøyaktig hvordan avviket kommer til å se ut. Svindlere finner stadig på nye triks, og et nytt angrep ligner ikke nødvendigvis det forrige.</p>
+
+<h3>Hvorfor uveiledet?</h3>
+<p>Vi har mange eksempler på normale punkter, men få eller ingen eksempler på anomalier. Vi kan se på det som et klassifiseringsproblem <strong>uten labels</strong> og med <strong>ekstrem skjevfordeling</strong> mellom klassene. I <a href="03-evaluering.html">kapittel 3</a> så vi hvor vanskelig ubalanse er selv <em>med</em> labels. Her er det verre: den sjeldne klassen er ikke bare liten, vi vet ofte ikke engang hvordan den ser ut. Derfor er det vanligst å behandle anomalideteksjon som en uveiledet oppgave: lær hva «normalt» er, og flagg det som avviker.</p>
+
+<div class="chain">
+  <div><b>Problem</b>Anomalier er sjeldne, ukjente og endrer seg. Vi har nesten ingen labels</div><div class="arrow">→</div>
+  <div><b>Løsning</b>Modeller det normale (klynger, tetthet, hvor lett noe er å isolere), og flagg avvik</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>Vi kan fange nye typer anomalier, men må selv velge en terskel for hva som er «avvikende nok»</div>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span><p>En dørvakt som aldri har sett en falsk legitimasjon, men har sett tusenvis av ekte, kan likevel reagere når noe «ser rart ut». Hun kjenner det normale så godt at avvik stikker seg ut. Det er uveiledet anomalideteksjon.</p></div>
+
+<div class="quiz" data-id="13-hvorfor-uveiledet">
+  <p class="q">Hvorfor behandles anomalideteksjon oftest som en uveiledet oppgave?</p>
+  <ul>
+    <li>Fordi anomalier alltid ligger i høydimensjonale rom</li>
+    <li>Fordi veiledede modeller ikke kan håndtere mer enn to klasser</li>
+    <li>Fordi uveiledede metoder alltid gir høyere precision enn veiledede</li>
+    <li data-correct>Fordi vi har få eller ingen merkede anomalier, og fordi nye anomalier ofte ikke ligner de vi har sett før</li>
+  </ul>
+  <div class="explain">Kjernen er mangel på labels og ekstrem ubalanse: kanskje 1 av 10 000 transaksjoner er svindel, og ingen har merket dem. En klassifikator lærer bare å kjenne igjen de anomaliene den har sett, mens nye svindeltyper kan se helt annerledes ut. Dimensjonalitet har ingenting med saken å gjøre, veiledede modeller kan godt ha mange klasser, og uveiledede metoder gir slett ikke automatisk høyere precision (ofte tvert imot).</div>
+</div>
+
+<div class="reflect" data-id="13-r-klassifikator">
+  <p class="q">En bank har 40 merkede svindelsaker og 2 millioner normale transaksjoner. En kollega vil trene en vanlig klassifikator (f.eks. logistisk regresjon) med disse labelene. Hva er problemene, og hva kan en uveiledet metode gjøre bedre?</p>
+  <div class="answer">Med 40 positive mot 2 millioner negative er ubalansen ekstrem (1 : 50 000). Klassifikatoren kan få nesten perfekt accuracy ved å alltid si «normal», og selv med resampling eller vektet tap (kapittel 3) har den bare 40 eksempler å lære hvordan svindel ser ut fra. Den lærer i beste fall å kjenne igjen <em>de svindeltypene den har sett</em>, mens neste ukes nye triks kan se helt annerledes ut. En uveiledet metode lærer i stedet hvordan normale transaksjoner ser ut (det har vi 2 millioner eksempler på), og flagger alt som avviker, også nye svindeltyper. De 40 merkede sakene er likevel verdifulle: til å evaluere detektoren (recall på kjente saker) og velge terskel.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="evaluering"><span class="sec">13.2</span>Falske positive og tyranniet til små tall</h2>
+
+<p>En anomalidetektor er en binær klassifikator: «anomali» (positiv) eller «normal» (negativ). Begrepene fra <a href="03-evaluering.html">kapittel 3</a> gjelder derfor:</p>
+<ul>
+  <li><strong>Sann positiv (TP):</strong> en ekte anomali som blir flagget.</li>
+  <li><strong>Falsk positiv (FP):</strong> et <em>normalt</em> punkt som blir flagget som anomali. Falsk alarm.</li>
+  <li><strong>Falsk negativ (FN):</strong> en ekte anomali som <em>ikke</em> blir flagget.</li>
+</ul>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2024 oppg. 21: «Hva betyr det hvis en modell for anomalideteksjon gir mange falske positive?» Riktig: <strong>modellen identifiserer mange normale datapunkter som anomalier</strong>. «Klarer ikke å identifisere alle anomaliene» beskriver falske <em>negative</em> (lav recall), en klassisk forveksling.</p></div>
+
+<div class="quiz" data-id="13-falske-positive">
+  <p class="q">En svindeldetektor i en bank gir svært mange falske positive. Hva betyr det?</p>
+  <ul>
+    <li data-correct>Den flagger mange vanlige, lovlige transaksjoner som mistenkelige</li>
+    <li>Den overser mange av svindeltransaksjonene</li>
+    <li>Den er trent på for få eksempler på svindel</li>
+    <li>Den har høy recall, men lav accuracy</li>
+  </ul>
+  <div class="explain">Falsk positiv = predikert positiv (anomali), men egentlig negativ (normal). Mange slike betyr mange falske alarmer, altså lav precision. Å overse svindel er falske <em>negative</em>. «For få eksempler på svindel» er en mulig <em>årsak</em> til dårlig ytelse, men ikke hva begrepet betyr. Mange FP sier i seg selv ingenting om recall.</div>
+</div>
+
+<h3>Hvorfor falske alarmer dominerer</h3>
+<p>Når anomalier er ekstremt sjeldne, blir selv en god detektor overveldet av falske alarmer. Det er ikke en feil i modellen, men ren aritmetikk.</p>
+
+<div class="calc" data-id="13-precision-baserate" data-answer="0.087" data-tol="0.004">
+  <p class="q">En bank har 100 000 transaksjoner, og 100 av dem (0.1 %) er svindel. Detektoren fanger 95 av de 100 svindeltransaksjonene, og flagger feilaktig 1 % av de normale transaksjonene. Hva er precision, altså andelen flaggede transaksjoner som faktisk er svindel? Oppgi med tre desimaler.</p>
+  <div class="solution">
+    TP = 95. Normale transaksjoner: 99 900, og 1 % av dem gir FP = 999.<br>
+    Precision $=\frac{TP}{TP+FP}=\frac{95}{95+999}=\frac{95}{1094}\approx0.087$.<br>
+    Selv med 95 % recall og bare 1 % falske alarmer er under 9 % av alarmene ekte. Over 90 % av sakene etterforskerne åpner, er falske. Accuracy er likevel $\frac{95+98\,901}{100\,000}\approx99.0\,\%$, som ser flott ut, men sier lite.
+  </div>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil: stole på accuracy</span><p>En «detektor» som alltid sier «normal», har 99.9 % accuracy i eksempelet over, og fanger null svindel. Bruk precision og recall (og husk at de krever i hvert fall noen labels for å regnes ut). I anomalideteksjon er det ofte en håndfull merkede eksempler, eller manuell sjekk av de flaggede punktene, som brukes til å evaluere.</p></div>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>Hvor terskelen skal ligge, er en avveining mellom falske alarmer og oversette anomalier, akkurat som terskelen i logistisk regresjon. For en kreftscreening godtar vi mange falske alarmer for å ikke overse noen. For et svindelteam med begrenset kapasitet kan for mange alarmer være like ille som for få, fordi ingen rekker å se på dem.</p></div>
+
+<div class="quiz" data-id="13-accuracy-felle">
+  <p class="q">I et datasett er 0.2 % av punktene anomalier. Modell A flagger aldri noe. Modell B fanger 80 % av anomaliene, men har også en del falske alarmer, og får 97 % accuracy. Hva er riktig?</p>
+  <ul>
+    <li>Modell A er best, fordi den har høyest accuracy (99.8 %)</li>
+    <li>Modellene er like gode, fordi begge har over 95 % accuracy</li>
+    <li>Modell B er ubrukelig, fordi 3 % feil er for mye</li>
+    <li data-correct>Modell A er verdiløs (recall 0). Accuracy er et misvisende mål her, og B må vurderes med precision og recall</li>
+  </ul>
+  <div class="explain">Med 99.8 % normale punkter får en modell som alltid sier «normal», 99.8 % accuracy uten å finne en eneste anomali. Accuracy belønner altså å ignorere den sjeldne klassen. B har recall 0.8. Om B er god nok, avhenger av precision (hvor mange av alarmene er ekte) og hva en falsk alarm koster, ikke av accuracy.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="kmeans"><span class="sec">13.3</span>Metode 1: k-means og avstand til nærmeste sentroide</h2>
+
+<p>Idéen er enkel: et normalt punkt ligger nær en klynge, mens en anomali ligger langt fra alle klyngene. Fremgangsmåten fra notatene:</p>
+<ol>
+  <li>Tilpass en k-means-modell på treningsdata, med passende valg av $k$ (som i <a href="11-clustering.html">kapittel 11</a>).</li>
+  <li>Regn ut avstanden fra hvert testpunkt til <strong>nærmeste</strong> sentroide.</li>
+  <li>Velg en terskel, for eksempel den 95. persentilen av avstandene, og flagg alle punkter med større avstand.</li>
+</ol>
+
+<pre><code>kmeans = KMeans(n_clusters=3).fit(X_train)
+distances = kmeans.transform(X_test).min(axis=1)   <span class="c"># avstand til nærmeste sentroide</span>
+threshold = np.percentile(distances, 95)            <span class="c"># 95. persentil</span>
+outliers = distances > threshold                    <span class="c"># True = anomali</span></code></pre>
+
+<details class="steps"><summary>Hva gjør <code>kmeans.transform(X).min(axis=1)</code>?</summary><div>
+<p><code>kmeans.transform(X)</code> returnerer en matrise med form $(n, k)$: rad $i$, kolonne $j$ er avstanden fra punkt $i$ til sentroide $j$. Med $k=3$ og to punkter kan det se slik ut:</p>
+<table class="center">
+  <tr><th></th><th>sentroide 0</th><th>sentroide 1</th><th>sentroide 2</th><th><code>.min(axis=1)</code></th></tr>
+  <tr><td>punkt A</td><td>0.4</td><td>5.1</td><td>7.3</td><td><b>0.4</b></td></tr>
+  <tr><td>punkt B</td><td>4.8</td><td>6.0</td><td>5.5</td><td><b>4.8</b></td></tr>
+</table>
+<p><code>.min(axis=1)</code> tar minimum langs hver rad, altså avstanden til nærmeste sentroide. Punkt A ligger tett på sentroide 0 og er normalt. Punkt B er langt fra <em>alle</em> sentroidene og er en kandidat til å være anomali. Vi bruker minimum fordi et punkt bare trenger å passe i <em>én</em> klynge for å være normalt.</p>
+</div></details>
+
+<h3>Persentil-terskelen</h3>
+<p>Den $p$-te <strong>persentilen</strong> er verdien som $p$ % av dataene er mindre enn eller lik. Den 95. persentilen av avstandene er altså avstanden som 95 % av punktene ligger innenfor. Setter vi den som terskel, flagger vi de 5 % punktene som ligger lengst fra sin nærmeste sentroide.</p>
+
+<div class="calc" data-id="13-persentil-antall" data-answer="100" data-tol="1">
+  <p class="q">Du har 2000 testpunkter og bruker den 95. persentilen av avstandene (regnet ut på de samme testpunktene) som terskel. Omtrent hvor mange punkter blir flagget som anomalier?</p>
+  <div class="solution">5 % av 2000 = <strong>100</strong> punkter. Legg merke til at det blir omtrent 100 uansett om datasettet inneholder 3 eller 300 ekte anomalier. Terskelen bestemmer <em>andelen</em> som flagges, ikke hvor mange anomalier som faktisk finnes.</div>
+</div>
+
+<div class="callout warn"><span class="label">Terskelen er et valg, ikke en sannhet</span><p>Notatene understreker at 95. persentil bare er et utgangspunkt. Avhengig av dataene kan den gi for mange eller for få flaggede punkter, og det finnes ingen terskel som fungerer generelt. Inneholder dataene 1 % anomalier, gir 95. persentil fire falske alarmer per ekte anomali. Inneholder de 10 %, overser du halvparten.</p></div>
+
+<div class="widget">
+  <h4>Utforsk: k-means-avstand med persentil-terskel</h4>
+  <canvas id="ka-canvas" width="640" height="400"></canvas>
+  <div class="controls">
+    <label>k <input type="range" id="ka-k" min="1" max="6" step="1" value="3"><output id="ka-ko">3</output></label>
+    <label>persentil <input type="range" id="ka-p" min="80" max="99.5" step="0.5" value="95"><output id="ka-po">95</output></label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="ka-thr">terskel: –</span>
+    <span class="readout" id="ka-flag">flagget: –</span>
+    <span class="readout" id="ka-pr">precision: –</span>
+    <span class="readout" id="ka-rc">recall: –</span>
+  </div>
+  <div style="margin-top:8px">
+    <span class="k13-key"><i style="background:var(--c2)"></i>ekte anomali (fasit, som vi i praksis ikke har)</span>
+    <span class="k13-key"><i style="border:2.5px solid var(--text);background:transparent"></i>flagget</span>
+  </div>
+</div>
+<p>Datasettet har tre klynger med ulik tetthet og 11 innplantede anomalier (oransje). Stiplede sirkler viser terskelavstanden rundt hver sentroide. Alt utenfor flagges. <strong>Legg merke til:</strong></p>
+<ul>
+  <li>Med $k=3$ og 95. persentil flagges en del punkter i utkanten av den <em>spredte</em> klyngen (falske positive). Terskelen er én global avstand, men klyngene har ulik spredning.</li>
+  <li>Anomalien like ved den tette klyngen øverst til venstre er vanskelig å fange: den er «langt unna» for en tett klynge, men nær i absolutt avstand.</li>
+  <li>Med $k=1$ ligger sentroiden midt i tomrommet, og avstandene sier lite. Med stor $k$ kan en sentroide «stjele» en gruppe anomalier og gjøre dem normale.</li>
+  <li>Dra persentilen opp og ned: precision og recall drar i hver sin retning.</li>
+</ul>
+
+<div class="quiz" data-id="13-kmeans-transform">
+  <p class="q">Hva er <code>kmeans.transform(X_test).min(axis=1)</code>?</p>
+  <ul>
+    <li>Klyngenummeret til hvert testpunkt</li>
+    <li data-correct>For hvert testpunkt: avstanden til nærmeste sentroide</li>
+    <li>Den minste avstanden mellom to sentroider</li>
+    <li>Inertia for testdataene</li>
+  </ul>
+  <div class="explain"><code>transform</code> gir en $(n,k)$-matrise med avstander fra hvert punkt til hver sentroide, og <code>.min(axis=1)</code> tar minimum per rad, altså per punkt. Klyngenummeret får du med <code>predict</code> (det er <em>argmin</em>, ikke min). Avstand mellom sentroider får du ikke herfra. Inertia ville vært summen av de <em>kvadrerte</em> minimumsavstandene over alle punkter, ett tall og ikke én verdi per punkt.</div>
+</div>
+
+<div class="quiz" data-multi data-id="13-persentil">
+  <p class="q">Du bruker 95. persentil av avstand til nærmeste sentroide som terskel. Hvilke påstander stemmer?</p>
+  <ul>
+    <li data-correct>Omtrent 5 % av punktene flagges, uansett hvor mange ekte anomalier det er</li>
+    <li>Terskelen garanterer at alle ekte anomalier blir funnet</li>
+    <li data-correct>Hvis dataene ikke inneholder noen anomalier, blir alle flaggede punkter falske positive</li>
+    <li data-correct>Terskelen må ofte justeres etter dataene, og det finnes ingen generelt riktig verdi</li>
+  </ul>
+  <div class="explain">En persentil-terskel flagger alltid en fast andel. Er det ingen anomalier, er alle 5 % falske alarmer. Er det mer enn 5 % anomalier, blir mange oversett, så ingen garanti for full recall. Notatene sier eksplisitt at terskelen ofte må justeres, og at det ikke finnes en sann verdi som fungerer generelt.</div>
+</div>
+
+<div class="quiz" data-id="13-kmeans-lokal">
+  <p class="q">I widgeten over blir anomalien like ved den tette klyngen (øverst til venstre) ofte ikke flagget, mens punkter i utkanten av den spredte klyngen blir flagget. Hva er den beste forklaringen?</p>
+  <ul>
+    <li>k-means++ plasserer sentroidene for nær anomaliene</li>
+    <li>Persentilen er for høy, og alt ville blitt riktig med 99. persentil</li>
+    <li data-correct>Terskelen er én global avstand, men klyngene har ulik spredning. Det som er langt unna for en tett klynge, er nært i absolutt avstand, og omvendt for en spredt klynge</li>
+    <li>Euklidsk avstand kan ikke brukes i to dimensjoner</li>
+  </ul>
+  <div class="explain">Avstanden til nærmeste sentroide sammenlignes med samme terskel for alle klynger. Anomalien ved den tette klyngen er mange standardavvik unna, men bare ca. 2 enheter i absolutt avstand, mens normale kantpunkter i den spredte klyngen ligger 3–4 enheter unna. En høyere persentil flagger færre punkter og fanger <em>enda</em> færre slike lokale anomalier. Sentroidene ligger midt i klyngene, så det er ikke init-problemet. To dimensjoner er helt uproblematisk for euklidsk avstand. (DBSCAN har det samme problemet med én global $\varepsilon$.)</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="dbscan"><span class="sec">13.4</span>Metode 2: DBSCAN og støypunktene</h2>
+
+<p>DBSCAN er nærmest laget for anomalideteksjon. Den deler punktene i kjernepunkter, kantpunkter og <strong>støy</strong>, og støypunktene, som får label $-1$, er nettopp outliers: punkter som ikke ligger i et tett område. Vi slipper å lage en egen terskelregel. Det gjør algoritmen for oss gjennom $\varepsilon$ og min_samples.</p>
+
+<pre><code>dbscan = DBSCAN(eps=0.5, min_samples=5).fit(X)    <span class="c"># alle data på én gang</span>
+outliers = dbscan.labels_ == -1                    <span class="c"># True = støy = anomali</span></code></pre>
+
+<div class="callout why"><span class="label">Hvorfor ingen fit på trening og transform på test?</span><p>DBSCAN er <strong>ikke-parametrisk</strong>. Den lærer ingen sentroider, vekter eller annen formel som kan brukes på nye punkter. Resultatet er bare en merkelapp for hvert punkt den har sett, og om et punkt er støy, avhenger av alle naboene. Derfor trenger vi tilgang til alle dataene på én gang, og det finnes ingen <code>predict</code> eller <code>transform</code> for nye punkter. Kommer det nye data, må vi kjøre hele algoritmen på nytt (samme poeng som for t-SNE i <a href="12-dimensjonsreduksjon.html">kapittel 12</a>).</p></div>
+
+<div class="widget">
+  <h4>Utforsk: DBSCAN-støy på de samme dataene</h4>
+  <canvas id="da-canvas" width="640" height="400"></canvas>
+  <div class="controls">
+    <label>ε <input type="range" id="da-eps" min="0.2" max="2" step="0.05" value="0.7"><output id="da-epso">0.70</output></label>
+    <label>min_samples <input type="range" id="da-ms" min="2" max="20" step="1" value="5"><output id="da-mso">5</output></label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="da-nc">klynger: –</span>
+    <span class="readout" id="da-flag">støy (flagget): –</span>
+    <span class="readout" id="da-pr">precision: –</span>
+    <span class="readout" id="da-rc">recall: –</span>
+  </div>
+</div>
+<p>Samme data som i forrige widget. Fargede punkter er klynger, og punkter med ring rundt er støy, altså flagget som anomali. <strong>Legg merke til:</strong> med liten $\varepsilon$ blir store deler av den spredte klyngen støy (mange falske positive). Med stor $\varepsilon$ sluker klyngene anomaliene (mange falske negative). Det finnes ingen $\varepsilon$ som er perfekt for både den tette og den spredte klyngen, og det er den samme ulempen med globale parametre som i kapittel 11. Til gjengjeld trenger DBSCAN ingen $k$ og ingen persentil.</p>
+
+<div class="quiz" data-id="13-dbscan-labels">
+  <p class="q">Hvordan henter du ut anomaliene fra en tilpasset sklearn-DBSCAN-modell?</p>
+  <ul>
+    <li><code>dbscan.predict(X_test) == -1</code></li>
+    <li>Ved å regne ut avstanden til nærmeste kjernepunkt og bruke 95. persentil</li>
+    <li><code>dbscan.labels_ == 0</code>, fordi klynge 0 alltid er støyklyngen</li>
+    <li data-correct><code>dbscan.labels_ == -1</code></li>
+  </ul>
+  <div class="explain">DBSCAN gir støypunktene label $-1$, og vi henter dem direkte fra <code>labels_</code>. Det finnes ingen <code>predict</code> på sklearn sin DBSCAN, fordi metoden er ikke-parametrisk. Vi trenger heller ingen egen terskel, siden DBSCAN finner outliers som en del av modelleringen. Klynge 0 er en helt vanlig klynge.</div>
+</div>
+
+<div class="quiz" data-id="13-dbscan-ikkeparametrisk">
+  <p class="q">Hvorfor kan vi ikke tilpasse DBSCAN på treningsdata og så bruke modellen til å finne anomalier i nye testdata?</p>
+  <ul>
+    <li>Fordi DBSCAN bare fungerer i to dimensjoner</li>
+    <li data-correct>Fordi DBSCAN er ikke-parametrisk: den lærer ingen funksjon som kan brukes på nye punkter, og trenger alle data samtidig</li>
+    <li>Fordi DBSCAN krever labels på testdataene</li>
+    <li>Fordi DBSCAN alltid overtilpasser treningsdataene</li>
+  </ul>
+  <div class="explain">k-means lærer sentroider og Isolation Forest lærer trær, så begge kan brukes på nye punkter. DBSCAN gir bare en merkelapp per punkt den har sett, og om et punkt er støy, avhenger av naboene i akkurat det datasettet. DBSCAN fungerer i alle dimensjoner (men dårligere i mange), trenger ingen labels, og «overtilpasning» er ikke begrunnelsen.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="iforest"><span class="sec">13.5</span>Metode 3: Isolation Forest</h2>
+
+<p>k-means og DBSCAN finner anomalier ved først å beskrive det normale (klynger, tette områder) og så se hva som faller utenfor. <strong>Isolation Forest</strong> snur på det: den prøver å <em>isolere</em> hvert enkelt punkt direkte, og måler hvor lett det er.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p>Tenk på «20 spørsmål» der du skal finne én person i et rom med tilfeldige ja/nei-spørsmål («er hun over 1.90?»). En person som er 2.10 høy, finner du på ett eller to spørsmål. En helt gjennomsnittlig person midt i mengden krever mange. Anomalier er de som blir isolert etter få tilfeldige spørsmål.</p></div>
+
+<h3>Hvordan et isolasjonstre bygges</h3>
+<p>Et <strong>isolasjonstre (isolation tree, iTree)</strong> er et beslutningstre (<a href="05-traer.html">kapittel 5</a>) som bygges <em>uten</em> labels og <em>uten</em> Gini eller entropi:</p>
+<ol>
+  <li>Trekk et tilfeldig subsett av treningsdataene, <strong>uten tilbakelegging</strong>.</li>
+  <li>Velg en <strong>tilfeldig feature</strong>.</li>
+  <li>Velg en <strong>tilfeldig splittverdi</strong> mellom minste og største verdi av den featuren blant punktene i noden.</li>
+  <li>Del punktene i to barnenoder, og gjenta rekursivt til hvert datapunkt havner i sin egen løvnode.</li>
+</ol>
+<p>Vi får altså én løvnode per datapunkt. <strong>Stilengden (path length)</strong> $h(x)$ er antall splitter fra roten ned til løvnoden der punktet $x$ havner.</p>
+
+<div class="callout why"><span class="label">Hvorfor får anomalier kort sti?</span><p>Fordi anomalier er <strong>få og annerledes</strong>. «Annerledes» betyr at de ligger langt fra resten i minst én feature, så en tilfeldig splittverdi har stor sjanse for å havne i det tomme rommet mellom anomalien og resten. «Få» betyr at det ikke er mange andre punkter rundt dem som må skilles fra. Et punkt midt i en tett klynge er omgitt av mange naboer, og det trengs mange splitter for å skjære det løs.</p></div>
+
+<figure class="card">
+<svg class="k13" viewBox="0 0 660 260" role="img" aria-label="Isolasjon av en anomali med to splitter og av et normalt punkt med mange splitter, vist som rom og som tre">
+  <!-- venstre: rom -->
+  <rect x="10" y="10" width="290" height="200" rx="8" class="fs"/>
+  <g class="f1" opacity=".85">
+    <circle cx="90" cy="120" r="4"/><circle cx="104" cy="110" r="4"/><circle cx="96" cy="136" r="4"/><circle cx="115" cy="128" r="4"/><circle cx="80" cy="104" r="4"/><circle cx="122" cy="112" r="4"/><circle cx="108" cy="146" r="4"/><circle cx="75" cy="132" r="4"/><circle cx="130" cy="138" r="4"/><circle cx="100" cy="95" r="4"/><circle cx="88" cy="150" r="4"/><circle cx="118" cy="96" r="4"/>
+  </g>
+  <circle cx="112" cy="128" r="7" class="nf st" stroke-width="2"/>
+  <circle cx="250" cy="45" r="6" class="f2"/>
+  <line x1="190" y1="10" x2="190" y2="210" class="s2" stroke-width="2"/>
+  <text x="194" y="200" class="t-s">splitt 1</text>
+  <line x1="190" y1="75" x2="300" y2="75" class="s2" stroke-width="2"/>
+  <text x="240" y="90" class="t-s">splitt 2</text>
+  <line x1="10" y1="122" x2="190" y2="122" class="sm" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <line x1="110" y1="122" x2="110" y2="210" class="sm" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <line x1="110" y1="134" x2="190" y2="134" class="sm" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <line x1="120" y1="122" x2="120" y2="134" class="sm" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="155" y="232" text-anchor="middle" class="t-s">Anomalien (oransje) er isolert etter 2 splitter.</text>
+  <text x="155" y="248" text-anchor="middle" class="t-s">Det innringede normale punktet trenger mange flere.</text>
+  <!-- høyre: tre -->
+  <g class="st" stroke-width="1.5">
+    <line x1="470" y1="30" x2="590" y2="75"/><line x1="470" y1="30" x2="400" y2="75"/>
+    <line x1="590" y1="75" x2="625" y2="120"/><line x1="590" y1="75" x2="555" y2="120"/>
+    <line x1="400" y1="75" x2="360" y2="120"/><line x1="400" y1="75" x2="440" y2="120"/>
+    <line x1="440" y1="120" x2="415" y2="165"/><line x1="440" y1="120" x2="465" y2="165"/>
+    <line x1="465" y1="165" x2="445" y2="210"/><line x1="465" y1="165" x2="490" y2="210"/>
+  </g>
+  <g class="fbg st" stroke-width="1.5">
+    <circle cx="470" cy="30" r="9"/><circle cx="590" cy="75" r="9"/><circle cx="400" cy="75" r="9"/><circle cx="440" cy="120" r="9"/><circle cx="465" cy="165" r="9"/>
+  </g>
+  <circle cx="555" cy="120" r="8" class="f2"/>
+  <text x="555" y="145" text-anchor="middle" class="t-s">anomali: h = 2</text>
+  <rect x="619" y="114" width="12" height="12" class="fm"/>
+  <rect x="354" y="114" width="12" height="12" class="fm"/>
+  <rect x="409" y="159" width="12" height="12" class="fm"/>
+  <circle cx="490" cy="210" r="8" class="f1"/>
+  <text x="490" y="235" text-anchor="middle" class="t-s">normalt punkt: h = 5 (og mer)</text>
+  <rect x="439" y="204" width="12" height="12" class="fm"/>
+  <text x="470" y="14" text-anchor="middle" class="t-s">rot</text>
+</svg>
+<figcaption><b>Figur 13.1</b> Venstre: tilfeldige akseparallelle splitter. Den første splitten skiller ut et nesten tomt område, og anomalien er alene etter to. Høyre: det samme som et tre. Anomalien ligger nær roten (kort sti), mens normale punkter ligger dypt. Grå firkanter er undertrær med de andre punktene.</figcaption>
+</figure>
+
+<div class="calc" data-id="13-isolasjon-1d" data-answer="0.667" data-tol="0.005">
+  <p class="q">Endimensjonale data: $\{1,\,2,\,3,\,4,\,10\}$. Rotnoden velger en splittverdi uniformt tilfeldig mellom minste og største verdi, altså i $[1,\,10]$. Hva er sannsynligheten for at punktet $10$ blir isolert allerede i første splitt?</p>
+  <div class="solution">Punktet $10$ isoleres hvis splitten havner mellom $4$ og $10$. Det intervallet har lengde $6$ av totalt $9$: $P=6/9\approx0.667$. For punktet $2$ er sannsynligheten for å bli isolert i første splitt null, siden det har naboer på begge sider. Det trengs minst to splitter. Det er dette som gir anomalier kort forventet stilengde.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: isoler et punkt med tilfeldige splitter</h4>
+  <canvas id="it-canvas" width="640" height="400"></canvas>
+  <div class="controls">
+    <button class="btn" id="it-tree" type="button">Bygg ett tre (animert)</button>
+    <button class="btn ghost" id="it-many" type="button">Kjør 500 trær</button>
+    <label><input type="checkbox" id="it-color"> farg alle punkter etter snittlig stilengde</label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="it-sel">valgt punkt: –</span>
+    <span class="readout" id="it-one">dette treet: –</span>
+    <span class="readout" id="it-avg">snitt over 500 trær: –</span>
+    <span class="readout" id="it-all">snitt for alle punkter: –</span>
+  </div>
+  <div class="k13-status" id="it-status">Klikk på et punkt for å velge det, og trykk «Bygg ett tre». Prøv både en outlier og et punkt midt i klyngen.</div>
+</div>
+<p>Hver splitt velger en tilfeldig akse og en tilfeldig verdi mellom minste og største verdi blant punktene som er igjen sammen med det valgte punktet. Den grå skyggen viser området som er skåret bort. <strong>Legg merke til:</strong></p>
+<ul>
+  <li>En outlier blir ofte isolert på 1–4 splitter, mens et punkt midt i klyngen trenger 8–12.</li>
+  <li>Ett enkelt tre er veldig tilfeldig. Noen ganger er outlieren uheldig og bruker mange splitter. Kjør 500 trær, så stabiliserer snittet seg, og forskjellen blir tydelig. Det er derfor vi bruker en <em>skog</em>.</li>
+  <li>Slå på fargelegging: de mørkeste (korteste) stiene ligger i utkanten og i tomrommet mellom klyngene.</li>
+</ul>
+
+<h3>Fra ett tre til en skog</h3>
+<p>Prosedyren har to steg:</p>
+<ol>
+  <li><strong>Tren mange isolasjonstrær</strong>, hvert på sitt tilfeldige subsett av treningsdataene, trukket uten tilbakelegging.</li>
+  <li><strong>Kombiner stilengdene</strong> for hvert punkt over alle trærne. Kort gjennomsnittlig stilengde betyr at punktet er lett å isolere, og dermed trolig en anomali.</li>
+</ol>
+<p>I prinsippet kan man bygge bare ett tre, men splittene er helt tilfeldige, så ett tre er støyete. Den tilfeldige trekningen av data til hvert tre, og gjennomsnittet over mange trær, gir modellen robusthet til tross for tilfeldigheten i splittkriteriene. Det er samme logikk som i bagging og random forest (<a href="08-ensemble.html">kapittel 8</a>): mange ustabile modeller som gjennomsnittes, gir lav varians.</p>
+
+<div class="callout warn"><span class="label">Ikke bland med random forest</span><p>Random forest er en <em>veiledet</em> modell: trærne splitter for å gjøre nodene renest mulig med hensyn på labels (Gini/entropi), og trekker bootstrap-utvalg <em>med</em> tilbakelegging. Isolation Forest er <em>uveiledet</em>: helt tilfeldige splitter, subsett <em>uten</em> tilbakelegging, og det eneste vi bruker fra trærne, er hvor dypt punktene havner.</p></div>
+
+<pre><code><span class="k">from</span> sklearn.ensemble <span class="k">import</span> IsolationForest
+
+iso_forest = IsolationForest(n_estimators=100, contamination=0.05)
+iso_forest.fit(X_train)
+outliers = iso_forest.predict(X_test) == -1      <span class="c"># -1 = anomali, 1 = normal</span>
+scores = iso_forest.score_samples(X_test)        <span class="c"># lavere = mer unormal</span></code></pre>
+
+<ul>
+  <li><code>n_estimators</code>: antall isolasjonstrær i skogen (her 100).</li>
+  <li><code>contamination</code>: hvor stor andel anomalier vi <em>anslår</em> at datasettet har (her 5 %). Den setter terskelen på anomaliscoren, slik at omtrent denne andelen av treningsdataene flagges. Det er samme rolle som persentilen spilte for k-means.</li>
+  <li><code>predict</code> returnerer $-1$ for anomalier og $1$ for normale punkter.</li>
+  <li><code>max_samples</code> (standard <code>min(256, n)</code>) er størrelsen på subsettet hvert tre bygges på.</li>
+</ul>
+
+<details class="more"><summary>Fordypning: anomaliscoren og normaliseringen med forventet stilengde <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+<p>Rå stilengde avhenger av hvor mange punkter treet er bygget på: flere punkter gir dypere trær. For å få et tall som kan sammenlignes, normaliseres gjennomsnittlig stilengde $E[h(x)]$ med den forventede stilengden $c(n)$ for et tilfeldig punkt i et tre bygget på $n$ punkter (samme som gjennomsnittlig dybde for et mislykket søk i et binært søketre):</p>
+<p>$$c(n)=2H(n-1)-\frac{2(n-1)}{n},\qquad H(i)\approx\ln i+0.5772$$</p>
+<p>Anomaliscoren er da</p>
+<p>$$s(x,n)=2^{-E[h(x)]/c(n)}$$</p>
+<ul>
+  <li>$E[h(x)]\to0$ gir $s\to1$: svært lett å isolere, klar anomali.</li>
+  <li>$E[h(x)]=c(n)$ gir $s=0.5$: helt gjennomsnittlig.</li>
+  <li>$E[h(x)]$ mye større enn $c(n)$ gir $s\to0$: dypt inne i en tett klynge.</li>
+</ul>
+<p>Eksempel: med subsett på $n=256$ er $c(256)\approx2(\ln255+0.5772)-2\cdot255/256\approx10.24$. Et punkt med snittlig stilengde 5 får $s=2^{-5/10.24}\approx0.71$, altså klart unormalt. sklearn sin <code>score_samples</code> returnerer $-s$, slik at lavere betyr mer unormalt.</p>
+<p>I tillegg stoppes trærne i praksis ved en høydegrense $\lceil\log_2 n\rceil$ (8 for $n=256$), siden vi bare bryr oss om de korte stiene. Punkter som når en løvnode med flere punkter, får $c(\text{antall i løvet})$ lagt til stilengden.</p>
+</div></details>
+
+<div class="calc" data-id="13-iforest-score" data-answer="0.713" data-tol="0.006">
+  <p class="q">(Fordypning) En isolation forest er bygget med subsett på 256 punkter, så $c(256)\approx10.24$. Et punkt har gjennomsnittlig stilengde $5$. Hva er anomaliscoren $s=2^{-E[h]/c(n)}$? Oppgi med tre desimaler.</p>
+  <div class="solution">$s=2^{-5/10.24}=2^{-0.488}\approx0.713$. Over 0.5, altså kortere sti enn gjennomsnittet, og punktet er en anomali-kandidat. Med stilengde $10.24$ ville $s$ vært nøyaktig $0.5$.</div>
+</div>
+
+<div class="quiz" data-id="13-score-tolk">
+  <p class="q">(Fordypning) Punkt A har anomaliscore $s=0.82$ og punkt B har $s=0.31$. Hva er riktig?</p>
+  <ul>
+    <li>B er mest unormal, fordi lav score betyr lang sti</li>
+    <li data-correct>A er lettest å isolere og den mest sannsynlige anomalien. B ligger trolig inne i en tett klynge</li>
+    <li>Begge er anomalier, fordi alle scorer over 0.3 regnes som avvik</li>
+    <li>Scorene kan ikke sammenlignes, fordi de kommer fra ulike trær</li>
+  </ul>
+  <div class="explain">$s=2^{-E[h]/c(n)}$ er høy (nær 1) når snittstien er kort, altså når punktet er lett å isolere. A har kortere sti enn gjennomsnittet ($s>0.5$), B lengre ($s\lt 0.5$), så B er et typisk normalt punkt. Lang sti betyr normal, ikke unormal. Det finnes ingen fast grense på 0.3, og terskelen settes med <code>contamination</code>. Scorene er gjennomsnitt over hele skogen og normalisert med $c(n)$, nettopp for å kunne sammenlignes.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: Isolation Forest på datasettet fra 13.3</h4>
+  <canvas id="if-canvas" width="640" height="400"></canvas>
+  <div class="controls">
+    <label>n_estimators <input type="range" id="if-n" min="1" max="200" step="1" value="100"><output id="if-no">100</output></label>
+    <label>contamination <input type="range" id="if-c" min="0.01" max="0.15" step="0.005" value="0.05"><output id="if-co">0.050</output></label>
+    <button class="btn ghost" id="if-new" type="button">Ny skog (nytt frø)</button>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="if-flag">flagget: –</span>
+    <span class="readout" id="if-pr">precision: –</span>
+    <span class="readout" id="if-rc">recall: –</span>
+  </div>
+</div>
+<p>Fargen viser anomaliscoren $s$, fra blå (lav score, vanskelig å isolere) via lilla til oransje (høy score, lett å isolere). Punkter med ring rundt er flagget: de med høyest score, akkurat så mange som <code>contamination</code> tilsier. Hvert tre bygges på et subsett på 64 punkter. <strong>Legg merke til:</strong> med <code>n_estimators=1</code> hopper resultatet mye når du trykker «Ny skog». Med 100 trær er det stabilt. <code>contamination</code> endrer ikke scorene, bare hvor terskelen settes. Sett den til ca. 0.045 (11 av 251 punkter), som er den sanne andelen, og se hvor mange av de flaggede som er ekte.</p>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2024 oppg. 23: «Hva brukes Isolation Forest til i konteksten av anomalideteksjon?» Riktig: <strong>å isolere datapunkter ved å dele opp dataene gjennom beslutningstrær</strong>. Eksamen 2025 del 7.4: «Hvorfor får anomalier typisk høyere anomalipoeng?» Fasit: <strong>fordi anomalier har en tendens til å bli isolert tidligere i den rekursive oppdelingen, noe som gir kortere sti-lengder</strong>. To av distraktorene (lav tetthet, færre naboer) høres riktige ut og beskriver delvis <em>hvorfor</em> anomalier blir isolert tidlig, men fasit er formuleringen som beskriver selve mekanismen: tidlig isolasjon gir kort sti, og kort sti gir høy score.</p></div>
+
+<div class="quiz" data-id="13-iforest-hva">
+  <p class="q">Hva er prinsippet bak Isolation Forest?</p>
+  <ul>
+    <li>Den lærer en lineær grense som skiller normale punkter fra anomalier</li>
+    <li>Den klassifiserer punkter med mange beslutningstrær trent på merkede anomalier</li>
+    <li data-correct>Den isolerer datapunkter ved å dele opp dataene med tilfeldige splitter i mange trær, og punkter som isoleres raskt, regnes som anomalier</li>
+    <li>Den reduserer dimensjonen på dataene og ser hvilke punkter som får størst rekonstruksjonsfeil</li>
+  </ul>
+  <div class="explain">Isolation Forest isolerer punkter med tilfeldige splitter, og kort stilengde betyr anomali. Den er ikke lineær (trær lager akseparallelle grenser). Den bruker ingen labels, så «trent på merkede anomalier» er feil, og det er nettopp forskjellen fra random forest. Rekonstruksjonsfeil etter dimensjonsreduksjon er en helt annen metode (som ble brukt i prosjekt 3, se 13.7).</div>
+</div>
+
+<div class="quiz" data-id="13-iforest-kort-sti">
+  <p class="q">Hvorfor får anomalier typisk kortere stilengde i et isolasjonstre?</p>
+  <ul>
+    <li data-correct>Fordi de er få og ligger langt fra de andre punktene, slik at en tilfeldig splitt ofte skiller dem ut tidlig i den rekursive oppdelingen</li>
+    <li>Fordi isolasjonstrær splitter på den featuren som gir høyest informasjonsgevinst for anomaliene</li>
+    <li>Fordi anomalier krever dypere trær for å skilles fra klyngesentrene</li>
+    <li>Fordi trærne bygges med tilbakelegging, slik at anomalier trekkes flere ganger</li>
+  </ul>
+  <div class="explain">«Få og annerledes» er nøkkelen: det tomme rommet rundt en anomali gjør at tilfeldige splittverdier ofte havner der, og anomalien blir alene i en node nær roten. Det brukes ingen informasjonsgevinst, og ingen labels. «Dypere trær» er det motsatte av riktig svar: dypt betyr normalt. Subsettene trekkes <em>uten</em> tilbakelegging.</div>
+</div>
+
+<div class="quiz" data-multi data-id="13-iforest-detaljer">
+  <p class="q">Hvilke påstander om Isolation Forest stemmer?</p>
+  <ul>
+    <li data-correct>Hvert tre bygges på et tilfeldig subsett av treningsdataene, trukket uten tilbakelegging</li>
+    <li data-correct>Både feature og splittverdi i hver node velges tilfeldig</li>
+    <li>Splittene velges for å minimere Gini-urenheten</li>
+    <li data-correct>Trærne splittes (i prinsippet) til hvert punkt er i sin egen løvnode</li>
+    <li>Ett enkelt tre er like robust som en skog med hundre trær</li>
+  </ul>
+  <div class="explain">Subsett uten tilbakelegging, tilfeldig feature og tilfeldig splittverdi, og splitting til hvert punkt er isolert, er nøyaktig prosedyren i notatene. Gini krever labels, som vi ikke har. Ett tre er svært tilfeldig (se widgeten). Det er gjennomsnittet over mange trær som gir robusthet.</div>
+</div>
+
+<div class="quiz" data-id="13-contamination">
+  <p class="q">Hva styrer hyperparameteren <code>contamination=0.05</code> i <code>IsolationForest</code>?</p>
+  <ul>
+    <li>Hvor stor andel av dataene hvert tre trenes på</li>
+    <li>Hvor mange trær som bygges</li>
+    <li data-correct>Den anslåtte andelen anomalier, som bestemmer terskelen: omtrent 5 % av treningspunktene får predikert $-1$</li>
+    <li>Sannsynligheten for at en splitt velges tilfeldig i stedet for optimalt</li>
+  </ul>
+  <div class="explain"><code>contamination</code> endrer ikke trærne eller scorene. Den bestemmer bare hvor terskelen på scoren settes, slik at omtrent den andelen flagges. Det tilsvarer persentil-terskelen for k-means. Subsettstørrelsen er <code>max_samples</code>, antall trær er <code>n_estimators</code>, og alle splitter er tilfeldige.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="sammenligning"><span class="sec">13.6</span>Sammenligning: hvilken metode når?</h2>
+
+<p>Notatene oppsummerer de tre metodene slik:</p>
+<ul>
+  <li><strong>k-means:</strong> lager $k$ klynger basert på avstand til klyngesentrum. Anomalier er punkter som ligger langt fra alle klyngesentrene.</li>
+  <li><strong>DBSCAN:</strong> lager klynger av tette områder, og anomalier er isolerte punkter (støy). DBSCAN finner outliers som en del av modelleringen.</li>
+  <li><strong>Isolation Forest:</strong> bygger trær der alle punktene havner i en egen løvnode. Anomalier har kort gjennomsnittlig stilengde, altså er lettere å isolere.</li>
+</ul>
+
+<div class="reflect" data-id="13-r-fordeler">
+  <p class="q">Oppgave fra notatene: Hva er fordelene og ulempene med de ulike metodene? Tenk på hyperparametre, terskel, nye data, form og tetthet på klyngene, og store datasett. Skriv ned før du ser tabellen.</p>
+  <div class="answer">Se tabellen under. Det viktigste: k-means er rask og kan brukes på nye data, men antar runde klynger og krever både $k$ og en terskel. DBSCAN finner anomalier direkte og takler vilkårlige former, men er følsom for $\varepsilon$ og min_samples, sliter med ulik tetthet, er treg for stor $n$ og kan ikke brukes på nye punkter. Isolation Forest antar ingen klyngeform, er rask og skalerer godt, kan brukes på nye data og gir en score, men krever at vi anslår contamination, og er tilfeldig (trenger mange trær).</div>
+</div>
+
+<table class="k13-cmp">
+  <tr><th></th><th>k-means-avstand</th><th>DBSCAN-støy</th><th>Isolation Forest</th></tr>
+  <tr><td>Idé</td><td>Langt fra alle sentroider</td><td>Ikke i et tett område</td><td>Lett å isolere (kort sti)</td></tr>
+  <tr><td>Hyperparametre</td><td>$k$ + terskel (persentil)</td><td>$\varepsilon$, min_samples (ingen egen terskel)</td><td>n_estimators, contamination (terskel), max_samples</td></tr>
+  <tr><td>Nye data</td><td>Ja: <code>transform</code> etter <code>fit</code></td><td>Nei: ikke-parametrisk, alle data på én gang</td><td>Ja: <code>predict</code> etter <code>fit</code></td></tr>
+  <tr><td>Klyngeform</td><td>Antar runde, like store klynger</td><td>Vilkårlig form</td><td>Ingen antakelse om klynger</td></tr>
+  <tr><td>Ulik tetthet</td><td>Dårlig: én global avstandsterskel</td><td>Dårlig: globale $\varepsilon$ og min_samples</td><td>Rimelig, men lokale anomalier nær en tett klynge kan gå under radaren</td></tr>
+  <tr><td>Stor $n$</td><td>Rask (MiniBatchKMeans)</td><td>Treg (nabosøk, inntil $O(n^2)$)</td><td>Rask: små subsett og grunne trær</td></tr>
+  <tr><td>Høye dimensjoner</td><td>Svak (avstandskonsentrasjon)</td><td>Svak (avstandskonsentrasjon)</td><td>Bedre, siden den ikke bruker avstand, men irrelevante features gir bortkastede splitter</td></tr>
+  <tr><td>Resultat</td><td>Kontinuerlig avstand (score)</td><td>Binær: støy eller ikke</td><td>Kontinuerlig score</td></tr>
+  <tr><td>Robusthet mot outliers i trening</td><td>Outliers drar sentroidene</td><td>God (de blir støy)</td><td>God (de isoleres og påvirker lite)</td></tr>
+</table>
+
+<h3>Tommelfingerregler</h3>
+<ul>
+  <li><strong>Nye data kommer fortløpende</strong> (f.eks. transaksjoner som skal sjekkes i sanntid): bruk en metode som kan tilpasses én gang og brukes på nye punkter, altså <strong>Isolation Forest</strong> eller k-means. DBSCAN må kjøres på nytt for hvert nytt datasett.</li>
+  <li><strong>Mange features eller ukjent klyngestruktur:</strong> start med <strong>Isolation Forest</strong>.</li>
+  <li><strong>Lavdimensjonale data med tydelige, tette klynger av vilkårlig form, og alle data er tilgjengelige:</strong> <strong>DBSCAN</strong>, som også gir clusteringen gratis.</li>
+  <li><strong>Data med kjente, runde grupper</strong> (f.eks. kundesegmenter), og du vil ha en enkel, forklarbar score: <strong>k-means-avstand</strong>.</li>
+  <li>Uansett metode: <strong>skaler featurene</strong>, se på de flaggede punktene, og juster terskelen.</li>
+</ul>
+
+<div class="quiz" data-id="13-velg-metode">
+  <p class="q">En nettbutikk vil sjekke hver nye ordre for svindel i det øyeblikket den legges inn. Ordrene har 30 features, og ingen ordrer er merket. Hvilken metode passer dårligst?</p>
+  <ul>
+    <li data-correct>DBSCAN</li>
+    <li>Isolation Forest tilpasset på historiske ordrer</li>
+    <li>k-means tilpasset på historiske ordrer, med avstand til nærmeste sentroide som score</li>
+    <li>Alle tre passer like godt</li>
+  </ul>
+  <div class="explain">DBSCAN er ikke-parametrisk og trenger alle data samtidig. For å vurdere én ny ordre måtte vi kjørt hele algoritmen på nytt med den nye ordren inkludert, og DBSCAN er treg for stor $n$. Med 30 features er avstandsbaserte metoder også svekket. Isolation Forest og k-means kan tilpasses én gang og deretter gi en score til nye punkter med <code>predict</code>/<code>transform</code>. Isolation Forest er trolig best her, siden den ikke bygger på avstand.</div>
+</div>
+
+<div class="quiz" data-multi data-id="13-sammenlign">
+  <p class="q">Hvilke påstander stemmer?</p>
+  <ul>
+    <li data-correct>DBSCAN trenger ingen egen terskel for å flagge anomalier</li>
+    <li>k-means-metoden finner automatisk riktig andel anomalier uten at vi velger en terskel</li>
+    <li data-correct>Både k-means og DBSCAN svekkes i høye dimensjoner fordi de bygger på avstand</li>
+    <li data-correct>Isolation Forest kan gi en anomaliscore til nye punkter etter trening</li>
+    <li>Isolation Forest krever at vi oppgir antall klynger</li>
+  </ul>
+  <div class="explain">DBSCAN gir støypunktene label $-1$ direkte. k-means gir bare avstander, så vi må selv velge terskel (f.eks. 95. persentil). Avstandskonsentrasjon (kapittel 11) rammer begge de avstandsbaserte metodene. Isolation Forest er parametrisk i den forstand at den lagrer trærne, og kan score nye punkter. Den har ingen klynger og trenger ingen $k$.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="prosjekt"><span class="sec">13.7</span>Prosjekt 3: radene som ikke hørte hjemme</h2>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt</span><p>Problem 2 i prosjekt 3 hadde kravet «Some rows do not belong here, perform anomaly detection and find those samples» og spørsmålet «❓ How did you detect the rows that do not belong, and what were they?»</p></div>
+
+<p>Datasettet var 4000 kartbilder av fire steder i Trondheim (128 × 128 piksler med stokket rekkefølge, se <a href="11-clustering.html">kapittel 11</a>). Tre av radene var noe helt annet: syntetiske bilder med teksten «1/3», «2/3» og «3/3» på en støyete gradient, med pikselerte blokker og salt-og-pepper-støy.</p>
+
+<p>Løsningen brukte en fjerde idé som er nær beslektet med metodene i kapittelet: <strong>rekonstruksjonsfeil etter PCA</strong> (<a href="12-dimensjonsreduksjon.html">kapittel 12</a>). PCA med 50 komponenter ble tilpasset på alle bildene. De 50 komponentene fanger strukturen som kartbildene har felles. Et bilde som ikke er et kart, kan ikke gjenskapes godt fra dem og får stor feil. Histogrammet over feil viste et tydelig gap: tre rader hadde feil 746–1025, medianen var 217 og den nest største 578. En terskel på 650 skilte ut ID 968, 2117 og 2251.</p>
+
+<div class="callout why"><span class="label">Hvorfor fungerer dette?</span><p>Det er det samme prinsippet som i hele kapittelet: modeller det normale, og se hva som ikke passer. k-means modellerer det normale som klynger, DBSCAN som tette områder, Isolation Forest som «vanskelig å isolere», og PCA som «kan beskrives med noen få felles retninger». Terskelen ble satt ved å se etter et gap i fordelingen av scoren, ikke ved en fast persentil. Med bare 3 anomalier blant 4000 rader (0.075 %) ville 95. persentil gitt 200 flaggede rader, og 197 av dem ville vært falske positive.</p></div>
+
+<div class="reflect" data-id="13-r-prosjekt">
+  <p class="q">Hvordan tror du de tre metodene fra dette kapittelet ville klart seg på å finne de tre radene i prosjekt 3? Tenk på hvilken representasjon (rå piksler eller PCA-komponenter) du ville kjørt dem på, og hvordan du ville valgt terskel.</p>
+  <div class="answer">
+    <p>På rå piksler (16 384 dimensjoner) ville k-means og DBSCAN slitt med avstandskonsentrasjon: alle bilder er omtrent like langt fra hverandre. Kjørt på de første PCA-komponentene er sjansene bedre, men et tekstbilde kan tilfeldigvis havne nær en klynge i et lavdimensjonalt rom, fordi PCA er tilpasset kartbildene og kaster nettopp den informasjonen som gjør tekstbildene spesielle.</p>
+    <p>DBSCAN ville trolig merket de tre som støy hvis $\varepsilon$ var valgt godt, men den samme $\varepsilon$ kunne også gjort en del sjeldne kartvarianter til støy. Isolation Forest på PCA-komponenter er en god kandidat, men <code>contamination</code> må settes svært lavt (ca. 0.001), ellers flagges mange vanlige bilder. For k-means ville 95. persentil gitt 200 flaggede bilder, så terskelen måtte vært satt ved å se etter et gap. Felles lærdom: velg en representasjon der det normale er kompakt, og velg terskelen ved å se på fordelingen av scoren.</p>
+  </div>
+</div>
+
+<div class="reflect" data-id="13-r-terskel">
+  <p class="q">Du har ingen labels. Hvordan kan du likevel gjøre et fornuftig valg av terskel (persentil, contamination, $\varepsilon$), og hva er konsekvensen av å velge for lavt eller for høyt?</p>
+  <div class="answer">Se på fordelingen av scoren (avstand, støy, stilengde) og let etter et naturlig gap eller en lang hale. Se manuelt på de mest ekstreme punktene, og eventuelt på et lite utvalg rundt terskelen, for å se om de virker unormale. Bruk domenekunnskap om forventet andel (f.eks. «ca. 0.1 % svindel»), og vurder hva en falsk alarm og en oversett anomali koster. For lav terskel (flagger mye) gir mange falske positive, høy recall og lav precision, og alarmtretthet. For høy terskel gir få alarmer og høy precision, men oversette anomalier (falske negative). Hvis noen få merkede eksempler finnes, kan de brukes til å sjekke precision og recall.</div>
+</div>
+
+<!-- ===================================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Anomalideteksjon</strong> finner punkter som ikke ligner majoriteten (hvitvasking, kortsvindel, serverangrep). Mange normale og få eller ingen anomalier, altså ekstrem ubalanse uten labels, så oppgaven er vanligvis <strong>uveiledet</strong>.</li>
+    <li><strong>Falske positive</strong> = normale punkter flagget som anomalier. Når anomalier er sjeldne, dominerer de: 95 % recall og 1 % falske alarmer kan gi under 10 % precision. Accuracy er misvisende.</li>
+    <li><strong>k-means:</strong> avstand til nærmeste sentroide, <code>kmeans.transform(X).min(axis=1)</code>, og terskel f.eks. <code>np.percentile(distances, 95)</code>. Terskelen flagger en fast andel og må justeres. Kan brukes på nye data.</li>
+    <li><strong>DBSCAN:</strong> <code>labels_ == -1</code>. Ingen egen terskel, men følsom for $\varepsilon$ og min_samples. Ikke-parametrisk, så den trenger alle data samtidig (ingen fit/transform-split).</li>
+    <li><strong>Isolation Forest:</strong> mange isolasjonstrær på subsett uten tilbakelegging, med tilfeldig feature og tilfeldig splittverdi til hvert punkt er alene. Anomalier er <strong>få og annerledes</strong>, og får derfor <strong>kort stilengde</strong>. Skogen gir robusthet. <code>n_estimators</code>, <code>contamination</code> (terskel), <code>predict == -1</code>.</li>
+    <li><strong>Valg:</strong> nye data fortløpende → Isolation Forest eller k-means. Lavdimensjonale data med vilkårlige former og alle data tilgjengelige → DBSCAN. Mange features → Isolation Forest.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Anomalideteksjon</div><div class="back">Finne punkter som ikke ligner majoriteten. Ekstrem ubalanse og få/ingen labels → vanligvis uveiledet.</div></div>
+  <div class="card"><div class="front">Falsk positiv (anomali)</div><div class="back">Et normalt punkt som flagges som anomali. Mange FP = mange falske alarmer = lav precision.</div></div>
+  <div class="card"><div class="front">k-means-score</div><div class="back"><code>kmeans.transform(X).min(axis=1)</code>: avstand til nærmeste sentroide. Flagg over en persentil (f.eks. 95.).</div></div>
+  <div class="card"><div class="front">Persentil-terskel</div><div class="back">Flagger alltid en fast andel (95. persentil → 5 %), uansett antall ekte anomalier. Må justeres.</div></div>
+  <div class="card"><div class="front">DBSCAN-anomalier</div><div class="back"><code>dbscan.labels_ == -1</code>. Ikke-parametrisk: trenger alle data samtidig, ingen predict på nye punkter.</div></div>
+  <div class="card"><div class="front">Isolasjonstre</div><div class="back">Tilfeldig feature + tilfeldig splittverdi, rekursivt til hvert punkt er i egen løvnode. Bygget på subsett uten tilbakelegging.</div></div>
+  <div class="card"><div class="front">Hvorfor kort sti for anomalier?</div><div class="back">De er få og annerledes. Tilfeldige splitter skiller dem ut tidlig, nær roten.</div></div>
+  <div class="card"><div class="front">contamination</div><div class="back">Anslått andel anomalier. Setter terskelen på scoren. Endrer ikke trærne.</div></div>
+  <div class="card"><div class="front">Anomaliscore (iForest)</div><div class="back">$s=2^{-E[h(x)]/c(n)}$. Nær 1 = anomali, 0.5 = gjennomsnittlig, nær 0 = dypt normalt.</div></div>
+  <div class="card"><div class="front">Isolation Forest vs random forest</div><div class="back">iForest: uveiledet, tilfeldige splitter, subsett uten tilbakelegging, bruker stilengde. RF: veiledet, Gini/entropi, bootstrap med tilbakelegging.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+<script>
+/* ---------- Felles for kapittel 13: datasett og hjelpefunksjoner ---------- */
+window.K13 = (function () {
+  const XMAX = 16, YMAX = 9.8;
+  const d2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+  let cached = null;
+  /* tre klynger med ulik tetthet + 11 innplantede anomalier (anom: true) */
+  function data() {
+    if (cached) return cached;
+    const r = CK.rng(1313), P = [];
+    const blob = (cx, cy, sd, n) => { let k = 0; while (k < n) { const p = { x: r.normal(cx, sd), y: r.normal(cy, sd), anom: false }; if (p.x > .3 && p.x < XMAX - .3 && p.y > .3 && p.y < YMAX - .3) { P.push(p); k++; } } };
+    blob(4, 6.8, .45, 90);       // tett
+    blob(11.2, 4.6, 1.25, 90);   // spredt
+    blob(4.8, 2.4, .7, 60);      // middels
+    [[1, 1], [8.3, 8.9], [15.2, 9.1], [15, .9], [7.9, 5.2], [1.2, 9.1], [1.6, 4.4], [7.6, .8], [15.4, 6.6], [5.7, 8.1], [9.5, 9.3]]
+      .forEach(([x, y]) => P.push({ x, y, anom: true }));
+    return (cached = P);
+  }
+  /* precision/recall mot fasit */
+  function pr(pts, flag) {
+    let tp = 0, fp = 0, fn = 0;
+    pts.forEach((p, i) => { if (flag[i] && p.anom) tp++; else if (flag[i]) fp++; else if (p.anom) fn++; });
+    return { tp, fp, fn, n: tp + fp, prec: tp + fp ? tp / (tp + fp) : NaN, rec: tp / (tp + fn) };
+  }
+  function prText(ids, s) {
+    document.getElementById(ids[0]).textContent = `flagget: ${s.n} (TP ${s.tp}, FP ${s.fp})`;
+    document.getElementById(ids[1]).textContent = `precision: ${isFinite(s.prec) ? s.prec.toFixed(2) : "–"}`;
+    document.getElementById(ids[2]).textContent = `recall: ${s.rec.toFixed(2)} (${s.tp} av ${s.tp + s.fn})`;
+  }
+  /* tegn punkter: anomalier oransje, normale blå/grå, flaggede med ring */
+  function drawPts(P, pts, flag, colorOf) {
+    const ctx = P.ctx;
+    pts.forEach((p, i) => {
+      const x = P.X(p.x), y = P.Y(p.y);
+      ctx.save(); ctx.beginPath(); ctx.arc(x, y, p.anom ? 4.6 : 3.6, 0, 2 * Math.PI);
+      ctx.fillStyle = colorOf ? colorOf(p, i) : (p.anom ? P.col("c2") : P.col("c1")); ctx.globalAlpha = .9; ctx.fill(); ctx.restore();
+      if (flag && flag[i]) { ctx.save(); ctx.beginPath(); ctx.arc(x, y, 7.5, 0, 2 * Math.PI); ctx.strokeStyle = P.col("text"); ctx.lineWidth = 1.8; ctx.stroke(); ctx.restore(); }
+    });
+  }
+  function kmeans(pts, k, seed) {
+    const r = CK.rng(seed);
+    let best = null;
+    for (let t = 0; t < 5; t++) {
+      const C = [{ ...pts[Math.floor(r() * pts.length)] }];
+      while (C.length < k) {
+        const D = pts.map(p => Math.min(...C.map(c => d2(p, c)))); let S = D.reduce((a, b) => a + b, 0), u = r() * S, ch = D.length - 1;
+        for (let i = 0; i < D.length; i++) { u -= D[i]; if (u <= 0) { ch = i; break; } }
+        C.push({ x: pts[ch].x, y: pts[ch].y });
+      }
+      let lab = [];
+      for (let it = 0; it < 100; it++) {
+        const nl = pts.map(p => { let bi = 0, bd = Infinity; C.forEach((c, j) => { const d = d2(p, c); if (d < bd) { bd = d; bi = j; } }); return bi; });
+        const same = nl.every((v, i) => v === lab[i]); lab = nl;
+        C.forEach((c, j) => { let sx = 0, sy = 0, n = 0; pts.forEach((p, i) => { if (lab[i] === j) { sx += p.x; sy += p.y; n++; } }); if (n) { c.x = sx / n; c.y = sy / n; } });
+        if (same) break;
+      }
+      const inert = pts.reduce((a, p, i) => a + d2(p, C[lab[i]]), 0);
+      if (!best || inert < best.inert) best = { C: C.map(c => ({ x: c.x, y: c.y })), lab, inert };
+    }
+    return best;
+  }
+  function percentile(arr, p) {   // lineær interpolasjon som np.percentile
+    const s = Array.from(arr).sort((a, b) => a - b), pos = (s.length - 1) * p / 100, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return s[lo] + (s[hi] - s[lo]) * (pos - lo);
+  }
+  const cN = n => n <= 1 ? 0 : (n === 2 ? 1 : 2 * (Math.log(n - 1) + 0.5772156649) - 2 * (n - 1) / n);
+  return { XMAX, YMAX, d2, data, pr, prText, drawPts, kmeans, percentile, cN };
+})();
+</script>
+
+<script>
+/* ---------- Widget: k-means-avstand med persentil ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const K = window.K13, $ = id => document.getElementById(id);
+  const P = CK.plot($("ka-canvas"), { xmin: 0, xmax: K.XMAX, ymin: 0, ymax: K.YMAX, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  const pts = K.data(); let km = null, lastK = 0;
+  function draw() {
+    const k = +$("ka-k").value, p = +$("ka-p").value;
+    $("ka-ko").textContent = k; $("ka-po").textContent = p;
+    if (k !== lastK) { km = K.kmeans(pts, k, 77 + k); lastK = k; }
+    const dist = pts.map(q => Math.sqrt(Math.min(...km.C.map(c => K.d2(q, c)))));
+    const thr = K.percentile(dist, p), flag = dist.map(d => d > thr);
+    P.clear();
+    const ctx = P.ctx, rpx = P.X(thr) - P.X(0);
+    km.C.forEach(c => {
+      ctx.save(); ctx.beginPath(); ctx.arc(P.X(c.x), P.Y(c.y), rpx, 0, 2 * Math.PI);
+      ctx.fillStyle = P.col("c3"); ctx.globalAlpha = .08; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = P.col("c3"); ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+    });
+    K.drawPts(P, pts, flag);
+    km.C.forEach(c => {
+      const x = P.X(c.x), y = P.Y(c.y);
+      ctx.save(); ctx.beginPath(); ctx.moveTo(x - 7, y - 7); ctx.lineTo(x + 7, y + 7); ctx.moveTo(x + 7, y - 7); ctx.lineTo(x - 7, y + 7);
+      ctx.strokeStyle = P.col("text"); ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+    });
+    $("ka-thr").textContent = `terskel (${p}. persentil): ${thr.toFixed(2)}`;
+    K.prText(["ka-flag", "ka-pr", "ka-rc"], K.pr(pts, flag));
+  }
+  $("ka-k").oninput = $("ka-p").oninput = draw;
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: DBSCAN-støy ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const K = window.K13, $ = id => document.getElementById(id);
+  const P = CK.plot($("da-canvas"), { xmin: 0, xmax: K.XMAX, ymin: 0, ymax: K.YMAX, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  const pts = K.data();
+  function dbscan(eps, ms) {
+    const n = pts.length, e2 = eps * eps, nb = pts.map(p => { const a = []; for (let j = 0; j < n; j++) if (K.d2(p, pts[j]) <= e2) a.push(j); return a; });
+    const core = nb.map(a => a.length >= ms), lab = new Array(n).fill(-1); let c = 0;
+    for (let i = 0; i < n; i++) {
+      if (!core[i] || lab[i] !== -1) continue; lab[i] = c; const q = [i];
+      while (q.length) { const u = q.pop(); if (!core[u]) continue; for (const v of nb[u]) if (lab[v] === -1) { lab[v] = c; if (core[v]) q.push(v); } }
+      c++;
+    }
+    return { lab, nc: c };
+  }
+  function draw() {
+    const eps = +$("da-eps").value, ms = +$("da-ms").value;
+    $("da-epso").textContent = eps.toFixed(2); $("da-mso").textContent = ms;
+    const res = dbscan(eps, ms), flag = res.lab.map(l => l < 0);
+    const pal = ["c1", "c3", "c4", "c5"].map(c => P.col(c)).concat(["#6b7f95", "#e0559a", "#2bb3c0"]);
+    P.clear();
+    K.drawPts(P, pts, flag, (p, i) => p.anom ? P.col("c2") : (res.lab[i] >= 0 ? pal[res.lab[i] % pal.length] : P.col("muted")));
+    $("da-nc").textContent = "klynger: " + res.nc;
+    const s = K.pr(pts, flag);
+    $("da-flag").textContent = `støy (flagget): ${s.n} (TP ${s.tp}, FP ${s.fp})`;
+    $("da-pr").textContent = `precision: ${isFinite(s.prec) ? s.prec.toFixed(2) : "–"}`;
+    $("da-rc").textContent = `recall: ${s.rec.toFixed(2)} (${s.tp} av ${s.tp + s.fn})`;
+  }
+  $("da-eps").oninput = $("da-ms").oninput = draw;
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: isolasjonstre-demo ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const K = window.K13, $ = id => document.getElementById(id);
+  const cv = $("it-canvas");
+  const P = CK.plot(cv, { xmin: 0, xmax: 16, ymin: 0, ymax: 9.8, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  /* lite datasett: én klynge + noen outliers */
+  const r0 = CK.rng(4242), pts = [];
+  for (let i = 0; i < 55; i++) pts.push({ x: r0.normal(6.5, 1.0), y: r0.normal(5, 1.0) });
+  [[13.5, 8.3], [14.2, 2], [2, 8.8], [10.6, 5.6], [1.5, 1.4]].forEach(([x, y]) => pts.push({ x, y, out: true }));
+  let sel = 55, anim = null, cuts = [], box = null, alive = null, done = false, count = 0, avg = {}, colorBy = null, seed = 1;
+  const B0 = () => ({ x0: P.xmin, x1: P.xmax, y0: P.ymin, y1: P.ymax });
+
+  function depth(idx, r) {   // stilengde for punkt idx i et tilfeldig fullt isolasjonstre
+    let set = pts.map((_, i) => i), d = 0;
+    while (set.length > 1) {
+      const f = r() < .5 ? "x" : "y"; let mn = Infinity, mx = -Infinity;
+      set.forEach(j => { mn = Math.min(mn, pts[j][f]); mx = Math.max(mx, pts[j][f]); });
+      const v = mn + r() * (mx - mn), side = pts[idx][f] < v;
+      set = set.filter(j => (pts[j][f] < v) === side); d++;
+    }
+    return d;
+  }
+  function draw() {
+    const ctx = P.ctx; P.clear();
+    if (box) {   // skygge utenfor gjenværende boks
+      ctx.save(); ctx.fillStyle = P.col("muted"); ctx.globalAlpha = .16;
+      const a = P.X(box.x0), b = P.Y(box.y1), c = P.X(box.x1), d = P.Y(box.y0);
+      ctx.fillRect(0, 0, P.W, b); ctx.fillRect(0, d, P.W, P.H - d); ctx.fillRect(0, b, a, d - b); ctx.fillRect(c, b, P.W - c, d - b);
+      ctx.restore();
+    }
+    cuts.forEach((L, i) => P.line(L.x1, L.y1, L.x2, L.y2, { color: P.col(i === cuts.length - 1 ? "c2" : "text"), width: i === cuts.length - 1 ? 2.4 : 1.2 }));
+    const mxAvg = colorBy ? Math.max(...colorBy) : 0, mnAvg = colorBy ? Math.min(...colorBy) : 0;
+    pts.forEach((p, i) => {
+      let col = p.out ? P.col("c2") : P.col("c1");
+      if (colorBy) { const t = (colorBy[i] - mnAvg) / (mxAvg - mnAvg || 1); col = `hsl(${(380 - 160 * t) % 360}, 75%, ${45 + 10 * t}%)`; }
+      const inBox = !alive || alive.includes(i);
+      ctx.save(); ctx.beginPath(); ctx.arc(P.X(p.x), P.Y(p.y), 4.3, 0, 2 * Math.PI); ctx.fillStyle = col; ctx.globalAlpha = inBox ? .95 : .3; ctx.fill(); ctx.restore();
+    });
+    const s = pts[sel]; ctx.save(); ctx.beginPath(); ctx.arc(P.X(s.x), P.Y(s.y), 10, 0, 2 * Math.PI); ctx.strokeStyle = P.col("text"); ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore();
+    if (colorBy) P.legend([{ color: "hsl(20,75%,45%)", label: "kort snittsti (lett å isolere)" }, { color: "hsl(220,75%,55%)", label: "lang snittsti" }], { x: 14, y: 20 });
+    $("it-sel").textContent = "valgt punkt: " + (s.out ? "outlier" : "i klyngen");
+    $("it-one").textContent = "dette treet: " + (cuts.length ? count + " splitter" + (done ? " (isolert!)" : " …") : "–");
+    $("it-avg").textContent = "snitt over 500 trær: " + (avg[sel] != null ? avg[sel].toFixed(2) : "–");
+  }
+  function stepTree(r) {
+    const f = r() < .5 ? "x" : "y"; let mn = Infinity, mx = -Infinity;
+    alive.forEach(j => { mn = Math.min(mn, pts[j][f]); mx = Math.max(mx, pts[j][f]); });
+    const v = mn + r() * (mx - mn), side = pts[sel][f] < v;
+    if (f === "x") { cuts.push({ x1: v, y1: box.y0, x2: v, y2: box.y1 }); if (side) box.x1 = v; else box.x0 = v; }
+    else { cuts.push({ x1: box.x0, y1: v, x2: box.x1, y2: v }); if (side) box.y1 = v; else box.y0 = v; }
+    alive = alive.filter(j => (pts[j][f] < v) === side); count++;
+    done = alive.length <= 1;
+  }
+  function buildTree() {
+    clearTimeout(anim); const r = CK.rng(700 + 31 * seed++);
+    cuts = []; box = B0(); alive = pts.map((_, i) => i); done = false; count = 0;
+    $("it-status").textContent = "Splitter tilfeldig …";
+    const tick = () => {
+      stepTree(r); draw();
+      if (!done) anim = setTimeout(tick, count < 6 ? 450 : 220);
+      else $("it-status").textContent = `Isolert etter ${count} splitter. Bygg et nytt tre og se hvor mye det varierer, eller kjør 500 trær.`;
+    };
+    anim = setTimeout(tick, 250); draw();
+  }
+  function many() {
+    const r = CK.rng(9100 + seed++); let s = 0;
+    for (let t = 0; t < 500; t++) s += depth(sel, r);
+    avg[sel] = s / 500;
+    if (avg.all == null) { const r2 = CK.rng(55); let tot = 0; pts.forEach((_, i) => { for (let t = 0; t < 60; t++) tot += depth(i, r2); }); avg.all = tot / (60 * pts.length); }
+    $("it-all").textContent = `snitt for alle punkter: ${avg.all.toFixed(2)}`;
+    $("it-status").textContent = `Snittlig stilengde for ${pts[sel].out ? "outlieren" : "punktet i klyngen"}: ${avg[sel].toFixed(2)} splitter, mot ${avg.all.toFixed(2)} for et gjennomsnittlig punkt.`;
+    draw();
+  }
+  cv.addEventListener("pointerdown", e => {
+    const m = P.mouse(e); let bi = -1, bd = 16 * 16;
+    pts.forEach((q, j) => { const dx = P.X(q.x) - m.px, dy = P.Y(q.y) - m.py, d = dx * dx + dy * dy; if (d < bd) { bd = d; bi = j; } });
+    if (bi >= 0) { clearTimeout(anim); sel = bi; cuts = []; box = null; alive = null; done = false; $("it-status").textContent = "Punkt valgt. Trykk «Bygg ett tre» eller «Kjør 500 trær»."; draw(); }
+  });
+  $("it-tree").onclick = buildTree; $("it-many").onclick = many;
+  $("it-color").onchange = () => {
+    if ($("it-color").checked) { const r = CK.rng(31337); colorBy = pts.map((_, i) => { let s = 0; for (let t = 0; t < 150; t++) s += depth(i, r); return s / 150; }); }
+    else colorBy = null;
+    draw();
+  };
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: Isolation Forest-score ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const K = window.K13, $ = id => document.getElementById(id);
+  const P = CK.plot($("if-canvas"), { xmin: 0, xmax: K.XMAX, ymin: 0, ymax: K.YMAX, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  const pts = K.data(), PSI = 64, HMAX = Math.ceil(Math.log2(PSI));
+  let seed = 1, cacheKey = null, scores = null;
+  function build(idx, depth, r) {   // returnerer et tre bygget på punktene idx
+    if (idx.length <= 1 || depth >= HMAX) return { leaf: true, size: idx.length };
+    const f = r() < .5 ? "x" : "y"; let mn = Infinity, mx = -Infinity;
+    idx.forEach(j => { mn = Math.min(mn, pts[j][f]); mx = Math.max(mx, pts[j][f]); });
+    if (mx === mn) return { leaf: true, size: idx.length };
+    const v = mn + r() * (mx - mn);
+    return { f, v, L: build(idx.filter(j => pts[j][f] < v), depth + 1, r), R: build(idx.filter(j => pts[j][f] >= v), depth + 1, r) };
+  }
+  function pathLen(p, node, d) { while (!node.leaf) { node = p[node.f] < node.v ? node.L : node.R; d++; } return d + K.cN(node.size); }
+  function compute(nTrees) {
+    const key = nTrees + ":" + seed; if (key === cacheKey) return;
+    const r = CK.rng(2024 + 97 * seed), sum = new Float64Array(pts.length);
+    for (let t = 0; t < nTrees; t++) {
+      const all = pts.map((_, i) => i);   // subsett uten tilbakelegging (Fisher–Yates)
+      for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+      const tree = build(all.slice(0, PSI), 0, r);
+      pts.forEach((p, i) => sum[i] += pathLen(p, tree, 0));
+    }
+    const c = K.cN(PSI);
+    scores = Array.from(sum, s => Math.pow(2, -(s / nTrees) / c)); cacheKey = key;
+  }
+  function draw() {
+    const n = +$("if-n").value, cont = +$("if-c").value;
+    $("if-no").textContent = n; $("if-co").textContent = cont.toFixed(3);
+    compute(n);
+    const nFlag = Math.max(1, Math.round(cont * pts.length));
+    const order = scores.map((s, i) => [s, i]).sort((a, b) => b[0] - a[0]);
+    const flag = new Array(pts.length).fill(false); order.slice(0, nFlag).forEach(([, i]) => flag[i] = true);
+    const lo = Math.min(...scores), hi = Math.max(...scores);
+    P.clear();
+    K.drawPts(P, pts, flag, (p, i) => { const t = (scores[i] - lo) / (hi - lo || 1); return `hsl(${(220 + 160 * t) % 360}, ${55 + 25 * t}%, ${58 - 12 * t}%)`; });
+    P.legend([{ color: "hsl(20,80%,46%)", label: `høy score s ≈ ${hi.toFixed(2)}` }, { color: "hsl(220,55%,58%)", label: `lav score s ≈ ${lo.toFixed(2)}` }], { x: 14, y: 20 });
+    K.prText(["if-flag", "if-pr", "if-rc"], K.pr(pts, flag));
+  }
+  $("if-n").oninput = $("if-c").oninput = draw;
+  $("if-new").onclick = () => { seed++; draw(); };
+  CK.live(draw);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,256 @@
+intro ML notater
+
+vi har x features og et target y. dette targete er vel målet/egenskapen vi ønsker å predikere med de x featurene. x¹ angir person nummer 1, og tallet nede angir feature
+
+når man skriver p(y|x), så mener man sjansen for at en person med feature-verdier x overlever/oppnår y (hva enn det er ). 
+
+ŷ brukes om predikert utfall. det blir det samme som ypred. 
+det er ikke det samme som sjansen tror jeg, men heller om man tror de enten oppfyller y eller ikke. 
+eller det kommer vel an på utfallets natur egt. 
+
+
+vi deler maskinlæringens form inn i tre deler, alt ettersom hvilken informasjon vi har tilgjengelig for oss. 
+
+veiledet læring- her har vi sanne y for hvert datapunkt. så alle rader vi har tilgjengelig vet vi y. da kan vi bruke dette når vi lærer opp modellen. 
+
+uveiledet læring- her har vi kun tilgang på datapunktene, og ingen y. hva i all verden skal man predikere da? eksempel:
+si man har masse datapunkter på kunder som handler hos deg. du har ikke noe y du vil predikere, men du vil finne ut av en måte å gruppere disse ulike gruppene med kunder, uten at du i det hele tatt vet hvor mange grupper som kundene kan deles i. du satser på at maskinlæringsmodellen kan finne mønstre som du ikke ser- som typ at kvinner ofte handler kjønnsprodukter fredag (før helgen) osv. , noe som kan forberede deg bedre til neste fredag. 
+
+siste kategori av maskinlæring vi har er forsterkningslæring (reinforcement learning):
+her handler det ofte om ytelse på samme problem. si at en bil vil få best mulig til i en løype. da får den belønninger for ytelsen sin (hvor bra tid den får).
+
+
+innen veiledet læring kan vi igjen dele i to kategorier. (her har vi altså y for hvert datapunkt vi bruker):
+
+klassifisering: dele noe basert på x, inn i en kategori y. typ spam-mails eller liknende. 
+
+regresjon: målet er et kontinuerlig tall. man vil altså spå en range av verdier man predikerer. typ som en aksje. du vil ikke dele selve aksjen inn i en klasse, men heller bare tippe en kontinuerlig verdi.
+
+denne klassifiseringen baserer seg på hva skalgs type vi ønsker på predikere- kategori eller verdi. 
+
+NBNB:logistisk regresjon er en klassifiseringsmodell. den predikerer noe mellom 0 og 1. det er en lineær regresjonsmodell sendt gjennm sigmoid-funksjonen: altså et tall mellom 0 og 1.
+
+df = df.dropna() #fjerner alle rader med en manglende verdi. letteste måte å unngå manglende verdier, men imputering fungerer også bra i noen tilfeller
+
+tross alt minster vi jo data med dropna(). kanskje ganske mye også. noen ganger er det til og med viktig informasjon i en manglende verdi. det kan ha sin egen betydning i seg selv. 
+
+
+
+from sklearn.preprocessing import LabelEncoder
+
+en labelencoder gir hver kategori et unikt heltall. For Sex kan female bli 0 og male bli 1. LabelEncoder gjør dette alfabetisk. 
+
+man definerer en labelEncoder som et objekt. man skriver:
+
+le = LabelEncoder()
+også kan man skrive en feature til tabellen din-
+df["Sex"] = le.fit_transform(df["Sex"])
+her gjør man featuren sex om til en label-encodet feature av sex fra samme tabell. 
+
+vi kan bruke label encodeing og one hot encoding. one hot lager en egen tabell for hver mulige kategori, mens labelencoding lager en kontinuerlig klassifisering for hver feature. dette kan i noen tilfeller gi en påvirkning på treningen som ikke egentlig er ønskelig. 
+
+
+vi har to måter vi skalerer på i sklearn- minmax og standardScaler. 
+begge skal få verdien innenfor [0,1]. 
+
+standard scaler får verdier rundt 0, mens minmax får de mellom 0 og 1
+
+minmax når noen outliers er ekstreme kan få modellen til å bli veldig rar
+
+
+når man skaler skjer dette i to steg- fit og transform. 
+fit rregner ut forskjellige standard verdier som lagres med matrisen. typ gjennomsnitt, og standardavvik. man bruker altså fit for å regne ut div aktuelle tall fra dataen. 
+her er det viktig å ikke fitte på hele datasettet, men kun på treningsdata.
+
+transform betyr å utføre en handling på et eller flere datapunkter. hvis man bruker f.eks. scaler.transform(datapunkt), så bruker man transform her for å implementere scaleren på datapunktet. 
+
+i bar plott ser man gjennomsnittet for hver kategori. streken på toppen av grafen viser standardavviket
+
+i histogrammer seg man antallet som faller innen for hver intervall av hver kategori. intervallene kaller man bins.
+
+hvor mange bins vil vi ha?
+
+finnes ikke en allmenngyldig reger, siden vi aldri helt vet hva som representerer best, men vi kan danne oss en formening av hva som er bedre enn noe annet ved å se på histogrammet. om histogrammet er hakkete har vi for mange bins. støy og tilfeldige punkter får mye utslag selv om de er mer tilfeldige enn noe annet
+
+formløst histogram- for store bins. 
+man får lite ut av formen siden graven er veldig grov og utydelig. 
+
+
+
+begreper:
+
+parametre vs hyperparametre:
+modellparametre- verdier modellen lærer fra dataene, og som definerer modellen. typ stigningstall i en lineær regresjonsmodell eller splitt-tersklene i et beslutningstre. 
+
+hyperparametre er verdier vi velger før treningen. disse styrer selve læringsprosessen- altså hvordan vi bestemmer modellparametrene, men er ikke en del av modellen i seg selv.
+typ hvor mye man vektlegger en uteligger, eller visse andre parametre. dette påvirker modellparametre, men er ikke synlig i selve modellen. 
+
+
+induktiv bias:
+si man vet 5 punkter på en graf. det finnes uendelig mange punkter som går innom hver av dem, men likevel må man bestemme seg for 1. da er man klin nødt til å anta noe. man må anta at grafen er kontinuerlig, rett, har 3 variabler eller noe annet. disse antagelsene vi må komme med heter induktiv bias. 
+
+man må gjøre noen gjett for å kunne gjette hvordan ny data vil predikeres. 
+
+uten disse antagelsene så vil ikke modellen "tørre" å predikere noe, og vil bare memorere en fasit. når en verdi kommer som modellen ikke har sett før er induktiv bias nødvendig for at den skal kunne tilegne en prediksjon til den. 
+
+
+parametrisk vs ikkeparametrisk modellering
+
+parametrisk:
+
+formen til f er gitt på forhånd (induktiv bias), og man bruker treningsdata kun for å tweake parametrene i f.
+
+ikke-parametrisk:
+formen på f er ikke gitt, men den bygges utifra dataene. 
+i beslutningstrær bygger man formen på treet ved å velge splittkriterier som deler opp dataen. full form er ikke visst på forhånd.
+
+
+trening vs inferens
+
+trening: parametrene til modellen tilpasses treningsdataen, kan være tregt
+
+inferens: den ferdige modellen predikerer nye verdier på ny data. dette går rask
+
+fit: tren modellen på treningsdataen
+predict: prediker nye datapunkter
+
+
+et sentralt mål i maskinlæring er å få en modell som er god til å generalisere, atlså gjøre det godt på nye data. å gjøre det bra på samme data som treningsdataen er lett fordi man ikke trenger å gjette (like mye), men ny data er vanskelig. 
+
+i tillegg til å bruke treningsdata og testdata så bruker man ofte valideringsdata. dette gjør man for å evaluere hyperparametrene til modellen, for å sjekke om også disse er ze.
+
+man bruker altså valideringsdata for å sørge for at testdataen forblir urørt til man kjører siste vurdering av modellen. dette er så valideringsdataen kan ta støyten for justeringen av modellens hyperparametrene, uten at man bruker testdataen for å sjekke. 
+
+
+
+NBNB! 
+fit brukes forskjellig når den brukes for to forskjellige objekter. hvis man bruker fit på en scaler så får man metadata om dataen, men fit på en modell trener modellen på treningsdataen
+
+hvis man setter en grense på f.eks. 0.5 for klasse 1 i en lineær regresjonsmodell, så må man alltid bruke en rett linje for terskelen. det er ikke alltid det passer, så man kan bruke en workaround for dette. 
+workarounden kalles feature-engineering, og den handler om å bruke noen features og kombinere dem for å lage en ytterligere feature. i noen mønstre er dette ønskelig. i f.eks. øving 1 så var problemet at dataene lå i et xor mønster, som en vanlig lineær terskel ikke oppnår bra score på, men heller kombinere flere gamle features for å lage nye. si at to features kombinert kan bety noe annet. da kan vi ta høyde for det ved å lage en nye feature som kombinerer de to.
+
+selv om modellen fortsatt er lineær i features, kan den likevel lage en kurve i x. 
+det handler om uttrykket som representerer grafen, ikke egentlig om grafen er lineær eller ikke. det er bare formen xB + x2B2 osv. som er poenget i lineær regresjon.
+
+når man skal trene en modell er målet å tilpasse den så godt dataene at den vil predikere kommende verdier veldig bra. måten man ser på dette er å minimere tap, altså minimere feil i modellen. denne feilen beskriver vi med tapsfunksjonen L(y_pred, y). altså et visst avvik mellom predikert y og sanne y. denne distansen ønsker vi å minimere for å gjøre modellen vår bra.
+
+sannsynlighet bruker vi om et nytt datapunkt som vi skal predikere en klasse for, mens likelihood bruker vi om treningen av modellen på data som den har fra før.
+likelihood skal minimeres for modellen. 
+
+når vi regner ut likelyhood tar vi logaritmen for å kunne regne med uttrykket på en letter måte. videre ønsker vi å maksimere for hver klasse, så vi setter - foran for å kunne minimere funksjonen istedet. da har vi tilslutt et uttrykk som vi kan jobbe med. altså minimere tapets funksjon.
+
+
+log likelihood straffer selvsikre tap i stor grad. det vil si at modellen påvirkes kraftig om man estimerer en høy verdi som ikevel er feil
+
+arg min i optimaliseringsproblemet handler om den verdian av theta som gir minst verdi, ikke selve den minste verdien, fordi vi er ute etter selve parametret, og ikke den verdien den gir.
+
+
+når vi nå har formelen for least likelihood så kan vi bruke den til å lete etter den verdien som hadde gitt lavest funksjonsverdi. 
+
+
+for å finne minimum til en graf vi ikke kjenner formen til bruker vi gradient descent.
+
+rommet vi befinner oss i er parameterrommet, utspent av theta-verdier. vi trenger den deriverte av L basert på theta. det blir gradienten. vi vil finne der gradienten er minkende, siden vi vil minimere tapet. 
+
+eta er læringsraten, og er hvor store steg vi tar i hver retning for hver iterasjon. 
+
+classification threshold er terskelen vi klassifiserer med når vi bruker logistisk regresjon, siden tallet enten må være 0 eller 1, men vi får ut et tall som er element i (0,1).
+
+
+
+B:
+TPR: TP/(TP+FN)=68/(68+12)= 0.85
+FPR: FP/(FP+TN)=30/(30+30)=0.5
+
+
+
+undersampling:
+hvis man har veldig skjevfordelte data og ønsker å unngå at modellen lener seg mot en bias som den ikke burde, så kan man trene den på like mange av klasse 1 som klasse 0. da vil man sikre bedre at modellen predikerer, mer enn å bare ha en bias i en retning. dette kutter likevel bort mye informasjon, og kan bli problematisk sånn sett.
+
+oversampling er om man istedet for å kutte ned så de blir like store, at man heller lager kopier av den ene klassen til de er blitt like store. dette kalles oversampling, fordi modellen kan pugge den klassen med mange kopier, og sånn sett ikke bli god på å generalisere likevel.
+
+man kan kombinere disse på et vis ved å samle dem på midten: kutte litt av den store og kopiere litt av den lille så de er ca like store. 
+
+
+man kan unngå bias i modellen på andre måter også: ved å tune selve modellen. 
+man kan vekte feil av en bestemt klasse mye høyere, som gjør at modellen påvirkes mer hvis det tar feil på en eller flere bestemte klasser.
+
+
+-9*1ln(0.2)
+
+
+
+entropi- hvor overrasket blir du?
+informasjonsteorien sier: jo mer entropi, jo mer informasjon bærer hendelsen
+
+
+altså jo mindre sannsynlig, jo mer viktig
+
+
+
+man har faktisk et uttrykk for overraskelse- overraskelse(x)=log(1/p(x))
+om vi har flere overraskelser så adderes de pga vanlige log-regler
+
+
+
+vi sier at entropi er forventet overraskelse
+altså gjennomsnittlig overraskelse når vi trekker fra p(X). 
+vi kan omformulere entropi som hvor mye inforasjon vi kan forvente å få utifra en hendelse
+
+vi har at H(X)=E[log(1/p(X)]= -sum(p(X)log(p(X))
+
+hvis vi kaster en mynt er informasjonen 1, men om mynten er skjev, og vi har 0.1 og 0.9 i sannsynligheter så får vi mindre infor per kast siden vi som regel vet hva kastet kommer til å bli.
+
+om mynten alltid lander på samme side får vi aldri noe info utifra et kast
+
+om vi kaster en terning istedet har vi mange mulig utfall, og derfor vil vi få enda mer infor i snitt per kast, siden utfallene er mange.
+
+entropi i bit er ca. hvor mange ja/nei spørsml du er nødt til å stille for å komme frem til svaret. om du kan stille et spørsmål så er entropien 1.
+
+
+grunne ntil at man tar log av sannsynlighetene er fordi at o man summerer sannsynligheter som ikke kan skje samtidig å sannsynligheten av dette gi 0. det hadde ikke skjedd om vi ganget de sammen, bare hvis vi summerte
+
+
+vi pleier å bruke p om virkeligheten og q om predikert utfall.
+cross-entropy:
+det er den forventede overraskelsen når utfallene kommer fra p, men vi målet overraskelsen med q.
+likningen for cross entropy er i likning 31 i notatene:
+H(p,q)= -summen av p(Xi)log(q(Xi).
+p betegner hvor stor del av utfallsrommet hendelsen faktisk er, mens q betegner det vi antok at andelen av utfallsrommet.
+
+
+p er altså det som faktisk kommer, mens q er værmeldingen. om det regner i 5 timer den dagen, men vi bare antok 3.
+
+
+NBNB BRA DEFINISJONER UNDER:
+H(p) handler om hvor usikre vi er på utfallene basert på fordelingens natur- typ myntkast er vanskelig å predikere, eller terningkast med veldig mange ulike utfall. 
+H(p,q) er kryssentropien, den øker med hvor godt våre prediksjoner stemmer med hva vi forventet. hvor godt p (egentlig utfall) stemmer med q (forventet utfall).
+
+
+laveste verdi av H(p,q) er H(p). siden usikkerheten har naturligvis en grunnleggende usikkerhet betegnet av H(p), mens mer usikkerhet oppstår når vi gjetter på disse i tillegg, med H(p,q).
+
+
+hvis man setter inn datapunkter i funksjonen for kryss-entropi, så får man ut nøyaktig tapsfunksjonen. tapsfunksjonen vil altså måle forskjellen mellom fordelingen av labels i datasettet, og det vi predikerte. den forsøker å minimere denne avstanden, og altså komme så nærme naturlig usikkerhet som mulig. altså få H(p,q) -> H(p).
+tapet blir stort når modellen er veldig sikker og tar feil.
+
+
+men K klasser kan vi generalisere uttrykket og bare skrive at L= -sum(ylogŷ)
+
+
+
+når vi klassifiserer er det vi gjør å spørre oss om hva sannsynligheten er for en klassifisering gitt featuresene til det gitte datapunktet.
+
+
+naiv bayes går ut på å anta at alle features er uavhengige gitt at man tilhører en bestemt klasse. si at man overlever, så vil ikke det å være mann og det å være 20 ha noe med hverandre å gjøre. men denne kombinasjonen kan jo i realiteten bety noe ganske viktig. derfor kalles den naiv.
+
+altså:
+gitt at man overlever titanic, skal man ikke kunne ha noe sannsynlighet som gir mening mellom features. gitt at du overlever som mann skal det være helt tilfeldig hvilken alder du har i forhold til alder.
+man år typ en sjanse or at man overlever som mann, og en sjanse for å overleve som 20åring, men hvis det er overlapp telles dette positivt to ganger. dette gjør sannsynligheten kunstig høy for å overleve.
+
+
+
+dimensjonsforbannelsen er bare at det blir ekstremt høye tall når antall kolonner (features) øker.
+
+
+
+

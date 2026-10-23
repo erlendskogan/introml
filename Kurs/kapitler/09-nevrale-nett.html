@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09 · Fra perseptron til nevrale nettverk – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  /* Figurboks: samme utseende som figure.card, men uten klassen .card (som flashcard-motoren plukker opp) */
+  figure.fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  figure.fig svg { display: block; margin: 0 auto; width: 100%; height: auto; }
+  .k9-node { fill: var(--surface); stroke: var(--text-soft); stroke-width: 1.6; }
+  .k9-in { fill: color-mix(in srgb, var(--c3) 22%, var(--surface)); stroke: var(--c3); stroke-width: 1.6; }
+  .k9-hid { fill: color-mix(in srgb, var(--c1) 20%, var(--surface)); stroke: var(--c1); stroke-width: 1.6; }
+  .k9-out { fill: color-mix(in srgb, var(--c2) 20%, var(--surface)); stroke: var(--c2); stroke-width: 1.6; }
+  .k9-edge { stroke: var(--axis); stroke-width: 1.2; }
+  .k9-edge-hl { stroke: var(--c4); stroke-width: 2.6; }
+  .k9-small { font-size: 13px; }
+  .k9-muted { fill: var(--muted) !important; }
+  table.tt td, table.tt th { text-align: center; font-family: var(--mono); font-size: 14px; padding: 5px 8px; }
+  table.tt td.ok { color: var(--ok); font-weight: 700; }
+  table.tt td.bad { color: var(--bad); font-weight: 700; }
+  .k9-log { font-family: var(--mono); font-size: 13.5px; background: var(--surface-2); border-radius: 8px; padding: 8px 12px; margin-top: 10px; min-height: 3.2em; white-space: pre-wrap; }
+  .k9-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .k9-presets .btn { font-size: 13.5px; padding: 4px 10px; margin: 0; }
+  .controls select, .controls input[type=text] { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .controls input[type=text] { width: 150px; font-family: var(--mono); }
+</style>
+</head>
+<body data-chapter="09">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 09 · Del II · Nevrale nettverk</div>
+  <h1>Fra perseptron til nevrale nettverk</h1>
+  <p class="lead">Vi starter med en maskin fra 1957 som bare kan tegne én rett strek, ser nøyaktig hvor den kommer til kort (XOR), og bygger oss derfra opp til moderne nevrale nettverk med lag, aktiveringsfunksjoner og matriser.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare forskjellen på parametrisk og ikke-parametrisk modellering, og hvorfor vi vil ha ikke-lineære transformasjoner</li>
+    <li>beskrive perseptronet (TLU med Heaviside), gjøre en oppdatering med Rosenblatts regel for hånd og forklare hvorfor Heaviside ikke kan trenes med gradient descent</li>
+    <li>telle vekter og bias for et perseptron med flere klasser og for et helt nettverk</li>
+    <li>lage NOT, AND og OR med ett perseptron, forklare hvorfor XOR krever to lag, og konstruere XOR av porter</li>
+    <li>velge aktiveringsfunksjon (sigmoid, softmax, ReLU, lineær) i skjulte lag og output-lag, og forklare hvorfor ikke-linearitet er nødvendig</li>
+    <li>skrive aktiveringen $a^{(l)}_j$ med indekser og på matriseform, sjekke dimensjoner og regne en forward pass</li>
+  </ul>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="intro"><span class="sec">9.1</span>Hvorfor trenger vi noe nytt?</h2>
+
+<p>All veiledet læring handler om å finne et estimat av target, $\hat y = f(x)$. Så langt har vi sett to helt ulike måter å modellere $f$ på:</p>
+<ul>
+  <li><strong>Lineær og logistisk regresjon</strong> (<a href="02-logistisk.html">kapittel 2</a> og <a href="06-regresjon.html">6</a>): Funksjonsformen er gitt på forhånd, for eksempel $\hat y = \sigma(w^\top x + b)$. Treningen går ut på å tilpasse parametrene. Dette er <strong>parametrisk modellering</strong>.</li>
+  <li><strong>Beslutningstrær</strong> (<a href="05-traer.html">kapittel 5</a>): Formen på $f$ er ikke gitt. Treningen bygger treet og velger splittkriterier som deler opp datarommet. Dette er <strong>ikke-parametrisk modellering</strong>.</li>
+</ul>
+<p>Legg merke til <em>hva modellene gjør med dataene</em>. I regresjon multipliseres dataene med parametre og legges sammen. Det er en <strong>lineær</strong> transformasjon. I et beslutningstre flyter dataene gjennom modellen <strong>uten å transformeres</strong>: hver node splitter dataene, men endrer dem ikke.</p>
+<p>Neste steg er modeller som gjør <strong>ikke-lineære transformasjoner</strong> av dataene, og som selv lærer hvilke transformasjoner som er nyttige. Det er det nevrale nettverk gjør.</p>
+
+<div class="chain">
+  <div><b>Lineær regresjon</b>transformerer lineært: $w^\top x + b$</div><div class="arrow">→</div>
+  <div><b>Beslutningstre</b>splitter, men transformerer ikke</div><div class="arrow">→</div>
+  <div><b>Nevralt nett</b>lærer egne <em>ikke-lineære</em> transformasjoner, lag for lag</div>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span><p>Regresjon er en <em>linjal</em>: den kan bare tegne rette streker. Et tre er en <em>sortermaskin</em>: den legger ting i bokser, men endrer ikke tingene. Et nevralt nett er en <em>deigkjevle</em>: den kan strekke og bøye datarommet til problemet blir enkelt, og så bruke linjalen til slutt.</p></div>
+
+<div class="quiz" data-id="09-param">
+  <p class="q">Hvilket utsagn beskriver forskjellen mellom en logistisk regresjonsmodell og et beslutningstre riktig?</p>
+  <ul>
+    <li>Begge er parametriske, men treet har flere parametre.</li>
+    <li>Logistisk regresjon er ikke-parametrisk fordi sigmoid er ikke-lineær.</li>
+    <li data-correct>Logistisk regresjon har en fast funksjonsform der vektene tilpasses (parametrisk), mens treet bygger formen på $f$ fra dataene (ikke-parametrisk).</li>
+    <li>Treet transformerer dataene ikke-lineært i hver node, mens logistisk regresjon ikke transformerer dem.</li>
+  </ul>
+  <div class="explain">Parametrisk betyr at funksjonsformen er bestemt før trening, og bare tallverdiene (parametrene) læres. Det gjelder logistisk regresjon, selv om sigmoid er ikke-lineær. Formen $\sigma(w^\top x+b)$ er gitt. Et tre har ingen fast form, så det er ikke-parametrisk. Det siste alternativet er snudd på hodet: treet <em>splitter</em> dataene uten å transformere dem, mens regresjon multipliserer og summerer (transformerer lineært).</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="perseptron"><span class="sec">9.2</span>Perseptronet</h2>
+
+<h3>Historien: en maskin, ikke et program</h3>
+<p>Perseptronet er forgjengeren til moderne nevrale nettverk. Idéen om en kunstig nervecelle som summerer signaler og «fyrer» over en terskel kom fra <strong>McCulloch og Pitts (1943)</strong>. Den første implementasjonen ble bygget <em>i hardware</em> av <strong>Frank Rosenblatt (1957)</strong>. Tanken var at perseptronet skulle være en <strong>maskin, ikke et program</strong>. Mark I-perseptronet hadde et kamera med 20×20 fotoceller som input, og vektene var fysiske potensiometre som ble skrudd på av elektriske motorer når maskinen lærte.</p>
+<p>Det er verdt å dvele ved. I dag er et nevralt nett bare matrisemultiplikasjoner i et program, men grunnidéen er den samme: en maskin som <em>justerer seg selv</em> ut fra eksempler, i stedet for at noen programmerer reglene inn.</p>
+
+<h3>Threshold logic unit (TLU)</h3>
+<p>Et perseptron består av én eller flere beregningsenheter, kalt <strong>noder</strong>. I den opprinnelige formuleringen var nodene <strong>threshold logic units (TLU)</strong>. En TLU tar en vektet sum av input og sender den gjennom en <strong>stegfunksjon</strong>:</p>
+<div class="eq">
+  <p class="eq-note">Perseptron / TLU (likning 89 i notatene). $x$ og $w$ er vektorer i det generelle tilfellet.</p>
+  $$f(x) = H(w^\top x + b) = H\Big(\sum_i w_i x_i + b\Big), \qquad H(z)=\begin{cases}1 & z\ge 0\\ 0 & z\lt 0\end{cases}$$
+</div>
+<p>$H$ er <strong>Heaviside-funksjonen</strong> (Heaviside step function). I vår sammenheng kalles den en <strong>aktiveringsfunksjon</strong> (activation function). Noden er enten <em>aktiv</em> (output 1) eller <em>ikke aktiv</em> (output 0). Hvilke $x$ som aktiverer noden, bestemmes av $(w,b)$. Siden output er binær, gjør perseptronet <strong>klassifisering</strong>, og for at det skal klassifisere godt må vektene læres fra data, altså veiledet læring.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 230" role="img" aria-label="Skisse av en TLU: input x1, x2, x3 og konstant 1 med vekter inn i en sum, deretter Heaviside, deretter output.">
+  <defs><marker id="k9arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--axis)"/></marker></defs>
+  <!-- inputs -->
+  <g>
+    <circle class="k9-in" cx="60" cy="40" r="22"/><text x="60" y="45" text-anchor="middle">x₁</text>
+    <circle class="k9-in" cx="60" cy="100" r="22"/><text x="60" y="105" text-anchor="middle">x₂</text>
+    <circle class="k9-in" cx="60" cy="160" r="22"/><text x="60" y="165" text-anchor="middle">x₃</text>
+    <circle class="k9-node" cx="60" cy="212" r="15" style="stroke-dasharray:4 3"/><text x="60" y="217" text-anchor="middle" class="k9-small">1</text>
+  </g>
+  <g class="k9-edge" marker-end="url(#k9arr)">
+    <line x1="82" y1="44" x2="262" y2="104"/>
+    <line x1="82" y1="100" x2="260" y2="112"/>
+    <line x1="82" y1="156" x2="262" y2="120"/>
+    <line x1="75" y1="208" x2="264" y2="128" style="stroke-dasharray:4 3"/>
+  </g>
+  <text x="160" y="62" class="k9-small">w₁</text>
+  <text x="165" y="99" class="k9-small">w₂</text>
+  <text x="160" y="147" class="k9-small">w₃</text>
+  <text x="150" y="189" class="k9-small">b</text>
+  <!-- sum node -->
+  <circle class="k9-hid" cx="300" cy="115" r="36"/>
+  <text x="300" y="112" text-anchor="middle" style="font-size:22px">Σ</text>
+  <text x="300" y="134" text-anchor="middle" class="k9-small">z = wᵀx + b</text>
+  <line class="k9-edge" x1="336" y1="115" x2="398" y2="115" marker-end="url(#k9arr)"/>
+  <!-- step box -->
+  <rect x="402" y="80" width="96" height="70" rx="10" class="k9-node"/>
+  <polyline points="414,136 450,136 450,94 488,94" style="fill:none;stroke:var(--c2);stroke-width:2.6"/>
+  <text x="450" y="172" text-anchor="middle" class="k9-small">H(z)</text>
+  <line class="k9-edge" x1="498" y1="115" x2="560" y2="115" marker-end="url(#k9arr)"/>
+  <circle class="k9-out" cx="590" cy="115" r="24"/><text x="590" y="120" text-anchor="middle">ŷ</text>
+  <text x="590" y="160" text-anchor="middle" class="k9-small k9-muted">0 eller 1</text>
+</svg>
+<figcaption><b>Figur 9.1</b> En threshold logic unit. Input vektes og summeres til $z = w^\top x + b$, og Heaviside-funksjonen gjør $z$ om til 0 eller 1. Den stiplede noden med verdi 1 er bias-trikset: $b$ kan ses på som vekten til en ekstra input som alltid er 1.</figcaption>
+</figure>
+
+<p>I kode ser dette nesten likt ut som logistisk regresjon, bare med en hard terskel i stedet for sigmoid:</p>
+<pre><code>activation = sum(weight_i * x_i) + bias
+prediction = 1.0 <span class="k">if</span> activation >= 0.0 <span class="k">else</span> 0.0</code></pre>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>Beslutningsgrensen er der $w^\top x + b = 0$. Med to features er det en <strong>rett linje</strong>, med tre features et plan, og generelt et hyperplan. Et perseptron kan derfor bare skille klasser som er <strong>lineært separerbare</strong>. Det har samme type grense som logistisk regresjon, men gir et hardt 0/1-svar i stedet for en sannsynlighet.</p></div>
+
+<h3 id="heaviside">Problemet: Heaviside kan ikke deriveres</h3>
+<p>Vi vil gjerne trene perseptronet slik vi trente logistisk regresjon: send instansene gjennom én om gangen, beregn tapet og oppdater parametrene med gradient descent,</p>
+<div class="eq">
+  <p class="eq-note">Gradient descent (likning 90 i notatene)</p>
+  $$\theta_{t+1} = \theta_t - \eta\,\frac{\partial}{\partial\theta}L\big(f(x;\theta),\,y\big).$$
+</div>
+
+<div class="reflect" data-id="09-heaviside-problem">
+  <p class="q">Oppgave fra notatene: Hva er problemet med denne prosedyren når $f(x)=H(w^\top x+b)$? Hint: Hva skjer når du prøver å derivere tapsfunksjonen?</p>
+  <div class="answer">Med kjerneregelen blir $\frac{\partial L}{\partial w} = \frac{\partial L}{\partial \hat y}\cdot H'(z)\cdot x$. Heaviside er flat overalt bortsett fra i $z=0$, der den hopper. Den deriverte er altså <strong>0 overalt der den finnes</strong>, og <strong>ikke definert i $z=0$</strong> (notatene sier «uendelig i ett punkt»). Gradienten blir dermed enten null, som gir null læringssignal og ingen endring, eller udefinert. Gradient descent har ingenting å gå etter.</div>
+</div>
+
+<div class="callout why"><span class="label">Hvorfor er null derivert så ille?</span><p>Gradienten forteller hvilken vei vi skal skru på vektene for å minke tapet. Hvis en liten endring i $w$ ikke endrer output i det hele tatt, fordi vi er på et flatt platå i stegfunksjonen, sier gradienten «ingen retning er bedre enn en annen». Modellen står bom stille, selv om den tar feil.</p></div>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 5.1</span><p>«Hvilken egenskap ved Heaviside-funksjonen gjør den uegnet for gradientbasert optimalisering?» Riktig svar: <em>Den er ikke deriverbar overalt, og har samtidig derivert null nesten overalt.</em> Begge delene teller: hoppet gjør den uderiverbar i 0, og platåene gir null gradient ellers.</p></div>
+
+<div class="quiz" data-id="09-heaviside-deriv">
+  <p class="q">En kollega vil trene et perseptron med Heaviside-aktivering med vanlig gradient descent. Hva er det egentlige problemet?</p>
+  <ul>
+    <li>Heaviside gir output utenfor $[0,1]$, så tapet blir negativt.</li>
+    <li>Heaviside er ikke-lineær, og gradient descent virker bare for lineære funksjoner.</li>
+    <li>Heaviside har derivert lik 1 overalt, så alle vekter oppdateres like mye.</li>
+    <li data-correct>Den deriverte er 0 overalt der den er definert og udefinert i 0, så gradienten gir ikke noe læringssignal.</li>
+  </ul>
+  <div class="explain">Heaviside gir bare 0 eller 1, altså innenfor $[0,1]$, så første alternativ er feil. Gradient descent fungerer fint for ikke-lineære funksjoner så lenge de er deriverbare. Det er nettopp derfor vi kan trene nevrale nett med sigmoid og ReLU. Den deriverte er 0 (ikke 1) på platåene. Problemet er altså null eller udefinert gradient.</div>
+</div>
+
+<h3 id="rosenblatt">Rosenblatts løsning: dropp den deriverte</h3>
+<p>I Rosenblatts opprinnelige formulering er leddet med den deriverte rett og slett <strong>utelatt</strong>. Oppdateringsregelen blir</p>
+<div class="eq">
+  <p class="eq-note">Perseptronregelen (Rosenblatt). Notatene skriver likning 91 uten $x_i$, men koden rett under har med $x$, og det er den riktige formen.</p>
+  $$w_i \leftarrow w_i + \eta\,(y - \hat y)\,x_i, \qquad b \leftarrow b + \eta\,(y-\hat y)$$
+</div>
+<p>Se hva leddet $(y-\hat y)$ gjør. Siden både $y$ og $\hat y$ er 0 eller 1, kan det bare ha tre verdier:</p>
+<table class="center">
+  <tr><th>$y$</th><th>$\hat y$</th><th>$y-\hat y$</th><th>Hva skjer</th></tr>
+  <tr><td>1</td><td>1</td><td>0</td><td>Riktig. Ingen endring.</td></tr>
+  <tr><td>0</td><td>0</td><td>0</td><td>Riktig. Ingen endring.</td></tr>
+  <tr><td>1</td><td>0</td><td>+1</td><td>For lav: $w \leftarrow w + \eta x$, så $w^\top x$ øker neste gang.</td></tr>
+  <tr><td>0</td><td>1</td><td>−1</td><td>For høy: $w \leftarrow w - \eta x$, så $w^\top x$ synker neste gang.</td></tr>
+</table>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Perseptronet lærer bare av feil.</strong> Gjetter det riktig, rører det ikke vektene. Gjetter det for lavt, dytter det vektene <em>mot</em> punktet. Gjetter det for høyt, dytter det dem <em>bort</em> fra punktet.</p></div>
+
+<p><strong>Bias-trikset.</strong> I kode er det vanlig å utvide $x$ med et første element $x_0 = 1$, og la $w_0$ spille rollen som $b$. Da blir $w^\top x + b = \sum_{i=0}^n w_i x_i$, og bias oppdateres med samme regel som de andre vektene (fordi $x_0=1$):</p>
+<pre><code>w = w + learning_rate * (expected - predicted) * x   <span class="c"># x = [1, x1, x2, ...]</span></code></pre>
+<p>Hele treningsprosessen er som før. Vi sender instansene gjennom én om gangen, og etter hver instans oppdateres parametrene. Én runde gjennom alle treningsinstansene er én <strong>epoke</strong> (epoch), og vi kjører gjerne mange epoker.</p>
+
+<details class="steps"><summary>Regneeksempel: én oppdatering for hånd</summary><div>
+  <p>Gitt $w = (0.5,\,-1)$, $b = 0$, $\eta = 0.1$ og datapunktet $x = (1,\,2)$ med $y = 1$.</p>
+  <p><strong>1. Forward:</strong> $z = 0.5\cdot 1 + (-1)\cdot 2 + 0 = -1.5$. Siden $z \lt 0$ blir $\hat y = H(-1.5) = 0$.</p>
+  <p><strong>2. Feil:</strong> $y - \hat y = 1 - 0 = 1$. Modellen gjettet for lavt.</p>
+  <p><strong>3. Oppdater:</strong></p>
+  <p>$w_1 \leftarrow 0.5 + 0.1\cdot 1\cdot 1 = 0.6$</p>
+  <p>$w_2 \leftarrow -1 + 0.1\cdot 1\cdot 2 = -0.8$</p>
+  <p>$b \leftarrow 0 + 0.1\cdot 1 = 0.1$</p>
+  <p><strong>4. Sjekk:</strong> Nå er $z = 0.6 - 1.6 + 0.1 = -0.9$. Fortsatt negativ, så punktet er fortsatt feilklassifisert, men $z$ har gått fra $-1.5$ til $-0.9$, altså i riktig retning. Perseptronet trenger noen flere runder.</p>
+  <p>Generelt øker $z$ med $\eta\,(\lVert x\rVert^2 + 1) = 0.1\cdot(1+4+1) = 0.6$ etter en slik oppdatering, der $+1$ kommer fra bias.</p>
+</div></details>
+
+<div class="calc" data-id="09-perc-w2" data-answer="0.4" data-tol="0.001">
+  <p class="q">Et perseptron har $w=(1,\,0.2)$, $b=-0.5$ og $\eta = 0.2$. Det får punktet $x = (2,\,-1)$ med $y=0$. Hva blir $w_2$ etter oppdateringen?</p>
+  <div class="solution">$z = 1\cdot 2 + 0.2\cdot(-1) - 0.5 = 1.3 \ge 0$, så $\hat y = 1$. Feilen er $y-\hat y = -1$. Da er $w_2 \leftarrow 0.2 + 0.2\cdot(-1)\cdot(-1) = 0.4$. (Og $w_1 \leftarrow 1 - 0.4 = 0.6$, $b \leftarrow -0.5 - 0.2 = -0.7$. Ny $z = 1.2 - 0.4 - 0.7 = 0.1$, som fortsatt er positiv, men nærmere 0.) Merk at $w_2$ <em>øker</em> selv om modellen gjettet for høyt, fordi $x_2$ er negativ.</div>
+</div>
+
+<div class="calc" data-id="09-perc-b" data-answer="0" data-tol="0.0001">
+  <p class="q">Samme perseptron, $w=(1,\,0.2)$, $b=-0.5$, $\eta=0.2$, får nå punktet $x=(1,\,1)$ med $y=1$. Hvor mye endres $b$?</p>
+  <div class="solution">$z = 1 + 0.2 - 0.5 = 0.7 \ge 0$, så $\hat y = 1 = y$. Feilen er 0, og <strong>ingenting endres</strong>. Svaret er 0. Perseptronet lærer bare av feil.</div>
+</div>
+
+<div class="quiz" data-id="09-bias-trick">
+  <p class="q">Hvorfor utvider vi ofte $x$ med et ekstra element $x_0 = 1$ i implementasjonen av et perseptron?</p>
+  <ul>
+    <li data-correct>Da kan bias $b$ behandles som en vanlig vekt $w_0$, og hele oppdateringen skrives som én vektoroperasjon.</li>
+    <li>For å unngå at $z$ blir nøyaktig 0, der Heaviside er udefinert.</li>
+    <li>For å normalisere input slik at alle features har samme skala.</li>
+    <li>Fordi perseptronet trenger minst én konstant feature for å kunne lære ikke-lineære grenser.</li>
+  </ul>
+  <div class="explain">Med $x_0 = 1$ blir $w_0 x_0 = w_0$, og det er nøyaktig rollen til $b$. Oppdateringen $w \leftarrow w + \eta(y-\hat y)x$ gir da $w_0 \leftarrow w_0 + \eta(y-\hat y)$, som er bias-oppdateringen. Det er et notasjons- og implementasjonstriks som ikke har noe med skalering eller udefinerte punkter å gjøre, og grensen er fortsatt lineær.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: perseptronet lærer, ett punkt om gangen</h4>
+  <canvas id="perc" width="640" height="400"></canvas>
+  <div class="controls">
+    <button class="btn" type="button" id="perc-step">Neste punkt</button>
+    <button class="btn" type="button" id="perc-epoch">Neste epoke</button>
+    <button class="btn ghost" type="button" id="perc-reset">Nullstill</button>
+    <label>η <input type="range" id="perc-eta" min="0.05" max="1" step="0.05" value="0.2"><output id="perc-eta-o">0.2</output></label>
+    <label>Data <select id="perc-data"><option value="sep">lineært separerbare</option><option value="xor">XOR-mønster</option></select></label>
+  </div>
+  <div class="k9-log" id="perc-log"></div>
+  <p class="small muted">Blå punkter har $y=1$, oransje har $y=0$. Det skyggelagte området er der perseptronet sier $\hat y = 1$. Punkter med rød ring er feilklassifisert. Det store ringmerket er punktet som nettopp ble vist.</p>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Linjen flytter seg bare når et punkt er feilklassifisert, og den hopper alltid i retning av å få akkurat det punktet riktig. På separerbare data blir det etter noen epoker en epoke med null feil, og da stopper læringen helt. Bytt til XOR-mønsteret: Linjen vandrer evig, og antall feil per epoke går aldri til null. Det finnes ingen rett linje som skiller klassene, og det er temaet i seksjon 9.4.</p>
+
+<details class="more"><summary>Fordypning: perseptronets konvergensteorem <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+  <p>Rosenblatt viste at hvis dataene er lineært separerbare, finner perseptronregelen en skillende linje etter et <em>endelig</em> antall oppdateringer. Er de ikke separerbare, konvergerer regelen aldri, og vektene fortsetter å svinge. Dette er grunnen til at du ser vandringen i XOR-varianten over.</p>
+</div></details>
+
+<h3>Perseptron i scikit-learn</h3>
+<pre><code><span class="k">from</span> sklearn.linear_model <span class="k">import</span> Perceptron
+perceptron = Perceptron().fit(X_train, y_train)
+y_pred = perceptron.predict(X_test)
+ws = perceptron.coef_        <span class="c"># vektene</span>
+bs = perceptron.intercept_   <span class="c"># bias</span></code></pre>
+<p><code>Perceptron</code> er en wrapper rundt <code>SGDClassifier</code> med <code>loss="perceptron"</code> og <code>learning_rate="constant"</code>. Vi henter ut parametrene på samme måte som for lineær regresjon.</p>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s37_1.png" alt="To godt adskilte klynger av punkter i to farger, x1 på x-aksen og x2 på y-aksen" width="393">
+  <figcaption><b>Figur 9.2</b> Datasett med to features og to klasser, laget med <code>make_blobs</code> (figur 19a i notatene). Her finnes det mange rette linjer som skiller klassene perfekt, så et perseptron vil lykkes.</figcaption>
+</figure>
+
+<!-- ======================================================= -->
+<h2 id="flere-klasser"><span class="sec">9.3</span>Flere klasser: fra vektvektor til vektmatrise</h2>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s37_2.png" alt="Punkter i tre farger, x1 på x-aksen og x2 på y-aksen" width="386">
+  <figcaption><b>Figur 9.3</b> Datasett med to features og tre klasser, laget med <code>make_classification</code> (figur 19b i notatene).</figcaption>
+</figure>
+
+<div class="reflect" data-id="09-how-many-weights">
+  <p class="q">Oppgave fra notatene: Hvor mange features og klasser har dataene i figur 9.3? Hvor mange vekter trenger et perseptron for å tilpasse dem? Tegn gjerne en figur før du ser svaret.</p>
+  <div class="answer">To features ($x_1, x_2$) og tre klasser (tre farger). Perseptronet får to input-noder og tre output-noder, én TLU per klasse. Hver input er koblet til hver output, så det blir $2\cdot 3 = 6$ vekter, pluss én bias per output-node, altså 3 bias. Totalt 9 parametre. I sklearn gir <code>coef_.shape</code> = <code>(3, 2)</code> (klasser × features) og <code>intercept_.shape</code> = <code>(3,)</code>.</div>
+</div>
+
+<p>Med flere klasser har vi én output-node per klasse, og hver node har sine egne vekter. Vektene blir en <strong>matrise</strong> $w_{i,j}$, og oppdateringsregelen gjelder for hvert element:</p>
+<div class="eq">
+  <p class="eq-note">Perseptronregelen med flere klasser (likning 92 i notatene)</p>
+  $$w_{i,j} \leftarrow w_{i,j} + \eta\,(y_j - \hat y_j)\,x_i$$
+</div>
+<ul>
+  <li>$w_{i,j}$ er vekten på forbindelsen mellom input $i$ og output-node $j$,</li>
+  <li>$\eta$ er læringsraten,</li>
+  <li>$\hat y_j$ og $y_j$ er output og target for klasse $j$ (target er one-hot: 1 for riktig klasse, 0 ellers),</li>
+  <li>$x_i$ er feature $i$ for det aktuelle datapunktet.</li>
+</ul>
+
+<figure class="fig">
+<svg viewBox="0 0 520 210" role="img" aria-label="To input-noder koblet til tre output-noder med seks vekter">
+  <g class="k9-edge">
+    <line x1="140" y1="70" x2="370" y2="40"/><line x1="140" y1="70" x2="370" y2="105"/><line x1="140" y1="70" x2="370" y2="170"/>
+    <line x1="140" y1="140" x2="370" y2="40"/><line x1="140" y1="140" x2="370" y2="105"/><line x1="140" y1="140" x2="370" y2="170"/>
+  </g>
+  <circle class="k9-in" cx="120" cy="70" r="22"/><text x="120" y="75" text-anchor="middle">x₁</text>
+  <circle class="k9-in" cx="120" cy="140" r="22"/><text x="120" y="145" text-anchor="middle">x₂</text>
+  <circle class="k9-out" cx="390" cy="40" r="22"/><text x="390" y="45" text-anchor="middle">ŷ₁</text>
+  <circle class="k9-out" cx="390" cy="105" r="22"/><text x="390" y="110" text-anchor="middle">ŷ₂</text>
+  <circle class="k9-out" cx="390" cy="170" r="22"/><text x="390" y="175" text-anchor="middle">ŷ₃</text>
+  <text x="250" y="40" class="k9-small">w₁₁</text>
+  <text x="440" y="45" class="k9-small k9-muted">+ b₁</text>
+  <text x="440" y="110" class="k9-small k9-muted">+ b₂</text>
+  <text x="440" y="175" class="k9-small k9-muted">+ b₃</text>
+  <text x="30" y="200" class="k9-small k9-muted">2 input × 3 output = 6 vekter, + 3 bias = 9 parametre</text>
+</svg>
+<figcaption><b>Figur 9.4</b> Perseptron for to features og tre klasser. Alle input er koblet til alle output-noder.</figcaption>
+</figure>
+
+<pre><code>print(<span class="s">"Features:"</span>, X.shape[1])          <span class="c"># 2</span>
+print(<span class="s">"Classes:"</span>, len(set(y)))           <span class="c"># 3</span>
+print(<span class="s">"Weights:"</span>, perceptron.coef_.shape)     <span class="c"># (3, 2)</span>
+print(<span class="s">"Biases:"</span>, perceptron.intercept_.shape)  <span class="c"># (3,)</span></code></pre>
+
+<div class="quiz" data-id="09-coef-shape">
+  <p class="q">Du trener <code>Perceptron()</code> fra sklearn på et datasett med 4 features og 5 klasser. Hvor mange parametre har modellen, og hva er <code>coef_.shape</code>?</p>
+  <ul>
+    <li>9 parametre, <code>coef_.shape = (4, 5)</code></li>
+    <li>20 parametre, <code>coef_.shape = (4, 5)</code></li>
+    <li data-correct>25 parametre, <code>coef_.shape = (5, 4)</code></li>
+    <li>24 parametre, <code>coef_.shape = (5, 4)</code></li>
+  </ul>
+  <div class="explain">Én output-node per klasse (5), hver koblet til alle 4 features: $4\cdot 5 = 20$ vekter. I tillegg én bias per output-node: 5. Totalt 25. sklearn lagrer <code>coef_</code> som (klasser, features) = (5, 4). Forvekslingen (4, 5) er fristende, og 20 er svaret hvis man glemmer bias. 9 kommer av å legge sammen 4 + 5 i stedet for å gange.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="porter"><span class="sec">9.4</span>Logiske porter og XOR-problemet</h2>
+
+<p>Med riktig valg av vekter kan et perseptron utføre logiske operasjoner. Input er 0 (usann) eller 1 (sann), og output er $H(w^\top x + b)$.</p>
+
+<table class="center">
+  <tr><th>Port</th><th>Vekter</th><th>Regel</th><th>Intuisjon</th></tr>
+  <tr><td>NOT</td><td>$(w_1, b) = (-1,\ 0.5)$</td><td>$H(-x_1 + 0.5)$</td><td>positiv bare når $x_1 = 0$</td></tr>
+  <tr><td>AND</td><td>$(w_1, w_2, b) = (1,\ 1,\ -1.5)$</td><td>$H(x_1 + x_2 - 1.5)$</td><td>summen må være 2 for å komme over 1.5</td></tr>
+  <tr><td>OR</td><td>$(w_1, w_2, b) = (1,\ 1,\ -0.5)$</td><td>$H(x_1 + x_2 - 0.5)$</td><td>det holder at summen er 1</td></tr>
+</table>
+
+<p>Legg merke til at AND og OR har <em>samme vekter</em>. Bare biasen er forskjellig. Biasen er <strong>terskelen</strong>: hvor mange input som må være «på» før noden fyrer. I figuren ser du dette som at linjen forskyves parallelt.</p>
+
+<details class="steps"><summary>Sjekk AND for alle fire input</summary><div>
+  <table class="center">
+    <tr><th>$x_1$</th><th>$x_2$</th><th>$z = x_1 + x_2 - 1.5$</th><th>$H(z)$</th></tr>
+    <tr><td>0</td><td>0</td><td>−1.5</td><td>0</td></tr>
+    <tr><td>0</td><td>1</td><td>−0.5</td><td>0</td></tr>
+    <tr><td>1</td><td>0</td><td>−0.5</td><td>0</td></tr>
+    <tr><td>1</td><td>1</td><td>0.5</td><td>1</td></tr>
+  </table>
+  <p>Bare $(1,1)$ gir positiv $z$. For OR med $b = -0.5$ blir $z$ lik $-0.5, 0.5, 0.5, 1.5$, så tre av fire gir 1.</p>
+</div></details>
+
+<div class="quiz" data-id="09-gate-which">
+  <p class="q">Et perseptron har vektene $(w_1, w_2, b) = (-1,\,-1,\,1.5)$. Hvilken logisk port er dette?</p>
+  <ul>
+    <li>NOR (sann bare når begge er 0)</li>
+    <li>OR</li>
+    <li data-correct>NAND (usann bare når begge er 1)</li>
+    <li>XOR</li>
+  </ul>
+  <div class="explain">Regn ut $z = -x_1 - x_2 + 1.5$: For $(0,0)$ er $z = 1.5 \to 1$, for $(0,1)$ og $(1,0)$ er $z = 0.5 \to 1$, og for $(1,1)$ er $z = -0.5 \to 0$. Det er NOT(AND) = NAND. Det er AND-perseptronet med alle fortegn snudd. NOR ville krevd $b$ mellom 0 og 1, f.eks. $(-1,-1,0.5)$, slik at bare $(0,0)$ gir positiv $z$. XOR kan ikke lages med ett perseptron.</div>
+</div>
+
+<div class="calc" data-id="09-not" data-answer="-0.5" data-tol="0.001">
+  <p class="q">NOT-perseptronet har $(w_1, b) = (-1,\,0.5)$. Hva er $z$ når $x_1 = 1$?</p>
+  <div class="solution">$z = -1\cdot 1 + 0.5 = -0.5 \lt 0$, så $H(z) = 0$. Med $x_1 = 0$ blir $z = 0.5$ og $H = 1$. Altså NOT.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: lag logiske porter med ett perseptron</h4>
+  <div class="controls" style="margin:0 0 10px">
+    <label>Målport <select id="gate-target"><option>AND</option><option>OR</option><option>NAND</option><option>NOR</option><option>XOR</option></select></label>
+  </div>
+  <canvas id="gate" width="640" height="380"></canvas>
+  <div class="controls">
+    <label>w₁ <input type="range" id="g-w1" min="-2" max="2" step="0.1" value="1"><output id="g-w1o">1</output></label>
+    <label>w₂ <input type="range" id="g-w2" min="-2" max="2" step="0.1" value="1"><output id="g-w2o">1</output></label>
+    <label>b <input type="range" id="g-b" min="-2.5" max="2.5" step="0.1" value="-0.5"><output id="g-bo">-0.5</output></label>
+  </div>
+  <table class="tt" id="gate-table"></table>
+  <p class="small muted">Fylte sirkler er target 1, tomme er target 0. Det skyggelagte området er der perseptronet svarer 1. Tabellen viser hver rad i sannhetstabellen.</p>
+</div>
+<p><strong>Prøv dette:</strong> Lag AND, OR, NAND og NOR. Det går raskt. Velg så XOR og prøv så lenge du vil. Du kommer aldri over 3 av 4, fordi de to «sanne» hjørnene $(0,1)$ og $(1,0)$ ligger på hver sin diagonal i forhold til de to «usanne» $(0,0)$ og $(1,1)$. Ingen rett linje kan ha begge blå på én side og begge oransje på den andre.</p>
+
+<h3 id="xor">XOR er ikke lineært separerbart</h3>
+<p>XOR («eksklusiv eller») er sann når nøyaktig én av input er sann:</p>
+<table class="center tt" style="max-width:320px">
+  <tr><th>$x_1$</th><th>$x_2$</th><th>XOR</th></tr>
+  <tr><td>0</td><td>0</td><td>0</td></tr><tr><td>0</td><td>1</td><td>1</td></tr><tr><td>1</td><td>0</td><td>1</td></tr><tr><td>1</td><td>1</td><td>0</td></tr>
+</table>
+
+<details class="steps"><summary>Bevis på at ingen $(w_1,w_2,b)$ fungerer</summary><div>
+  <p>Anta at et perseptron klarer XOR. Da må</p>
+  <ul>
+    <li>$(0,0) \to 0$: $\;b \lt 0$</li>
+    <li>$(0,1) \to 1$: $\;w_2 + b \ge 0$</li>
+    <li>$(1,0) \to 1$: $\;w_1 + b \ge 0$</li>
+    <li>$(1,1) \to 0$: $\;w_1 + w_2 + b \lt 0$</li>
+  </ul>
+  <p>Legg sammen ulikhet 2 og 3: $w_1 + w_2 + 2b \ge 0$, altså $w_1 + w_2 + b \ge -b$. Siden $b \lt 0$ er $-b \gt 0$, så $w_1 + w_2 + b \gt 0$. Det motsier ulikhet 4. Altså finnes det ingen slike vekter.</p>
+</div></details>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 5.2</span><p>Eksamen viste nøyaktig sannhetstabellen over og spurte: «Hvorfor kan ikke et enkelt perceptron lære denne sammenhengen?» Riktig svar: <em>Fordi XOR-mønsteret ikke er lineært separerbart.</em> Distraktorene var at perseptroner trenger flere enn to features, kontinuerlige labels eller bias lik null. Alle er tull, men høres tekniske ut.</p></div>
+
+<div class="quiz" data-id="09-xor-why">
+  <p class="q">Hvorfor kan ikke ett enkelt perseptron (én TLU) lære XOR?</p>
+  <ul>
+    <li>Fordi XOR har binære targets, og perseptronet trenger kontinuerlige targets for å beregne feilen.</li>
+    <li>Fordi læringsraten må være uendelig liten for at regelen skal konvergere på XOR.</li>
+    <li data-correct>Fordi perseptronets beslutningsgrense er en rett linje, og ingen rett linje skiller $(0,1),(1,0)$ fra $(0,0),(1,1)$.</li>
+    <li>Fordi XOR krever minst tre input-features.</li>
+  </ul>
+  <div class="explain">Perseptronets grense $w_1x_1+w_2x_2+b=0$ er en rett linje, og XOR-punktene ligger «på kryss». Binære targets er nettopp det perseptronet er laget for, så første alternativ er feil. Ingen læringsrate hjelper, fordi det ikke finnes noen løsning å konvergere mot. Og XOR er definert på to input.</div>
+</div>
+
+<h3>Løsningen: kombiner porter i to lag</h3>
+<p>Hintet i notatene er å sette sammen AND, NOT og OR. Observer at XOR er sann når <em>minst én</em> er sann (OR) <em>og</em> <em>ikke begge</em> er sanne (NOT AND = NAND):</p>
+<div class="eq">
+  $$\text{XOR}(x_1,x_2) = \text{AND}\big(\,\text{OR}(x_1,x_2),\ \text{NAND}(x_1,x_2)\,\big)$$
+</div>
+<p>NAND kan lages med én TLU, $(-1,-1,1.5)$ (du kan også ta NOT av en AND-node, men da får du et ekstra lag). Da får vi et nettverk med <strong>to lag</strong> av TLU-er:</p>
+
+<figure class="fig">
+<svg viewBox="0 0 640 250" role="img" aria-label="XOR-nettverk: x1 og x2 går til en OR-node og en NAND-node, som begge går til en AND-node som gir output.">
+  <g class="k9-edge">
+    <line x1="112" y1="70" x2="288" y2="60"/><line x1="112" y1="70" x2="288" y2="180"/>
+    <line x1="112" y1="180" x2="288" y2="60"/><line x1="112" y1="180" x2="288" y2="180"/>
+    <line x1="352" y1="60" x2="508" y2="118"/><line x1="352" y1="180" x2="508" y2="124"/>
+  </g>
+  <circle class="k9-in" cx="90" cy="70" r="22"/><text x="90" y="75" text-anchor="middle">x₁</text>
+  <circle class="k9-in" cx="90" cy="180" r="22"/><text x="90" y="185" text-anchor="middle">x₂</text>
+  <circle class="k9-hid" cx="320" cy="60" r="32"/><text x="320" y="56" text-anchor="middle" class="k9-small" style="font-weight:600">OR</text><text x="320" y="72" text-anchor="middle" class="k9-small">b = −0.5</text>
+  <circle class="k9-hid" cx="320" cy="180" r="32"/><text x="320" y="176" text-anchor="middle" class="k9-small" style="font-weight:600">NAND</text><text x="320" y="192" text-anchor="middle" class="k9-small">b = 1.5</text>
+  <circle class="k9-out" cx="540" cy="121" r="32"/><text x="540" y="117" text-anchor="middle" class="k9-small" style="font-weight:600">AND</text><text x="540" y="133" text-anchor="middle" class="k9-small">b = −1.5</text>
+  <text x="190" y="52" class="k9-small">1</text><text x="160" y="100" class="k9-small">−1</text>
+  <text x="168" y="148" class="k9-small">1</text><text x="190" y="196" class="k9-small">−1</text>
+  <text x="420" y="78" class="k9-small">1</text><text x="420" y="170" class="k9-small">1</text>
+  <text x="320" y="238" text-anchor="middle" class="k9-small k9-muted">skjult lag: h₁ = OR, h₂ = NAND</text>
+  <text x="90" y="238" text-anchor="middle" class="k9-small k9-muted">input</text>
+  <text x="540" y="238" text-anchor="middle" class="k9-small k9-muted">output</text>
+</svg>
+<figcaption><b>Figur 9.5</b> XOR som et nettverk med ett skjult lag. Tallene på kantene er vektene. Det skjulte laget regner ut OR og NAND, og output-noden tar AND av dem. Totalt $2\cdot2+2 + 2\cdot1+1 = 9$ parametre.</figcaption>
+</figure>
+
+<table class="center tt">
+  <tr><th>$x_1$</th><th>$x_2$</th><th>$h_1$ = OR</th><th>$h_2$ = NAND</th><th>AND($h_1,h_2$)</th><th>XOR</th></tr>
+  <tr><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td></tr>
+  <tr><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+  <tr><td>1</td><td>0</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+  <tr><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+</table>
+
+<div class="callout why"><span class="label">Hvorfor virker det?</span><p>Se på kolonnene $(h_1, h_2)$. De fire input-punktene havner på bare tre steder: $(0,1)$, $(1,1)$ og $(1,0)$. Begge XOR-sanne punkter havner i $(1,1)$. I det nye rommet $(h_1,h_2)$ er problemet <strong>lineært separerbart</strong>, og én TLU (AND) klarer resten. Det skjulte laget har <em>transformert dataene</em> til et rom der en rett linje holder.</p></div>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>Dette er hele motivasjonen for <strong>flere lag</strong>. Ett lag kan bare tegne én rett strek. Flere lag kan først bøye om på datarommet og deretter tegne streken. Problemet som gjenstår er at vi her valgte vektene for hånd. For å <em>lære</em> dem trenger vi deriverbare aktiveringsfunksjoner, og det er neste seksjon.</p></div>
+
+<div class="widget">
+  <h4>Utforsk: det skjulte laget transformerer datarommet</h4>
+  <div class="two-col">
+    <canvas id="xorA" width="320" height="320"></canvas>
+    <canvas id="xorB" width="320" height="320"></canvas>
+  </div>
+  <div class="controls">
+    <label>Bratthet k <input type="range" id="xor-k" min="0.5" max="20" step="0.5" value="10"><output id="xor-ko">10</output></label>
+  </div>
+  <p class="small muted">Venstre: input-rommet $(x_1, x_2)$ med XOR-data (litt støy rundt hjørnene) og linjene til de to skjulte nodene (OR og NAND). Høyre: de samme punktene i det skjulte rommet $(h_1, h_2)$, der $h_j = \sigma(k\,z_j)$, og output-nodens linje $h_1 + h_2 = 1.5$.</p>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Til høyre er de blå punktene samlet oppe til høyre og kan skilles fra de oransje med én rett linje, selv om det var umulig til venstre. Med stor $k$ er sigmoid nesten et steg, og punktene klumper seg i hjørnene $(0,1)$, $(1,1)$ og $(1,0)$ som i tabellen. Med liten $k$ blir transformasjonen mykere, punktene trekkes mot midten, og skillet blir dårligere. Hvert lag i et nevralt nett er nettopp en slik lært feature-transformasjon.</p>
+
+<div class="quiz" data-multi data-id="09-xor-multi">
+  <p class="q">Hvilke utsagn om XOR og perseptroner er riktige?</p>
+  <ul>
+    <li data-correct>XOR kan representeres med et nettverk av TLU-er med ett skjult lag.</li>
+    <li>Med riktig læringsrate kan Rosenblatts regel lære XOR med én TLU.</li>
+    <li data-correct>I det skjulte rommet $(h_1, h_2) = (\text{OR}, \text{NAND})$ er XOR lineært separerbart.</li>
+    <li>AND og OR krever ulike vekter $w_1, w_2$. Det holder ikke å endre biasen.</li>
+    <li data-correct>Rosenblatts regel alene kan ikke trene de skjulte nodene, fordi vi ikke vet hva den «riktige» outputen til en skjult node er.</li>
+  </ul>
+  <div class="explain">Ett skjult lag (OR, NAND) pluss en AND-node gir XOR, og i det skjulte rommet ligger de sanne punktene for seg selv, så første og tredje er riktige. Ingen læringsrate kan gi én TLU en løsning som ikke finnes. AND og OR har like vekter $(1,1)$ og skiller seg bare i bias. Det siste er viktig: perseptronregelen trenger $y-\hat y$ for noden som oppdateres, men skjulte noder har ingen target. Å løse dette er jobben til backpropagation (<a href="10-trening-nn.html#backprop">kapittel 10</a>), og det krever deriverbare aktiveringer.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="aktivering"><span class="sec">9.5</span>Aktiveringsfunksjoner</h2>
+
+<p>En ulempe med perseptronet er at en <strong>liten endring i input kan gi en stor endring i output</strong>: bare et lite steg over terskelen, og output hopper fra 0 til 1. Det skyldes Heaviside-funksjonen. Det motsatte er like ille: en liten endring i vektene gir som regel <em>ingen</em> endring i output. Begge deler gjør læring med gradienter umulig.</p>
+<p>Løsningen er å la nodene returnere <strong>kontinuerlige verdier</strong>. Bytter vi Heaviside med en glatt, deriverbar funksjon, har vi laget den typen node vi finner i moderne nevrale nettverk.</p>
+
+<div class="chain">
+  <div><b>Problem</b>Heaviside har derivert 0 eller udefinert</div><div class="arrow">→</div>
+  <div><b>Løsning</b>bytt til glatt aktivering (sigmoid, ReLU, …)</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>små vektendringer gir små output-endringer, gradienten finnes, og nettet kan trenes med GD</div>
+</div>
+
+<h3>De vanlige aktiveringsfunksjonene</h3>
+<div class="eq">
+  <p class="eq-note">Sigmoid (likning 93): output i $(0,1)$. Brukes i output-noden ved binær klassifisering.</p>
+  $$\sigma(x) = \frac{1}{1+e^{-x}}, \qquad \sigma'(x) = \sigma(x)\,\big(1-\sigma(x)\big) \le 0.25$$
+</div>
+<div class="eq">
+  <p class="eq-note">Softmax (likning 94): gjør en vektor med $K$ tall om til $K$ sannsynligheter som summerer til 1. Brukes i output-laget ved klassifisering med flere klasser.</p>
+  $$\text{softmax}(x)_i = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$$
+</div>
+<div class="eq">
+  <p class="eq-note">ReLU, rectified linear unit (likning 95): standardvalget i skjulte lag i dette kurset.</p>
+  $$\text{ReLU}(x) = \max(0,\,x), \qquad \text{ReLU}'(x) = \begin{cases}1 & x \gt 0\\ 0 & x \lt 0\end{cases}$$
+</div>
+<p><strong>Lineær (ingen) aktivering</strong>, $g(x) = x$, brukes i output-laget ved <strong>regresjon</strong>, fordi output da må kunne være et hvilket som helst reelt tall og ikke låses til et intervall som $[0,1]$.</p>
+
+<div class="widget">
+  <h4>Utforsk: aktiveringsfunksjoner og deres deriverte</h4>
+  <canvas id="act" width="640" height="340"></canvas>
+  <div class="controls">
+    <label>Funksjon <select id="act-f">
+      <option value="step">Heaviside</option>
+      <option value="sig" selected>sigmoid</option>
+      <option value="tanh">tanh</option>
+      <option value="relu">ReLU</option>
+      <option value="lin">lineær (ingen)</option>
+    </select></label>
+    <label><input type="checkbox" id="act-d" checked> vis derivert</label>
+    <label><input type="checkbox" id="act-all"> vis alle (tynt)</label>
+  </div>
+  <div class="readouts"><span class="readout" id="act-info"></span></div>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Heaviside sin deriverte er 0 overalt unntatt i 0, der den ikke finnes. Sigmoid sin deriverte er aldri større enn 0.25 og nesten 0 når $|x|$ er stor. Noden er da «mettet» (saturated), og gradienten forsvinner. Dette er grunnen til at dype nett med sigmoid trener tregt, se <a href="10-trening-nn.html#vanishing">vanishing gradients i kapittel 10</a>. ReLU har derivert nøyaktig 1 for alle positive $x$, så gradienten slipper uendret gjennom. tanh er en skalert sigmoid med output i $(-1,1)$ (nevnt i prosjekt 3, men ikke i notatene).</p>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 5.3</span><p>«Hva er den viktigste konsekvensen av å bruke sigmoid i stedet for step-funksjonen?» Riktig svar: <em>Nevronet blir deriverbart og kan trenes med gradient descent.</em> Feilsvarene var at modellen ikke lenger støtter binær klassifisering (feil, vi setter bare en terskel på 0.5), at nevronet blir lineært (feil, sigmoid er ikke-lineær) og at output alltid er 0 eller 1 (det er jo stegfunksjonen).</p></div>
+
+<div class="quiz" data-id="09-sigmoid-vs-step">
+  <p class="q">Du bytter Heaviside med sigmoid i et perseptron. Hva er den viktigste konsekvensen?</p>
+  <ul>
+    <li>Nevronet blir lineært, og kan dermed trenes med lukket-form-løsning.</li>
+    <li data-correct>Output blir en glatt funksjon av vektene, så tapet kan deriveres og vektene trenes med gradient descent.</li>
+    <li>Nevronet kan nå løse XOR alene, fordi sigmoid er ikke-lineær.</li>
+    <li>Nevronet kan ikke lenger brukes til binær klassifisering, siden output ikke er 0 eller 1.</li>
+  </ul>
+  <div class="explain">Poenget er deriverbarheten: $\sigma'(z) = \sigma(z)(1-\sigma(z)) \gt 0$ overalt, så gradienten finnes og er ikke null. Sigmoid er ikke-lineær, men én sigmoid-node har fortsatt en <em>lineær</em> beslutningsgrense ($\sigma(z) = 0.5 \Leftrightarrow z = 0$), så XOR er fortsatt umulig med én node. Det er logistisk regresjon. Binær klassifisering fungerer fint ved å sette terskel 0.5.</div>
+</div>
+
+<h3 id="ikke-linearitet">Hvorfor må aktiveringen være ikke-lineær?</h3>
+<p>Fristende tanke: Hvorfor ikke bare bruke $g(x) = x$ overalt? Fordi <strong>en lineær funksjon av en lineær funksjon er lineær</strong>. To lag uten aktivering kollapser til ett:</p>
+<div class="eq">
+  $$W^{(2)}\big(W^{(1)}x + b^{(1)}\big) + b^{(2)} = \underbrace{W^{(2)}W^{(1)}}_{W'}\,x + \underbrace{W^{(2)}b^{(1)} + b^{(2)}}_{b'}$$
+</div>
+<p>Uansett hvor mange lineære lag vi stabler, er resultatet ekvivalent med én lineær modell, og vi er tilbake til lineær regresjon. Det er ikke-lineariteten i $g$ som gir nettet evnen til å bøye datarommet.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Lineær ∘ lineær = lineær.</strong> Uten ikke-linearitet er et dypt nett bare en dyr måte å gjøre lineær regresjon på. Aktiveringsfunksjonen er «leddet» i armen: uten ledd kan armen bare peke rett fram, uansett hvor mange deler den har.</p></div>
+
+<div class="quiz" data-id="09-linear-stack">
+  <p class="q">Et nettverk har tre skjulte lag med 100 noder hver, men alle bruker lineær aktivering $g(x)=x$. Output er sigmoid. Hva kan nettverket representere?</p>
+  <ul>
+    <li>Mer komplekse grenser enn et nett med ett skjult lag, fordi det har flere parametre.</li>
+    <li data-correct>Det samme som logistisk regresjon: en lineær beslutningsgrense.</li>
+    <li>Hvilken som helst kontinuerlig funksjon, fordi det har mange noder.</li>
+    <li>Ingenting, fordi lineær aktivering ikke kan deriveres.</li>
+  </ul>
+  <div class="explain">De tre lineære lagene kollapser til én lineær transformasjon $W'x + b'$, og en sigmoid på toppen av det er nøyaktig logistisk regresjon. Antall parametre hjelper ikke når funksjonsklassen er den samme. Lineær aktivering er helt fint deriverbar (derivert 1), så det siste alternativet er feil. Påstanden om «hvilken som helst funksjon» (universell approksimasjon) krever ikke-lineære aktiveringer.</div>
+</div>
+
+<h3>Softmax: én node per klasse</h3>
+<p>Softmax sørger for at aktiveringene i output-laget summerer til 1. Da representerer hver output-node datapunktets predikerte tilhørighet til sin klasse, og vi må ha <strong>én output-node per klasse</strong>. Eksponentialfunksjonen gjør alle tall positive og forsterker forskjeller: det største tallet får en uforholdsmessig stor andel.</p>
+
+<details class="steps"><summary>Regneeksempel: softmax av $(2,\,1,\,0)$</summary><div>
+  <p>$e^2 \approx 7.389$, $e^1 \approx 2.718$, $e^0 = 1$. Summen er $\approx 11.107$.</p>
+  <p>$\text{softmax} = (7.389,\ 2.718,\ 1)/11.107 \approx (0.665,\ 0.245,\ 0.090)$.</p>
+  <p>Summen er 1, og rekkefølgen er bevart. Merk at softmax av $(2,1,0)$ er det samme som softmax av $(102, 101, 100)$: bare <em>forskjellene</em> betyr noe, fordi $e^{x_i + c}/\sum_j e^{x_j+c} = e^{x_i}/\sum_j e^{x_j}$.</p>
+</div></details>
+
+<div class="calc" data-id="09-softmax" data-answer="0.821" data-tol="0.003">
+  <p class="q">Output-laget har før aktivering verdiene $z = (3,\ 1,\ 0.5)$. Hva er softmax-sannsynligheten for klasse 1? Oppgi med tre desimaler.</p>
+  <div class="solution">$e^3 \approx 20.086$, $e^1 \approx 2.718$, $e^{0.5} \approx 1.649$. Sum $\approx 24.453$. Sannsynligheten for klasse 1 er $20.086/24.453 \approx 0.821$. (De andre blir $\approx 0.111$ og $0.067$.)</div>
+</div>
+
+<div class="quiz" data-multi data-id="09-softmax-props">
+  <p class="q">Hvilke utsagn om softmax i output-laget er riktige?</p>
+  <ul>
+    <li data-correct>Aktiveringene summerer til 1, og hver kan tolkes som predikert sannsynlighet for én klasse.</li>
+    <li data-correct>Med $K$ klasser trenger output-laget $K$ noder.</li>
+    <li>Softmax brukes i skjulte lag for å hindre at aktiveringene blir for store.</li>
+    <li>Softmax gir alltid output 1 for den største verdien og 0 for resten.</li>
+    <li data-correct>Å legge til samme konstant på alle input endrer ikke softmax-output.</li>
+  </ul>
+  <div class="explain">Softmax er en output-aktivering for multiklasse, med én node per klasse og output som summerer til 1. Den er «myk»: den største verdien får størst sannsynlighet, men aldri nøyaktig 1 (det ville vært argmax/hard max). Konstanten forkortes bort i brøken. I skjulte lag bruker vi typisk ReLU.</div>
+</div>
+
+<h3 id="output-valg">Hvilken aktivering hvor?</h3>
+<p>I de <strong>skjulte lagene</strong> står vi ganske fritt, og i dette kurset holder vi oss til ReLU. I <strong>output-laget</strong> bestemmer oppgaven valget, fordi output må ha riktig form:</p>
+<table>
+  <tr><th>Oppgave</th><th>Noder i output</th><th>Output-aktivering</th><th>Hvorfor</th><th>Tapsfunksjon (kap. 10)</th></tr>
+  <tr><td>Binær klassifisering</td><td>1</td><td>sigmoid</td><td>én sannsynlighet i $(0,1)$</td><td>binær cross-entropy</td></tr>
+  <tr><td>Klassifisering, $K$ klasser</td><td>$K$</td><td>softmax</td><td>$K$ sannsynligheter som summerer til 1</td><td>categorical cross-entropy</td></tr>
+  <tr><td>Regresjon</td><td>1 per target</td><td>lineær (ingen)</td><td>output må kunne være et hvilket som helst reelt tall</td><td>MSE</td></tr>
+</table>
+
+<div class="callout warn"><span class="label">Vanlig feil</span><p>Å bruke ReLU eller sigmoid i output-laget for <strong>regresjon</strong>. Sigmoid låser prediksjonen til $(0,1)$, og ReLU kan aldri predikere negative tall. Huskeregel: <em>regresjon = ingen aktivering i output</em>. En annen felle er å tro at «aktiveringsfunksjonen» betyr det samme overalt: skjulte lag og output-lag har helt ulike jobber.</p></div>
+
+<div class="quiz" data-id="09-output-reg">
+  <p class="q">Du skal predikere boligpriser i millioner kroner med et MLP. Hvilken aktivering bør output-noden ha?</p>
+  <ul>
+    <li>Sigmoid, fordi den er deriverbar.</li>
+    <li>Softmax, fordi den gir en normalisert output.</li>
+    <li>ReLU, fordi den er standard i nevrale nett.</li>
+    <li data-correct>Lineær (ingen aktivering), fordi output skal være et ubegrenset reelt tall.</li>
+  </ul>
+  <div class="explain">Regresjon krever at output kan ta hvilken som helst verdi. Sigmoid begrenser til $(0,1)$, så en bolig til 5 millioner kan aldri predikeres. Softmax med én node gir alltid 1, og er uansett for klassifisering. ReLU er standard i <em>skjulte</em> lag. I output kunne den riktignok fungert for priser, som alltid er positive, men gradienten blir 0 hvis noden havner på negativ side, og det er ikke standardvalget. Notatene sier eksplisitt: ingen aktivering i output-laget ved regresjon.</div>
+</div>
+
+<div class="quiz" data-id="09-output-multi">
+  <p class="q">Et nettverk skal klassifisere håndskrevne sifre (0–9). Hvordan bør output-laget se ut?</p>
+  <ul>
+    <li>1 node med sigmoid, der output ganges med 9 og rundes av.</li>
+    <li>1 node med lineær aktivering som predikerer sifferet som et tall.</li>
+    <li data-correct>10 noder med softmax.</li>
+    <li>10 noder med ReLU.</li>
+  </ul>
+  <div class="explain">Ti klasser gir ti output-noder, og softmax gjør dem til sannsynligheter som summerer til 1. Å predikere sifferet som ett tall (regresjon) antar at 3 ligger «mellom» 2 og 4, noe som er meningsløst for klasser, og sigmoid ganger 9 har samme problem. ReLU gir ikke sannsynligheter og summerer ikke til 1.</div>
+</div>
+
+<div class="quiz" data-id="09-relu-deriv">
+  <p class="q">Hva er den deriverte av ReLU for $x = 3$ og for $x = -3$?</p>
+  <ul>
+    <li>3 og 0</li>
+    <li>1 og −1</li>
+    <li>0.25 og 0</li>
+    <li data-correct>1 og 0</li>
+  </ul>
+  <div class="explain">ReLU er $x$ for positive $x$ (stigning 1) og 0 for negative (stigning 0). 3 og 0 er funksjonsverdiene, ikke den deriverte. 0.25 er maksimal derivert for sigmoid (i $x=0$). I $x=0$ er ReLU egentlig ikke deriverbar, men i praksis setter bibliotekene bare den deriverte til 0 der. Det er bare ett punkt, i motsetning til Heaviside der den deriverte er 0 <em>overalt</em>.</div>
+</div>
+
+<div class="reflect" data-id="09-relu-vs-step">
+  <p class="q">ReLU er heller ikke deriverbar i 0, og den deriverte er 0 for alle negative $x$. Hvorfor er ReLU likevel et godt valg, mens Heaviside er ubrukelig for gradient descent?</p>
+  <div class="answer">Heaviside har derivert 0 <em>overalt</em> der den er definert, så gradienten gir aldri noe signal. ReLU har derivert 1 på hele den positive halvdelen, så for alle noder som er aktive slipper gradienten gjennom uten å krympe. At den ikke er deriverbar i ett punkt spiller i praksis ingen rolle (vi treffer nesten aldri nøyaktig 0, og bibliotekene velger bare 0 eller 1 der). Ulempen er at en node som alltid får negativ input, har null gradient og kan «dø» (dying ReLU), men så lenge noen input gir positiv $z$, lærer noden.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="arkitektur"><span class="sec">9.6</span>Arkitektur: lag, noder og forward pass</h2>
+
+<p>Hvordan nodene er satt sammen kalles nettverkets <strong>arkitektur</strong>. Nevrale nettverk består av <strong>lag</strong>, og et lag består av noder «stablet i høyden» som ikke mottar input fra hverandre. Informasjon går bare mellom noder i ulike lag.</p>
+<ul>
+  <li><strong>Input-laget</strong> er det første laget. Det tar imot dataene og har like mange noder som dataene har <strong>features</strong>.</li>
+  <li><strong>Skjulte lag</strong> (indre lag, hidden layers) er alle lagene mellom input og output. De kalles skjulte fordi vi aldri ser eller har targets for verdiene deres.</li>
+  <li><strong>Output-laget</strong> er det siste laget og representerer prediksjonen. Ved veiledet læring har det like mange noder som det er <strong>targets</strong> (ved klassifisering med softmax: én per klasse).</li>
+</ul>
+<p>Vi holder oss til nettverk der alle noder i hvert lag er koblet til alle noder i forrige og neste lag. Slike nettverk kalles <strong>multi-layer perceptrons (MLP)</strong> eller <strong>fully connected feed-forward</strong>-nettverk:</p>
+<ul>
+  <li><em>Fully connected</em>: alle noder i nabolag har forbindelser til hverandre.</li>
+  <li><em>Feed-forward</em>: informasjonen går bare fremover, fra input mot output. Ingen løkker.</li>
+</ul>
+<p>Andre arkitekturer passer bedre til andre data, for eksempel konvolusjonslag for bilder og transformer-blokker for sekvenser som språk, men de er ikke pensum her.</p>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s40_1.png" alt="Nevralt nettverk med tre input-noder, to skjulte lag med fire noder og tre output-noder" width="520">
+  <figcaption><b>Figur 9.6</b> Skisse av et nevralt nettverk med arkitektur 3–4–4–3 (figur 21 i notatene). Hver blå node regner ut en vektet sum (Σ) og sender den gjennom aktiveringsfunksjonen (notatene kaller den $f$ i figuren og $g$ i teksten). Merk trykkfeil i figuren: output-nodene skal hete $\hat y_1, \hat y_2, \hat y_3$.</figcaption>
+</figure>
+
+<div class="quiz" data-id="09-input-output-size">
+  <p class="q">Du skal klassifisere gråtonebilder på 28×28 piksler i 10 klasser med et MLP, der hver piksel er én feature. Hvor mange noder må input- og output-laget ha?</p>
+  <ul>
+    <li>Input 28, output 10</li>
+    <li>Input 784, output 1</li>
+    <li>Input 10, output 784</li>
+    <li data-correct>Input 784, output 10</li>
+  </ul>
+  <div class="explain">Input-laget har én node per feature: $28\cdot 28 = 784$ piksler. Output-laget har én node per klasse med softmax: 10. 28 er bare én rad med piksler, og én output-node ville vært binær klassifisering eller regresjon. Antall skjulte lag og noder kan vi derimot velge fritt (de er hyperparametre).</div>
+</div>
+
+<h3 id="formel">Aktiveringen til én node</h3>
+<p>Det viktigste uttrykket i kapittelet. Aktiveringen $a$ til node $j$ i lag $l$ er</p>
+<div class="eq">
+  <p class="eq-note">Likning 96 i notatene</p>
+  $$a^{(l)}_j = g\Big(\sum_{i=1}^{n_{l-1}} w^{(l)}_{ij}\, a^{(l-1)}_i + b^{(l)}_j\Big)$$
+</div>
+<ul>
+  <li>$l$: indeks for lag. $l = 0$ er input-laget, så $a^{(0)}_i = x_i$.</li>
+  <li>$i$: indeks for node i <em>forrige</em> lag ($l-1$), som det summeres over.</li>
+  <li>$j$: indeks for node i <em>det aktuelle</em> laget ($l$).</li>
+  <li>$w^{(l)}_{ij}$: vekten på kanten <em>fra</em> node $i$ i lag $l-1$ <em>til</em> node $j$ i lag $l$.</li>
+  <li>$b^{(l)}_j$: bias for node $j$ i lag $l$.</li>
+  <li>$a^{(l-1)}_i$: aktiveringen til node $i$ i forrige lag.</li>
+  <li>$g$: aktiveringsfunksjonen i lag $l$.</li>
+</ul>
+<p class="small muted">Notatene skriver summen fra $i = 0$. Det kan leses som bias-trikset ($a_0 = 1$, $w_{0j} = b_j$), men da skal ikke $b_j$ stå i tillegg. Vi skriver summen fra $i=1$ med eksplisitt bias, som er det samme.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p>Les $w^{(l)}_{ij}$ som <strong>«til lag $l$, fra $i$ til $j$»</strong>. Hver node gjør det samme som et perseptron, bare med en glatt $g$: <em>vektet sum av alle i forrige lag, pluss bias, gjennom aktiveringen</em>.</p></div>
+
+<div class="reflect" data-id="09-first-node">
+  <p class="q">Oppgave fra notatene: Se på den første (øverste) noden i første lag etter input-laget, og skriv ned aktiveringen til denne noden med likning 96.</p>
+  <div class="answer">Vi har $l = 1$ og $j = 1$, og forrige lag er input-laget, så $a^{(0)}_i = x_i$. Det gir $a^{(1)}_1 = g\big(\sum_i w^{(1)}_{i1} x_i + b^{(1)}_1\big)$ (likning 97). Med tre input som i figur 9.6 blir det $a^{(1)}_1 = g\big(w^{(1)}_{11}x_1 + w^{(1)}_{21}x_2 + w^{(1)}_{31}x_3 + b^{(1)}_1\big)$. Legg merke til at det er <em>andre</em> indeks (1) som er fast, fordi det er mottakernoden.</div>
+</div>
+
+<div class="quiz" data-id="09-index">
+  <p class="q">Hva betyr $w^{(2)}_{31}$ med notasjonen over?</p>
+  <ul>
+    <li data-correct>Vekten fra node 3 i lag 1 til node 1 i lag 2.</li>
+    <li>Vekten fra node 1 i lag 2 til node 3 i lag 3.</li>
+    <li>Vekten fra node 3 i lag 2 til node 1 i lag 1.</li>
+    <li>Den tredje vekten til node 1, i lag 3.</li>
+  </ul>
+  <div class="explain">Øvre indeks er laget kanten går <em>inn i</em> (lag 2). Første nedre indeks $i = 3$ er avsendernoden i forrige lag (lag 1), og andre nedre indeks $j=1$ er mottakernoden i lag 2. Det vanligste feilsvaret er å lese indeksene i motsatt rekkefølge. Notasjonen varierer mellom bøker, men på eksamen gjelder notatenes: $w_{ij}$ går fra $i$ til $j$.</div>
+</div>
+
+<h3 id="matrise">På matriseform</h3>
+<p>Ta et nettverk med to input-features og et skjult lag med tre noder ($i = 1,2$ og $j=1,2,3$). Skrevet ut blir aktiveringene</p>
+<div class="eq">
+  $$\begin{aligned}
+  a^{(1)}_1 &= g\big(w^{(1)}_{11}x_1 + w^{(1)}_{21}x_2 + b^{(1)}_1\big)\\
+  a^{(1)}_2 &= g\big(w^{(1)}_{12}x_1 + w^{(1)}_{22}x_2 + b^{(1)}_2\big)\\
+  a^{(1)}_3 &= g\big(w^{(1)}_{13}x_1 + w^{(1)}_{23}x_2 + b^{(1)}_3\big)
+  \end{aligned}$$
+</div>
+<p>De tre likningene er én matrisemultiplikasjon (likning 101):</p>
+<div class="eq">
+  $$\underbrace{\begin{pmatrix} a^{(1)}_1\\ a^{(1)}_2\\ a^{(1)}_3\end{pmatrix}}_{3\times 1}
+  = g\left(\underbrace{\begin{pmatrix} w^{(1)}_{11} & w^{(1)}_{21}\\ w^{(1)}_{12} & w^{(1)}_{22}\\ w^{(1)}_{13} & w^{(1)}_{23}\end{pmatrix}}_{3\times 2}
+  \underbrace{\begin{pmatrix} x_1\\ x_2\end{pmatrix}}_{2\times 1}
+  + \underbrace{\begin{pmatrix} b^{(1)}_1\\ b^{(1)}_2\\ b^{(1)}_3\end{pmatrix}}_{3\times 1}\right)$$
+</div>
+<p>Kontroller dimensjonene: $(3\times 2)\cdot(2\times 1) = 3\times 1$, som stemmer med venstresiden. Generelt, med $n_{l-1}$ noder inn og $n_l$ noder ut:</p>
+<div class="eq">
+  <p class="eq-note">Ett lag på matriseform. $g$ brukes elementvis.</p>
+  $$a^{(l)} = g\big(W^{(l)} a^{(l-1)} + b^{(l)}\big), \qquad W^{(l)} \in \mathbb{R}^{n_l \times n_{l-1}},\quad b^{(l)} \in \mathbb{R}^{n_l}$$
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil</span><p>Rad $j$ i matrisen inneholder alle vektene <em>inn til</em> node $j$, så elementet $w_{ij}$ står i rad $j$, kolonne $i$. Matrisen har altså dimensjon (noder ut) × (noder inn). Keras lagrer vektene transponert, som en «kernel» med shape (noder inn, noder ut), fordi den ganger en hel batch $X$ fra venstre: $XW + b$. Begge konvensjonene gir samme antall parametre.</p></div>
+
+<figure class="fig">
+<svg viewBox="0 0 600 230" role="img" aria-label="Nettverk med to input-noder og tre skjulte noder, der kantene inn til den øverste skjulte noden er uthevet">
+  <g class="k9-edge">
+    <line x1="152" y1="80" x2="398" y2="110"/><line x1="152" y1="80" x2="398" y2="185"/>
+    <line x1="152" y1="160" x2="398" y2="110"/><line x1="152" y1="160" x2="398" y2="185"/>
+  </g>
+  <g class="k9-edge-hl"><line x1="152" y1="80" x2="398" y2="40"/><line x1="152" y1="160" x2="398" y2="40"/></g>
+  <circle class="k9-in" cx="130" cy="80" r="22"/><text x="130" y="85" text-anchor="middle">x₁</text>
+  <circle class="k9-in" cx="130" cy="160" r="22"/><text x="130" y="165" text-anchor="middle">x₂</text>
+  <circle class="k9-hid" cx="420" cy="40" r="24"/><text x="420" y="45" text-anchor="middle">a₁⁽¹⁾</text>
+  <circle class="k9-hid" cx="420" cy="110" r="24"/><text x="420" y="115" text-anchor="middle">a₂⁽¹⁾</text>
+  <circle class="k9-hid" cx="420" cy="185" r="24"/><text x="420" y="190" text-anchor="middle">a₃⁽¹⁾</text>
+  <text x="250" y="48" class="k9-small" style="fill:var(--c4)">w₁₁⁽¹⁾</text>
+  <text x="230" y="108" class="k9-small" style="fill:var(--c4)">w₂₁⁽¹⁾</text>
+  <text x="460" y="45" class="k9-small">= g(w₁₁x₁ + w₂₁x₂ + b₁)</text>
+  <text x="130" y="215" text-anchor="middle" class="k9-small k9-muted">lag 0 (input), i = 1, 2</text>
+  <text x="420" y="225" text-anchor="middle" class="k9-small k9-muted">lag 1, j = 1, 2, 3</text>
+</svg>
+<figcaption><b>Figur 9.7</b> De uthevede kantene er rad 1 i $W^{(1)}$: alle vektene inn til node $j=1$.</figcaption>
+</figure>
+
+<details class="steps"><summary>Regneeksempel: forward pass gjennom ett lag</summary><div>
+  <p>La $x = (2,\,1)$, ReLU-aktivering og</p>
+  <p>$$W^{(1)} = \begin{pmatrix} 1 & -1\\ 0.5 & 2\\ -2 & 1\end{pmatrix},\qquad b^{(1)} = \begin{pmatrix}0\\ -1\\ 1\end{pmatrix}.$$</p>
+  <p><strong>1. Vektet sum:</strong> $z = W^{(1)}x + b^{(1)}$:</p>
+  <p>$z_1 = 1\cdot 2 + (-1)\cdot 1 + 0 = 1$</p>
+  <p>$z_2 = 0.5\cdot 2 + 2\cdot 1 - 1 = 2$</p>
+  <p>$z_3 = -2\cdot 2 + 1\cdot 1 + 1 = -2$</p>
+  <p><strong>2. Aktivering:</strong> $a^{(1)} = \text{ReLU}(z) = (1,\ 2,\ 0)$.</p>
+  <p>To features ble til tre nye. Node 3 er «av» for dette datapunktet.</p>
+</div></details>
+
+<div class="calc" data-id="09-forward" data-answer="5.5" data-tol="0.001">
+  <p class="q">Samme lag som i eksempelet ($W^{(1)}$ og $b^{(1)}$ over, ReLU), men nå med $x = (1,\,3)$. Hva blir $a^{(1)}_2$?</p>
+  <div class="solution">$z_2 = 0.5\cdot 1 + 2\cdot 3 - 1 = 5.5$, og $\text{ReLU}(5.5) = 5.5$. Til sammenligning: $z_1 = 1 - 3 + 0 = -2 \to 0$ og $z_3 = -2 + 3 + 1 = 2 \to 2$, så $a^{(1)} = (0,\ 5.5,\ 2)$.</div>
+</div>
+
+<h3 id="parametre">Telle parametre</h3>
+<p>Mellom et lag med $n_{l-1}$ noder og et lag med $n_l$ noder er det $n_{l-1}\cdot n_l$ vekter (alle-til-alle) og $n_l$ bias (én per mottakernode):</p>
+<div class="eq">
+  $$\#\text{parametre i lag } l = n_{l-1}\cdot n_l + n_l = (n_{l-1}+1)\,n_l$$
+</div>
+<p>Input-laget har ingen parametre. Det er bare dataene.</p>
+
+<details class="steps"><summary>Eksempel: nettverket i figur 9.6 (3–4–4–3)</summary><div>
+  <p>Lag 1: $3\cdot4 + 4 = 16$. Lag 2: $4\cdot 4 + 4 = 20$. Lag 3: $4\cdot 3 + 3 = 15$. Totalt $16 + 20 + 15 = 51$ parametre.</p>
+</div></details>
+
+<div class="calc" data-id="09-params-mnist" data-answer="101770" data-tol="0.5">
+  <p class="q">Et MLP for sifferbilder har arkitekturen 784–128–10. Hvor mange trenbare parametre har det?</p>
+  <div class="solution">Lag 1: $784\cdot 128 + 128 = 100\,480$. Lag 2: $128\cdot 10 + 10 = 1\,290$. Totalt $101\,770$. Nesten alle parametrene sitter i første lag, fordi input er så bredt.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: tegn et nettverk og tell parametrene</h4>
+  <div class="controls" style="margin:0 0 10px">
+    <label>Lag (noder per lag) <input type="text" id="net-spec" value="2, 4, 4, 3"></label>
+    <div class="k9-presets">
+      <button class="btn ghost" type="button" data-spec="2, 3">perseptron 2→3</button>
+      <button class="btn ghost" type="button" data-spec="2, 2, 1">XOR 2–2–1</button>
+      <button class="btn ghost" type="button" data-spec="3, 4, 4, 3">figur 9.6</button>
+      <button class="btn ghost" type="button" data-spec="3, 6, 7, 2">Keras-eksempelet</button>
+      <button class="btn ghost" type="button" data-spec="784, 128, 10">784–128–10</button>
+    </div>
+  </div>
+  <div id="net-svg"></div>
+  <table id="net-table"></table>
+  <p class="small muted">Skriv antall noder per lag, med komma mellom, fra input til output. Lag med mer enn 10 noder tegnes forkortet (⋮), men telles riktig.</p>
+</div>
+<p><strong>Hva du bør legge merke til:</strong> Antall parametre vokser med <em>produktet</em> av nabolagenes bredder, ikke summen. Dobler du bredden på to skjulte lag som ligger etter hverandre, firedobles vektene mellom dem. Et bredt input-lag (som bilder) gjør første lag dyrt. Matrisen $W^{(l)}$ har alltid shape (noder i lag $l$) × (noder i lag $l-1$).</p>
+
+<div class="quiz" data-id="09-matrix-shape">
+  <p class="q">Et skjult lag har 8 noder, og forrige lag har 5 noder. Hva er dimensjonen til $W^{(l)}$ i notasjonen $a^{(l)} = g(W^{(l)}a^{(l-1)} + b^{(l)})$, og hvor mange parametre har laget?</p>
+  <ul>
+    <li data-correct>$8\times 5$, 48 parametre</li>
+    <li>$5\times 8$, 40 parametre</li>
+    <li>$8\times 5$, 40 parametre</li>
+    <li>$8\times 8$, 72 parametre</li>
+  </ul>
+  <div class="explain">$W^{(l)}a^{(l-1)}$ må gi en vektor med 8 elementer når $a^{(l-1)}$ har 5, så $W$ er $8\times 5$ (ut × inn). Det er 40 vekter, pluss 8 bias = 48. Svaret med 40 glemmer bias, og $5\times 8$ er Keras-konvensjonen (kernel), som ikke passer med $W a$ i denne rekkefølgen.</div>
+</div>
+
+<div class="calc" data-id="09-params-2443" data-answer="47" data-tol="0.5">
+  <p class="q">Backpropagation-eksempelet i kapittel 10 bruker et nettverk med to input-noder, to skjulte lag med fire noder hver og tre output-noder (2–4–4–3). Hvor mange parametre har det?</p>
+  <div class="solution">Lag 1: $2\cdot 4 + 4 = 12$. Lag 2: $4\cdot 4 + 4 = 20$. Lag 3: $4\cdot 3 + 3 = 15$. Totalt $47$.</div>
+</div>
+
+<!-- ======================================================= -->
+<h2 id="transformasjon"><span class="sec">9.7</span>Hvert lag er en lært feature-transformasjon</h2>
+
+<p>Generelt har input-laget $n$ noder og det første skjulte laget $m$ noder. Overgangen mellom dem tar $n$ features og lager $m$ nye verdier. Det gjelder alle lagene: <strong>hvert lag transformerer dataene det får til et nytt datarom med like mange dimensjoner som laget har noder</strong>. Fordi $g$ er ikke-lineær, er transformasjonen ikke-lineær.</p>
+<p>Det kan tolkes som en <strong>automatisk feature-transformasjon</strong> som utvikles mens nettet lærer. Sammenlign med <a href="06-regresjon.html">polynomisk regresjon i kapittel 6</a>, der <em>vi</em> valgte features som $x^2$ og $x_1x_2$ for hånd. I et nevralt nett lærer de skjulte lagene selv hvilke features som er nyttige, og output-laget gjør til slutt en enkel (ofte lineær eller logistisk) modell på de lærte featurene.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Skjulte lag = feature engineering som læres.</strong> De første lagene «bøyer» datarommet. Siste lag er gammel kjenning: en lineær eller logistisk regresjon på de nye featurene. Du så dette konkret i XOR-widgeten: det skjulte laget flyttet punktene slik at én rett linje holdt.</p></div>
+
+<div class="chain">
+  <div><b>Input</b>$n$ rå features</div><div class="arrow">→</div>
+  <div><b>Skjult lag 1</b>ikke-lineær transformasjon til $m_1$ nye features</div><div class="arrow">→</div>
+  <div><b>Skjult lag 2</b>ny transformasjon til $m_2$ features</div><div class="arrow">→</div>
+  <div><b>Output</b>enkel modell (sigmoid / softmax / lineær) på de lærte featurene</div>
+</div>
+
+<div class="quiz" data-id="09-hidden-meaning">
+  <p class="q">Hvilken tolkning av de skjulte lagene i et MLP er mest dekkende?</p>
+  <ul>
+    <li>De lagrer treningsdataene slik at nettet kan slå opp svaret for nye punkter.</li>
+    <li>De gjør det samme som input-laget, men med flere noder for å øke nøyaktigheten.</li>
+    <li data-correct>Hvert lag gjør en lært, ikke-lineær transformasjon av dataene til et nytt rom med like mange dimensjoner som laget har noder.</li>
+    <li>De splitter datarommet i bokser, slik et beslutningstre gjør.</li>
+  </ul>
+  <div class="explain">Hvert skjult lag beregner $g(Wa + b)$, en ikke-lineær transformasjon med lærte parametre. Ingen data lagres (det minner mer om k-NN). Input-laget gjør ingen beregning i det hele tatt. Det er bare dataene. Å splitte i bokser uten å transformere er det beslutningstrær gjør, og det var kontrasten i innledningen.</div>
+</div>
+
+<div class="quiz" data-multi data-id="09-mlp-terms">
+  <p class="q">Hvilke utsagn om et «fully connected feed-forward»-nettverk (MLP) er riktige?</p>
+  <ul>
+    <li>Noder i samme lag sender informasjon til hverandre.</li>
+    <li data-correct>Hver node i et lag er koblet til alle noder i forrige lag.</li>
+    <li data-correct>Informasjonen går bare én vei, fra input mot output.</li>
+    <li>Antall noder i skjulte lag må være lik antall features.</li>
+    <li data-correct>Antall noder i output-laget bestemmes av antall targets/klasser.</li>
+  </ul>
+  <div class="explain">«Fully connected» betyr alle-til-alle mellom nabolag, og «feed-forward» betyr ingen løkker eller bakoverkoblinger. Noder i samme lag er ikke koblet. Det er input-laget som må ha like mange noder som features. Skjulte lag kan ha hvilken som helst bredde (en hyperparameter). Output-laget er bestemt av oppgaven.</div>
+</div>
+
+<div class="reflect" data-id="09-machine">
+  <p class="q">Notatene ber deg dvele ved at perseptronet var «en maskin, ikke et program». Hva er forskjellen på å <em>programmere</em> en løsning og å bygge en maskin som <em>lærer</em> den, og hvordan ser du det i XOR-eksempelet?</p>
+  <div class="answer">Når vi programmerer, skriver vi reglene selv, som da vi valgte OR, NAND og AND for hånd i XOR-nettverket. En lærende maskin har bare en struktur (arkitekturen) og en regel for å justere seg (læringsregelen), og reglene, altså vektene, kommer fra eksempler. Rosenblatts maskin skrudde bokstavelig talt på sine egne potensiometre. I XOR-eksempelet kunne vi finne vektene selv fordi problemet er bitte lite. Med 784 piksler og 100 000 vekter er det umulig, og da må maskinen lære vektene selv. Det krever en måte å trene skjulte lag på, og det er backpropagation i neste kapittel.</div>
+</div>
+
+<details class="more"><summary>Fordypning: universell approksimasjon <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+  <p>Et MLP med ett skjult lag og en ikke-lineær aktivering kan approksimere enhver kontinuerlig funksjon på et begrenset område så godt man vil, gitt nok noder (universal approximation theorem). Det sier ingenting om at trening faktisk <em>finner</em> de vektene, eller om hvor mange noder som trengs. I praksis er dypere nett ofte mer effektive enn ett veldig bredt lag.</p>
+</div></details>
+
+<!-- ======================================================= -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li>Regresjon transformerer lineært (parametrisk), trær splitter uten å transformere (ikke-parametrisk). Nevrale nett lærer <strong>ikke-lineære transformasjoner</strong>.</li>
+    <li><strong>Perseptron/TLU</strong>: $\hat y = H(w^\top x + b)$ (McCulloch og Pitts 1943, Rosenblatt 1957 i hardware). Beslutningsgrensen er lineær.</li>
+    <li>Heaviside har derivert 0 overalt der den finnes og er udefinert i 0, så gradient descent virker ikke. Rosenblatts regel dropper den deriverte: $w_i \leftarrow w_i + \eta(y-\hat y)x_i$. Perseptronet lærer bare av feil. Bias-trikset: $x_0 = 1$.</li>
+    <li>Flere klasser gir én output-node per klasse og en vektmatrise $w_{ij}$. 2 features og 3 klasser gir 6 vekter og 3 bias.</li>
+    <li>NOT $(-1, 0.5)$, AND $(1,1,-1.5)$, OR $(1,1,-0.5)$. <strong>XOR er ikke lineært separerbart</strong>, men AND(OR, NAND) med ett skjult lag løser det. Det er motivasjonen for flere lag.</li>
+    <li>Aktiveringer: sigmoid (binær output), softmax (multiklasse, summerer til 1, én node per klasse), ReLU (skjulte lag), lineær (regresjons-output). Sigmoid i stedet for steg gjør nettet <strong>deriverbart</strong>. Uten ikke-linearitet kollapser alle lag til ett lineært lag.</li>
+    <li>$a^{(l)}_j = g\big(\sum_i w^{(l)}_{ij}a^{(l-1)}_i + b^{(l)}_j\big)$, og på matriseform $a^{(l)} = g(W^{(l)}a^{(l-1)} + b^{(l)})$ med $W^{(l)}$ av shape $n_l\times n_{l-1}$. Parametre per lag: $(n_{l-1}+1)\,n_l$.</li>
+    <li>Input-laget har like mange noder som features, og output-laget like mange som targets. Hvert skjult lag er en <strong>lært feature-transformasjon</strong>.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">TLU / perseptron</div><div class="back">$\hat y = H(w^\top x + b)$. Vektet sum gjennom Heaviside-stegfunksjonen, output 0 eller 1. Lineær beslutningsgrense.</div></div>
+  <div class="card"><div class="front">Hvorfor kan Heaviside ikke trenes med GD?</div><div class="back">Den deriverte er 0 overalt der den finnes og udefinert i 0. Ingen gradient gir ingen læring.</div></div>
+  <div class="card"><div class="front">Rosenblatts regel</div><div class="back">$w_i \leftarrow w_i + \eta(y-\hat y)x_i$. Endrer bare vektene ved feil. Med $x_0=1$ oppdateres bias likt.</div></div>
+  <div class="card"><div class="front">Perseptron, 2 features og 3 klasser</div><div class="back">6 vekter + 3 bias = 9 parametre. <code>coef_.shape = (3, 2)</code>.</div></div>
+  <div class="card"><div class="front">NOT, AND, OR</div><div class="back">NOT: $(-1, 0.5)$. AND: $(1,1,-1.5)$. OR: $(1,1,-0.5)$. Biasen er terskelen.</div></div>
+  <div class="card"><div class="front">Hvorfor ikke XOR med ett perseptron?</div><div class="back">XOR er ikke lineært separerbart. XOR = AND(OR, NAND) krever ett skjult lag.</div></div>
+  <div class="card"><div class="front">Hvorfor ikke-lineær aktivering?</div><div class="back">Lineær ∘ lineær = lineær. Uten ikke-linearitet kollapser alle lag til ett.</div></div>
+  <div class="card"><div class="front">Output-aktivering</div><div class="back">Binær: sigmoid (1 node). $K$ klasser: softmax ($K$ noder). Regresjon: lineær/ingen.</div></div>
+  <div class="card"><div class="front">Softmax</div><div class="back">$e^{x_i}/\sum_j e^{x_j}$. Positive verdier som summerer til 1, én node per klasse.</div></div>
+  <div class="card"><div class="front">ReLU og dens deriverte</div><div class="back">$\max(0,x)$. Derivert 1 for $x\gt0$ og 0 for $x\lt0$. Standard i skjulte lag.</div></div>
+  <div class="card"><div class="front">$w^{(l)}_{ij}$</div><div class="back">Vekt fra node $i$ i lag $l-1$ til node $j$ i lag $l$.</div></div>
+  <div class="card"><div class="front">Shape til $W^{(l)}$</div><div class="back">$n_l \times n_{l-1}$ (ut × inn). Parametre i laget: $n_{l-1}n_l + n_l$.</div></div>
+  <div class="card"><div class="front">MLP / fully connected feed-forward</div><div class="back">Alle noder koblet til alle i nabolagene, og informasjon bare fremover fra input til output.</div></div>
+  <div class="card"><div class="front">Hva gjør et skjult lag?</div><div class="back">En lært, ikke-lineær transformasjon til et nytt rom med like mange dimensjoner som laget har noder.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<!-- ===================== WIDGET-SKRIPT ===================== -->
+<script>
+/* 1. Perseptronet lærer steg for steg */
+document.addEventListener("DOMContentLoaded", () => {
+  const cv = document.getElementById("perc");
+  const P = CK.plot(cv, { xmin: -4, xmax: 4, ymin: -4, ymax: 4, pad: { l: 36, r: 12, t: 12, b: 30 } });
+  const eta = document.getElementById("perc-eta"), etaO = document.getElementById("perc-eta-o");
+  const sel = document.getElementById("perc-data"), log = document.getElementById("perc-log");
+  let data = [], w = [0, 0, 0], order = [], pos = 0, epoch = 0, epochErr = 0, cur = -1, msg = "", lastEpochErr = null;
+
+  function makeData() {
+    const r = CK.rng(sel.value === "sep" ? 11 : 5);
+    data = [];
+    if (sel.value === "sep") {
+      for (let i = 0; i < 14; i++) data.push({ x1: r.normal(1.4, 0.8), x2: r.normal(1.2, 0.8), y: 1 });
+      for (let i = 0; i < 14; i++) data.push({ x1: r.normal(-1.3, 0.8), x2: r.normal(-1.2, 0.8), y: 0 });
+    } else {
+      const c = [[-2, -2, 0], [2, 2, 0], [-2, 2, 1], [2, -2, 1]];
+      c.forEach(([a, b, y]) => { for (let i = 0; i < 7; i++) data.push({ x1: r.normal(a, 0.6), x2: r.normal(b, 0.6), y }); });
+    }
+  }
+  const pred = (p) => (w[0] + w[1] * p.x1 + w[2] * p.x2 >= 0 ? 1 : 0);
+  const fmt = (v) => (Math.abs(v) < 1e-9 ? "0" : (+v.toFixed(2)).toString());
+  function newOrder() { const r = CK.rng(100 + epoch); order = data.map((_, i) => i); for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; } pos = 0; epochErr = 0; }
+  function reset() { makeData(); w = [0.5, -0.6, 1.0]; epoch = 0; cur = -1; lastEpochErr = null; newOrder(); msg = "Start: w = (" + fmt(w[1]) + ", " + fmt(w[2]) + "), b = " + fmt(w[0]) + ". Trykk «Neste punkt»."; draw(); }
+  function step() {
+    if (pos >= order.length) { lastEpochErr = epochErr; epoch++; newOrder(); }
+    const i = order[pos++]; cur = i; const p = data[i], yh = pred(p), e = p.y - yh, h = +eta.value;
+    const z = w[0] + w[1] * p.x1 + w[2] * p.x2;
+    if (e !== 0) {
+      epochErr++;
+      w = [w[0] + h * e, w[1] + h * e * p.x1, w[2] + h * e * p.x2];
+      msg = `x = (${fmt(p.x1)}, ${fmt(p.x2)}), y = ${p.y}, z = ${fmt(z)} → ŷ = ${yh}.  FEIL (y−ŷ = ${e > 0 ? "+1" : "−1"})\n` +
+            `w ← w ${e > 0 ? "+" : "−"} ${h}·x  ⇒  w = (${fmt(w[1])}, ${fmt(w[2])}),  b = ${fmt(w[0])}`;
+    } else {
+      msg = `x = (${fmt(p.x1)}, ${fmt(p.x2)}), y = ${p.y}, z = ${fmt(z)} → ŷ = ${yh}.  Riktig, ingen oppdatering.`;
+    }
+    if (pos >= order.length) { msg += `\nEpoke ${epoch + 1} ferdig: ${epochErr} feil.` + (epochErr === 0 ? "  Konvergert! Ingen flere endringer." : ""); }
+  }
+  function runEpoch() { if (pos >= order.length) step(); while (pos < order.length) step(); lastEpochErr = epochErr; draw(); }
+  function draw() {
+    etaO.textContent = eta.value;
+    P.clear();
+    const n = 40, dx = 8 / n, c1 = P.col("c1"), c2 = P.col("c2");
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+      const x1 = -4 + (a + 0.5) * dx, x2 = -4 + (b + 0.5) * dx;
+      if (w[0] + w[1] * x1 + w[2] * x2 >= 0) P.rect(-4 + a * dx, -4 + b * dx, -4 + (a + 1) * dx, -4 + (b + 1) * dx, { fill: c1, alpha: 0.09 });
+    }
+    P.grid().axes({ xlabel: "x₁", ylabel: "x₂" });
+    if (Math.abs(w[2]) > 1e-9) P.fn(x => -(w[0] + w[1] * x) / w[2], { color: P.col("text"), width: 2 });
+    else if (Math.abs(w[1]) > 1e-9) P.line(-w[0] / w[1], -4, -w[0] / w[1], 4, { color: P.col("text"), width: 2 });
+    data.forEach((p, i) => {
+      P.points([{ x: p.x1, y: p.x2 }], { color: p.y ? c1 : c2, r: 5 });
+      if (pred(p) !== p.y) { const ctx = P.ctx; ctx.save(); ctx.strokeStyle = P.col("bad"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P.X(p.x1), P.Y(p.x2), 8, 0, 7); ctx.stroke(); ctx.restore(); }
+    });
+    if (cur >= 0) { const p = data[cur], ctx = P.ctx; ctx.save(); ctx.strokeStyle = P.col("text"); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(P.X(p.x1), P.Y(p.x2), 13, 0, 7); ctx.stroke(); ctx.restore(); }
+    const wrong = data.filter(p => pred(p) !== p.y).length;
+    P.text(`epoke ${epoch + 1}, punkt ${pos}/${data.length} · feilklassifisert nå: ${wrong}`, 44, 22, { px: true, size: 12.5, color: P.col("text-soft") });
+    log.textContent = msg;
+  }
+  document.getElementById("perc-step").onclick = () => { step(); draw(); };
+  document.getElementById("perc-epoch").onclick = runEpoch;
+  document.getElementById("perc-reset").onclick = reset;
+  sel.onchange = reset; eta.oninput = () => { etaO.textContent = eta.value; };
+  reset();
+  CK.live(draw);
+});
+
+/* 2. Logiske porter */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("gate"), { xmin: -0.6, xmax: 1.6, ymin: -0.6, ymax: 1.6, pad: { l: 40, r: 12, t: 12, b: 32 } });
+  const w1 = document.getElementById("g-w1"), w2 = document.getElementById("g-w2"), b = document.getElementById("g-b"), tgt = document.getElementById("gate-target");
+  const table = document.getElementById("gate-table");
+  const T = { AND: [0, 0, 0, 1], OR: [0, 1, 1, 1], NAND: [1, 1, 1, 0], NOR: [1, 0, 0, 0], XOR: [0, 1, 1, 0] };
+  const X = [[0, 0], [0, 1], [1, 0], [1, 1]];
+  function draw() {
+    const W1 = +w1.value, W2 = +w2.value, B = +b.value;
+    document.getElementById("g-w1o").textContent = W1; document.getElementById("g-w2o").textContent = W2; document.getElementById("g-bo").textContent = B;
+    P.clear();
+    const n = 44, d = 2.2 / n, c1 = P.col("c1"), c2 = P.col("c2");
+    for (let a = 0; a < n; a++) for (let c = 0; c < n; c++) {
+      const x1 = -0.6 + (a + 0.5) * d, x2 = -0.6 + (c + 0.5) * d;
+      if (W1 * x1 + W2 * x2 + B >= 0) P.rect(-0.6 + a * d, -0.6 + c * d, -0.6 + (a + 1) * d, -0.6 + (c + 1) * d, { fill: c1, alpha: 0.12 });
+    }
+    P.grid({ xticks: [0, 1], yticks: [0, 1] }).axes({ xlabel: "x₁", ylabel: "x₂", xticks: [0, 1], yticks: [0, 1] });
+    if (Math.abs(W2) > 1e-9) P.fn(x => -(W1 * x + B) / W2, { color: P.col("text"), width: 2 });
+    else if (Math.abs(W1) > 1e-9) P.line(-B / W1, -0.6, -B / W1, 1.6, { color: P.col("text"), width: 2 });
+    const t = T[tgt.value]; let ok = 0, rows = "<tr><th>x₁</th><th>x₂</th><th>z = w₁x₁ + w₂x₂ + b</th><th>ŷ = H(z)</th><th>target</th><th></th></tr>";
+    const ctx = P.ctx;
+    X.forEach(([a, c], i) => {
+      const z = W1 * a + W2 * c + B, yh = z >= 0 ? 1 : 0, good = yh === t[i]; if (good) ok++;
+      ctx.save(); ctx.beginPath(); ctx.arc(P.X(a), P.Y(c), 11, 0, 7); ctx.lineWidth = 3;
+      ctx.strokeStyle = t[i] ? c1 : c2; ctx.fillStyle = t[i] ? c1 : P.col("surface"); ctx.fill(); ctx.stroke();
+      if (!good) { ctx.strokeStyle = P.col("bad"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P.X(a), P.Y(c), 17, 0, 7); ctx.stroke(); }
+      ctx.restore();
+      rows += `<tr><td>${a}</td><td>${c}</td><td>${(+z.toFixed(2))}</td><td>${yh}</td><td>${t[i]}</td><td class="${good ? "ok" : "bad"}">${good ? "✓" : "✗"}</td></tr>`;
+    });
+    rows += `<tr><td colspan="6" style="text-align:left">Treff: <b>${ok}/4</b>${ok === 4 ? " – perfekt, du har laget " + tgt.value + "!" : (tgt.value === "XOR" && ok === 3 ? " – bedre enn 3/4 går ikke med én linje." : "")}</td></tr>`;
+    table.innerHTML = rows;
+    P.text(tgt.value + ": fylt = 1, tom = 0", 48, 22, { px: true, size: 12.5, color: P.col("text-soft") });
+  }
+  [w1, w2, b].forEach(e => e.oninput = draw); tgt.onchange = draw;
+  CK.live(draw);
+});
+
+/* 3. Skjult lag som transformasjon (XOR) */
+document.addEventListener("DOMContentLoaded", () => {
+  const A = CK.plot(document.getElementById("xorA"), { xmin: -0.5, xmax: 1.5, ymin: -0.5, ymax: 1.5, pad: { l: 34, r: 10, t: 22, b: 30 } });
+  const B = CK.plot(document.getElementById("xorB"), { xmin: -0.1, xmax: 1.1, ymin: -0.1, ymax: 1.1, pad: { l: 34, r: 10, t: 22, b: 30 } });
+  const k = document.getElementById("xor-k"), ko = document.getElementById("xor-ko");
+  const r = CK.rng(3), pts = [];
+  [[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0]].forEach(([a, b, y]) => { for (let i = 0; i < 12; i++) pts.push({ x1: a + r.normal(0, 0.12), x2: b + r.normal(0, 0.12), y }); });
+  const sig = z => 1 / (1 + Math.exp(-z));
+  function draw() {
+    const K = +k.value; ko.textContent = K;
+    A.clear().grid({ xticks: [0, 1], yticks: [0, 1] }).axes({ xlabel: "x₁", ylabel: "x₂", xticks: [0, 1], yticks: [0, 1] });
+    A.fn(x => 0.5 - x, { color: A.col("c3"), width: 2 });
+    A.fn(x => 1.5 - x, { color: A.col("c4"), width: 2 });
+    A.text("h₁ = OR", 1.05, -0.38, { color: A.col("c3"), size: 12 });
+    A.text("h₂ = NAND", 0.62, 1.38, { color: A.col("c4"), size: 12, align: "right" });
+    A.points(pts.map(p => ({ x: p.x1, y: p.x2, color: p.y ? A.col("c1") : A.col("c2") })), { r: 4 });
+    A.text("input-rommet", 40, 11, { px: true, size: 12, color: A.col("text-soft") });
+    B.clear().grid({ xticks: [0, 0.5, 1], yticks: [0, 0.5, 1] }).axes({ xlabel: "h₁", ylabel: "h₂", xticks: [0, 0.5, 1], yticks: [0, 0.5, 1] });
+    B.fn(x => 1.5 - x, { color: B.col("text"), width: 2, dash: [6, 4] });
+    B.points(pts.map(p => { const h1 = sig(K * (p.x1 + p.x2 - 0.5)), h2 = sig(K * (-p.x1 - p.x2 + 1.5)); return { x: h1, y: h2, color: p.y ? B.col("c1") : B.col("c2") }; }), { r: 4, alpha: 0.75 });
+    B.text("skjult rom · output: h₁ + h₂ = 1.5", 40, 11, { px: true, size: 12, color: B.col("text-soft") });
+  }
+  k.oninput = draw;
+  CK.live(draw);
+});
+
+/* 4. Aktiveringsfunksjoner */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("act"), { xmin: -5, xmax: 5, ymin: -1.3, ymax: 2.3 });
+  const sel = document.getElementById("act-f"), dchk = document.getElementById("act-d"), all = document.getElementById("act-all"), info = document.getElementById("act-info");
+  const sig = z => 1 / (1 + Math.exp(-z));
+  const F = {
+    step: { f: x => (x >= 0 ? 1 : 0), d: x => 0, name: "Heaviside", info: "Verdier {0, 1}. Derivert 0 overalt, udefinert i 0 → ingen gradient." },
+    sig: { f: sig, d: x => sig(x) * (1 - sig(x)), name: "sigmoid", info: "Verdier (0, 1). σ'(x) = σ(x)(1−σ(x)), maks 0.25 i x = 0. Mettes for store |x|." },
+    tanh: { f: Math.tanh, d: x => 1 - Math.tanh(x) ** 2, name: "tanh", info: "Verdier (−1, 1). Maks derivert 1 i x = 0, men mettes også for store |x|." },
+    relu: { f: x => Math.max(0, x), d: x => (x > 0 ? 1 : 0), name: "ReLU", info: "Verdier [0, ∞). Derivert 1 for x > 0 og 0 for x < 0. Mettes ikke på positiv side." },
+    lin: { f: x => x, d: x => 1, name: "lineær", info: "Verdier (−∞, ∞). Derivert 1 overalt. Brukes i output ved regresjon, aldri alene i skjulte lag." }
+  };
+  function draw() {
+    const key = sel.value, a = F[key];
+    P.clear().grid().axes({ xlabel: "x", ylabel: "g(x)" });
+    if (all.checked) Object.keys(F).forEach(k2 => { if (k2 !== key) P.fn(F[k2].f, { color: P.col("axis"), width: 1, samples: 600 }); });
+    if (key === "step") {
+      P.line(-5, 0, 0, 0, { color: P.col("c1"), width: 2.8 }); P.line(0, 1, 5, 1, { color: P.col("c1"), width: 2.8 });
+      P.points([{ x: 0, y: 1 }], { color: P.col("c1"), r: 4 });
+      if (dchk.checked) { P.line(-5, 0.02, -0.08, 0.02, { color: P.col("c2"), width: 2.2, dash: [6, 4] }); P.line(0.08, 0.02, 5, 0.02, { color: P.col("c2"), width: 2.2, dash: [6, 4] }); P.text("udefinert i 0", 0.15, 1.9, { color: P.col("c2"), size: 12 }); P.arrow(0.1, 1.75, 0.02, 0.15, { color: P.col("c2"), width: 1.4, head: 7 }); }
+    } else {
+      P.fn(a.f, { color: P.col("c1"), width: 2.8, samples: 600 });
+      if (dchk.checked) P.fn(a.d, { color: P.col("c2"), width: 2.2, dash: [6, 4], samples: 600 });
+    }
+    P.legend([{ color: P.col("c1"), label: a.name + " g(x)" }].concat(dchk.checked ? [{ color: P.col("c2"), label: "derivert g'(x)" }] : []));
+    info.textContent = a.info;
+  }
+  sel.onchange = dchk.onchange = all.onchange = draw;
+  CK.live(draw);
+});
+
+/* 5. Nettverkstegner (SVG) */
+document.addEventListener("DOMContentLoaded", () => {
+  const inp = document.getElementById("net-spec"), host = document.getElementById("net-svg"), tab = document.getElementById("net-table");
+  document.querySelectorAll("[data-spec]").forEach(bt => bt.onclick = () => { inp.value = bt.dataset.spec; draw(); });
+  function draw() {
+    let L = inp.value.split(/[,\s]+/).map(s => parseInt(s, 10)).filter(n => n > 0 && isFinite(n)).slice(0, 8);
+    if (L.length < 2) { host.innerHTML = "<p class='muted small'>Skriv minst to lag, f.eks. 2, 4, 3.</p>"; tab.innerHTML = ""; return; }
+    const W = 640, H = 300, mx = 50, my = 30, MAXN = 10;
+    const xs = L.map((_, k) => mx + k * (W - 2 * mx) / (L.length - 1));
+    const shown = L.map(n => n > MAXN ? MAXN : n);
+    const ys = shown.map((m, k) => { const out = []; const sp = Math.min(46, (H - 2 * my - 20) / Math.max(1, m - 1)); const top = (H - 20) / 2 - sp * (m - 1) / 2; for (let i = 0; i < m; i++) out.push(top + i * sp); return out; });
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Nettverksskisse">`;
+    for (let k = 1; k < L.length; k++) for (const y0 of ys[k - 1]) for (const y1 of ys[k]) s += `<line x1="${xs[k - 1]}" y1="${y0}" x2="${xs[k]}" y2="${y1}" class="k9-edge" style="stroke-width:${L.length > 1 && shown[k] * shown[k - 1] > 60 ? 0.5 : 1}"/>`;
+    const r = Math.min(15, 150 / Math.max(...shown));
+    L.forEach((n, k) => {
+      const cls = k === 0 ? "k9-in" : (k === L.length - 1 ? "k9-out" : "k9-hid");
+      ys[k].forEach((y, i) => {
+        if (n > MAXN && i === MAXN / 2) { s += `<text x="${xs[k]}" y="${y + 5}" text-anchor="middle" style="font-size:16px">⋮</text>`; return; }
+        s += `<circle cx="${xs[k]}" cy="${y}" r="${r}" class="${cls}"/>`;
+      });
+      const lbl = k === 0 ? "input" : (k === L.length - 1 ? "output" : "skjult " + k);
+      s += `<text x="${xs[k]}" y="${H - 22}" text-anchor="middle" class="k9-small">${n}</text><text x="${xs[k]}" y="${H - 6}" text-anchor="middle" class="k9-small k9-muted">${lbl}</text>`;
+    });
+    s += "</svg>"; host.innerHTML = s;
+    let rows = "<tr><th>Overgang</th><th>Shape W⁽ˡ⁾ (ut × inn)</th><th>Vekter</th><th>Bias</th><th>Parametre</th></tr>", tot = 0;
+    for (let k = 1; k < L.length; k++) { const wv = L[k - 1] * L[k], p = wv + L[k]; tot += p; rows += `<tr><td>lag ${k - 1} → ${k}</td><td>${L[k]} × ${L[k - 1]}</td><td>${L[k - 1]}·${L[k]} = ${wv.toLocaleString("nb-NO")}</td><td>${L[k]}</td><td>${p.toLocaleString("nb-NO")}</td></tr>`; }
+    rows += `<tr><th colspan="4">Totalt antall trenbare parametre</th><th>${tot.toLocaleString("nb-NO")}</th></tr>`;
+    tab.innerHTML = rows;
+  }
+  inp.addEventListener("input", draw);
+  draw();
+});
+</script>
+</body>
+</html>

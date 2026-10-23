@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 · Beslutningstrær – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .k5-svg { width: 100%; height: auto; display: block; }
+  .k5-svg .node-root { fill: var(--c1); }
+  .k5-svg .node-dec { fill: var(--c3); }
+  .k5-svg .node-leaf { fill: var(--c2); }
+  .k5-svg .lbl-in { fill: #fff; font-weight: 600; }
+  .k5-svg .edge { stroke: var(--axis); stroke-width: 1.6; fill: none; }
+  .k5-svg .soft { fill: var(--text-soft); }
+  .k5-rules { font-size: 13px; max-height: 260px; overflow: auto; }
+  .k5-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .k5-tbl td.num, .k5-tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  figure.figbox { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+</style>
+</head>
+<body data-chapter="05">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 05 · Del I · Veiledet læring</div>
+  <h1>Beslutningstrær</h1>
+  <p class="lead">Et beslutningstre er en rekke ja/nei-spørsmål om dataene. Det er en av de mest intuitive modellene vi har, og det er byggesteinen i random forest og gradient boosting, som ofte er de beste modellene på tabulære data. I dette kapittelet lærer du hvordan treet velger spørsmålene sine, og hvorfor.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare rotnode, beslutningsnode, løvnode og trestump, og hva et splitt-kriterium er</li>
+    <li>regne ut Gini-urenhet, entropi, vektet urenhet etter en splitt og informasjonsgevinst $\Delta I$ med enkel kalkulator</li>
+    <li>velge beste splitt ut fra lavest vektet Gini eller størst $\Delta I$</li>
+    <li>sammenligne Gini, entropi og log loss, og forklare hvorfor Gini er standard i sklearn</li>
+    <li>gjengi pseudokoden for å bygge et tre, med stoppkriterier og hva blandede løvnoder returnerer</li>
+    <li>forklare hvorfor trær lager aksejusterte beslutningsflater, hvorfor de ikke trenger skalering, og hvordan dybden styrer over- og undertilpasning</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="noder"><span class="sec">5.1</span>Hva er et beslutningstre?</h2>
+
+<p>Tenk på leken «Gjett hvem?». Du stiller spørsmål som «Har personen briller?», og for hvert svar faller en del av kandidatene bort. Et beslutningstre gjør det samme med data: det stiller ett spørsmål om én feature om gangen, og sender datapunktet til venstre eller høyre etter svaret. Til slutt havner punktet i en «skuff» som har et svar klart.</p>
+
+<p>Treet har en fast vokabular, som du bør kunne til eksamen:</p>
+<ul>
+  <li><b>Rotnoden (root node)</b> er toppen av treet. Her kommer alle data inn, med alle features.</li>
+  <li><b>Beslutningsnoder (decision nodes)</b> er nodene under roten som også splitter dataene. Både roten og beslutningsnodene har et <b>splitt-kriterium (splitting criterion)</b>.</li>
+  <li><b>Løvnoder (leaf nodes)</b> ligger nederst og splitter ikke. De inneholder den <b>predikerte verdien</b> for et datapunkt som havner der.</li>
+  <li>En <b>trestump (tree stump)</b> er det minste mulige treet: én rotnode og $n$ løvnoder, én for hvert mulig utfall. Vi holder oss til $n = 2$, altså to utfall per splitt (binære trær).</li>
+</ul>
+
+<figure class="figbox">
+  <div class="two-col">
+    <img src="../assets/fig/notater/s18_1.png" alt="Skisse av et beslutningstre med rotnode, beslutningsnoder og løvnoder">
+    <img src="../assets/fig/notater/s18_2.png" alt="En trestump: antall bananer større enn 2 gir klasse 1, ellers klasse 0">
+  </div>
+  <figcaption><b>Figur 5.1</b> Fra forelesningsnotatene (figur 9): (a) et beslutningstre med rotnode (blå), beslutningsnoder (grønne) og løvnoder (røde); (b) en stump med ett spørsmål, «Antall bananer &gt; 2?», og to løvnoder.</figcaption>
+</figure>
+
+<p>Et splitt-kriterium består av to ting: <b>en feature og en terskel</b> (for kategoriske features: en verdi eller en gruppe verdier). «$x_1 \le 5$» er et splitt-kriterium; «flipperlengde $\le 206$ mm» er et annet. Alle punkter som oppfyller kriteriet går én vei, resten går den andre veien.</p>
+
+<figure class="figbox">
+  <svg class="k5-svg" viewBox="0 0 680 280" role="img" aria-label="Et tre med dybde 2 og den tilsvarende oppdelingen av feature-rommet i rektangler">
+    <!-- tre -->
+    <path class="edge" d="M160 52 L80 122 M160 52 L240 122 M240 148 L190 218 M240 148 L295 218"/>
+    <rect class="node-root" x="100" y="22" width="120" height="34" rx="17"/>
+    <text class="lbl-in" x="160" y="44" text-anchor="middle" font-size="14">x₁ ≤ 4 ?</text>
+    <text class="soft" x="105" y="88" font-size="12" text-anchor="end">ja</text>
+    <text class="soft" x="214" y="88" font-size="12">nei</text>
+    <rect class="node-leaf" x="28" y="122" width="104" height="32" rx="16"/>
+    <text class="lbl-in" x="80" y="143" text-anchor="middle" font-size="13">Klasse 0</text>
+    <rect class="node-dec" x="180" y="122" width="120" height="34" rx="17"/>
+    <text class="lbl-in" x="240" y="144" text-anchor="middle" font-size="14">x₂ ≤ 6 ?</text>
+    <text class="soft" x="200" y="190" font-size="12" text-anchor="end">ja</text>
+    <text class="soft" x="275" y="190" font-size="12">nei</text>
+    <rect class="node-leaf" x="140" y="218" width="100" height="32" rx="16"/>
+    <text class="lbl-in" x="190" y="239" text-anchor="middle" font-size="13">Klasse 1</text>
+    <rect class="node-leaf" x="250" y="218" width="100" height="32" rx="16"/>
+    <text class="lbl-in" x="300" y="239" text-anchor="middle" font-size="13">Klasse 0</text>
+    <text class="soft" x="20" y="272" font-size="12">rot (dybde 0) → beslutningsnode (dybde 1) → løv (dybde 2)</text>
+    <!-- feature-rom -->
+    <g transform="translate(400,20)">
+      <rect x="0" y="0" width="240" height="220" fill="none" stroke="var(--axis)"/>
+      <rect x="0" y="0" width="96" height="220" style="fill:var(--c2);opacity:.16"/>
+      <rect x="96" y="0" width="144" height="88" style="fill:var(--c2);opacity:.16"/>
+      <rect x="96" y="88" width="144" height="132" style="fill:var(--c1);opacity:.18"/>
+      <line x1="96" y1="0" x2="96" y2="220" stroke="var(--text)" stroke-width="2"/>
+      <line x1="96" y1="88" x2="240" y2="88" stroke="var(--text)" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="48" y="114" text-anchor="middle" font-size="13">Klasse 0</text>
+      <text x="168" y="48" text-anchor="middle" font-size="13">Klasse 0</text>
+      <text x="168" y="160" text-anchor="middle" font-size="13">Klasse 1</text>
+      <text x="96" y="238" text-anchor="middle" font-size="12" class="soft">x₁ = 4</text>
+      <text x="244" y="92" font-size="12" class="soft">x₂ = 6</text>
+      <text x="120" y="256" text-anchor="middle" font-size="13">x₁ →</text>
+      <text x="-10" y="110" text-anchor="end" font-size="13">x₂</text>
+    </g>
+  </svg>
+  <figcaption><b>Figur 5.2</b> Et tre med dybde 2 (venstre) og hvordan det deler feature-rommet (høyre). Rotnoden lager en vertikal strek ved $x_1 = 4$. Beslutningsnoden splitter bare høyre halvdel, med en horisontal strek ved $x_2 = 6$. Hver løvnode svarer til ett rektangel.</figcaption>
+</figure>
+
+<p>Å bruke treet kalles <b>inferens</b>: et nytt punkt starter i roten og følger ja/nei-svarene ned til en løvnode, der prediksjonen står. Punktet $(x_1, x_2) = (7, 3)$ svarer «nei» på $x_1 \le 4$ og «ja» på $x_2 \le 6$, og får klasse 1.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><b>Et tre er et flytskjema som er laget av data.</b> Noder spør, løv svarer. Hver vei fra rot til løv er en regel av typen «HVIS $x_1 \gt 4$ OG $x_2 \le 6$ SÅ klasse 1».</p></div>
+
+<p>Et viktig poeng fra notatene: <b>de samme treningsdataene kan gi mange ulike trær.</b> Vi kan starte med en annen feature i roten, velge andre terskler eller stoppe på ulike dybder, og likevel få trær som klassifiserer treningsdataene like godt. Det er derfor vi trenger et prinsipp for hvilket spørsmål vi skal stille først. Det er tema for resten av kapittelet.</p>
+
+<div class="quiz" data-id="05-node-types">
+  <p class="q">Hvilken type node inneholder selve prediksjonen for et datapunkt?</p>
+  <ul>
+    <li>Rotnoden, fordi alle data passerer den</li>
+    <li>Beslutningsnoden nærmest løvene</li>
+    <li>Alle noder har en prediksjon, og svaret er gjennomsnittet av dem</li>
+    <li data-correct>Løvnoden</li>
+  </ul>
+  <div class="explain">Løvnoder splitter ikke, men inneholder den predikerte verdien for punkter som havner der. Rotnoden og beslutningsnodene har bare splitt-kriterier som sender punktet videre. Under treningen har alle noder en klassefordeling (den brukes til å regne urenhet), men prediksjonen leses bare av i løvet. Gjennomsnitt over noder er ikke en del av modellen.</div>
+</div>
+
+<div class="quiz" data-id="05-stump">
+  <p class="q">Hva er en trestump (med $n=2$)?</p>
+  <ul>
+    <li data-correct>Et tre med én rotnode og to løvnoder, altså ett eneste splitt</li>
+    <li>Et tre der alle løvnoder er rene</li>
+    <li>Et tre som er beskåret (pruned) etter treningen</li>
+    <li>Den delen av et tre som ligger under en beslutningsnode</li>
+  </ul>
+  <div class="explain">En stump er det minste treet: én splitt, to løv, dybde 1. Den trenger ikke ha rene løv (som regel har den det ikke). Beskjæring og deltrær er andre begreper. Stumper er viktige fordi de er typiske <em>svake modeller</em> i boosting (kapittel 8).</div>
+</div>
+
+<div class="quiz" data-multi data-id="05-split-criterion">
+  <p class="q">Hva må et splitt-kriterium i en beslutningsnode angi (for numeriske features)? Velg alle som stemmer.</p>
+  <ul>
+    <li data-correct>Hvilken feature det skal splittes på</li>
+    <li data-correct>En terskelverdi for den featuren</li>
+    <li>En vekt $w$ for hver feature, som i logistisk regresjon</li>
+    <li>Hvilken klasse løvnoden under skal predikere</li>
+  </ul>
+  <div class="explain">Kriteriet er «feature + terskel», for eksempel $x_2 \le 6$. Det er ingen vekter som ganges med features; dataene flyter gjennom treet uten å transformeres. Klassen i løvnoden er ikke en del av splitt-kriteriet, men bestemmes av treningspunktene som havner i løvet.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="usikkerhet"><span class="sec">5.2</span>Hvilket spørsmål først? Reduser usikkerheten</h2>
+
+<p>Gode «Gjett hvem?»-spillere spør ikke «Heter personen Bernt?» først. De spør noe som deler kandidatene omtrent i to, fordi det fjerner mest usikkerhet. Beslutningstrær følger samme idé:</p>
+
+<div class="callout def"><span class="label">Prinsipp</span><p>Ved hver node velger vi det splitt-kriteriet (feature og verdi) som <b>reduserer usikkerheten mest mulig</b>, slik at vi kan ta beslutningen tidligst mulig. Redusert usikkerhet = usikkerhet <em>før</em> splitten minus (vektet) usikkerhet <em>etter</em> splitten.</p></div>
+
+<p>«Usikkerhet» betyr her hvor blandede klassene er i en node. En node med bare blå punkter er <b>ren (pure)</b>: der er vi helt sikre. En node med halvparten av hver er maksimalt <b>uren (impure)</b>. Notatene nevner tre mål på urenhet:</p>
+<ul>
+  <li><b>Log loss</b> (cross-entropy), som du kjenner fra logistisk regresjon (<a href="02-logistisk.html">kapittel 2</a>),</li>
+  <li><b>Gini-urenhet (Gini impurity)</b>,</li>
+  <li><b>Entropi (entropy)</b>, som du kjenner fra <a href="04-sannsynlighet.html">kapittel 4</a>.</li>
+</ul>
+
+<div class="chain">
+  <div><b>Problem</b>mange mulige trær passer dataene</div><div class="arrow">→</div>
+  <div><b>Løsning</b>velg splitten som gir renest barnenoder</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>korte, nyttige trær der de viktigste features havner øverst</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p>Eksamen 2024 oppg. 15 spurte rett og slett: «Hvordan bestemmer et beslutningstre hvilken feature det skal dele på i en gitt node?» Riktig svar: den som maksimalt reduserer usikkerheten i datasettet.</p></div>
+
+<div class="quiz" data-id="05-choose-feature">
+  <p class="q">En node vurderer fire mulige splitter. Hvilket prinsipp bruker et vanlig beslutningstre (som sklearn sin) for å velge mellom dem?</p>
+  <ul>
+    <li>Det velger featuren med færrest unike verdier, fordi den gir lavest entropi</li>
+    <li>Det velger featuren med størst varians, slik som PCA</li>
+    <li data-correct>Det velger splitten som gir størst reduksjon i urenhet (for eksempel lavest vektet Gini etter splitten)</li>
+    <li>Det velger en tilfeldig feature, slik at treet ikke overtilpasser</li>
+  </ul>
+  <div class="explain">Treet er grådig og velger det splitt-kriteriet som reduserer usikkerheten mest. Antall unike verdier sier ingenting direkte om hvor godt featuren skiller klassene. Varians i en feature (uten å se på labels) er et uveiledet kriterium. Tilfeldig feature-utvalg brukes i <em>random forest</em> (kapittel 8), men selv der velger hvert tre den beste splitten blant de tilfeldig utvalgte featurene.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="gini"><span class="sec">5.3</span>Gini-urenhet</h2>
+
+<h3>Intuisjon: pose med kuler</h3>
+<p>Du har en pose med kuler i ulike farger, der farge = klasse. Du trekker en kule tilfeldig, og gjetter fargen ved å trekke et tilfeldig «svar» fra samme fargefordeling som i posen. <b>Gini-urenheten er sannsynligheten for at du gjetter feil.</b></p>
+<ul>
+  <li>Nesten alle kulene har samme farge: du gjetter nesten alltid riktig. Lav Gini, lav urenhet.</li>
+  <li>Fargene er likt representert: du gjetter ofte feil. Høy Gini, høy urenhet.</li>
+</ul>
+
+<div class="eq">
+  <p class="eq-note">Gini-urenhet for et datasett $D$ med $k$ klasser (notatenes likning 44)</p>
+  $$\text{Gini}(D) = 1 - \sum_{i=1}^{k} p_i^2$$
+</div>
+<p>der $p_i$ er andelen av punktene i noden som tilhører klasse $i$.</p>
+
+<details class="steps"><summary>Hvorfor blir «sannsynlighet for feil gjetning» lik $1-\sum p_i^2$?</summary><div>
+  <p>Kulen er av klasse $i$ med sannsynlighet $p_i$. Gjetningen din er uavhengig, og er feil hvis den <em>ikke</em> er $i$, som skjer med sannsynlighet $1-p_i$. Summerer vi over alle klasser:</p>
+  $$P(\text{feil}) = \sum_{i=1}^{k} p_i\,(1-p_i) = \sum_i p_i - \sum_i p_i^2 = 1 - \sum_i p_i^2,$$
+  <p>fordi $\sum_i p_i = 1$. Leddet $\sum_i p_i^2$ er sannsynligheten for å gjette riktig (begge «trekkene» gir samme farge).</p>
+</div></details>
+
+<h3>Tabell 6 fra notatene</h3>
+<div style="overflow-x:auto">
+<table class="k5-tbl">
+  <thead><tr><th></th><th class="num">$n_1$</th><th class="num">$n_2$</th><th class="num">$p_1$</th><th class="num">$p_2$</th><th>Gini $= 1-p_1^2-p_2^2$</th></tr></thead>
+  <tbody>
+    <tr><td>Alt A</td><td class="num">0</td><td class="num">10</td><td class="num">0</td><td class="num">1</td><td>$1-0^2-1^2 = 0$</td></tr>
+    <tr><td>Alt B</td><td class="num">3</td><td class="num">7</td><td class="num">0.3</td><td class="num">0.7</td><td>$1-0.09-0.49 = 0.42$</td></tr>
+    <tr><td>Alt C</td><td class="num">5</td><td class="num">5</td><td class="num">0.5</td><td class="num">0.5</td><td>$1-0.25-0.25 = 0.5$</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Notatenes oppgave: «Hvilken splitt bør vi velge, og hvorfor?» Svar: den som gir <b>lavest Gini-urenhet</b>, altså Alt A, fordi noden da er ren og vi kan ta beslutningen med en gang.</p>
+
+<div class="quiz" data-id="05-gini-zero">
+  <p class="q">En node har Gini-urenhet 0. Hva betyr det?</p>
+  <ul>
+    <li>Noden har like mange punkter fra hver klasse</li>
+    <li>Noden er tom</li>
+    <li>Featuren i noden har ingen sammenheng med target</li>
+    <li data-correct>Alle punktene i noden tilhører samme klasse</li>
+  </ul>
+  <div class="explain">Gini $=0$ krever at én $p_i = 1$ og resten 0, altså en ren node. Like mange av hver klasse gir <em>maksimal</em> Gini (0.5 for to klasser). En tom node har ingen definert fordeling. At en feature er ubrukelig viser seg ved at splitten <em>ikke reduserer</em> Gini, ikke ved at Gini er null.</div>
+</div>
+
+<h3>Hvor stor kan Gini bli?</h3>
+<p>Gini er størst når alle $k$ klasser er like vanlige, $p_i = 1/k$:</p>
+$$\text{Gini}_{\max} = 1 - k\cdot\left(\frac{1}{k}\right)^2 = 1-\frac{1}{k}.$$
+<p>For to klasser gir det $0.5$, for tre klasser $2/3 \approx 0.67$, for fire klasser $0.75$.</p>
+
+<div class="callout warn"><span class="label">Presisering av notatene</span><p>Notatene sier at Gini «er et tall i $[0, 0.5]$». Det stemmer bare for <b>to klasser</b>. Generelt ligger Gini i $[0,\, 1-1/k]$. Med tre like store klasser er Gini $\approx 0.67$, altså over 0.5.</p></div>
+
+<div class="quiz" data-multi data-id="05-gini-max">
+  <p class="q">Hvilke utsagn om maksimal Gini-urenhet stemmer? Velg alle riktige.</p>
+  <ul>
+    <li data-correct>For to klasser er maksimal Gini 0.5</li>
+    <li>For alle klassifiseringsproblemer er Gini alltid mellom 0 og 0.5</li>
+    <li data-correct>For tre like store klasser er Gini $2/3$</li>
+    <li>Maksimal Gini er 1, og nås når noden er ren</li>
+  </ul>
+  <div class="explain">Maks er $1-1/k$: 0.5 for $k=2$ og $2/3$ for $k=3$. Intervallet $[0,0.5]$ gjelder bare binær klassifisering. En ren node gir Gini 0 (minimum), ikke 1. Gini nærmer seg 1 bare når antall like store klasser går mot uendelig.</div>
+</div>
+
+<div class="calc" data-id="05-calc-gini62" data-answer="0.375" data-tol="0.002">
+  <p class="q">En node har 6 positive og 2 negative punkter. Hva er Gini-urenheten?</p>
+  <div class="solution">$p_+ = 6/8 = 0.75$, $p_- = 0.25$. $\text{Gini} = 1 - 0.75^2 - 0.25^2 = 1 - 0.5625 - 0.0625 = 0.375$.</div>
+</div>
+
+<div class="calc" data-id="05-calc-gini3" data-answer="0.62" data-tol="0.002">
+  <p class="q">En node har 10 punkter fordelt på tre klasser: 2, 3 og 5. Hva er Gini-urenheten?</p>
+  <div class="solution">$p = (0.2, 0.3, 0.5)$. $\text{Gini} = 1 - (0.04 + 0.09 + 0.25) = 1 - 0.38 = 0.62$. Merk at dette er over 0.5, som er mulig fordi vi har tre klasser (maks er $2/3$).</div>
+</div>
+
+<h3>Gini etter en splitt: vektet gjennomsnitt</h3>
+<p>En splitt lager to barnenoder, $D_1$ og $D_2$, med $n_1$ og $n_2$ punkter ($n_1+n_2 = n$). Vi vil ha ett tall for hvor god splitten er, så vi tar et <b>vektet gjennomsnitt</b> av barnenes Gini, der vekten er andelen punkter som havner i hver node:</p>
+<div class="eq">
+  <p class="eq-note">Vektet Gini etter splitt på feature $f$ (likning 45)</p>
+  $$\text{Gini}_f(D) = \frac{n_1}{n}\,\text{Gini}(D_1) + \frac{n_2}{n}\,\text{Gini}(D_2)$$
+</div>
+
+<div class="callout why"><span class="label">Hvorfor vekte?</span><p>Uten vekting kunne treet «jukse» ved å skille ut ett enkelt punkt i en egen, perfekt ren node. Den lille noden har Gini 0, men den store noden er like blandet som før. Vektingen sørger for at en ren node med 1 punkt teller lite, mens en ren node med 50 punkter teller mye.</p></div>
+
+<h3>Regneeksempel: hvilken splitt er best?</h3>
+<p>En node har 10 blå og 10 oransje punkter (Gini $= 0.5$). To kandidater:</p>
+<ul>
+  <li><b>Splitt A</b> på $x_1$: venstre (8 blå, 2 oransje), høyre (2 blå, 8 oransje).</li>
+  <li><b>Splitt B</b> på $x_2$: venstre (10 blå, 4 oransje), høyre (0 blå, 6 oransje).</li>
+</ul>
+<details class="steps"><summary>Regn ut vektet Gini for begge, steg for steg</summary><div>
+  <p><b>A:</b> Begge barn har fordeling $(0.8, 0.2)$: $\text{Gini} = 1 - 0.64 - 0.04 = 0.32$. Vektet: $\frac{10}{20}\cdot 0.32 + \frac{10}{20}\cdot 0.32 = 0.32$.</p>
+  <p><b>B:</b> Venstre har 14 punkter, $p = (10/14, 4/14)$: $\text{Gini} = 1 - \frac{100+16}{196} = \frac{80}{196} \approx 0.408$. Høyre er ren: Gini $=0$. Vektet: $\frac{14}{20}\cdot 0.408 + \frac{6}{20}\cdot 0 \approx 0.286$.</p>
+  <p><b>Konklusjon:</b> B har lavest vektet Gini ($0.286 \lt 0.32$), så treet velger B. Reduksjonen i urenhet er $0.5 - 0.286 = 0.214$ for B og $0.5-0.32 = 0.18$ for A.</p>
+</div></details>
+
+<div class="calc" data-id="05-calc-wgini" data-answer="0.25" data-tol="0.003">
+  <p class="q">En node med 6 positive og 6 negative splittes i venstre (6 positive, 2 negative) og høyre (0 positive, 4 negative). Hva er vektet Gini etter splitten?</p>
+  <div class="solution">Venstre: $p=(0.75, 0.25)$, Gini $= 0.375$ (som i oppgaven over). Høyre er ren, Gini $=0$. Vektet: $\frac{8}{12}\cdot 0.375 + \frac{4}{12}\cdot 0 = 0.25$.</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p>Eksamen 2025 del 2.4: tre features gir vektet Gini etter splitt på henholdsvis 0.28, 0.41 og 0.07. Riktig valg er featuren med <b>lavest</b> verdi (0.07). Typisk felle er å tro at høy Gini er «mer informasjon».</p></div>
+
+<div class="quiz" data-id="05-exam-gini-choose">
+  <p class="q">Rotnoden vurderer tre features. Vektet Gini etter splitt er: Alder 0.33, Inntekt 0.12, Bosted 0.47. Hvilken feature velges?</p>
+  <ul>
+    <li>Bosted, fordi høyest Gini betyr at featuren skiller mest</li>
+    <li>Alder, fordi den ligger nærmest 0.25, som er midt i intervallet</li>
+    <li data-correct>Inntekt, fordi den gir lavest urenhet etter splitten</li>
+    <li>Det spiller ingen rolle, siden alle splittene er gyldige</li>
+  </ul>
+  <div class="explain">Lav Gini etter splitten betyr renere barnenoder, altså størst reduksjon i usikkerhet. Høy Gini betyr blandede noder, det motsatte av det vi vil. Det finnes ingen «målverdi» midt i intervallet. Alle splittene er gyldige, men de er ikke like gode.</div>
+</div>
+
+<!-- Widget: Gini/entropi-kurver -->
+<div class="widget">
+  <h4>Utforsk: Gini og entropi som funksjon av $p$</h4>
+  <canvas id="w5curve" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>$p$ = andel i klasse 1 <input type="range" id="w5p" min="0" max="1" step="0.01" value="0.3"><output id="w5po">0.30</output></label>
+    <label><input type="checkbox" id="w5half"> vis entropi / 2</label>
+  </div>
+  <div class="readouts" id="w5curveRead"></div>
+</div>
+<p class="small muted">Legg merke til: (1) begge kurvene er 0 når noden er ren ($p=0$ eller $p=1$) og størst ved $p=0.5$; (2) entropi har maks 1, Gini har maks 0.5; (3) skrur du på «entropi / 2», ser du at kurvene har nesten samme form. Det er derfor de nesten alltid velger samme splitt.</p>
+
+<!-- ============================================================ -->
+<h2 id="entropi"><span class="sec">5.4</span>Entropi og informasjonsgevinst</h2>
+
+<p>Entropi måler også hvor blandet en fordeling er, men på en annen skala: <b>hvor mange ja/nei-spørsmål (bits) trenger du i snitt for å finne klassen?</b> Er noden ren, trenger du ingen spørsmål (0 bits). Er det 50/50, trenger du ett (1 bit).</p>
+
+<div class="eq">
+  <p class="eq-note">Entropi for en fordeling over $k$ klasser (likning 46)</p>
+  $$I(p_1,\dots,p_k) = -\sum_{i=1}^{k} p_i \log_2 p_i \qquad (\text{med } 0\cdot\log_2 0 = 0)$$
+</div>
+
+<p>Notatenes oppgave: entropien til $(0.5, 0.5)$ er $-2\cdot 0.5\log_2 0.5 = 1$. Entropien til $(0.01, 0.99)$ er $-0.01\log_2 0.01 - 0.99\log_2 0.99 \approx 0.066 + 0.014 = 0.081$. Den skjeve fordelingen har nesten ingen usikkerhet. For en binær fordeling er maks entropi 1 (lik fordeling) og min 0 (ren node). Med $k$ klasser er maks $\log_2 k$.</p>
+
+<div class="callout hook"><span class="label">Huskeregel for kalkulatoren</span><p>$\log_2 x = \dfrac{\ln x}{\ln 2}$. Nyttige verdier: $\log_2 0.5 = -1$, $\log_2 0.25 = -2$, $\log_2 0.75 \approx -0.415$, $\log_2(1/3) \approx -1.585$.</p></div>
+
+<div class="calc" data-id="05-calc-h001" data-answer="0.081" data-tol="0.002">
+  <p class="q">Regn ut entropien til fordelingen $(0.01, 0.99)$ med tre desimaler.</p>
+  <div class="solution">$-0.01\log_2 0.01 = -0.01\cdot(-6.644) = 0.0664$. $-0.99\log_2 0.99 = -0.99\cdot(-0.0145) = 0.0144$. Sum $\approx 0.081$.</div>
+</div>
+
+<div class="calc" data-id="05-calc-h25" data-answer="0.811" data-tol="0.003">
+  <p class="q">En node har 2 positive og 6 negative punkter. Hva er entropien?</p>
+  <div class="solution">$p = (0.25, 0.75)$. $I = -0.25\log_2 0.25 - 0.75\log_2 0.75 = 0.25\cdot 2 + 0.75\cdot 0.415 = 0.5 + 0.311 = 0.811$.</div>
+</div>
+
+<h3>Før og etter en splitt</h3>
+<p>Før splitten har noden $p$ positive og $n$ negative punkter:</p>
+<div class="eq">
+  <p class="eq-note">Entropi før splitt (likning 47)</p>
+  $$I_{\text{før}} = I\!\left(\frac{p}{p+n},\ \frac{n}{p+n}\right)$$
+</div>
+<p>Etter splitten har vi to barnenoder $i = 1,2$ med $p_i$ positive og $n_i$ negative. Den forventede entropien er det vektede gjennomsnittet, akkurat som for Gini:</p>
+<div class="eq">
+  <p class="eq-note">Forventet entropi etter splitt (likning 48) og informasjonsgevinst (likning 49)</p>
+  $$E[I_{\text{etter}}] = \sum_{i=1}^{s}\frac{p_i+n_i}{p+n}\, I\!\left(\frac{p_i}{p_i+n_i},\ \frac{n_i}{p_i+n_i}\right), \qquad \Delta I = I_{\text{før}} - E[I_{\text{etter}}]$$
+</div>
+<p>Her er $s$ antall barn ($s=2$ for oss). $\Delta I$ kalles <b>informasjonsgevinst (information gain)</b>, og <b>vi velger splitten med størst $\Delta I$</b>. Siden $I_{\text{før}}$ er lik for alle kandidat-splitter i samme node, er det det samme som å velge lavest $E[I_{\text{etter}}]$.</p>
+
+<h3>Notatenes oppgave: $p=9$, $n=5$</h3>
+<details class="steps"><summary>Vis at $I_{\text{før}} = 0.94$ og regn ut gevinsten for splitten (4,5) / (5,0)</summary><div>
+  <p><b>Før:</b> $I_{\text{før}} = -\frac{9}{14}\log_2\frac{9}{14} - \frac{5}{14}\log_2\frac{5}{14} = 0.643\cdot 0.637 + 0.357\cdot 1.485 \approx 0.410 + 0.530 = 0.940$.</p>
+  <p><b>Etter:</b> Venstre barn har $(p_1, n_1) = (4, 5)$, altså 9 punkter. Høyre har $(5, 0)$, 5 punkter, og er ren (entropi 0).</p>
+  $$E[I_{\text{etter}}] = \frac{9}{14}\,I\!\left(\tfrac{4}{9},\tfrac{5}{9}\right) + \frac{5}{14}\cdot 0 = -\frac{9}{14}\left(\tfrac{4}{9}\log_2\tfrac{4}{9} + \tfrac{5}{9}\log_2\tfrac{5}{9}\right)$$
+  <p>$I(4/9, 5/9) = 0.444\cdot 1.170 + 0.556\cdot 0.848 \approx 0.520 + 0.471 = 0.991$. Altså $E[I_{\text{etter}}] = 0.643\cdot 0.991 \approx 0.64$.</p>
+  <p><b>Gevinst:</b> $\Delta I = 0.940 - 0.637 \approx 0.30$ bits.</p>
+</div></details>
+
+<div class="calc" data-id="05-calc-ifor" data-answer="0.94" data-tol="0.005">
+  <p class="q">Regn ut $I_{\text{før}}$ for en node med $p=9$ positive og $n=5$ negative (to desimaler).</p>
+  <div class="solution">$-\frac{9}{14}\log_2\frac{9}{14} - \frac{5}{14}\log_2\frac{5}{14} \approx 0.410 + 0.530 = 0.94$.</div>
+</div>
+
+<div class="calc" data-id="05-calc-gain" data-answer="0.30" data-tol="0.01">
+  <p class="q">Samme node splittes i $(p_1,n_1) = (4,5)$ og $(p_2,n_2)=(5,0)$. Hva er informasjonsgevinsten $\Delta I$ (to desimaler)?</p>
+  <div class="solution">$E[I_{\text{etter}}] = \frac{9}{14}\cdot 0.991 + \frac{5}{14}\cdot 0 \approx 0.637$. $\Delta I = 0.940 - 0.637 \approx 0.30$.</div>
+</div>
+
+<div class="calc" data-id="05-calc-gainB" data-answer="0.396" data-tol="0.006">
+  <p class="q">Gå tilbake til eksemplet med 10 blå og 10 oransje ($I_{\text{før}} = 1$). Splitt B ga venstre (10 blå, 4 oransje) og høyre (0, 6). Hva er $\Delta I$ for splitt B? (Hint: $I(10/14, 4/14) \approx 0.863$.)</p>
+  <div class="solution">$E[I_{\text{etter}}] = \frac{14}{20}\cdot 0.863 + \frac{6}{20}\cdot 0 = 0.604$. $\Delta I = 1 - 0.604 = 0.396$. Til sammenligning gir splitt A: $1 - I(0.8, 0.2) = 1 - 0.722 = 0.278$. Entropi velger også B, akkurat som Gini.</div>
+</div>
+
+<div class="quiz" data-id="05-gain-direction">
+  <p class="q">For en node har du regnet ut $E[I_{\text{etter}}]$ for tre kandidat-splitter: 0.81, 0.55 og 0.92. $I_{\text{før}} = 0.97$. Hvilken splitt velges, og hva er gevinsten?</p>
+  <ul>
+    <li>Splitten med 0.92, fordi den har størst entropi og dermed mest informasjon; $\Delta I = 0.92$</li>
+    <li data-correct>Splitten med 0.55; $\Delta I = 0.97 - 0.55 = 0.42$</li>
+    <li>Splitten med 0.81, fordi den ligger nærmest $I_{\text{før}}$ og derfor bevarer mest informasjon</li>
+    <li>Splitten med 0.55; $\Delta I = 0.55$</li>
+  </ul>
+  <div class="explain">Vi vil maksimere $\Delta I = I_{\text{før}} - E[I_{\text{etter}}]$, altså minimere entropien etter splitten. 0.55 gir $0.97-0.55 = 0.42$. Den vanlige forvekslingen er å tro at høy entropi er bra fordi «entropi = informasjon». Høy entropi betyr høy <em>usikkerhet</em>; det er <em>reduksjonen</em> i entropi som er informasjonen vi får. Siste alternativ har riktig splitt, men glemmer å trekke fra.</div>
+</div>
+
+<div class="quiz" data-id="05-entropy-k4">
+  <p class="q">En node har fire klasser med 25 % hver. Hva er entropien (i bits)?</p>
+  <ul>
+    <li data-correct>2</li>
+    <li>1</li>
+    <li>0.75</li>
+    <li>0.25</li>
+  </ul>
+  <div class="explain">$I = -4\cdot 0.25\log_2 0.25 = -\log_2 0.25 = 2$. Maks entropi med $k$ klasser er $\log_2 k$; du trenger to ja/nei-spørsmål for å skille fire like sannsynlige klasser. 1 er maks for <em>to</em> klasser. 0.75 er maks <em>Gini</em> for fire klasser, en typisk forveksling.</div>
+</div>
+
+<!-- Widget: interaktiv splitt -->
+<h3 id="splitt-widget">Prøv selv: finn den beste splitten</h3>
+<div class="widget">
+  <h4>Utforsk: dra terskelen og se urenheten endre seg</h4>
+  <canvas id="w5split" width="640" height="380"></canvas>
+  <canvas id="w5splitCurve" width="640" height="190" style="margin-top:8px"></canvas>
+  <div class="controls">
+    <label>Feature <select id="w5feat"><option value="0">x₁ (vertikal strek)</option><option value="1">x₂ (horisontal strek)</option></select></label>
+    <label>Terskel <input type="range" id="w5t" min="0" max="10" step="0.01" value="5"><output id="w5to">5.00</output></label>
+    <button class="btn" type="button" id="w5best">Vis beste splitt</button>
+  </div>
+  <div class="readouts" id="w5splitRead"></div>
+</div>
+<p class="small muted">Blå = klasse 1, oransje = klasse 0. Den nederste grafen viser vektet Gini (heltrukken) og vektet entropi / 2 (stiplet) for <em>alle</em> terskler på valgt feature. Bunnpunktet er den beste terskelen. Legg merke til at kurvene er trappetrinn: urenheten endrer seg bare når terskelen passerer et punkt. Derfor holder det å teste tersklene <em>midt mellom</em> to naboverdier. Bytt feature og se hvilken som gir lavest minimum.</p>
+
+<!-- ============================================================ -->
+<h2 id="sammenligning"><span class="sec">5.5</span>Gini, entropi og log loss: hvem velger vi?</h2>
+
+<p>Notatenes oppgave: «Plott Gini impurity og entropi i intervallet $[0,1]$. Er kurvene like?» Det gjorde du i widgeten over. Svaret er at de <b>oppfører seg likt</b> (begge er 0 for rene noder og størst ved lik fordeling, og de har nesten samme form hvis du skalerer entropien), og <b>i hovedsak gir de samme splitter</b>.</p>
+
+<p>Notatenes andre oppgave: «Sammenlikn uttrykkene for log loss, entropi og Gini-urenhet. Likner noen av disse? Hvilken går raskest å evaluere?»</p>
+
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>Mål</th><th>Uttrykk</th><th>Kommentar</th></tr></thead>
+  <tbody>
+    <tr><td>Log loss (cross-entropy)</td><td>$-\sum_i y_i \ln \hat y_i$</td><td>Hvis løvet predikerer klasseandelene, $\hat y_i = p_i$, blir snittet over nodens punkter $-\sum_i p_i \ln p_i$.</td></tr>
+    <tr><td>Entropi</td><td>$-\sum_i p_i \log_2 p_i$</td><td>Samme uttrykk som over, bare med $\log_2$ i stedet for $\ln$ (en konstant faktor $\ln 2$). Gir derfor de samme splittene.</td></tr>
+    <tr><td>Gini</td><td>$1-\sum_i p_i^2 = \sum_i p_i(1-p_i)$</td><td>Ingen logaritme, bare kvadrering. <b>Raskest</b> å regne ut.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Så: <b>log loss og entropi likner mest</b> (de er i praksis samme mål, og i sklearn gir <code>criterion="entropy"</code> og <code>criterion="log_loss"</code> samme tre). <b>Gini er raskest</b>, fordi logaritmer er dyrere å beregne enn kvadrater. Derfor er Gini <b>default</b> i <code>sklearn.tree.DecisionTreeClassifier</code>.</p>
+
+<details class="more"><summary>Fordypning: hvorfor har Gini og entropi så lik form? <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+  <p>Nær $p=1$ er $\ln p \approx p - 1$ (førsteordens Taylor-rekke). Setter vi det inn i entropien (med naturlig logaritme):</p>
+  $$-\sum_i p_i \ln p_i \approx \sum_i p_i(1-p_i) = \text{Gini}.$$
+  <p>Gini er altså en «linearisert» entropi. Forskjellen er størst for små $p_i$, der $-\ln p_i$ vokser raskt. Entropi belønner derfor rene noder litt mer. I sjeldne tilfeller velger de faktisk ulikt: For en node med (10, 10) gir splitten (1, 6) / (9, 4) vektet Gini 0.363 og vektet entropi 0.786, mens splitten (0, 4) / (10, 6) gir Gini 0.375 og entropi 0.764. Gini foretrekker den første, entropi den andre (som har et rent løv).</p>
+</div></details>
+
+<div class="quiz" data-id="05-gini-default">
+  <p class="q">Hvorfor er Gini standardkriteriet i sklearn sin <code>DecisionTreeClassifier</code>?</p>
+  <ul>
+    <li>Fordi Gini alltid gir høyere test-accuracy enn entropi</li>
+    <li data-correct>Fordi den gir nesten de samme splittene som entropi, men er billigere å regne ut (ingen logaritme)</li>
+    <li>Fordi entropi bare kan brukes når det er nøyaktig to klasser</li>
+    <li>Fordi Gini kan brukes til regresjon, mens entropi bare kan brukes til klassifisering</li>
+  </ul>
+  <div class="explain">Gini og entropi gir i hovedsak de samme splittene, så valget handler mest om beregningskostnad, og Gini slipper logaritmen. Ingen av dem gir systematisk bedre accuracy. Entropi fungerer fint med $k$ klasser (maks $\log_2 k$). Ingen av dem brukes til regresjon; regresjonstrær bruker typisk MSE (kapittel 7).</div>
+</div>
+
+<div class="quiz" data-id="05-logloss-similar">
+  <p class="q">Hvilke to splitt-kriterier har mest lik matematisk form?</p>
+  <ul>
+    <li>Gini og log loss, fordi begge bruker kvadrater</li>
+    <li>Gini og entropi, fordi begge er 0 for rene noder</li>
+    <li data-correct>Entropi og log loss, fordi begge er summer av $-p\cdot\log(p)$-ledd og bare skiller seg i logaritmens grunntall</li>
+    <li>Ingen av dem likner; de måler helt forskjellige ting</li>
+  </ul>
+  <div class="explain">Log loss (cross-entropy) og entropi har samme $-\sum p \log p$-form; forskjellen $\ln$ vs $\log_2$ er bare en konstant skalering. Gini og entropi har lik <em>kurveform</em> og samme nullpunkter, men Gini har ingen logaritme; det er kvadratene som gjør den rask. Log loss bruker ikke kvadrater (det er MSE som gjør det).</div>
+</div>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 2</span><p>Viking-oppgaven ba deg prøve <code>gini</code>, <code>entropy</code> og <code>log_loss</code> og svare på «Which criterion do you prefer?». Forventet observasjon: entropy og log_loss gir identiske trær, og Gini gir svært like resultater. Et godt svar er å foretrekke Gini fordi den er raskere og gir praktisk talt samme accuracy, eller å velge det kriteriet som gir best <em>kryssvalideringsscore</em> (ikke test-score, som skal være urørt). «What is Gini? Use an example from the decision tree graph»: les av <code>value = [a, b]</code> i en node og vis $1 - (a/n)^2 - (b/n)^2$ = tallet <code>gini</code> i figuren.</p></div>
+
+<!-- ============================================================ -->
+<h2 id="bygge"><span class="sec">5.6</span>Å bygge treet: rekursjon og stoppkriterier</h2>
+
+<p>Nå har vi et mål på hva en god splitt er. Å bygge treet er å gjenta én idé: <b>finn beste splitt, del dataene, og gjør det samme på hver halvdel.</b> Dette er en <em>rekursiv</em> og <em>grådig</em> algoritme. Den velger det som er best <em>akkurat nå</em> og ser aldri tilbake.</p>
+
+<div class="chain">
+  <div><b>1</b>Prøv alle features og terskler</div><div class="arrow">→</div>
+  <div><b>2</b>Velg lavest vektet Gini / størst $\Delta I$</div><div class="arrow">→</div>
+  <div><b>3</b>Del dataene i to</div><div class="arrow">→</div>
+  <div><b>4</b>Gjenta på hver del til et stoppkriterium slår inn</div>
+</div>
+
+<h3>Når skal vi slutte å splitte?</h3>
+<p>Treet stopper i en node når den er <b>ren</b> (alle punkter har samme klasse). I tillegg nevner notatene tre tilfeller der vi må stoppe selv om noden har punkter fra begge klasser:</p>
+<ol>
+  <li><b>Ingen features igjen å splitte på.</b> Vi har brukt opp featurene uten å få rene løv. Da blir noden nødvendigvis et løv.</li>
+  <li><b>Ingen data igjen å teste.</b> En splitt kan gi en tom gren, fordi en kombinasjon av feature-verdier ikke finnes i treningsdataene. Da har vi ingen punkter å bestemme klassen ut fra.</li>
+  <li><b>Treet har nådd maksimal dybde</b> (<code>max_depth</code>). Dette er en <b>hyperparameter</b> som velges før treningen.</li>
+</ol>
+
+<h3>Hva returnerer et blandet løv?</h3>
+<p>Etter treningen vil noen løv ha punkter fra begge klasser. De vanligste valgene er å returnere</p>
+<ol>
+  <li><b>den dominante klassen</b> i løvet (flertallet av treningspunktene der), eller</li>
+  <li><b>et tilfeldig trukket label</b> fra treningspunktene i løvet, altså etter a priori-sannsynligheten i løvet.</li>
+</ol>
+<p>I sklearn returnerer <code>predict</code> den dominante klassen, mens <code>predict_proba</code> returnerer klasseandelene i løvet. Et løv med 7 blå og 3 oransje gir dermed «blå» med sannsynlighet 0.7.</p>
+
+<h3>Pseudokoden</h3>
+<p>Dere trenger ikke implementere et tre selv, men dere <b>skal kunne angi pseudokode</b>. Her er notatenes versjon, med kommentarer:</p>
+<pre><code><span class="k">def</span> build_decision_tree(data, features, depth):
+    <span class="k">if</span> (all data in same class):                         <span class="c"># ren node</span>
+        <span class="k">return</span> class label
+    <span class="k">elif</span> (no features left to test) <span class="k">or</span> (depth >= max_depth):
+        <span class="k">return</span> 1 <span class="k">if</span> p/(p+n) > n/(p+n) <span class="k">else</span> 0              <span class="c"># dominant klasse</span>
+    <span class="k">elif</span> (no data left to test):                         <span class="c"># tom gren</span>
+        <span class="k">return</span> (dominant class in parent node)
+    <span class="k">else</span>:
+        choose best_feature f <span class="k">for</span> split                  <span class="c"># Gini / entropi / log loss</span>
+        partition data based on f
+        <span class="k">for</span> each data partition:
+            build_decision_tree(data partition, features - best_feature, depth+1)</code></pre>
+
+<div class="callout why"><span class="label">Hvorfor foreldrenoden?</span><p>Når en gren er tom, har vi ingen treningspunkter som kan fortelle hva som bør predikeres der. Det beste vi har er fordelingen ett nivå opp, så vi låner foreldrenodens dominante klasse.</p></div>
+
+<div class="callout warn"><span class="label">Vanlig misforståelse</span><p>Pseudokoden fjerner featuren etter bruk (<code>features - best_feature</code>). Det er naturlig for <b>kategoriske</b> features: har du splittet på «kjønn», er det ingenting mer å hente der. Men for <b>numeriske</b> features kan samme feature brukes flere ganger med ulike terskler ($x_1 \le 4$ øverst, $x_1 \le 7$ lenger ned). Det gjør sklearn sitt CART-tre, og det gjør treet i widgeten under.</p></div>
+
+<div class="callout cons"><span class="label">Hva fører grådigheten til?</span><p>Treet finner den beste splitten nå, ikke det beste treet totalt. Det er raskt (å finne det globalt beste treet er beregningsmessig umulig for store data), men en splitt som ser dårlig ut alene kan noen ganger åpne for svært gode splitter under. Et klassisk eksempel er XOR-mønsteret, der ingen enkelt splitt reduserer Gini, men to splitter sammen løser alt.</p></div>
+
+<h3>I sklearn</h3>
+<pre><code><span class="k">from</span> sklearn <span class="k">import</span> tree
+
+clf = tree.DecisionTreeClassifier(criterion=<span class="s">"gini"</span>,  <span class="c"># eller "entropy" / "log_loss"</span>
+                                  max_depth=4)       <span class="c"># None = vokser til løvene er rene</span>
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+tree.plot_tree(clf)            <span class="c"># viser splitt, gini, samples og value i hver node</span></code></pre>
+<p>Notatene bruker Palmer Penguins-datasettet, der treet predikerer pingvinens kjønn ut fra kroppsmasse og flipperlengde, med <code>max_depth=7</code> og <code>criterion="log_loss"</code>. Beslutningsflaten kan visualiseres med <code>sklearn.inspection.DecisionBoundaryDisplay</code>.</p>
+
+<div class="quiz" data-multi data-id="05-stop">
+  <p class="q">Hvilke situasjoner gjør at vi slutter å splitte en node, ifølge notatene? Velg alle riktige.</p>
+  <ul>
+    <li data-correct>Alle punktene i noden har samme klasse</li>
+    <li data-correct>Treet har nådd forhåndsvalgt maksimal dybde</li>
+    <li>Gini-urenheten i noden er over 0.5</li>
+    <li data-correct>Det finnes ingen flere features å splitte på</li>
+    <li>Treet har brukt mer enn halvparten av featurene</li>
+  </ul>
+  <div class="explain">Rene noder, ingen features igjen, ingen data igjen og <code>max_depth</code> er stoppkriteriene. Høy Gini er tvert imot et tegn på at noden <em>bør</em> splittes (og med to klasser kan Gini ikke være over 0.5). Det finnes ingen regel om å bruke halvparten av featurene.</div>
+</div>
+
+<div class="quiz" data-id="05-mixed-leaf">
+  <p class="q">Et løv i et ferdig tre inneholder 7 treningspunkter av klasse 1 og 3 av klasse 0. Et nytt punkt havner i dette løvet. Hva predikerer et vanlig tre (som <code>predict</code> i sklearn)?</p>
+  <ul>
+    <li>Ingenting; løvet må splittes videre før det kan brukes</li>
+    <li>Klasse 0, fordi treet vil kompensere for at klasse 0 er i mindretall</li>
+    <li>Gjennomsnittet av labelene, 0.7, avrundet til nærmeste heltall bare hvis Gini er under 0.25</li>
+    <li data-correct>Klasse 1, fordi det er den dominante klassen i løvet</li>
+  </ul>
+  <div class="explain">Den vanligste regelen er å returnere flertallsklassen (alternativt trekke et tilfeldig label etter fordelingen). Løvet er ferdig og kan alltid brukes. Treet kompenserer ikke for mindretall med mindre du bruker klassevekter. Andelen 0.7 er det <code>predict_proba</code> gir, men det finnes ingen Gini-betingelse for avrunding.</div>
+</div>
+
+<div class="quiz" data-id="05-pseudo-depth">
+  <p class="q">I pseudokoden: hva skjer i grenen <code>elif (no features left to test) or (depth >= max_depth)</code>?</p>
+  <ul>
+    <li>Funksjonen kaller seg selv på nytt med <code>depth+1</code></li>
+    <li>Funksjonen returnerer klassen til foreldrenoden</li>
+    <li data-correct>Noden blir et løv som returnerer flertallsklassen i noden</li>
+    <li>Treet kastes og bygges på nytt med lavere <code>max_depth</code></li>
+  </ul>
+  <div class="explain"><code>return 1 if p/(p+n) &gt; n/(p+n) else 0</code> betyr «returner klassen med flest punkter». Rekursjonen skjer bare i <code>else</code>-grenen. Foreldrenodens klasse brukes bare når det ikke finnes data igjen (tom gren). Treet bygges aldri på nytt.</div>
+</div>
+
+<div class="quiz" data-id="05-reuse-feature">
+  <p class="q">Kan et sklearn-beslutningstre splitte på samme numeriske feature mer enn én gang langs samme vei fra rot til løv?</p>
+  <ul>
+    <li>Nei, en feature fjernes alltid etter at den er brukt</li>
+    <li data-correct>Ja, med ulike terskler, for eksempel først $x_1 \le 4$ og så $x_1 \le 2.5$</li>
+    <li>Bare hvis featuren er kategorisk</li>
+    <li>Bare i rotnoden</li>
+  </ul>
+  <div class="explain">For numeriske features kan treet gjenbruke featuren med nye terskler, og det er slik det lager smalere intervaller. Pseudokoden i notatene fjerner featuren, som er naturlig for kategoriske features med ett utfall per kategori. Det er altså motsatt av tredje alternativ: det er for kategoriske features gjenbruk ikke gir noe.</div>
+</div>
+
+<div class="reflect" data-id="05-r-greedy">
+  <p class="q">Treet velger alltid den beste splitten lokalt. Forklar med egne ord hvorfor dette ikke garanterer det beste treet, og hvorfor vi likevel gjør det slik.</p>
+  <div class="answer">Grådig valg ser bare ett steg fram. En splitt som ser middels ut alene kan gjøre det mulig med svært rene splitter under (XOR er eksempelet: ingen enkelt vertikal eller horisontal strek hjelper, men to sammen løser problemet). Å finne det globalt beste treet krever i prinsippet å prøve alle mulige trær, og antallet vokser eksplosivt med antall features, terskler og dybde. Grådig bygging er rask, gir som regel gode trær i praksis, og svakhetene (ustabilitet, overtilpasning) kan vi rette opp med dybdebegrensning og ensembler (kapittel 8).</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="flater"><span class="sec">5.7</span>Beslutningsflater, skalering og dybde</h2>
+
+<h3>Aksejusterte beslutningsflater</h3>
+<p>Hver splitt spør om <em>én</em> feature, så hver grense er enten en <b>vertikal</b> strek ($x_1 = $ konstant) eller en <b>horisontal</b> strek ($x_2 = $ konstant). Til sammen deler treet feature-rommet i <b>rektangler</b> (bokser i høyere dimensjoner), slik du så i figur 5.2.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>En skrå eller buet klassegrense må tilnærmes med en <b>trapp</b> av små rektangler. Det krever mange splitter og et dypt tre. Notatene sier det slik i kapittel 1.5: beslutningstrær antar at datarommet kan separeres med vertikale beslutningsflater (splitter). Logistisk regresjon har motsatt antakelse: én rett, men gjerne skrå, linje.</p></div>
+
+<h3>Hvorfor skalering ikke trengs</h3>
+<p>En splitt avhenger bare av <b>rekkefølgen</b> på verdiene i en feature: hvilke punkter ligger til venstre og til høyre for terskelen. Standardiserer du ($x \to (x-\mu)/\sigma$) eller min-max-skalerer, flyttes og strekkes aksen, men rekkefølgen er den samme. Den beste splitten deler dataene i nøyaktig de samme gruppene, bare med en omregnet terskel. Treet bruker heller ingen gradient descent, så store feature-verdier gir ingen store gradienter.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p>Et tre spør «hvem er høyest?», ikke «hvor høy?». Det endrer seg ikke om du måler i centimeter eller tommer.</p></div>
+
+<div class="quiz" data-id="05-scaling">
+  <p class="q">Du standardiserer alle features før du trener et beslutningstre (som ellers har samme innstillinger). Hva skjer med prediksjonene på testdata (som standardiseres med samme scaler)?</p>
+  <ul>
+    <li data-correct>De blir de samme, fordi skaleringen bevarer rekkefølgen og dermed hvilke punkter som havner på hver side av en splitt</li>
+    <li>De blir bedre, fordi treet trenger features på samme skala for å sammenligne Gini på tvers av features</li>
+    <li>De blir dårligere, fordi standardisering fjerner informasjon om avstand</li>
+    <li>Treet kan ikke trenes på negative verdier, så det feiler</li>
+  </ul>
+  <div class="explain">Splittene avhenger bare av rekkefølge, og monotone transformasjoner som standardisering bevarer den. Gini regnes ut fra <em>antall</em> punkter i hver klasse, ikke fra feature-verdiene, så den er sammenlignbar på tvers av features uansett skala. Negative verdier er helt uproblematisk. (Teknisk kan valg mellom helt like gode splitter avhenge av tilfeldigheter, men det skyldes ikke skaleringen.)</div>
+</div>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 2, problem 1</span><p><b>«Do we need to scale the features?»</b> Nei, av grunnen over. <b>«What preprocessing do we need, and why?»</b> Se på klassefordelingen: treningsdataene har 930 punkter av klasse 0 og bare 76 av klasse 1, mens testsettet er balansert (150/150). Uten tiltak lærer treet å favorisere flertallsklassen. Tiltak er resampling (over-/undersampling) eller klassevekter, se <a href="03-evaluering.html">kapittel 3</a>. <b>«What do you observe in the decision boundary plot before and after?»</b> Før balansering er området som predikeres som klasse 1 lite; etter balansering blir det større og dekker klyngen av klasse 1 bedre. Grensene er hele tiden aksejusterte rektangler.</p></div>
+
+<div class="quiz" data-id="05-boundary-shape">
+  <p class="q">Hvilken form har beslutningsflaten til et beslutningstre med to numeriske features?</p>
+  <ul>
+    <li>Én rett linje som kan ha hvilken som helst helning</li>
+    <li>Glatte kurver, siden treet bruker sannsynligheter</li>
+    <li data-correct>Stykkevis rette, akseparallelle linjestykker som deler planet i rektangler</li>
+    <li>Sirkler rundt treningspunktene</li>
+  </ul>
+  <div class="explain">Hver splitt er $x_j \le t$ for én feature, altså en linje parallell med en akse. Én skrå linje er beslutningsflaten til logistisk regresjon. Sannsynlighetene i løvene er konstante innenfor hvert rektangel, så det blir ingen glatte kurver. Sirkler rundt punkter likner mer på k-nærmeste-nabo eller RBF-modeller.</div>
+</div>
+
+<h3>Dybde og overtilpasning</h3>
+<p>Et tre uten dybdebegrensning fortsetter til hvert løv er rent. Med støy i dataene betyr det at treet lager egne små bokser rundt enkeltpunkter. Det er <b>overtilpasning (overfitting)</b>: perfekt på treningsdata, dårligere på nye data. Et for grunt tre klarer ikke å fange formen på klassegrensen; det <b>undertilpasser (underfit)</b>.</p>
+
+<div class="widget">
+  <h4>Utforsk: et beslutningstre som bygges rekursivt (CART med Gini)</h4>
+  <canvas id="w5tree" width="640" height="420"></canvas>
+  <div class="controls">
+    <label>max_depth <input type="range" id="w5d" min="1" max="12" step="1" value="2"><output id="w5do">2</output></label>
+    <label><input type="checkbox" id="w5showTest"> vis testpunkter i stedet</label>
+  </div>
+  <div class="readouts" id="w5treeRead"></div>
+  <canvas id="w5acc" width="640" height="200" style="margin-top:8px"></canvas>
+  <details class="steps" style="margin-top:10px"><summary>Vis treet som regler</summary><div><pre class="k5-rules" id="w5rules"></pre></div></details>
+</div>
+<p class="small muted">Den sanne klassegrensen er en sirkel (klasse 1 innenfor), og 10 % av labelene er støy. Legg merke til: (1) dybde 1–2 gir grove rektangler (undertilpasning); (2) rundt dybde 4 er sirkelen tilnærmet med en trapp, og test-accuracy er høyest; (3) høyere dybde gir små bokser rundt støypunkter: trenings-accuracy går mot 100 %, mens test-accuracy flater ut eller faller. Grafen under viser det samme for alle dybder.</p>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 2, problem 1</span><p><b>«What happens when you increase or decrease the depth of the tree?»</b> Økt dybde: flere og mindre rektangler, trenings-accuracy øker, og etter et punkt overtilpasser treet (test-accuracy synker, flaten blir «flekkete»). Redusert dybde: enklere flate og mer robust modell, men for lav dybde gir undertilpasning. Velg dybden med validering eller kryssvalidering (<a href="07-generalisering.html">kapittel 7</a>).</p></div>
+
+<div class="quiz" data-id="05-depth-overfit">
+  <p class="q">Du øker <code>max_depth</code> fra 3 til 20 på et støyete datasett. Hva er mest sannsynlig?</p>
+  <ul>
+    <li>Både trenings- og test-accuracy øker, fordi en mer fleksibel modell alltid er bedre</li>
+    <li>Trenings-accuracy synker fordi treet blir for komplisert å trene</li>
+    <li data-correct>Trenings-accuracy øker mot 100 %, mens test-accuracy stagnerer eller synker</li>
+    <li>Ingenting endrer seg, fordi treet stopper når løvene er rene uansett</li>
+  </ul>
+  <div class="explain">Et dypt tre kan isolere hvert støypunkt og pugger dermed treningsdataene, mens generaliseringen blir dårligere: klassisk overtilpasning (høy varians). Mer fleksibilitet er ikke alltid bedre. Trenings-accuracy kan ikke synke av at treet får lov å splitte mer. Med dybde 3 når treet stoppkriteriet <em>før</em> løvene er rene, så det å øke grensen endrer mye.</div>
+</div>
+
+<div class="reflect" data-id="05-r-scaling">
+  <p class="q">En medstudent sier: «Jeg skalerer alltid features, så det skader vel ikke å gjøre det for trær også?» Hva svarer du, og hvorfor er det annerledes for logistisk regresjon?</p>
+  <div class="answer">Det skader ikke for selve treet, men det hjelper heller ikke: splittene avhenger bare av rekkefølgen på verdiene, som skalering bevarer. For logistisk regresjon er det annerledes fordi features ganges med vekter og trenes med gradient descent. Features på svært ulik skala gir gradienter av svært ulik størrelse, som gjør treningen ustabil eller treg, og vektene kan ikke sammenlignes direkte. For trær er skalering altså unødvendig arbeid, og et unødvendig sted å gjøre feil (som å fitte scaleren på testdata).</div>
+</div>
+
+<h3>Tolkbarhet</h3>
+<p>Trær er <b>tolkbare</b>: hvert splitt-kriterium er en regel et menneske kan lese, og vi kan følge nøyaktig hvorfor et punkt fikk sin prediksjon. Features som splittes <b>tidlig</b> (høyt i treet) er som regel <b>viktigere</b>, fordi de ble valgt for å redusere mest usikkerhet blant alle data. Notatene sammenligner med regresjonsmodeller, der størrelsen på $\beta_j$ eller $w_j$ forteller hvor viktig $x_j$ er (gitt skalerte features). Nevrale nettverk mangler denne egenskapen.</p>
+
+<div style="overflow-x:auto">
+<table>
+  <thead><tr><th>Beslutningstrær</th><th>Lineær/logistisk regresjon</th></tr></thead>
+  <tbody>
+    <tr><td>Skalering er ikke nødvendig; treet deler dataene i regioner.</td><td>Features bør ha samme størrelsesorden, helst $O(1)$, så gradientene ikke blir store.</td></tr>
+    <tr><td>Uten dybdebegrensning kan treet bli for dypt og overtilpasse.</td><td>Funksjonsformen er bestemt; algoritmen kan ikke legge til eller fjerne ledd selv.</td></tr>
+    <tr><td>Overordnet struktur er gitt, men arkitekturen bestemmes under trening (ikke-parametrisk).</td><td>Likningsformen er gitt, og parametrene tilpasses (parametrisk).</td></tr>
+    <tr><td>Data flyter gjennom uten å transformeres; noder splitter bare.</td><td>Data ganges med parametre og summeres.</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="small muted">Etter notatenes tabell 8 og innledningen til kapittel 2 i notatene.</p>
+
+<div class="quiz" data-id="05-interpret">
+  <p class="q">I et ferdig tre splitter rotnoden på «inntekt», og «alder» dukker først opp på dybde 4. Hva er den rimeligste tolkningen?</p>
+  <ul>
+    <li>Alder er viktigst, fordi de dypeste splittene gir de endelige beslutningene</li>
+    <li>Alder er irrelevant og kan fjernes uten å endre modellen</li>
+    <li>Rekkefølgen i treet sier ingenting, siden den er tilfeldig</li>
+    <li data-correct>Inntekt reduserte usikkerheten mest for hele datasettet og er trolig den viktigste featuren</li>
+  </ul>
+  <div class="explain">Rotsplitten er valgt fordi den gir størst reduksjon i urenhet over <em>alle</em> data, så den er typisk viktigst. Dype splitter gjelder bare en liten del av dataene. Alder brukes faktisk i modellen, så å fjerne den endrer prediksjonene. Rekkefølgen er ikke tilfeldig, men bestemt av det grådige kriteriet.</div>
+</div>
+
+<div class="quiz" data-id="05-same-data">
+  <p class="q">To studenter trener hvert sitt beslutningstre på nøyaktig samme treningsdata og får ulike trær. Hva er den beste forklaringen?</p>
+  <ul>
+    <li>En av dem må ha gjort en feil, fordi et datasett bare har ett riktig tre</li>
+    <li data-correct>Ulike hyperparametre (kriterium, max_depth) eller valg mellom like gode splitter kan gi ulike trær; samme data kan gi mange gyldige trær</li>
+    <li>Beslutningstrær er stokastiske i inferens, så prediksjonene varierer fra gang til gang</li>
+    <li>Det er bare mulig hvis dataene har mer enn to klasser</li>
+  </ul>
+  <div class="explain">Notatene understreker at samme data og labels kan gi mange ulike trær. Kriterium, dybde, og hvordan uavgjorte splitter brytes (sklearn stokker featurerekkefølgen med <code>random_state</code>) påvirker resultatet. Et ferdig tre er deterministisk i inferens. Antall klasser har ingenting med det å gjøre.</div>
+</div>
+
+<div class="reflect" data-id="05-r-unstable">
+  <p class="q">Små endringer i treningsdataene kan gi et helt annet tre (for eksempel en annen rotsplitt). Hva betyr det i bias–varians-språk, og hvilken idé kan dempe problemet?</p>
+  <div class="answer">At modellen endrer seg mye med små endringer i dataene er definisjonen på høy <b>varians</b>. Dype trær har lav bias (de kan tilpasse nesten hva som helst) men høy varians. Det kan dempes ved å begrense dybden (gir mer bias), eller ved å trene mange trær på ulike bootstrap-utvalg og ta gjennomsnittet av prediksjonene: bagging og random forest (<a href="08-ensemble.html">kapittel 8</a>). Gjennomsnittet av mange ustabile, men ulike trær er langt mer stabilt enn ett tre.</div>
+</div>
+
+<h3>Videre: regresjonstrær og ensembler</h3>
+<p>Samme struktur kan brukes til regresjon: treet deler rommet i regioner og predikerer <b>én konstant verdi per region</b> (gjennomsnittet av treningspunktene der), og splittene velges ved å minimere MSE i stedet for Gini. Det ser vi på i <a href="07-generalisering.html">kapittel 7</a>. Og fordi enkelttrær er ustabile, er de mest nyttige i flokk: random forest og gradient boosting i <a href="08-ensemble.html">kapittel 8</a>.</p>
+
+<div class="reflect" data-id="05-r-gini-explain">
+  <p class="q">Forklar Gini-urenhet til en venn uten formler, med posen med kuler. Ta med hva 0 og 0.5 betyr for to klasser.</p>
+  <div class="answer">Tenk deg en pose med røde og blå kuler. Du trekker én kule og gjetter fargen ved å «trekke et svar» med samme fordeling som i posen. Gini er sjansen for at gjetningen er feil. Er alle kulene røde, gjetter du alltid rødt og har alltid rett: Gini 0, posen er «ren». Er det halvt om halvt, er det like stor sjanse for rett og feil: Gini 0.5, som er det mest urene en pose med to farger kan bli. Et tre leter etter spørsmål som deler kulene i poser som er så rene som mulig.</div>
+</div>
+
+<!-- ============================================================ -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li>Et beslutningstre består av rotnode, beslutningsnoder (med splitt-kriterium = feature + terskel) og løvnoder (med prediksjon). En stump er én splitt med to løv.</li>
+    <li>Samme data kan gi mange trær. Vi velger ved hver node splitten som <b>reduserer usikkerheten mest</b>.</li>
+    <li>Gini $= 1-\sum p_i^2$ = sannsynlighet for feil gjetning. Maks $1-1/k$ (0.5 for to klasser). Velg <b>lavest vektet Gini</b> $\frac{n_1}{n}G_1 + \frac{n_2}{n}G_2$.</li>
+    <li>Entropi $I = -\sum p_i \log_2 p_i$, maks 1 for to klasser. Informasjonsgevinst $\Delta I = I_{\text{før}} - E[I_{\text{etter}}]$; velg <b>størst $\Delta I$</b>. Eksempel: (9,5) gir 0.94, splitt (4,5)/(5,0) gir 0.64 etter, $\Delta I \approx 0.30$.</li>
+    <li>Gini og entropi har nesten lik form og gir i hovedsak samme splitter. Entropi og log loss er i praksis samme mål. Gini er raskest (ingen logaritme) og er default i sklearn.</li>
+    <li>Treet bygges rekursivt og grådig. Stopp ved ren node, ingen features igjen, ingen data igjen eller <code>max_depth</code>. Blandede løv returnerer dominant klasse (eller tilfeldig label etter fordelingen).</li>
+    <li>Beslutningsflatene er aksejusterte rektangler. Skalering trengs ikke, fordi splitter bare avhenger av rekkefølge.</li>
+    <li>Dypere tre: lavere bias, høyere varians, risiko for overtilpasning. Trær er tolkbare; tidlige splitter er viktigst.</li>
+  </ul>
+</div>
+
+<div class="cards">
+  <div class="card"><div class="front">Rotnode, beslutningsnode, løvnode</div><div class="back">Rot: toppen, alle data inn. Beslutningsnode: splitter med et kriterium. Løvnode: splitter ikke, inneholder prediksjonen.</div></div>
+  <div class="card"><div class="front">Trestump</div><div class="back">Én rotnode og to løvnoder (dybde 1). Typisk svak modell i boosting.</div></div>
+  <div class="card"><div class="front">Splitt-kriterium</div><div class="back">Feature + terskel, f.eks. $x_2 \le 6$. Velges for å redusere usikkerheten mest.</div></div>
+  <div class="card"><div class="front">Gini-urenhet</div><div class="back">$1-\sum_i p_i^2$. Sannsynligheten for å gjette feil klasse når du gjetter etter fordelingen. 0 = ren, maks $1-1/k$.</div></div>
+  <div class="card"><div class="front">Vektet Gini etter splitt</div><div class="back">$\frac{n_1}{n}\text{Gini}(D_1) + \frac{n_2}{n}\text{Gini}(D_2)$. Lavest vinner.</div></div>
+  <div class="card"><div class="front">Entropi</div><div class="back">$-\sum_i p_i\log_2 p_i$. 0 for ren node, 1 for 50/50, maks $\log_2 k$.</div></div>
+  <div class="card"><div class="front">Informasjonsgevinst $\Delta I$</div><div class="back">$I_{\text{før}} - E[I_{\text{etter}}]$, der $E[I_{\text{etter}}]$ er vektet snitt av barnas entropi. Størst vinner.</div></div>
+  <div class="card"><div class="front">Gini vs entropi</div><div class="back">Lik form, nesten samme splitter. Gini er raskere (ingen log) og default i sklearn.</div></div>
+  <div class="card"><div class="front">Stoppkriterier</div><div class="back">Ren node · ingen features igjen · ingen data igjen · max_depth nådd.</div></div>
+  <div class="card"><div class="front">Blandet løvnode</div><div class="back">Returner dominant klasse (eller tilfeldig label etter fordelingen i løvet).</div></div>
+  <div class="card"><div class="front">Hvorfor ikke skalere for trær?</div><div class="back">Splitter avhenger bare av rekkefølgen på verdiene, som skalering bevarer. Ingen gradienter.</div></div>
+  <div class="card"><div class="front">Dybde</div><div class="back">Dypere = lavere bias, høyere varians. For dypt tre overtilpasser; for grunt undertilpasser.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+/* ---------- felles hjelpere for kapittel 5 ---------- */
+window.K5 = (function () {
+  const gini = (c0, c1) => { const n = c0 + c1; if (!n) return 0; const p = c1 / n; return 1 - p * p - (1 - p) * (1 - p); };
+  const ent = (c0, c1) => { const n = c0 + c1; if (!n) return 0; let h = 0; [c0, c1].forEach(c => { if (c > 0) { const p = c / n; h -= p * Math.log2(p); } }); return h; };
+  function bestSplit(X, y, idx, imp) {
+    let best = null; const n = idx.length; let tot1 = 0; idx.forEach(i => tot1 += y[i]);
+    for (let f = 0; f < 2; f++) {
+      const s = idx.slice().sort((a, b) => X[a][f] - X[b][f]);
+      let l0 = 0, l1 = 0;
+      for (let k = 0; k < n - 1; k++) {
+        const i = s[k]; if (y[i]) l1++; else l0++;
+        const v = X[i][f], v2 = X[s[k + 1]][f];
+        if (v2 === v) continue;
+        const nl = k + 1, nr = n - nl, r1 = tot1 - l1, r0 = nr - r1;
+        const sc = nl / n * imp(l0, l1) + nr / n * imp(r0, r1);
+        if (!best || sc < best.score - 1e-12) best = { f, t: (v + v2) / 2, score: sc };
+      }
+    }
+    return best;
+  }
+  function build(X, y, idx, depth, maxD, parentMaj) {
+    let c1 = 0; idx.forEach(i => c1 += y[i]); const c0 = idx.length - c1;
+    const maj = c1 > c0 ? 1 : (c0 > c1 ? 0 : parentMaj);
+    const node = { c0, c1, maj, depth, leaf: true };
+    if (!idx.length || c0 === 0 || c1 === 0 || depth >= maxD) return node;
+    const b = bestSplit(X, y, idx, gini);
+    if (!b || b.score >= gini(c0, c1) - 1e-12) return node;
+    node.leaf = false; node.f = b.f; node.t = b.t;
+    node.L = build(X, y, idx.filter(i => X[i][b.f] <= b.t), depth + 1, maxD, maj);
+    node.R = build(X, y, idx.filter(i => X[i][b.f] > b.t), depth + 1, maxD, maj);
+    return node;
+  }
+  function predict(node, x) { while (!node.leaf) node = x[node.f] <= node.t ? node.L : node.R; return node.maj; }
+  function leaves(node) { return node.leaf ? 1 : leaves(node.L) + leaves(node.R); }
+  return { gini, ent, bestSplit, build, predict, leaves };
+})();
+
+/* ---------- widget 1: Gini- og entropikurver ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const P = CK.plot(document.getElementById("w5curve"), { xmin: 0, xmax: 1, ymin: 0, ymax: 1.05 });
+  const sp = document.getElementById("w5p"), half = document.getElementById("w5half");
+  const G = p => 1 - p * p - (1 - p) * (1 - p);
+  const H = p => (p <= 0 || p >= 1) ? 0 : -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
+  function draw() {
+    const p = +sp.value;
+    document.getElementById("w5po").textContent = p.toFixed(2);
+    P.clear().grid().axes({ xlabel: "p (andel klasse 1)", ylabel: "urenhet", frame: true });
+    P.fn(H, { color: P.col("c4"), width: 2.5 });
+    P.fn(G, { color: P.col("c1"), width: 2.5 });
+    if (half.checked) P.fn(x => H(x) / 2, { color: P.col("c4"), width: 2, dash: [6, 5] });
+    P.line(p, 0, p, 1.05, { color: P.col("axis"), width: 1, dash: [3, 4] });
+    P.points([{ x: p, y: G(p), color: P.col("c1") }, { x: p, y: H(p), color: P.col("c4") }], { r: 5 });
+    const items = [{ color: P.col("c4"), label: "entropi I(p, 1−p)" }, { color: P.col("c1"), label: "Gini 1−p²−(1−p)²" }];
+    if (half.checked) items.push({ color: P.col("c4"), label: "entropi / 2 (stiplet)" });
+    P.legend(items, { x: P.W - 200 });
+    document.getElementById("w5curveRead").innerHTML =
+      `<span class="readout">Gini = ${G(p).toFixed(3)}</span><span class="readout">Entropi = ${H(p).toFixed(3)}</span><span class="readout">Entropi / 2 = ${(H(p) / 2).toFixed(3)}</span>`;
+  }
+  sp.oninput = half.onchange = draw;
+  CK.live(draw);
+});
+
+/* ---------- widget 2: interaktiv splitt ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const r = CK.rng(11);
+  const X = [], y = [];
+  const clip = v => Math.max(0.3, Math.min(9.7, v));
+  for (let i = 0; i < 18; i++) { X.push([clip(r.normal(6.3, 1.5)), clip(r.normal(6.0, 1.7))]); y.push(1); }
+  for (let i = 0; i < 18; i++) { X.push([clip(r.normal(3.6, 1.5)), clip(r.normal(4.2, 1.7))]); y.push(0); }
+  const P = CK.plot(document.getElementById("w5split"), { xmin: 0, xmax: 10, ymin: 0, ymax: 10 });
+  const Q = CK.plot(document.getElementById("w5splitCurve"), { xmin: 0, xmax: 10, ymin: 0, ymax: 0.55, pad: { l: 48, r: 16, t: 10, b: 32 } });
+  const fs = document.getElementById("w5feat"), ts = document.getElementById("w5t");
+  const { gini, ent } = K5;
+  function stats(f, t) {
+    let l0 = 0, l1 = 0, r0 = 0, r1 = 0;
+    X.forEach((x, i) => { if (x[f] <= t) { y[i] ? l1++ : l0++; } else { y[i] ? r1++ : r0++; } });
+    const n = X.length, nl = l0 + l1, nr = r0 + r1;
+    return { l0, l1, r0, r1, nl, nr, wg: nl / n * gini(l0, l1) + nr / n * gini(r0, r1), we: nl / n * ent(l0, l1) + nr / n * ent(r0, r1) };
+  }
+  const n1 = y.reduce((a, b) => a + b, 0), n0 = y.length - n1;
+  const G0 = gini(n0, n1), I0 = ent(n0, n1);
+  function best() {
+    const b = K5.bestSplit(X, y, X.map((_, i) => i), gini);
+    const e = K5.bestSplit(X, y, X.map((_, i) => i), ent);
+    return { b, e };
+  }
+  const BEST = best();
+  function draw() {
+    const f = +fs.value, t = +ts.value;
+    document.getElementById("w5to").textContent = t.toFixed(2);
+    const s = stats(f, t);
+    P.clear().grid().axes({ xlabel: "x₁", ylabel: "x₂", frame: true });
+    const tint = (c1, c0) => c1 > c0 ? P.col("c1") : (c0 > c1 ? P.col("c2") : P.col("axis"));
+    if (f === 0) { P.rect(0, 0, t, 10, { fill: tint(s.l1, s.l0), alpha: 0.10 }); P.rect(t, 0, 10, 10, { fill: tint(s.r1, s.r0), alpha: 0.10 }); P.line(t, 0, t, 10, { color: P.col("text"), width: 2.5 }); }
+    else { P.rect(0, 0, 10, t, { fill: tint(s.l1, s.l0), alpha: 0.10 }); P.rect(0, t, 10, 10, { fill: tint(s.r1, s.r0), alpha: 0.10 }); P.line(0, t, 10, t, { color: P.col("text"), width: 2.5 }); }
+    P.points(X.map((x, i) => ({ x: x[0], y: x[1], color: y[i] ? P.col("c1") : P.col("c2") })), { r: 6 });
+    const lab = f === 0 ? ["venstre (x₁ ≤ t)", "høyre (x₁ > t)"] : ["under (x₂ ≤ t)", "over (x₂ > t)"];
+    if (f === 0) { P.text(lab[0], 0.2, 9.6, { size: 12, color: P.col("text-soft") }); P.text(lab[1], 9.8, 9.6, { size: 12, color: P.col("text-soft"), align: "right" }); }
+    else { P.text(lab[0], 0.2, 0.35, { size: 12, color: P.col("text-soft") }); P.text(lab[1], 0.2, 9.65, { size: 12, color: P.col("text-soft") }); }
+    // kurve over terskler
+    Q.clear().grid({ yticks: [0, 0.25, 0.5] }).axes({ xlabel: (f === 0 ? "terskel på x₁" : "terskel på x₂"), yticks: [0, 0.25, 0.5], frame: true });
+    const pts = [], pts2 = [];
+    for (let k = 0; k <= 400; k++) { const tt = 10 * k / 400; const z = stats(f, tt); pts.push({ x: tt, y: z.wg }); pts2.push({ x: tt, y: z.we / 2 }); }
+    Q.path(pts2, { color: P.col("c4"), width: 2, dash: [6, 4] });
+    Q.path(pts, { color: P.col("c1"), width: 2.4 });
+    Q.line(t, 0, t, 0.55, { color: P.col("text"), width: 1.2 });
+    Q.points([{ x: t, y: s.wg }], { r: 5, color: P.col("c1") });
+    Q.legend([{ color: P.col("c1"), label: "vektet Gini" }, { color: P.col("c4"), label: "vektet entropi / 2" }], { x: Q.pad.l + 10, y: Q.H - 62 });
+    const fmt = v => v.toFixed(3);
+    document.getElementById("w5splitRead").innerHTML =
+      `<span class="readout">${lab[0]}: ${s.l1} blå, ${s.l0} oransje · Gini ${fmt(gini(s.l0, s.l1))} · I ${fmt(ent(s.l0, s.l1))}</span>` +
+      `<span class="readout">${lab[1]}: ${s.r1} blå, ${s.r0} oransje · Gini ${fmt(gini(s.r0, s.r1))} · I ${fmt(ent(s.r0, s.r1))}</span>` +
+      `<span class="readout">Vektet Gini ${fmt(s.wg)} (før: ${fmt(G0)}, reduksjon ${fmt(G0 - s.wg)})</span>` +
+      `<span class="readout">E[I etter] ${fmt(s.we)} · ΔI = ${fmt(I0 - s.we)} (I før: ${fmt(I0)})</span>`;
+  }
+  document.getElementById("w5best").onclick = () => {
+    fs.value = BEST.b.f; ts.value = BEST.b.t; draw();
+    const same = BEST.b.f === BEST.e.f && Math.abs(BEST.b.t - BEST.e.t) < 1e-9;
+    document.getElementById("w5splitRead").insertAdjacentHTML("beforeend",
+      `<span class="readout"><b>Beste splitt (Gini):</b> ${BEST.b.f === 0 ? "x₁" : "x₂"} ≤ ${BEST.b.t.toFixed(2)}. ${same ? "Entropi velger samme splitt." : "Entropi velger " + (BEST.e.f === 0 ? "x₁" : "x₂") + " ≤ " + BEST.e.t.toFixed(2) + "."}</span>`);
+  };
+  fs.onchange = ts.oninput = draw;
+  CK.live(draw);
+});
+
+/* ---------- widget 3: tre med max_depth ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  function makeData(seed, n) {
+    const r = CK.rng(seed), X = [], y = [];
+    for (let i = 0; i < n; i++) {
+      const a = 10 * r(), b = 10 * r();
+      let lab = ((a - 5) ** 2 + (b - 5) ** 2 < 3.2 * 3.2) ? 1 : 0;
+      if (r() < 0.10) lab = 1 - lab;
+      X.push([a, b]); y.push(lab);
+    }
+    return { X, y };
+  }
+  const tr = makeData(5, 120), te = makeData(99, 400);
+  const idx = tr.X.map((_, i) => i);
+  const trees = [], accTr = [], accTe = [];
+  for (let d = 1; d <= 12; d++) {
+    const t = K5.build(tr.X, tr.y, idx, 0, d, 0);
+    trees[d] = t;
+    accTr[d] = tr.X.filter((x, i) => K5.predict(t, x) === tr.y[i]).length / tr.X.length;
+    accTe[d] = te.X.filter((x, i) => K5.predict(t, x) === te.y[i]).length / te.X.length;
+  }
+  const P = CK.plot(document.getElementById("w5tree"), { xmin: 0, xmax: 10, ymin: 0, ymax: 10 });
+  const A = CK.plot(document.getElementById("w5acc"), { xmin: 0.5, xmax: 12.5, ymin: 0.5, ymax: 1.02, pad: { l: 48, r: 16, t: 10, b: 32 } });
+  const ds = document.getElementById("w5d"), showTest = document.getElementById("w5showTest");
+  function rules(node, ind) {
+    if (node.leaf) return ind + "→ klasse " + node.maj + "   (" + node.c1 + " av klasse 1, " + node.c0 + " av klasse 0)\n";
+    const nm = node.f === 0 ? "x₁" : "x₂";
+    return ind + "hvis " + nm + " ≤ " + node.t.toFixed(2) + ":\n" + rules(node.L, ind + "    ") +
+           ind + "ellers (" + nm + " > " + node.t.toFixed(2) + "):\n" + rules(node.R, ind + "    ");
+  }
+  function draw() {
+    const d = +ds.value, t = trees[d];
+    document.getElementById("w5do").textContent = d;
+    P.clear();
+    const c1 = P.col("c1"), c2 = P.col("c2");
+    (function paint(node, x0, x1, y0, y1) {
+      if (node.leaf) { P.rect(x0, y0, x1, y1, { fill: node.maj ? c1 : c2, alpha: 0.2 }); return; }
+      if (node.f === 0) { paint(node.L, x0, node.t, y0, y1); paint(node.R, node.t, x1, y0, y1); }
+      else { paint(node.L, x0, x1, y0, node.t); paint(node.R, x0, x1, node.t, y1); }
+    })(t, 0, 10, 0, 10);
+    P.axes({ xlabel: "x₁", ylabel: "x₂", frame: true });
+    // sann grense
+    const circ = []; for (let k = 0; k <= 100; k++) { const a = 2 * Math.PI * k / 100; circ.push({ x: 5 + 3.2 * Math.cos(a), y: 5 + 3.2 * Math.sin(a) }); }
+    P.path(circ, { color: P.col("text-soft"), width: 1.4, dash: [5, 5] });
+    const D = showTest.checked ? te : tr;
+    P.points(D.X.map((x, i) => ({ x: x[0], y: x[1], color: D.y[i] ? c1 : c2 })), { r: showTest.checked ? 3 : 4.5 });
+    document.getElementById("w5treeRead").innerHTML =
+      `<span class="readout">Løvnoder: ${K5.leaves(t)}</span><span class="readout">Trenings-accuracy: ${(100 * accTr[d]).toFixed(1)} %</span><span class="readout">Test-accuracy: ${(100 * accTe[d]).toFixed(1)} %</span>`;
+    // accuracy-kurve
+    A.clear().grid({ xticks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] }).axes({ xticks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], xlabel: "max_depth", ylabel: "accuracy", frame: true });
+    const ptr = [], pte = []; for (let k = 1; k <= 12; k++) { ptr.push({ x: k, y: accTr[k] }); pte.push({ x: k, y: accTe[k] }); }
+    A.path(ptr, { color: P.col("c3"), width: 2.4 }); A.path(pte, { color: P.col("c4"), width: 2.4 });
+    A.points(ptr, { color: P.col("c3"), r: 3 }); A.points(pte, { color: P.col("c4"), r: 3 });
+    A.line(d, 0.5, d, 1.02, { color: P.col("text"), width: 1.2, dash: [4, 4] });
+    A.legend([{ color: P.col("c3"), label: "trening" }, { color: P.col("c4"), label: "test" }], { x: A.W - 120, y: A.H - 70 });
+    document.getElementById("w5rules").textContent = d <= 4 ? rules(t, "") : "Treet har " + K5.leaves(t) + " løvnoder. Sett max_depth ≤ 4 for å se reglene (dypere trær blir fort uleselige, som også er et poeng).";
+  }
+  ds.oninput = showTest.onchange = draw;
+  CK.live(draw);
+});
+</script>
+</body>
+</html>

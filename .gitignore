@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# For store for GitHub (>100 MB) – last ned fra Canvas
+02_Prosjekter/Prosjekt_3/unsupervised_data.csv
+02_Prosjekter/Prosjekt_3/assignment3.zip
+
+# Duplikat av Kurs/
+Kurs.zip

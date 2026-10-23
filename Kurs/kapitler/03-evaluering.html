@@ -1,0 +1,1219 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 · Evaluering og ubalanserte data – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .cmx { width: auto; display: table; margin: 8px 0 14px; font-size: 14.5px; }
+  .cmx th, .cmx td { text-align: center; padding: 6px 12px; border: 1px solid var(--border); }
+  .cmx td { font-family: var(--mono); }
+  .cmx td.ok { background: var(--ok-bg); }
+  .cmx td.bad { background: var(--bad-bg); }
+  .cmx th.corner { background: transparent; border: 0; }
+  .metric-table td:first-child { white-space: nowrap; }
+  .w-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  @media (max-width: 640px) { .w-grid { grid-template-columns: 1fr; } }
+  .w-grid canvas { border: 1px solid var(--border); }
+  .w-cap { font-size: 13px; color: var(--muted); margin: 4px 0 0; text-align: center; }
+  .fb { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: var(--surface-2); font-size: 15px; min-height: 1.6em; }
+  .fb.ok { background: var(--ok-bg); } .fb.bad { background: var(--bad-bg); }
+  .cm-pair { display: flex; flex-wrap: wrap; gap: 14px; }
+  .cm-pair > div { flex: 1 1 240px; border: 2px solid transparent; border-radius: 10px; padding: 6px 8px; }
+  .cm-pair > div.active { border-color: var(--accent); background: var(--accent-soft); }
+  .cm-pair > div.solved { border-color: var(--ok); }
+  .cm-pair h5 { margin: 0 0 4px; font-size: 14px; }
+  figure.fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  figure.svgfig svg { display: block; margin: 0 auto; height: auto; }
+  #w2-roc { max-width: 480px; margin: 8px auto 0; }
+</style>
+</head>
+<body data-chapter="03">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 03 · Veiledet læring</div>
+  <h1>Evaluering og ubalanserte data</h1>
+  <p class="lead">En modell som treffer 99 % kan være helt ubrukelig. Her lærer du å se hva en modell faktisk får til: confusion matrix, precision og recall, terskel, ROC og AUC, og hva du gjør når den ene klassen nesten aldri forekommer.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare hvorfor tapsfunksjon og evalueringsmetrikk bør være forskjellige</li>
+    <li>sette opp en confusion matrix og regne ut accuracy, TPR/recall, TNR/spesifisitet, FPR og precision</li>
+    <li>velge riktig metrikk når falske negative eller falske positive er dyrest</li>
+    <li>forklare klassifiseringsterskelen, tegne og lese en ROC-kurve, og tolke AUC riktig</li>
+    <li>plassere et punkt på ROC-kurven ut fra en confusion matrix</li>
+    <li>forklare precision–recall-avveiningen og hvilke metrikker som avhenger av klassefordelingen</li>
+    <li>forklare hvorfor ubalanserte data gir høy accuracy og lav recall, og regne på undersampling, oversampling og vektet cross-entropy</li>
+  </ul>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="tap-metrikk"><span class="sec">3.1</span>Tap er for maskinen, metrikker er for mennesker</h2>
+
+<p>Husk definisjonen av maskinlæring fra <a href="01-grunnlag.html">kapittel 1</a>: et program lærer hvis <em>ytelsen</em> på en oppgave blir bedre med erfaring. Da må vi kunne måle ytelsen. Det minste vi bør gjøre er å lagre <strong>tapet</strong> (loss) og <strong>treffsikkerheten</strong> (accuracy) for hver epoke under treningen, og plotte dem etterpå.</p>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s11_1.png" alt="Tap (rødt) som synker og accuracy (blått) som stiger over 30 epoker" width="400">
+  <figcaption><b>Figur 3.1</b> Tap (rød) og accuracy (blå) over epokene for logistisk regresjon på Titanic-dataene (fra forelesningsnotatene). Tapet synker og flater ut, accuracy stiger og flater ut. Det er tegnet på en modell som lærer, og på at treningen har vart lenge nok. Her kunne vi stoppet allerede etter 20–25 epoker.</figcaption>
+</figure>
+
+<p>Slik leser du kurvene:</p>
+<ul>
+  <li><strong>Tapet synker og flater ut:</strong> gradient descent finner bedre parametre, og til slutt er det lite mer å hente.</li>
+  <li><strong>Kurvene har ikke flatet ut:</strong> modellen har ikke lært ferdig, og du trenger flere epoker (eller en større læringsrate, se <a href="02-logistisk.html">kapittel 2</a>).</li>
+  <li><strong>Accuracy hopper i trapper</strong> mens tapet synker jevnt. Det er normalt: accuracy endrer seg bare når et punkt krysser terskelen 0.5, mens tapet reagerer på hver minste endring i $\hat y$.</li>
+</ul>
+
+<p>Men tap og accuracy forteller bare en liten del av historien. De sier ingenting om <em>hvilke</em> punkter modellen bommer på, eller om den er god på den klassen vi bryr oss mest om. Og et tall som «tap = 0.54» gir ingen intuitiv mening for et menneske. Derfor velger vi i tillegg en eller flere <strong>evalueringsmetrikker</strong> (evaluation metrics).</p>
+
+<div class="callout why"><span class="label">Hvorfor ikke bruke samme tall til begge deler?</span>
+<p>Tapsfunksjonen og metrikken har ulike jobber, og derfor ulike krav:</p>
+<ul>
+  <li><strong>Tapsfunksjonen må være deriverbar</strong> (og helst glatt og konveks), fordi gradient descent trenger gradienten. Accuracy er en trappefunksjon: den er flat nesten overalt (gradient 0) og hopper der et punkt krysser terskelen. Gradient descent ville stått bom stille.</li>
+  <li><strong>Metrikken må gi mening for mennesker</strong> og for problemet: «modellen finner 92 % av de syke» kan en lege bruke. «Cross-entropy er 0.31» kan hun ikke.</li>
+  <li><strong>Metrikken skal måle det vi faktisk bryr oss om</strong>, som ofte er en bestemt type feil (falske negative på et sykehus, falske positive for politiet). Den trenger ikke være deriverbar.</li>
+  <li><strong>Uavhengig kontroll:</strong> hvis vi bare ser på tallet vi optimerer, ser vi ikke svakhetene. En annen målestokk avslører om modellen har lært noe nyttig eller bare har lært å minimere tapet.</li>
+</ul>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Tapet er motoren, metrikken er speedometeret.</strong> Motoren (tapet) må kunne drive bilen fremover jevnt, derfor må den være glatt og deriverbar. Speedometeret (metrikken) skal bare vises til sjåføren og må være lett å lese. Du styrer ikke bilen med speedometeret.</p>
+</div>
+
+<div class="quiz" data-multi data-id="03-loss-vs-metric">
+  <p class="q">Hvilke av disse er gode grunner til at vi ikke bruker samme funksjon som tapsfunksjon og evalueringsmetrikk?</p>
+  <ul>
+    <li data-correct>Tapsfunksjonen må være deriverbar for gradient descent, mens metrikken ikke trenger å være det.</li>
+    <li>Metrikken må være konveks, ellers kan den ikke regnes ut på testdata.</li>
+    <li data-correct>Metrikken bør gi mening for mennesker og måle det problemet faktisk krever, f.eks. andelen syke vi finner.</li>
+    <li>Tapsfunksjonen kan bare regnes ut på treningsdata, metrikken bare på testdata.</li>
+    <li data-correct>Accuracy er stykkevis konstant, så gradienten er null nesten overalt og gir ingen retning å gå i.</li>
+  </ul>
+  <div class="explain">Tapet må være deriverbart fordi vi følger gradienten. Accuracy er en trappefunksjon, så den deriverte er 0 nesten overalt (og udefinert i hoppene). Metrikken skal tolkes av mennesker og kan være hva som helst som måler det vi bryr oss om. Metrikker trenger <em>ikke</em> være konvekse, de skal ikke optimeres med gradienter. Og begge kan regnes ut på både trenings- og testdata: vi plotter jo tapet for valideringsdata i <a href="07-generalisering.html">kapittel 7</a>, og accuracy for treningsdata i figur 3.1.</div>
+</div>
+
+<div class="reflect" data-id="03-r-loss-metric">
+  <p class="q">Notatenes oppgave: Hva er flere grunner til at vi ikke bør velge samme tapsfunksjon og evalueringsmetrikk? Prøv å finne minst tre før du ser forslaget.</p>
+  <div class="answer">(1) Tapet må være deriverbart (og helst glatt) for at gradient descent skal fungere, mens accuracy og de fleste andre metrikker er stykkevis konstante. (2) Metrikken skal være tolkbar for mennesker og beslutningstakere. (3) Metrikken skal gjenspeile hva som er viktig i problemet (f.eks. at falske negative er farlige), mens tapsfunksjonen er valgt av matematiske grunner (cross-entropy følger fra maximum likelihood). (4) Ved å måle med noe annet enn det vi optimerer, får vi en uavhengig sjekk og ser svakheter som tapet skjuler, f.eks. at modellen ignorerer en sjelden klasse.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="confusion"><span class="sec">3.2</span>Confusion matrix og metrikkene</h2>
+
+<p>For klassifisering bygger de fleste metrikker på <strong>confusion matrix</strong> (forvirringsmatrise). Den teller hvor mange punkter som ble klassifisert riktig (true) og feil (false) i hver klasse. Med to klasser, 0 = negativ og 1 = positiv, får vi fire celler:</p>
+
+<ul>
+  <li><strong>TP, sann positiv</strong> (true positive): faktisk positiv, predikert positiv. Syk, og modellen sier syk.</li>
+  <li><strong>TN, sann negativ</strong> (true negative): faktisk negativ, predikert negativ. Frisk, og modellen sier frisk.</li>
+  <li><strong>FP, falsk positiv</strong> (false positive, «falsk alarm», type I-feil): faktisk negativ, predikert positiv.</li>
+  <li><strong>FN, falsk negativ</strong> (false negative, «oversett tilfelle», type II-feil): faktisk positiv, predikert negativ.</li>
+</ul>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s11_2.png" alt="Confusion matrix: rader er sann klasse, kolonner er predikert klasse. TN og TP på diagonalen, FP og FN utenfor." width="520">
+  <figcaption><b>Figur 3.2</b> Confusion matrix for binær klassifisering (fra notatene). Radene er sann klasse, kolonnene predikert klasse. De riktige prediksjonene (TN og TP, grønne) ligger på <b>diagonalen</b>, feilene (FP og FN, røde) utenfor.</figcaption>
+</figure>
+
+<div class="callout hook"><span class="label">Knagg: les navnet baklengs</span>
+<p>Det <strong>siste</strong> ordet (positiv/negativ) er hva <strong>modellen sa</strong>. Det <strong>første</strong> ordet (sann/falsk) sier om modellen hadde rett. «Falsk positiv» = modellen sa positiv, og det var feil. Altså var punktet egentlig negativt.</p>
+</div>
+
+<h3>Metrikkene</h3>
+<p>Fra de fire tallene regner vi ut metrikker. Her er alle du må kunne, med samme navn som i notatene (tabell 4). $P = TP + FN$ er antall faktisk positive og $N = TN + FP$ antall faktisk negative.</p>
+
+<table class="metric-table">
+  <tr><th>Metrikk</th><th>Formel</th><th>Andre navn</th><th>Svarer på</th></tr>
+  <tr><td>Accuracy</td><td>$\dfrac{TP+TN}{TP+TN+FP+FN}$</td><td>treffsikkerhet</td><td>Hvor stor andel av alle prediksjoner var riktige?</td></tr>
+  <tr><td>TPR</td><td>$\dfrac{TP}{P}=\dfrac{TP}{TP+FN}$</td><td>recall, sensitivitet, sannsynlighet for deteksjon</td><td>Av alle som faktisk er positive, hvor mange fant vi?</td></tr>
+  <tr><td>TNR</td><td>$\dfrac{TN}{N}=\dfrac{TN}{TN+FP}$</td><td>spesifisitet</td><td>Av alle som faktisk er negative, hvor mange slapp vi fri?</td></tr>
+  <tr><td>FPR</td><td>$\dfrac{FP}{N}=\dfrac{FP}{FP+TN}$</td><td>sannsynlighet for falsk alarm, $1-$spesifisitet</td><td>Av alle negative, hvor mange fikk falsk alarm?</td></tr>
+  <tr><td>PPV</td><td>$\dfrac{TP}{TP+FP}$</td><td>precision, presisjon</td><td>Av alle vi <em>sa</em> var positive, hvor mange var det?</td></tr>
+</table>
+
+<p>Legg merke til mønsteret. TPR, TNR og FPR deler på en <strong>rad</strong> (en sann klasse). Precision deler på en <strong>kolonne</strong> (det modellen predikerte). Det skillet blir viktig flere ganger i dette kapittelet.</p>
+
+<figure class="fig svgfig">
+<svg viewBox="0 0 660 170" width="660" role="img" aria-label="Hvilke celler hver metrikk bruker">
+<g transform="translate(0,0)">
+<text x="92" y="18" text-anchor="middle" font-weight="700" font-size="14">Recall / TPR</text>
+<text x="92" y="36" text-anchor="middle" font-size="12" style="fill:var(--muted)">TP / (TP+FN)</text>
+<text x="69.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred N</text>
+<text x="115.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred P</text>
+<text x="40" y="91.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann N</text>
+<text x="40" y="137.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann P</text>
+<rect x="46" y="64" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="69.0" y="92.0" text-anchor="middle" font-size="14" font-weight="400">TN</text>
+<rect x="92" y="64" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="115.0" y="92.0" text-anchor="middle" font-size="14" font-weight="400">FP</text>
+<rect x="46" y="110" width="46" height="46" style="fill:var(--c1);fill-opacity:0.18;stroke:var(--border)"/>
+<text x="69.0" y="138.0" text-anchor="middle" font-size="14" font-weight="400">FN</text>
+<rect x="92" y="110" width="46" height="46" style="fill:var(--c1);fill-opacity:0.55;stroke:var(--border)"/>
+<text x="115.0" y="138.0" text-anchor="middle" font-size="14" font-weight="700">TP</text>
+</g>
+<g transform="translate(165,0)">
+<text x="92" y="18" text-anchor="middle" font-weight="700" font-size="14">Precision / PPV</text>
+<text x="92" y="36" text-anchor="middle" font-size="12" style="fill:var(--muted)">TP / (TP+FP)</text>
+<text x="69.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred N</text>
+<text x="115.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred P</text>
+<text x="40" y="91.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann N</text>
+<text x="40" y="137.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann P</text>
+<rect x="46" y="64" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="69.0" y="92.0" text-anchor="middle" font-size="14" font-weight="400">TN</text>
+<rect x="92" y="64" width="46" height="46" style="fill:var(--c1);fill-opacity:0.18;stroke:var(--border)"/>
+<text x="115.0" y="92.0" text-anchor="middle" font-size="14" font-weight="400">FP</text>
+<rect x="46" y="110" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="69.0" y="138.0" text-anchor="middle" font-size="14" font-weight="400">FN</text>
+<rect x="92" y="110" width="46" height="46" style="fill:var(--c1);fill-opacity:0.55;stroke:var(--border)"/>
+<text x="115.0" y="138.0" text-anchor="middle" font-size="14" font-weight="700">TP</text>
+</g>
+<g transform="translate(330,0)">
+<text x="92" y="18" text-anchor="middle" font-weight="700" font-size="14">Spesifisitet / TNR</text>
+<text x="92" y="36" text-anchor="middle" font-size="12" style="fill:var(--muted)">TN / (TN+FP)</text>
+<text x="69.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred N</text>
+<text x="115.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred P</text>
+<text x="40" y="91.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann N</text>
+<text x="40" y="137.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann P</text>
+<rect x="46" y="64" width="46" height="46" style="fill:var(--c1);fill-opacity:0.55;stroke:var(--border)"/>
+<text x="69.0" y="92.0" text-anchor="middle" font-size="14" font-weight="700">TN</text>
+<rect x="92" y="64" width="46" height="46" style="fill:var(--c1);fill-opacity:0.18;stroke:var(--border)"/>
+<text x="115.0" y="92.0" text-anchor="middle" font-size="14" font-weight="400">FP</text>
+<rect x="46" y="110" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="69.0" y="138.0" text-anchor="middle" font-size="14" font-weight="400">FN</text>
+<rect x="92" y="110" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="115.0" y="138.0" text-anchor="middle" font-size="14" font-weight="400">TP</text>
+</g>
+<g transform="translate(495,0)">
+<text x="92" y="18" text-anchor="middle" font-weight="700" font-size="14">FPR</text>
+<text x="92" y="36" text-anchor="middle" font-size="12" style="fill:var(--muted)">FP / (FP+TN)</text>
+<text x="69.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred N</text>
+<text x="115.0" y="58" text-anchor="middle" font-size="10" style="fill:var(--muted)">pred P</text>
+<text x="40" y="91.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann N</text>
+<text x="40" y="137.0" text-anchor="end" font-size="10" style="fill:var(--muted)">sann P</text>
+<rect x="46" y="64" width="46" height="46" style="fill:var(--c1);fill-opacity:0.18;stroke:var(--border)"/>
+<text x="69.0" y="92.0" text-anchor="middle" font-size="14" font-weight="400">TN</text>
+<rect x="92" y="64" width="46" height="46" style="fill:var(--c1);fill-opacity:0.55;stroke:var(--border)"/>
+<text x="115.0" y="92.0" text-anchor="middle" font-size="14" font-weight="700">FP</text>
+<rect x="46" y="110" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="69.0" y="138.0" text-anchor="middle" font-size="14" font-weight="400">FN</text>
+<rect x="92" y="110" width="46" height="46" style="fill:var(--surface-2);stroke:var(--border)"/>
+<text x="115.0" y="138.0" text-anchor="middle" font-size="14" font-weight="400">TP</text>
+</g>
+</svg>
+  <figcaption><b>Figur 3.3</b> Hvilke celler hver metrikk bruker. Skyggelagt = nevneren, mørkest = telleren. Recall, spesifisitet og FPR går langs en <b>rad</b> (sann klasse). Precision går nedover en <b>kolonne</b> (predikert klasse).</figcaption>
+</figure>
+
+<div class="callout hook"><span class="label">Knagger for precision og recall</span>
+<ul>
+  <li><strong>Precision → Prediksjonene.</strong> Precision ser på kolonnen «predikert positiv»: hvor <em>presis</em> er jeg når jeg roper «positiv»? Høy precision betyr få falske alarmer.</li>
+  <li><strong>Recall → Realiteten.</strong> Recall ser på raden «faktisk positiv»: hvor mange av de ekte positive klarer jeg å <em>hente frem igjen</em> (to recall = huske)? Høy recall betyr få oversette tilfeller.</li>
+  <li><strong>Fiskegarnet:</strong> recall er hvor stor andel av fisken i sjøen du fikk i garnet. Precision er hvor stor andel av det som ligger i garnet som er fisk (og ikke tang og gamle støvler).</li>
+  <li><strong>Sensitiv vs. spesifikk test:</strong> en <em>sensitiv</em> test reagerer på sykdommen og fanger de syke. En <em>spesifikk</em> test reagerer bare på akkurat denne sykdommen og slår ikke ut på friske.</li>
+</ul>
+</div>
+
+<h3>Regneeksempel</h3>
+<p>En modell screener 200 pasienter. 40 er syke. Modellen gir:</p>
+
+<table class="cmx">
+  <tr><th class="corner"></th><th>Predikert negativ</th><th>Predikert positiv</th></tr>
+  <tr><th>Sann negativ (N = 160)</th><td class="ok">TN = 140</td><td class="bad">FP = 20</td></tr>
+  <tr><th>Sann positiv (P = 40)</th><td class="bad">FN = 10</td><td class="ok">TP = 30</td></tr>
+</table>
+
+<details class="steps"><summary>Regn ut alle metrikkene steg for steg</summary><div>
+<p>Accuracy $=\dfrac{TP+TN}{\text{alle}}=\dfrac{30+140}{200}=\dfrac{170}{200}=0.85$</p>
+<p>TPR (recall) $=\dfrac{TP}{TP+FN}=\dfrac{30}{40}=0.75$. Vi finner tre av fire syke.</p>
+<p>TNR (spesifisitet) $=\dfrac{TN}{TN+FP}=\dfrac{140}{160}=0.875$</p>
+<p>FPR $=\dfrac{FP}{FP+TN}=\dfrac{20}{160}=0.125=1-0.875$</p>
+<p>Precision $=\dfrac{TP}{TP+FP}=\dfrac{30}{50}=0.6$. Bare 60 % av alarmene er ekte.</p>
+<p>Se hvordan accuracy (0.85) ser bra ut, mens precision (0.6) avslører at fire av ti alarmer er falske. Ett tall er aldri nok.</p>
+</div></details>
+
+<div class="calc" data-id="03-calc-acc" data-answer="0.85" data-tol="0.005">
+  <p class="q">Prøv selv før du åpner løsningen over: Hva er accuracy for modellen i tabellen? (Oppgi som desimaltall.)</p>
+  <div class="solution">$(TP+TN)/\text{alle} = (30+140)/200 = 0.85$.</div>
+</div>
+
+<div class="calc" data-id="03-calc-prec" data-answer="0.6" data-tol="0.005">
+  <p class="q">Hva er precision for samme modell?</p>
+  <div class="solution">Precision $= TP/(TP+FP) = 30/(30+20) = 0.6$. Nevneren er kolonnen «predikert positiv»: alle modellen slo alarm for.</div>
+</div>
+
+<div class="calc" data-id="03-calc-fpr" data-answer="0.125" data-tol="0.002">
+  <p class="q">Hva er FPR for samme modell?</p>
+  <div class="solution">FPR $= FP/(FP+TN) = 20/160 = 0.125$. Sjekk: $1-\text{spesifisitet} = 1-0.875 = 0.125$.</div>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil: oppsettet av matrisen varierer</span>
+<p>Notatene har sann klasse i radene med <em>negativ først</em> (TN øverst til venstre). Eksamen 2024 hadde «Label positiv» i første rad og «Predikert positiv» i første kolonne (TP øverst til venstre). scikit-learn sin <code>confusion_matrix</code> følger notatene. <strong>Les alltid overskriftene</strong> før du regner, og finn TP ved å spørre «faktisk positiv <em>og</em> predikert positiv?».</p>
+</div>
+
+<div class="quiz" data-id="03-cm-diagonal">
+  <p class="q">I en confusion matrix med sann klasse i radene og predikert klasse i kolonnene: hva står på diagonalen?</p>
+  <ul>
+    <li>FP og FN, altså feilene</li>
+    <li>TP og FP, altså alt modellen predikerte som positivt</li>
+    <li data-correct>TN og TP, altså prediksjonene som stemmer med target</li>
+    <li>TP og FN, altså alle som faktisk er positive</li>
+  </ul>
+  <div class="explain">På diagonalen er rad (sann klasse) lik kolonne (predikert klasse), så prediksjonen stemmer: TN og TP. Feilene ligger utenfor. «TP og FP» er en <em>kolonne</em> (predikert positiv, nevneren i precision), og «TP og FN» er en <em>rad</em> (faktisk positiv, nevneren i recall).</div>
+</div>
+
+<div class="quiz" data-id="03-spam-precision">
+  <p class="q">Et spamfilter flytter 200 e-poster til spam-mappen. 150 av dem er faktisk spam. Hvilken metrikk har du nå nok informasjon til å regne ut, og hva er verdien?</p>
+  <ul>
+    <li>Recall $= 150/200 = 0.75$</li>
+    <li data-correct>Precision $= 150/200 = 0.75$</li>
+    <li>Accuracy $= 150/200 = 0.75$</li>
+    <li>Spesifisitet $= 150/200 = 0.75$</li>
+  </ul>
+  <div class="explain">De 200 er alle filteret <em>sa</em> var spam (predikert positiv), og 150 av dem var riktige (TP). Det er precision: $TP/(TP+FP)$. Recall krever at vi vet hvor mye spam som <em>totalt</em> kom inn (inkludert spam som slapp gjennom til innboksen, FN), og det vet vi ikke. Accuracy og spesifisitet krever antall sanne negative, som vi heller ikke kjenner.</div>
+</div>
+
+<div class="quiz" data-id="03-fpr-def">
+  <p class="q">Hvilket uttrykk er <em>ikke</em> lik FPR?</p>
+  <ul>
+    <li>$\dfrac{FP}{FP+TN}$</li>
+    <li>$1-\text{spesifisitet}$</li>
+    <li data-correct>$1-\text{precision}$</li>
+    <li>Andelen faktisk negative som får falsk alarm</li>
+  </ul>
+  <div class="explain">FPR deler på antall faktisk negative ($FP+TN$), så den er $1-TNR = 1-$spesifisitet. $1-\text{precision} = \frac{FP}{TP+FP}$ deler på antall <em>predikert</em> positive. Det kalles false discovery rate og er noe annet. Med 20 FP, 140 TN og 30 TP er FPR $= 0.125$, mens $1-\text{precision} = 0.4$.</div>
+</div>
+
+<details class="more"><summary>Fordypning: F1-skår <span class="tag">nevnt for helhetens skyld</span></summary><div>
+<p>Vil du ha ett tall som balanserer precision og recall, kan du bruke <strong>F1-skåren</strong>, det harmoniske gjennomsnittet:</p>
+<div class="eq">$$F_1 = 2\cdot\frac{\text{precision}\cdot\text{recall}}{\text{precision}+\text{recall}} = \frac{2\,TP}{2\,TP+FP+FN}$$</div>
+<p>Det harmoniske gjennomsnittet straffer ubalanse: er én av dem nær null, blir F1 nær null, selv om den andre er 1. For eksempelet over: $F_1 = 2\cdot 0.6\cdot 0.75/(0.6+0.75) = 0.9/1.35 \approx 0.667$. F1 bruker ikke TN, og derfor lurer den seg ikke av en stor negativ klasse slik accuracy gjør.</p>
+<div class="calc" data-id="03-calc-f1" data-answer="0.667" data-tol="0.005">
+  <p class="q">Regn ut F1 for modellen med TP = 30, FP = 20, FN = 10.</p>
+  <div class="solution">$F_1 = \frac{2\cdot 30}{2\cdot 30 + 20 + 10} = \frac{60}{90} \approx 0.667$.</div>
+</div>
+</div></details>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 2</span>
+<p>Oppgave 1 i prosjekt 2 ba deg «implementere metrikkene fra forelesningene» og rapportere TPR og FPR (sammen med andre relevante metrikker). Uten scikit-learn er det bare å telle:</p>
+<pre><code>tp = np.sum((y_pred == 1) &amp; (y_true == 1))
+tn = np.sum((y_pred == 0) &amp; (y_true == 0))
+fp = np.sum((y_pred == 1) &amp; (y_true == 0))
+fn = np.sum((y_pred == 0) &amp; (y_true == 1))
+tpr = tp / (tp + fn)            <span class="c"># recall / sensitivitet</span>
+fpr = fp / (fp + tn)            <span class="c"># 1 - spesifisitet</span>
+precision = tp / (tp + fp)
+accuracy = (tp + tn) / len(y_true)</code></pre>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="hvilken"><span class="sec">3.3</span>Hvilken metrikk når? Det kommer an på hvilken feil som koster mest</h2>
+
+<p>Ingen modell er perfekt, så spørsmålet er alltid: <strong>hvilken feil har vi råd til?</strong> Svaret bestemmer metrikken.</p>
+
+<div class="chain">
+  <div><b>Falske negative er farlige</b>en syk pasient sendes hjem</div><div class="arrow">→</div>
+  <div><b>Vi vil ha få FN</b>FN står i nevneren til recall</div><div class="arrow">→</div>
+  <div><b>Maksimer recall</b>og godta flere falske alarmer</div>
+</div>
+<div class="chain">
+  <div><b>Falske positive er dyre</b>utrykning, rakett, unødig operasjon</div><div class="arrow">→</div>
+  <div><b>Vi vil ha få FP</b>FP står i precision og FPR</div><div class="arrow">→</div>
+  <div><b>Maksimer precision</b>(eller spesifisitet), og hold FPR lav</div>
+</div>
+
+<h3>Sykehuset</h3>
+<p>Notatenes første scenario: du skal levere en modell til et sykehus som vil finne pasienter med en dødelig sykdom. En falsk negativ betyr at en syk pasient ikke får behandling. Modellen må derfor skåre høyt på <strong>recall</strong> (TPR, sensitivitet): av alle syke skal vi finne flest mulig. At noen friske må ta en ekstra test (FP) er en akseptabel pris.</p>
+
+<h3>Rakettene og politiet</h3>
+<p>Notatenes andre scenario er klimaaktivister som vil skyte raketter på <em>tomme</em> passasjerfly. Raketter er dyre, så en falsk positiv (skyte på et fly som ikke er tomt, eller bruke en rakett på feil mål) er det alvorlige. Spørsmålet var hvilken metrikk modellen bør skåre <strong>lavt</strong> på: svaret er <strong>FPR</strong> (falsk alarm-raten). Tilsvarende vil vi ha høy <strong>precision</strong> og høy <strong>spesifisitet</strong>.</p>
+
+<p>På eksamen 2024 var scenariet politiet, som vil avgjøre om meldinger på Twitter/X er verdt en kostbar utrykning. Der var <strong>precision</strong> det riktige svaret.</p>
+
+<div class="callout why"><span class="label">Hvorfor precision og ikke spesifisitet for politiet?</span>
+<p>Begge påvirkes av FP, men de svarer på ulike spørsmål. Spesifisitet: «av alle harmløse meldinger, hvor mange lot vi være?». Precision: «av alle utrykningene vi gjorde, hvor mange var verdt det?». Kostnaden kommer <em>per utrykning</em>, så det er precision som måler den. Truende meldinger er dessuten sjeldne. Da kan spesifisiteten være 99.9 % og likevel gi tusenvis av bortkastede utrykninger blant millioner harmløse meldinger. Precision avslører det. (Mer om dette i <a href="#pr">3.5</a>.)</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 7 (tre deler)</span>
+<p>(a) Sykehus, sjelden og dødelig sykdom, FN er alvorlig: <strong>recall</strong>. (b) Modellen har høy treffsikkerhet, men sykehuset vil ikke kjøpe den, og du sjekket verken fordelingen i treningsdataene eller brukte valideringsdata. Mest sannsynlig årsak: <strong>ubalansert fordeling mellom friske og syke</strong> (se <a href="#ubalanse">3.6</a>). (c) Politiet, FP er kostbart: <strong>precision</strong>.</p>
+</div>
+
+<div class="quiz" data-id="03-hospital">
+  <p class="q">Du lager en modell som skal oppdage kreft på røntgenbilder, slik at mistenkelige bilder sendes videre til en spesialist. Å overse en kreftsvulst er det verste som kan skje. Hvilken metrikk er viktigst?</p>
+  <ul>
+    <li>Precision $=\frac{TP}{TP+FP}$</li>
+    <li>Accuracy</li>
+    <li>Spesifisitet $=\frac{TN}{TN+FP}$</li>
+    <li data-correct>Recall $=\frac{TP}{TP+FN}$</li>
+  </ul>
+  <div class="explain">Å overse en svulst er en falsk negativ, og FN står i nevneren til recall. Høy recall betyr få FN. Precision og spesifisitet handler om falske <em>positive</em>, som her bare koster litt spesialisttid. Accuracy er farlig fordi kreft er sjelden: en modell som sier «frisk» til alle får høy accuracy og recall 0.</div>
+</div>
+
+<div class="quiz" data-id="03-hospital-why">
+  <p class="q">Kreftmodellen din har 98 % accuracy på testdata, men legene sier den nesten aldri slår alarm. Du sjekket ikke klassefordelingen. Hva er den mest sannsynlige forklaringen?</p>
+  <ul>
+    <li>Læringsraten var for lav, så modellen trenger flere epoker.</li>
+    <li data-correct>Kreft er sjelden i treningsdataene, så modellen har lært å nesten alltid si «frisk».</li>
+    <li>Modellen har overtilpasset treningsdataene, og det skjuler seg i accuracy.</li>
+    <li>Cross-entropy kan ikke brukes for medisinske data.</li>
+  </ul>
+  <div class="explain">Høy accuracy + nesten ingen alarmer er signaturen til ubalanserte data: Hvis ~2 % er syke, får «alltid frisk» 98 % accuracy. For lav læringsrate ville gitt dårlig accuracy, ikke høy. Overtilpasning viser seg som god ytelse på trening og dårlig på test, men her er test-accuracy høy. Cross-entropy fungerer fint, men kan vektes (se <a href="#vektet">3.8</a>). Samme logikk som eksamen 2024 oppg. 7b.</div>
+</div>
+
+<div class="quiz" data-id="03-police">
+  <p class="q">En bank vil bruke en modell til å sperre kort ved mistanke om svindel. Hver sperring koster banken en kundeservice-samtale og en sur kunde, så for mange falske alarmer er det store problemet. Hvilken metrikk bør modellen skåre høyt på?</p>
+  <ul>
+    <li data-correct>Precision $=\frac{TP}{TP+FP}$</li>
+    <li>Recall $=\frac{TP}{TP+FN}$</li>
+    <li>FPR $=\frac{FP}{FP+TN}$</li>
+    <li>Sensitivitet</li>
+  </ul>
+  <div class="explain">Falske alarmer er FP. Precision sier hvor stor andel av sperringene som var ekte svindel, og den blir høy når FP er lav. Recall og sensitivitet er samme metrikk og handler om FN (oversett svindel). FPR handler også om FP, men den vil vi ha <em>lav</em>, ikke høy. (Spesifisitet ville også vært et forsvarlig svar, men på eksamen var precision det markerte svaret.)</div>
+</div>
+
+<div class="quiz" data-id="03-rocket-low">
+  <p class="q">Rakettscenariet fra notatene: en falsk positiv er alvorlig fordi raketter er dyre. Hvilken metrikk bør modellen skåre <em>lavt</em> på?</p>
+  <ul>
+    <li>TPR</li>
+    <li>Precision</li>
+    <li data-correct>FPR</li>
+    <li>Spesifisitet</li>
+  </ul>
+  <div class="explain">FPR $= FP/(FP+TN)$ er falsk alarm-raten, og den vil vi ha så lav som mulig. Precision og spesifisitet vil vi ha <em>høye</em> (de blir høye når FP er lav). En lav TPR betyr at vi overser mange ekte mål, og det er ikke det notatene spør etter.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="terskel"><span class="sec">3.4</span>Klassifiseringsterskelen og ROC-kurven</h2>
+
+<p>Logistisk regresjon gir ikke en klasse, den gir et tall $\hat y \in (0,1)$. I koden fra kapittel 2 gjorde vi det om til en klasse med</p>
+<pre><code>[1 if _y &gt; 0.5 else 0 for _y in y_pred]</code></pre>
+<p>Tallet 0.5 er <strong>klassifiseringsterskelen</strong> (classification threshold), og ingenting tvinger oss til å bruke akkurat den. Vil vi være forsiktige med å spå at en Titanic-passasjer overlever med mindre modellen er ganske sikker, kan vi bruke for eksempel 0.7.</p>
+
+<div class="chain">
+  <div><b>Høyere terskel</b>færre punkter predikeres positive</div><div class="arrow">→</div>
+  <div><b>Færre FP, flere FN</b>FPR ned, TPR ned</div><div class="arrow">→</div>
+  <div><b>Høyere precision, lavere recall</b>(som regel)</div>
+</div>
+<div class="chain">
+  <div><b>Lavere terskel</b>flere punkter predikeres positive</div><div class="arrow">→</div>
+  <div><b>Flere FP, færre FN</b>FPR opp, TPR opp</div><div class="arrow">→</div>
+  <div><b>Høyere recall, lavere precision</b>(som regel)</div>
+</div>
+
+<h3>ROC-kurven</h3>
+<p>For å se alle tersklene på én gang regner vi ut TPR og FPR for mange terskler fra 1 ned til 0 og plotter TPR mot FPR. Det er <strong>ROC-kurven</strong> (Receiver Operating Characteristic). Hver terskel blir ett punkt.</p>
+
+<div class="two-col">
+<figure class="fig">
+  <img src="../assets/fig/notater/s12_1.png" alt="ROC-punkter farget etter terskel, fra lys (høy terskel) nede til venstre til mørk (lav terskel) oppe til høyre">
+  <figcaption><b>Figur 3.4a</b> Hvert punkt er én terskel (fargen). Høy terskel (lys) ligger nede til venstre, lav terskel (mørk) oppe til høyre.</figcaption>
+</figure>
+<figure class="fig">
+  <img src="../assets/fig/notater/s12_2.png" alt="ROC-kurve med AUC 0.81 over den stiplede diagonalen med AUC 0.5">
+  <figcaption><b>Figur 3.4b</b> Samme ROC-kurve som linje, AUC = 0.81. Den stiplede diagonalen er tilfeldig gjetning (AUC = 0.5). Begge fra notatene.</figcaption>
+</figure>
+</div>
+
+<p><strong>Hva vil vi ha?</strong> Høy TPR og lav FPR, altså punkter oppe til venstre. Det perfekte punktet er $(0,1)$: alle positive funnet, ingen falske alarmer.</p>
+
+<p><strong>Endepunktene</strong> (notatenes oppgave):</p>
+<ul>
+  <li><strong>Terskel 1:</strong> (nesten) ingen $\hat y$ er over terskelen, så ingenting predikeres positivt. TP = FP = 0, så TPR = FPR = 0. Punktet $(0,0)$.</li>
+  <li><strong>Terskel 0:</strong> (nesten) alt er over terskelen, så alt predikeres positivt. FN = TN = 0, så TPR = FPR = 1. Punktet $(1,1)$.</li>
+</ul>
+<p>Alle ROC-kurver starter derfor i $(0,0)$ og ender i $(1,1)$. Det interessante er veien imellom: stiger TPR raskere enn FPR?</p>
+
+<p><strong>Myntkast</strong> (notatenes oppgave): en modell som gjetter tilfeldig, sier «positiv» med en viss sannsynlighet $q$ uansett hva punktet er. Da treffer den andel $q$ av de positive (TPR $= q$) og andel $q$ av de negative (FPR $= q$). Alle punktene ligger på <strong>diagonalen</strong> TPR = FPR, fra $(0,0)$ til $(1,1)$. For å være bedre enn tilfeldig må kurven ligge <em>over</em> diagonalen.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Terskelen er en glidebryter langs kurven.</strong> Du endrer ikke kurven ved å flytte terskelen, du bare velger hvor på den du vil stå. Skru terskelen ned, og du sklir oppover mot $(1,1)$ («alle er syke»). Skru den opp, og du sklir ned mot $(0,0)$ («ingen er syke»). Kurvens <em>form</em> er det som sier hvor god modellen er.</p>
+</div>
+
+<div class="quiz" data-id="03-roc-threshold-0">
+  <p class="q">Hvor på ROC-kurven havner terskelen 0 (alle $\hat y > 0$ predikeres som positiv)?</p>
+  <ul>
+    <li>I $(0,0)$, fordi ingen punkter predikeres positive</li>
+    <li data-correct>I $(1,1)$, fordi alle punkter predikeres positive, så TPR = FPR = 1</li>
+    <li>I $(0,1)$, fordi alle positive blir funnet</li>
+    <li>I $(1,0)$, fordi alle negative blir feilklassifisert</li>
+  </ul>
+  <div class="explain">Med terskel 0 sier modellen «positiv» til alle. Da er alle positive funnet (TPR = 1), men også alle negative har fått falsk alarm (FPR = 1). $(0,0)$ er terskel 1. $(0,1)$ er den perfekte modellen, som en terskel på 0 ikke gir. $(1,0)$ er en modell som får <em>alt</em> feil.</div>
+</div>
+
+<div class="quiz" data-id="03-coin-roc">
+  <p class="q">Hvordan ser ROC-kurven ut for en modell som kaster mynt (sier «positiv» med sannsynlighet $q$ uansett input)?</p>
+  <ul>
+    <li>En kurve som bøyer seg mot $(0,1)$ med AUC rundt 0.75</li>
+    <li>En vannrett linje i TPR = 0.5</li>
+    <li data-correct>Diagonalen fra $(0,0)$ til $(1,1)$, med AUC = 0.5</li>
+    <li>Et enkelt punkt i $(0.5, 0.5)$ uansett terskel</li>
+  </ul>
+  <div class="explain">Myntkastet bryr seg ikke om klassen, så det treffer like stor andel av de positive som av de negative: TPR = FPR = $q$. Når $q$ varierer fra 0 til 1, går punktet langs hele diagonalen, og arealet under er en trekant med areal 0.5. Et ærlig myntkast ($q = 0.5$) er bare punktet $(0.5,0.5)$, men det ligger også på diagonalen. TPR = 0.5 uansett FPR ville vært en merkelig modell, ikke et myntkast.</div>
+</div>
+
+<h3>AUC: arealet under kurven</h3>
+<p>Arealet under ROC-kurven (AUC, area under curve, ofte kalt ROC AUC) oppsummerer hele kurven i ett tall. Begge aksene går fra 0 til 1, så det største mulige arealet er 1 (perfekt modell), og myntkast gir 0.5. En modell med AUC under 0.5 er systematisk feil, og bytter du klassene får du AUC over 0.5.</p>
+
+<div class="callout def"><span class="label">Den korrekte tolkningen av AUC</span>
+<p><strong>ROC AUC er sannsynligheten for at modellen gir et tilfeldig valgt positivt punkt en høyere $\hat y$ enn et tilfeldig valgt negativt punkt.</strong></p>
+<p>AUC måler altså hvor godt modellen <em>rangerer</em> punktene, uavhengig av hvilken terskel du velger.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg: AUC er en duell</span>
+<p>Trekk én syk og én frisk pasient tilfeldig, og la modellen gi dem hver sin $\hat y$. Vinner den syke (høyest $\hat y$)? AUC er hvor ofte den syke vinner. AUC = 0.9 betyr at den syke vinner 9 av 10 dueller. Myntkast vinner halvparten.</p>
+</div>
+
+<details class="steps"><summary>Regneeksempel: AUC ved å telle dueller</summary><div>
+<p>En modell gir disse skårene. Positive: 0.9, 0.6, 0.4. Negative: 0.7, 0.3, 0.2. Det finnes $3\cdot 3 = 9$ par (positiv, negativ). Tell parene der den positive har høyest skår:</p>
+<ul>
+  <li>0.9 slår 0.7, 0.3 og 0.2: 3 seire</li>
+  <li>0.6 slår 0.3 og 0.2, men taper mot 0.7: 2 seire</li>
+  <li>0.4 slår 0.3 og 0.2, men taper mot 0.7: 2 seire</li>
+</ul>
+<p>AUC $= 7/9 \approx 0.78$.</p>
+<p>Sjekk med kurven: sorter alle skårer synkende: 0.9 (P), 0.7 (N), 0.6 (P), 0.4 (P), 0.3 (N), 0.2 (N). Senk terskelen forbi én og én. Hver positiv flytter punktet $1/3$ opp, hver negativ $1/3$ til høyre: $(0,0)\to(0,\tfrac13)\to(\tfrac13,\tfrac13)\to(\tfrac13,\tfrac23)\to(\tfrac13,1)\to(\tfrac23,1)\to(1,1)$. Arealet er $\tfrac13\cdot\tfrac13 + \tfrac23\cdot 1 = \tfrac19+\tfrac69 = \tfrac79$. Samme svar.</p>
+</div></details>
+
+<div class="calc" data-id="03-calc-auc" data-answer="0.75" data-tol="0.01">
+  <p class="q">Ny modell. Positive skårer: 0.8, 0.5. Negative skårer: 0.6, 0.3. Hva er ROC AUC?</p>
+  <div class="solution">4 par. 0.8 slår 0.6 og 0.3 (2 seire). 0.5 slår 0.3, men taper mot 0.6 (1 seier). AUC $= 3/4 = 0.75$.</div>
+</div>
+
+<div class="quiz" data-id="03-auc-meaning">
+  <p class="q">En modell har ROC AUC = 0.8. Hva betyr det?</p>
+  <ul>
+    <li>Modellen klassifiserer 80 % av datapunktene riktig.</li>
+    <li data-correct>Hvis vi trekker ett tilfeldig positivt og ett tilfeldig negativt punkt, er det 80 % sannsynlighet for at det positive får høyest predikert verdi.</li>
+    <li>Modellen har 80 % recall for alle klassifiseringsterskler.</li>
+    <li>Modellen har 80 % accuracy ved terskel 0.5.</li>
+  </ul>
+  <div class="explain">AUC handler om <em>rangering</em> av ett positivt mot ett negativt punkt, og avhenger ikke av noen bestemt terskel. Den er ikke accuracy (som krever en terskel og avhenger av klassefordelingen), og den er ikke recall (som varierer med terskelen, fra 0 ved terskel 1 til 1 ved terskel 0). Dette er eksamen 2024 oppg. 6 i ny drakt.</div>
+</div>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 1</span>
+<p>Problem 2 i prosjekt 1 (logistisk regresjon) ba deg plotte ROC-kurven og svare: <em>«What does the area under the ROC curve measure?»</em> Et godt svar: AUC måler hvor godt modellen skiller (rangerer) klassene over alle terskler. Det er sannsynligheten for at et tilfeldig positivt punkt får høyere skår enn et tilfeldig negativt. 0.5 er tilfeldig gjetning, 1 er perfekt separasjon.</p>
+</div>
+
+<h3>Utforsk: terskel, confusion matrix, ROC og precision–recall</h3>
+
+<div class="widget">
+  <h4>Utforsk: dra i terskelen og se alt endre seg</h4>
+  <canvas id="w1-hist" width="660" height="230"></canvas>
+  <div class="controls">
+    <label>Terskel <input type="range" id="w1-t" min="0" max="1" step="0.01" value="0.5"><output id="w1-to">0.50</output></label>
+    <label>Separasjon <input type="range" id="w1-d" min="0" max="4" step="0.1" value="2"><output id="w1-do">2.0</output></label>
+  </div>
+  <div class="w-grid">
+    <div>
+      <table class="cmx" aria-label="Confusion matrix">
+        <tr><th class="corner"></th><th>Pred. neg.</th><th>Pred. pos.</th></tr>
+        <tr><th>Sann neg. (100)</th><td class="ok" id="w1-tn">–</td><td class="bad" id="w1-fp">–</td></tr>
+        <tr><th>Sann pos. (100)</th><td class="bad" id="w1-fn">–</td><td class="ok" id="w1-tp">–</td></tr>
+      </table>
+    </div>
+    <div class="readouts" id="w1-metrics" style="align-content:flex-start"></div>
+  </div>
+  <div class="w-grid">
+    <div><canvas id="w1-roc" width="320" height="300"></canvas><p class="w-cap">ROC-kurve (TPR mot FPR)</p></div>
+    <div><canvas id="w1-pr" width="320" height="300"></canvas><p class="w-cap">Precision–recall-kurve</p></div>
+  </div>
+</div>
+<p class="small muted">100 positive (blå) og 100 negative (oransje) punkter, med modellens $\hat y$ langs x-aksen. Alt til høyre for terskelen predikeres positivt.</p>
+
+<p><strong>Legg merke til:</strong></p>
+<ul>
+  <li>Dra terskelen helt til 1: punktet havner i $(0,0)$ på ROC-kurven. Dra den til 0: punktet havner i $(1,1)$. Kurven selv står stille, terskelen flytter bare punktet langs den.</li>
+  <li>Når du senker terskelen, øker TPR (recall), men FP vokser også. Precision faller som regel. Det er precision–recall-avveiningen.</li>
+  <li>Sett separasjonen til 0: fordelingene ligger oppå hverandre, ROC-kurven blir diagonalen og AUC ≈ 0.5. Øk separasjonen: kurven bøyer seg mot $(0,1)$ og AUC går mot 1. <strong>Bare en bedre modell (bedre separasjon) endrer kurven, terskelen gjør det ikke.</strong></li>
+  <li>Finn terskelen der FP = FN. Da er precision = recall (se 3.5).</li>
+</ul>
+
+<h3>Fra confusion matrix til punkt på ROC-kurven</h3>
+<p>På eksamen får du gjerne en confusion matrix for to terskler og en ROC-kurve med nummererte punkter. Oppskriften:</p>
+<ol>
+  <li>Finn TP, FN, FP og TN. Les overskriftene nøye!</li>
+  <li>Regn ut $\text{TPR} = TP/(TP+FN)$ (y-koordinat) og $\text{FPR} = FP/(FP+TN)$ (x-koordinat).</li>
+  <li>Finn punktet med de koordinatene. Sjekk: lavere terskel skal ligge lenger opp og til høyre.</li>
+</ol>
+
+<div class="widget">
+  <h4>Øv: plasser confusion matrices på ROC-kurven (eksamen 2024 oppg. 5-stil)</h4>
+  <div class="cm-pair" id="w2-mats"></div>
+  <canvas id="w2-roc" width="460" height="400"></canvas>
+  <div class="fb" id="w2-fb">Regn ut TPR og FPR for den markerte matrisen, og klikk på punktet den tilsvarer.</div>
+  <div class="controls">
+    <button class="btn ghost" type="button" id="w2-reset">Start settet på nytt</button>
+    <button class="btn" type="button" id="w2-next">Nytt oppgavesett</button>
+    <span class="readout" id="w2-set">Sett 1 av 3</span>
+  </div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 5</span>
+<p>Terskel 0.3 ga TP = 40, FN = 10, FP = 30, TN = 20, altså TPR $= 40/50 = 0.8$ og FPR $= 30/50 = 0.6$ (punkt 4). Terskel 0.7 ga TP = 25, FN = 25, FP = 10, TN = 40, altså TPR $= 0.5$ og FPR $= 0.2$ (punkt 2). Deloppgave 2 spurte hva punkt 5 (lengst opp til høyre) svarer til: <strong>den laveste terskelen av punktene 1–5</strong>. Det er ikke «0.3» (det var punkt 4), og et punkt med høy FPR har ikke høy precision.</p>
+</div>
+
+<p>Her er en lignende oppgave. Modellen gir disse to matrisene (merk oppsettet: positiv klasse står <em>først</em>, som på eksamen):</p>
+
+<div class="two-col">
+<div>
+<p class="small"><b>Terskel 0.65</b></p>
+<table class="cmx">
+  <tr><th class="corner"></th><th>Pred. positiv</th><th>Pred. negativ</th></tr>
+  <tr><th>Label positiv</th><td>30</td><td>20</td></tr>
+  <tr><th>Label negativ</th><td>6</td><td>34</td></tr>
+</table>
+</div>
+<div>
+<p class="small"><b>Terskel 0.2</b></p>
+<table class="cmx">
+  <tr><th class="corner"></th><th>Pred. positiv</th><th>Pred. negativ</th></tr>
+  <tr><th>Label positiv</th><td>45</td><td>5</td></tr>
+  <tr><th>Label negativ</th><td>20</td><td>20</td></tr>
+</table>
+</div>
+</div>
+
+<figure class="fig svgfig">
+<svg viewBox="0 0 360 340" width="360" role="img" aria-label="ROC-kurve med fem nummererte punkter">
+<line x1="46.0" y1="300.0" x2="46.0" y2="14.0" style="stroke:var(--grid)"/>
+<line x1="46.0" y1="300.0" x2="346.0" y2="300.0" style="stroke:var(--grid)"/>
+<text x="46.0" y="316.0" text-anchor="middle" font-size="11" style="fill:var(--muted)">0.0</text>
+<text x="40.0" y="304.0" text-anchor="end" font-size="11" style="fill:var(--muted)">0.0</text>
+<line x1="106.0" y1="300.0" x2="106.0" y2="14.0" style="stroke:var(--grid)"/>
+<line x1="46.0" y1="242.8" x2="346.0" y2="242.8" style="stroke:var(--grid)"/>
+<text x="106.0" y="316.0" text-anchor="middle" font-size="11" style="fill:var(--muted)">0.2</text>
+<text x="40.0" y="246.8" text-anchor="end" font-size="11" style="fill:var(--muted)">0.2</text>
+<line x1="166.0" y1="300.0" x2="166.0" y2="14.0" style="stroke:var(--grid)"/>
+<line x1="46.0" y1="185.6" x2="346.0" y2="185.6" style="stroke:var(--grid)"/>
+<text x="166.0" y="316.0" text-anchor="middle" font-size="11" style="fill:var(--muted)">0.4</text>
+<text x="40.0" y="189.6" text-anchor="end" font-size="11" style="fill:var(--muted)">0.4</text>
+<line x1="226.0" y1="300.0" x2="226.0" y2="14.0" style="stroke:var(--grid)"/>
+<line x1="46.0" y1="128.4" x2="346.0" y2="128.4" style="stroke:var(--grid)"/>
+<text x="226.0" y="316.0" text-anchor="middle" font-size="11" style="fill:var(--muted)">0.6</text>
+<text x="40.0" y="132.4" text-anchor="end" font-size="11" style="fill:var(--muted)">0.6</text>
+<line x1="286.0" y1="300.0" x2="286.0" y2="14.0" style="stroke:var(--grid)"/>
+<line x1="46.0" y1="71.2" x2="346.0" y2="71.2" style="stroke:var(--grid)"/>
+<text x="286.0" y="316.0" text-anchor="middle" font-size="11" style="fill:var(--muted)">0.8</text>
+<text x="40.0" y="75.2" text-anchor="end" font-size="11" style="fill:var(--muted)">0.8</text>
+<line x1="346.0" y1="300.0" x2="346.0" y2="14.0" style="stroke:var(--grid)"/>
+<line x1="46.0" y1="14.0" x2="346.0" y2="14.0" style="stroke:var(--grid)"/>
+<text x="346.0" y="316.0" text-anchor="middle" font-size="11" style="fill:var(--muted)">1.0</text>
+<text x="40.0" y="18.0" text-anchor="end" font-size="11" style="fill:var(--muted)">1.0</text>
+<line x1="46" y1="300" x2="346" y2="14" style="stroke:var(--axis);stroke-dasharray:5 4"/>
+<polyline fill="none" style="stroke:var(--c1);stroke-width:2.2" points="46.0,300.0 61.0,199.9 91.0,128.4 136.0,85.5 196.0,42.6 271.0,28.3 346.0,14.0"/>
+<circle cx="61.0" cy="199.9" r="6" style="fill:var(--c2);stroke:var(--surface);stroke-width:1.5"/>
+<text x="70.0" y="214.9" font-size="13" font-weight="700">1</text>
+<circle cx="91.0" cy="128.4" r="6" style="fill:var(--c2);stroke:var(--surface);stroke-width:1.5"/>
+<text x="100.0" y="143.4" font-size="13" font-weight="700">2</text>
+<circle cx="136.0" cy="85.5" r="6" style="fill:var(--c2);stroke:var(--surface);stroke-width:1.5"/>
+<text x="145.0" y="100.5" font-size="13" font-weight="700">3</text>
+<circle cx="196.0" cy="42.6" r="6" style="fill:var(--c2);stroke:var(--surface);stroke-width:1.5"/>
+<text x="205.0" y="57.6" font-size="13" font-weight="700">4</text>
+<circle cx="271.0" cy="28.3" r="6" style="fill:var(--c2);stroke:var(--surface);stroke-width:1.5"/>
+<text x="280.0" y="43.3" font-size="13" font-weight="700">5</text>
+<text x="346.0" y="336" text-anchor="end" font-size="12" style="fill:var(--text-soft)">FPR</text>
+<text x="12" y="16.0" font-size="12" style="fill:var(--text-soft)" transform="rotate(-90 12 16.0)" text-anchor="end">TPR</text>
+</svg>
+  <figcaption><b>Figur 3.5</b> ROC-kurve med fem nummererte punkter. Stiplet linje: tilfeldig gjetning.</figcaption>
+</figure>
+
+<div class="quiz" data-multi data-id="03-roc-points">
+  <p class="q">Hvilke utsagn er riktige?</p>
+  <ul>
+    <li>Punkt 3 tilsvarer terskel 0.65</li>
+    <li data-correct>Punkt 2 tilsvarer terskel 0.65</li>
+    <li>Punkt 5 tilsvarer terskel 0.2</li>
+    <li data-correct>Punkt 4 tilsvarer terskel 0.2</li>
+    <li>Punkt 1 tilsvarer terskel 0.2</li>
+    <li>Punkt 4 tilsvarer terskel 0.65</li>
+  </ul>
+  <div class="explain">Terskel 0.65: TPR $= 30/(30+20) = 0.6$, FPR $= 6/(6+34) = 0.15$, altså punkt 2 i $(0.15, 0.6)$. Terskel 0.2: TPR $= 45/50 = 0.9$, FPR $= 20/40 = 0.5$, altså punkt 4 i $(0.5, 0.9)$. Typisk feil: å dele FP på antall positive (50) i stedet for antall negative (40), eller å lese «Pred. negativ»-kolonnen som TP. Sjekk også retningen: den laveste terskelen (0.2) skal ligge lengst opp til høyre av de to, og det gjør punkt 4.</div>
+</div>
+
+<div class="quiz" data-multi data-id="03-point5">
+  <p class="q">Se på figur 3.5 igjen. Hva kan du si om punkt 5?</p>
+  <ul>
+    <li data-correct>Det svarer til den laveste terskelen av punktene 1–5.</li>
+    <li>Det gir høyest precision av punktene.</li>
+    <li data-correct>Det har høyest recall av punktene.</li>
+    <li>Det svarer til terskel 0.2.</li>
+    <li>Det er umulig å si noe om terskelen uten å vite tallverdien.</li>
+  </ul>
+  <div class="explain">Jo lavere terskel, jo flere predikeres positive, og jo lenger opp og til høyre ligger punktet. Punkt 5 har dermed lavest terskel og høyest TPR (= recall). Vi trenger ikke tallverdien for å vite <em>rekkefølgen</em>. Høy FPR (0.75) betyr mange falske positive, så precision er typisk lav, ikke høy. Terskel 0.2 var punkt 4, så punkt 5 har en terskel <em>under</em> 0.2.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="pr"><span class="sec">3.5</span>Precision–recall-kurven</h2>
+
+<p>ROC-kurven er ikke den eneste kurven vi kan tegne. Vi kan plotte hvilke som helst to metrikker mot hverandre for alle terskler. Den andre vanlige er <strong>precision–recall-kurven</strong>.</p>
+
+<div class="eq">
+  <p class="eq-note">Likning (26) og (27) i notatene</p>
+  $$\text{Precision}=\frac{TP}{TP+FP}\qquad\qquad \text{Recall}=\frac{TP}{TP+FN}$$
+</div>
+
+<p>Høy precision betyr få falske alarmer i forhold til antall alarmer (TP dominerer over FP). Høy recall betyr få oversette tilfeller (TP dominerer over FN). Når vi flytter terskelen, ser vi en <strong>avveining</strong> (trade-off): senker vi terskelen, fanger vi flere positive (recall opp), men slipper også gjennom flere negative (precision ned). Hvor du vil ligge, avhenger av hva modellen skal brukes til. Er falsk alarm dyrt, velger du høy precision. Er det dyrt å overse et positivt tilfelle, velger du høy recall.</p>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s13_1.png" alt="Precision–recall-punkter farget etter terskel. Høy terskel gir precision 1 og lav recall, lav terskel gir recall 1 og precision rundt 0.37." width="440">
+  <figcaption><b>Figur 3.6</b> Precision–recall for ulike terskler (fra notatene). Merk at notatene har <b>precision på x-aksen</b> og recall på y-aksen. Det vanlige (og det widgeten over bruker) er motsatt. Les alltid aksene! Høy terskel (lys) gir precision nær 1 og lav recall. Lav terskel (mørk) gir recall 1 og precision ned mot andelen positive i dataene (her ca. 0.37).</figcaption>
+</figure>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p>Avveiningen er en tendens, ikke en lov. Recall kan aldri synke når terskelen senkes, men precision kan godt gå litt opp og ned underveis (det ser du som hakk i kurven). Og ved terskel 0 er recall 1, mens precision blir lik andelen positive i datasettet, ikke 0.</p>
+</div>
+
+<h3>Når er precision lik recall?</h3>
+<p>Notatenes oppgave. Tellerne er like (TP), så brøkene er like nøyaktig når nevnerne er like:</p>
+<div class="eq">$$\frac{TP}{TP+FP}=\frac{TP}{TP+FN}\iff FP = FN \quad (\text{gitt } TP>0)$$</div>
+<p>Precision = recall når modellen lager like mange falske alarmer som den overser positive. I widgeten over kan du finne den terskelen.</p>
+
+<div class="quiz" data-id="03-pr-equal">
+  <p class="q">En modell har TP = 60 og precision = recall. Hva vet du da sikkert?</p>
+  <ul>
+    <li data-correct>FP = FN</li>
+    <li>TN = FP</li>
+    <li>TP = TN</li>
+    <li>Precision = recall = 0.5</li>
+  </ul>
+  <div class="explain">Precision og recall har samme teller (TP). Da er de like når nevnerne er like: $TP+FP = TP+FN$, altså $FP=FN$. Verdien kan være hva som helst: med FP = FN = 20 er begge $60/80 = 0.75$. TN inngår ikke i noen av dem.</div>
+</div>
+
+<h3>Hvilken metrikk avhenger av klassefordelingen?</h3>
+<p>Notatenes andre oppgave, og en av de viktigste innsiktene i kapittelet. Se tilbake på figur 3.3:</p>
+<ul>
+  <li><strong>Recall (TPR), spesifisitet og FPR</strong> regnes ut <em>innenfor én sann klasse</em> (én rad). Hvis du dobler antall negative, dobles både FP og TN, og FPR er uendret. De avhenger ikke av hvor mange det er av hver klasse.</li>
+  <li><strong>Precision</strong> blander klassene i én kolonne: TP kommer fra de positive og FP fra de negative. Blir de negative ti ganger flere, blir FP ti ganger større, mens TP er den samme. Precision faller. <strong>Precision avhenger av klassefordelingen.</strong> (Accuracy gjør det også.)</li>
+</ul>
+
+<details class="steps"><summary>Regneeksempel: samme modell, ulik andel syke</summary><div>
+<p>En test har TPR = 0.9 og FPR = 0.1. Vi tester 10 000 personer.</p>
+<p><b>Halvparten syke (5000):</b> TP $= 0.9\cdot 5000 = 4500$, FP $= 0.1\cdot 5000 = 500$. Precision $= 4500/5000 = 0.9$.</p>
+<p><b>1 % syke (100):</b> TP $= 0.9\cdot 100 = 90$, FP $= 0.1\cdot 9900 = 990$. Precision $= 90/1080 \approx 0.083$.</p>
+<p>Samme modell, samme TPR og FPR, samme ROC-kurve. Men når sykdommen er sjelden, er bare 8 % av de positive testene ekte! Dette er nøyaktig det samme som Bayes' teorem sier, se <a href="04-sannsynlighet.html">kapittel 4</a>.</p>
+</div></details>
+
+<div class="calc" data-id="03-calc-prev-prec" data-answer="0.0833" data-tol="0.003">
+  <p class="q">Prøv selv: TPR = 0.9, FPR = 0.1 og 1 % av 10 000 personer er syke. Hva blir precision?</p>
+  <div class="solution">TP $= 0.9\cdot 100 = 90$. FP $= 0.1 \cdot 9900 = 990$. Precision $= 90/(90+990) = 90/1080 \approx 0.083$.</div>
+</div>
+
+<div class="quiz" data-multi data-id="03-prevalence-dependent">
+  <p class="q">Du tester den samme ferdigtrente modellen på et nytt testsett der andelen positive er mye lavere enn før (men hver klasse ser ut som før). Hvilke metrikker vil endre seg merkbart?</p>
+  <ul>
+    <li>TPR (recall)</li>
+    <li data-correct>Precision</li>
+    <li>FPR</li>
+    <li data-correct>Accuracy</li>
+    <li>ROC AUC</li>
+  </ul>
+  <div class="explain">TPR og FPR regnes ut innenfor hver sin sanne klasse, så de er (i forventning) upåvirket av hvor mange det er av hver. ROC-kurven er bygget av TPR og FPR, så AUC er også upåvirket. Precision faller fordi FP vokser i forhold til TP når negative blir flere. Accuracy endres fordi den er et vektet snitt av TPR og TNR, vektet med klasseandelene: med flere negative teller spesifisiteten mer.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="ubalanse"><span class="sec">3.6</span>Ubalanserte data: når 99 % er dårlig</h2>
+
+<p>En masterstudent er på jobbintervju som ML-utvikler og får spørsmålet: <em>«Vi har et datasett fra det norske helsevesenet og skal lage en modell som klassifiserer friske og syke. Modellen får 99 % accuracy, men den klarer nesten ikke å identifisere syke personer. Hva har skjedd?»</em></p>
+
+<div class="reflect" data-id="03-r-interview">
+  <p class="q">Hva ville du svart på intervjuet? Prøv å forklare både årsaken og hva du ville gjort med det.</p>
+  <div class="answer">Datasettet er sannsynligvis sterkt ubalansert: kanskje bare ~1 % er syke. Da får en modell som sier «frisk» til alle 99 % accuracy uten å ha lært noe om sykdommen. Tapsfunksjonen belønner modellen for å følge flertallet, så prediksjonene domineres av klassefordelingen $p(C_k)$ i stedet for av featurene. Jeg ville sett på recall, precision og confusion matrix i stedet for accuracy, og deretter prøvd å senke terskelen, resample treningsdataene (under- eller oversampling) eller bruke en vektet tapsfunksjon.</div>
+</div>
+
+<p>Svaret er at den ene klassen (de syke) har mange færre datapunkter enn den andre. Den er <strong>underrepresentert</strong>, og de friske er <strong>overrepresentert</strong>. Når forskjellen er stor, blir modellen <em>belønnet</em> for å si at alle tilhører flertallsklassen.</p>
+
+<div class="chain">
+  <div><b>Ubalanse</b>1 % syke, 99 % friske</div><div class="arrow">→</div>
+  <div><b>Tapet domineres av flertallet</b>99 av 100 ledd i summen er friske</div><div class="arrow">→</div>
+  <div><b>Modellen lener seg mot «frisk»</b>$\hat y$ blir lav for nesten alle</div><div class="arrow">→</div>
+  <div><b>Høy accuracy, lav recall</b>modellen er ubrukelig</div>
+</div>
+
+<p>Notatene kaller dette <strong>prior probability shift</strong>: prediksjonen domineres av $p(C_k)$ i Bayes' teorem (prior, se <a href="04-sannsynlighet.html">kapittel 4</a>) og ikke av leddene som inneholder informasjon om featurene. (I litteraturen brukes navnet også om at klassefordelingen er forskjellig i treningsdata og i bruk. Begge handler om at $p(C_k)$ styrer resultatet.)</p>
+
+<div class="callout hook"><span class="label">Knagg: værmeldingen i Sahara</span>
+<p>En meteorolog i Sahara som alltid melder «sol» har rett 99 % av dagene, men er verdiløs den ene dagen det faktisk regner, og det er den dagen du trenger ham. Accuracy belønner å følge flertallet. Recall spør om han fant regndagene.</p>
+</div>
+
+<h3>Hvorfor ser accuracy og ROC AUC bra ut?</h3>
+<p>Notatene skriver at en slik modell kan ha <strong>høy accuracy og høy ROC AUC</strong>, mens <strong>recall er oppsiktsvekkende lav</strong>. Hvordan henger det sammen?</p>
+<ul>
+  <li><strong>Accuracy</strong> er dominert av flertallsklassen. Med 1 % syke gir «alltid frisk» 99 %.</li>
+  <li><strong>ROC AUC</strong> måler bare <em>rangeringen</em>: om de syke får høyere $\hat y$ enn de friske. Modellen kan rangere fint, så de syke får $\hat y = 0.3$ og de friske $\hat y = 0.01$. AUC er da høy, og den bryr seg ikke om klassefordelingen.</li>
+  <li><strong>Men ved terskel 0.5</strong> er nesten ingen $\hat y$ over terskelen, fordi prioren trekker alle sannsynlighetene ned. Da predikeres nesten ingen syke, og recall blir lav.</li>
+</ul>
+<p>Moralen: <strong>se alltid på flere metrikker</strong>. Hver av dem skjuler noe.</p>
+
+<div class="widget">
+  <h4>Utforsk: ubalanse-simulator</h4>
+  <canvas id="w3" width="660" height="300"></canvas>
+  <div class="controls">
+    <label>Andel syke <input type="range" id="w3-p" min="0" max="8" step="1" value="1"><output id="w3-po">1 %</output></label>
+    <label>Terskel <input type="range" id="w3-t" min="0.01" max="0.99" step="0.01" value="0.5"><output id="w3-to">0.50</output></label>
+  </div>
+  <div class="w-grid">
+    <div>
+      <table class="cmx" aria-label="Confusion matrix per 10 000">
+        <tr><th class="corner">per 10 000</th><th>Pred. frisk</th><th>Pred. syk</th></tr>
+        <tr><th>Frisk</th><td class="ok" id="w3-tn">–</td><td class="bad" id="w3-fp">–</td></tr>
+        <tr><th>Syk</th><td class="bad" id="w3-fn">–</td><td class="ok" id="w3-tp">–</td></tr>
+      </table>
+    </div>
+    <div class="readouts" id="w3-metrics" style="align-content:flex-start"></div>
+  </div>
+</div>
+<p class="small muted">Modellen er den samme hele tiden (samme evne til å skille syke fra friske, AUC ≈ 0.96), men trent på data med valgt andel syke, slik at sannsynlighetene $\hat y$ følger prioren. Kurvene viser metrikkene som funksjon av terskelen. Den stiplede linjen er accuracy for «si alltid frisk».</p>
+
+<p><strong>Legg merke til:</strong></p>
+<ul>
+  <li>Med 1 % syke og terskel 0.5 er accuracy over 99 % og AUC 0.96, men recall er bare rundt 0.28. Modellen finner færre enn tre av ti syke. «Alltid frisk» har 99 % accuracy og recall 0.</li>
+  <li>Senk terskelen til ca. 0.05: recall stiger til over 0.7, mens accuracy <em>faller</em> litt. Det er greit, accuracy var aldri det riktige målet.</li>
+  <li>Sett andelen syke til 50 %: nå gir terskel 0.5 en god balanse, og «alltid frisk» faller til 50 %.</li>
+  <li>AUC endrer seg ikke når du endrer andel syke eller terskel. Den måler modellens rangering, ikke valget av terskel eller klassefordelingen.</li>
+</ul>
+
+<div class="quiz" data-id="03-interview">
+  <p class="q">En svindelmodell får 99.5 % accuracy på testdata. 0.5 % av transaksjonene er svindel. Hva er den beste første reaksjonen?</p>
+  <ul>
+    <li data-correct>Sjekk recall og confusion matrix: 99.5 % er nøyaktig det «aldri svindel» ville fått.</li>
+    <li>Modellen er utmerket og kan settes i produksjon.</li>
+    <li>Modellen har overtilpasset, siden accuracy er urealistisk høy.</li>
+    <li>Øk antall epoker, så accuracy blir enda høyere.</li>
+  </ul>
+  <div class="explain">Med 0.5 % svindel gir modellen som alltid sier «ikke svindel» 99.5 % accuracy. Accuracy sier altså ingenting her. Recall forteller om modellen finner svindelen. Overtilpasning ser man ved å sammenligne trening og test, ikke ved at test-accuracy er høy. Flere epoker hjelper ikke når problemet er metrikken og ubalansen.</div>
+</div>
+
+<div class="calc" data-id="03-calc-always-neg" data-answer="0.98" data-tol="0.001">
+  <p class="q">Et datasett har 4900 friske og 100 syke. Hva er accuracy for en modell som alltid predikerer «frisk»?</p>
+  <div class="solution">Alle 4900 friske er riktige (TN), alle 100 syke er feil (FN). Accuracy $= 4900/5000 = 0.98$. Recall $= 0/100 = 0$.</div>
+</div>
+
+<div class="reflect" data-id="03-r-auc-recall">
+  <p class="q">Forklar med egne ord hvordan en modell kan ha ROC AUC på 0.95 og samtidig recall på 0.2 ved terskel 0.5.</p>
+  <div class="answer">AUC sier at modellen gir de positive høyere $\hat y$ enn de negative i 95 % av parene, altså at den rangerer godt. Den sier ingenting om <em>hvor</em> på skalaen skårene ligger. Når positive er sjeldne, presser prioren alle $\hat y$ ned, så selv de fleste positive har $\hat y \lt 0.5$. Ved terskel 0.5 predikeres dermed bare de aller tydeligste tilfellene som positive, og recall blir lav. Senker vi terskelen, kan vi få høy recall, fordi rangeringen er god. ROC-kurven har altså gode punkter, men terskel 0.5 er et dårlig punkt på den.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="tiltak"><span class="sec">3.7</span>Tiltak 1 og 2: flytt terskelen, eller resample dataene</h2>
+
+<h3>Flytt terskelen</h3>
+<p>Det enkleste tiltaket er å endre 0.5 i</p>
+<pre><code>y_pred = [1 if _y &gt; 0.5 else 0 for _y in y_pred]</code></pre>
+<p>til en verdi som gir bedre verdier for metrikkene vi bryr oss om. Senker vi terskelen, øker andelen predikert positive, fordi alt over terskelen blir 1. Terskelen kan for eksempel velges ut fra precision–recall-plottet.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Å maksimere én metrikk går som regel på bekostning av andre (flere TP, men også flere FP). Og husk: <strong>å flytte terskelen forbedrer ikke modellen.</strong> Parametrene $w$ og $b$ er de samme, ROC-kurven og AUC er de samme. Vi endrer bare hvordan vi tolker modellens prediksjoner. Vil vi ha en bedre modell, må vi endre dataene eller tapsfunksjonen.</p>
+</div>
+
+<div class="quiz" data-id="03-threshold-model">
+  <p class="q">Du senker klassifiseringsterskelen fra 0.5 til 0.2 for en ferdigtrent logistisk regresjonsmodell. Hva skjer?</p>
+  <ul>
+    <li>Vektene $w$ endres slik at modellen blir bedre på den sjeldne klassen.</li>
+    <li>ROC-kurven flytter seg oppover, og AUC øker.</li>
+    <li>Både precision og recall øker, siden flere positive blir funnet.</li>
+    <li data-correct>Modellen er uendret. Flere punkter predikeres positive, så recall øker og precision faller som regel.</li>
+  </ul>
+  <div class="explain">Terskelen brukes først <em>etter</em> at modellen har regnet ut $\hat y$, så vekter, ROC-kurve og AUC er uendret. Vi flytter oss bare langs ROC-kurven. Flere punkter over terskelen gir flere TP (recall opp), men også flere FP, så precision faller som regel. Begge kan ikke normalt øke samtidig ved bare å flytte terskelen.</div>
+</div>
+
+<div class="reflect" data-id="03-r-threshold">
+  <p class="q">I notatene foreslås terskel 0.7 for Titanic hvis vi vil være forsiktige med å spå at noen overlever. Gi et eksempel fra virkeligheten der du ville valgt en terskel <em>over</em> 0.5, og ett der du ville valgt en <em>under</em> 0.5.</p>
+  <div class="answer">Over 0.5: når falske positive er dyre, f.eks. å sperre et bankkort, kalle inn til en risikabel operasjon, eller sende politiet ut. Da vil vi bare si «positiv» når modellen er ganske sikker (høy precision). Under 0.5: når falske negative er farlige, f.eks. screening for alvorlig sykdom, deteksjon av svindel som et menneske uansett sjekker etterpå, eller varsling av skogbrann. Da tar vi heller noen falske alarmer for å fange flest mulig (høy recall). Ved ubalanserte data er en lav terskel ofte nødvendig fordi prioren trekker alle $\hat y$ ned.</div>
+</div>
+
+<h3>Resampling</h3>
+<p>I stedet for å endre tolkningen kan vi endre dataene modellen trenes på, slik at klassene blir like store.</p>
+<ul>
+  <li><strong>Undersampling:</strong> trekk like mange punkter fra flertallsklassen som det finnes i mindretallsklassen. Resultatet er balansert, men kan bli veldig lite. Det kan føre til <strong>undertilpasning</strong> (underfit), og vi kaster informasjon.</li>
+  <li><strong>Oversampling:</strong> kopier punkter fra mindretallsklassen til den er like stor som flertallsklassen. Resultatet er balansert, men med mange <strong>duplikater</strong>. Det kan føre til <strong>overtilpasning</strong> (overfit): modellen pugger de få ekte mindretallspunktene.</li>
+  <li><strong>Kombinasjon:</strong> undersample flertallet litt og oversample mindretallet litt, slik at de møtes på midten.</li>
+</ul>
+
+<figure class="fig svgfig">
+<svg viewBox="0 0 660 230" width="660" role="img" aria-label="Undersampling og oversampling">
+<text x="100" y="214" text-anchor="middle" font-weight="700" font-size="14">Original</text>
+<rect x="40" y="30.0" width="50" height="150.0" style="fill:var(--c2)"/>
+<text x="65" y="24.0" text-anchor="middle" font-size="12">1000</text>
+<rect x="110" y="165.0" width="50" height="15.0" style="fill:var(--c1)"/>
+<text x="135" y="159.0" text-anchor="middle" font-size="12">100</text>
+<line x1="32" y1="180" x2="168" y2="180" style="stroke:var(--axis)"/>
+<text x="65" y="194" text-anchor="middle" font-size="11" style="fill:var(--muted)">klasse 0</text>
+<text x="135" y="194" text-anchor="middle" font-size="11" style="fill:var(--muted)">klasse 1</text>
+<text x="315" y="214" text-anchor="middle" font-weight="700" font-size="14">Undersampling</text>
+<rect x="255" y="165.0" width="50" height="15.0" style="fill:var(--c2)"/>
+<text x="280" y="159.0" text-anchor="middle" font-size="12">100</text>
+<rect x="325" y="165.0" width="50" height="15.0" style="fill:var(--c1)"/>
+<text x="350" y="159.0" text-anchor="middle" font-size="12">100</text>
+<line x1="247" y1="180" x2="383" y2="180" style="stroke:var(--axis)"/>
+<text x="280" y="194" text-anchor="middle" font-size="11" style="fill:var(--muted)">klasse 0</text>
+<text x="350" y="194" text-anchor="middle" font-size="11" style="fill:var(--muted)">klasse 1</text>
+<text x="530" y="214" text-anchor="middle" font-weight="700" font-size="14">Oversampling</text>
+<rect x="470" y="30.0" width="50" height="150.0" style="fill:var(--c2)"/>
+<text x="495" y="24.0" text-anchor="middle" font-size="12">1000</text>
+<rect x="540" y="165.0" width="50" height="15.0" style="fill:var(--c1)"/>
+<rect x="540" y="30.0" width="50" height="135.0" style="fill:var(--c1);fill-opacity:0.3;stroke:var(--c1);stroke-dasharray:4 3"/>
+<text x="565" y="97.5" text-anchor="middle" font-size="11">900</text><text x="565" y="111.5" text-anchor="middle" font-size="11">kopier</text>
+<text x="565" y="24.0" text-anchor="middle" font-size="12">1000</text>
+<line x1="462" y1="180" x2="598" y2="180" style="stroke:var(--axis)"/>
+<text x="495" y="194" text-anchor="middle" font-size="11" style="fill:var(--muted)">klasse 0</text>
+<text x="565" y="194" text-anchor="middle" font-size="11" style="fill:var(--muted)">klasse 1</text>
+</svg>
+  <figcaption><b>Figur 3.7</b> Notatenes eksempel med 1000 punkter i den ene klassen og 100 i den andre. Undersampling gir 100 + 100 = 200 punkter. Oversampling gir 1000 + 1000 = 2000 punkter, der 900 er kopier.</figcaption>
+</figure>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Under = kaste, over = kopiere.</strong> Kaster du data, har modellen for lite å lære av (underfit). Kopierer du data, ser modellen de samme få punktene om og om igjen og pugger dem (overfit).</p>
+</div>
+
+<div class="calc" data-id="03-calc-under" data-answer="200" data-tol="0">
+  <p class="q">Notatenes oppgave: 100 punkter i den ene klassen og 1000 i den andre. Hvor mange punkter får du totalt med bare undersampling?</p>
+  <div class="solution">Vi beholder alle 100 i mindretallsklassen og trekker 100 fra flertallsklassen: $100 + 100 = 200$.</div>
+</div>
+
+<div class="calc" data-id="03-calc-over" data-answer="900" data-tol="0">
+  <p class="q">Samme datasett med bare oversampling: totalt blir det $1000 + 1000 = 2000$ punkter. Hvor mange av dem er duplikater?</p>
+  <div class="solution">Mindretallsklassen må fra 100 til 1000, så vi legger til $1000-100 = 900$ kopier. (Strengt tatt er alle 1000 punktene i klassen nå del av «dupliserte grupper», men antall nye kopier er 900.)</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 8 og 2025 del 2.3</span>
+<p>2024: 2000 punkter, 90 % i klasse A (1800) og 10 % i B (200). Undersampling: behold <strong>200</strong> fra A. Oversampling: legg til <strong>1600</strong> i B. 2025: 9800 normale og 200 defekte, oversampling ved duplisering. Mest sannsynlige utfall: <strong>klassifikatoren kan overtilpasse fordi identiske eksempler fra minoritetsklassen gjentas</strong>.</p>
+</div>
+
+<div class="quiz" data-id="03-undersample">
+  <p class="q">Et datasett har 5000 punkter, 95 % i klasse A og 5 % i klasse B. Du undersampler for å få et balansert datasett. Hvor mange punkter fra A kan du beholde?</p>
+  <ul>
+    <li>4750</li>
+    <li>500</li>
+    <li>2500</li>
+    <li data-correct>250</li>
+  </ul>
+  <div class="explain">Klasse B har $0.05\cdot 5000 = 250$ punkter. Undersampling betyr at A krympes til samme størrelse: 250. 4750 er hele A (det er utgangspunktet). 500 er størrelsen på hele det balanserte datasettet. 2500 er halvparten av alt, som ville krevd at B hadde 2500 punkter.</div>
+</div>
+
+<div class="calc" data-id="03-calc-over-2025" data-answer="9600" data-tol="0">
+  <p class="q">Produksjonsdatasettet fra eksamen 2025: 9800 normale og 200 defekte. Hvor mange kopier må du legge til i den defekte klassen med ren oversampling?</p>
+  <div class="solution">$9800 - 200 = 9600$ kopier. Hvert defekte punkt forekommer da i snitt 49 ganger, og det er derfor risikoen for overtilpasning er stor.</div>
+</div>
+
+<div class="quiz" data-id="03-oversample-2025">
+  <p class="q">Et datasett har 50 000 lovlige og 250 svindeltransaksjoner. Du oversampler svindelklassen ved å duplisere den til klassene er like store. Hva er den viktigste risikoen?</p>
+  <ul>
+    <li data-correct>Modellen kan overtilpasse fordi de samme 250 svindelpunktene gjentas rundt 200 ganger hver.</li>
+    <li>Fordelingen av svindelpunktene endres, slik at modellen lærer feil mønster.</li>
+    <li>Antall lovlige transaksjoner reduseres, så modellen undertilpasser.</li>
+    <li>Modellen blir mindre tilbøyelig til å overtilpasse fordi klassene nå er balanserte.</li>
+  </ul>
+  <div class="explain">Oversampling ved duplisering lager ingen ny informasjon. Modellen ser de samme 250 punktene om og om igjen og kan pugge dem, altså overtilpasse. Dupliseringen endrer ikke formen på fordelingen til svindelklassen (bare vekten). Det er undersampling som reduserer flertallsklassen. At klassene er balanserte i antall, beskytter ikke mot overtilpasning. Samme logikk som eksamen 2025 del 2.3.</div>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil: resample testdataene</span>
+<p>Resampling gjøres <strong>bare på treningsdataene</strong>, og etter at du har splittet. Testsettet skal ha den virkelige fordelingen, ellers måler du ytelsen på en verden som ikke finnes. Oversampler du før splitten, havner kopier av samme punkt i både trening og test, og testresultatet blir altfor optimistisk (datalekkasje).</p>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="vektet"><span class="sec">3.8</span>Tiltak 3: vektet cross-entropy</h2>
+
+<p>I stedet for å endre <em>hvilke</em> data modellen ser, kan vi fortelle den at én klasse (ofte mindretallsklassen) er ekstra viktig. Vi straffer feil på den klassen hardere. Utgangspunktet er binær cross-entropy fra <a href="02-logistisk.html">kapittel 2</a> (likning 10 og 42 i notatene):</p>
+
+<div class="eq">$$L(\hat y, y) = -\,y\ln \hat y \;-\; (1-y)\ln(1-\hat y)$$</div>
+
+<p>Se hva som skjer for hver klasse:</p>
+<ul>
+  <li>Hvis $y = 1$: andre ledd er $0$ (fordi $1-y = 0$). Bare <strong>første ledd</strong> $-\ln\hat y$ bidrar. Vekter vi første ledd, øker tapet for punkter med $y=1$.</li>
+  <li>Hvis $y = 0$: første ledd er $0$. Bare <strong>andre ledd</strong> $-\ln(1-\hat y)$ bidrar. Vekter vi andre ledd, øker tapet for punkter med $y=0$.</li>
+</ul>
+
+<div class="eq">
+  <p class="eq-note">Vektet binær cross-entropy, likning (43) i notatene</p>
+  $$L(\hat y, y) = -\,w_1\, y\ln \hat y \;-\; w_0\,(1-y)\ln(1-\hat y)$$
+</div>
+
+<p>$w_1$ er vekten for klasse 1 og står foran leddet med $y$. $w_0$ er vekten for klasse 0 og står foran leddet med $1-y$. Er $w_0$ mye større enn $w_1$, prioriterer modellen å få klasse 0 riktig, og omvendt.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Vekten følger sin $y$.</strong> $w_1$ hører sammen med $y$ (som er 1 for klasse 1), og $w_0$ hører sammen med $(1-y)$ (som er 1 for klasse 0). Og å gi et punkt vekt 9 er som å ha det 9 ganger i datasettet. Vekting er oversampling uten kopiene.</p>
+</div>
+
+<h3>Hvor store skal vektene være?</h3>
+<p>Det vanlige valget er vekter <strong>omvendt proporsjonale med klassefrekvensen</strong>: $w_k \propto 1/N_k$. Da bidrar hver klasse like mye til det totale tapet. En vanlig normalisering er</p>
+<div class="eq">$$w_k = \frac{N}{K\cdot N_k}$$</div>
+<p>der $N$ er antall punkter totalt, $K$ antall klasser og $N_k$ antall i klasse $k$. Det er forholdet mellom vektene som betyr noe. Ganger du alle vektene med samme tall, skaleres bare tapet (som å endre læringsraten).</p>
+
+<details class="steps"><summary>Regneeksempel: 9000 og 1000 punkter</summary><div>
+<p>Klasse A har 9000 punkter og klasse B 1000. Forholdet skal være $w_A : w_B = \frac{1}{9000} : \frac{1}{1000} = 1 : 9$.</p>
+<p>Med normaliseringen over: $w_A = \frac{10000}{2\cdot 9000} \approx 0.556$ og $w_B = \frac{10000}{2 \cdot 1000} = 5$. Forhold $5/0.556 = 9$.</p>
+<p>Sjekk at klassene nå bidrar likt: $9000\cdot 0.556 \approx 5000$ og $1000\cdot 5 = 5000$.</p>
+<p>Et enkelt punkt: $y=1$ (klasse B), $\hat y = 0.2$. Uvektet tap: $-\ln 0.2 \approx 1.61$. Med $w_1 = 9$ (og $w_0=1$): $-9\ln 0.2 \approx 14.5$. Feilen på mindretallsklassen gir ni ganger så stort bidrag til gradienten.</p>
+</div></details>
+
+<div class="callout exam"><span class="label">Eksamen 2024 oppg. 9, 10 og 11</span>
+<p>Oppg. 9: riktig BCE-kode er <code>-y*np.log(y_pred) - (1-y)*np.log(1-y_pred)</code>. Oppg. 10: riktig vektet versjon er <code>-w_1*y*np.log(y_pred) - w_0*(1-y)*np.log(1-y_pred)</code>, med $w_0$ for $y=0$. Oppg. 11: 9000 i A og 1000 i B gir $w_A = 0.1$, $w_B = 1$ (omtrent forholdet $1:9$). Distraktoren $w_A = 0.0001$, $w_B = 0.009$ har forholdet $1:90$, som er ti ganger for sterkt.</p>
+</div>
+
+<div class="quiz" data-id="03-weighted-code">
+  <p class="q">Hvilken linje implementerer vektet binær cross-entropy riktig, når <code>w_neg</code> er vekten for klassen med $y=0$ og <code>w_pos</code> for klassen med $y=1$?</p>
+  <ul>
+    <li><code>-w_neg*y*np.log(p) - w_pos*(1-y)*np.log(1-p)</code></li>
+    <li data-correct><code>-w_pos*y*np.log(p) - w_neg*(1-y)*np.log(1-p)</code></li>
+    <li><code>-w_pos*p*np.log(y) - w_neg*(1-p)*np.log(1-y)</code></li>
+    <li><code>-w_pos*y*np.log(1-p) - w_neg*(1-y)*np.log(p)</code></li>
+  </ul>
+  <div class="explain">Leddet med $y$ er det eneste som lever når $y=1$, så det skal ha vekten for positiv klasse (<code>w_pos</code>). Leddet med $(1-y)$ lever når $y=0$ og skal ha <code>w_neg</code>. Første alternativ har byttet vektene. Tredje alternativ har byttet $y$ og $p$ (logaritmen skal tas av prediksjonen, ellers får du $\log 0$ for $y=0$). Fjerde alternativ straffer riktige prediksjoner: for $y=1$ gir $p \to 1$ da $-\log(1-p) \to \infty$.</div>
+</div>
+
+<div class="quiz" data-id="03-weights-ratio">
+  <p class="q">Klasse A har 8000 punkter og klasse B har 2000. Hvilke vekter passer best i en vektet cross-entropy?</p>
+  <ul>
+    <li>$w_A = 0.8,\; w_B = 0.2$</li>
+    <li>$w_A = 1,\; w_B = 0.25$</li>
+    <li>$w_A = 0.001,\; w_B = 0.01$</li>
+    <li data-correct>$w_A = 0.25,\; w_B = 1$</li>
+  </ul>
+  <div class="explain">Vektene skal være omvendt proporsjonale med klassestørrelsen: $w_A : w_B = \frac{1}{8000} : \frac{1}{2000} = 1:4$. Det gir $0.25 : 1$. $0.8$ og $0.2$ er <em>proporsjonale</em> med klassestørrelsen og forsterker ubalansen. $1$ og $0.25$ har riktig forhold, men gir vekten til feil klasse. $0.001$ og $0.01$ har forholdet $1:10$, som overkompenserer. Det absolutte nivået betyr lite, forholdet betyr alt.</div>
+</div>
+
+<div class="calc" data-id="03-calc-wloss" data-answer="14.48" data-tol="0.05">
+  <p class="q">Et punkt har $y = 1$ og $\hat y = 0.2$. Regn ut det vektede tapet med $w_1 = 9$ og $w_0 = 1$ (naturlig logaritme).</p>
+  <div class="solution">For $y=1$ er bare første ledd med: $L = -w_1 \ln \hat y = -9 \ln 0.2 = 9\cdot 1.609 \approx 14.48$.</div>
+</div>
+
+<div class="calc" data-id="03-calc-winv" data-answer="5" data-tol="0.01">
+  <p class="q">Med normaliseringen $w_k = N/(K\cdot N_k)$: hva blir vekten for klassen med 1000 punkter når datasettet har 9000 + 1000 punkter og to klasser?</p>
+  <div class="solution">$w_B = \frac{10000}{2\cdot 1000} = 5$. (Og $w_A = \frac{10000}{18000} \approx 0.556$.)</div>
+</div>
+
+<div class="reflect" data-id="03-r-which-fix">
+  <p class="q">Du har 200 000 lovlige og 400 svindeltransaksjoner. Hvilket av tiltakene (terskel, undersampling, oversampling, vektet tap) ville du prøvd først, og hvorfor?</p>
+  <div class="answer">Undersampling gir bare 800 punkter og kaster nesten all informasjon om lovlige transaksjoner, så modellen kan undertilpasse. Ren oversampling gir rundt 500 kopier av hvert svindelpunkt, med stor fare for overtilpasning. Vektet tap (vekt ca. 500 på svindel) gir samme effekt som oversampling uten å lage et enormt datasett. Det er ofte et godt førstevalg, men kan også overtilpasse til de 400 punktene. Terskelen er gratis og kan uansett justeres til slutt for å få ønsket balanse mellom precision og recall. Uansett tiltak: evaluer med recall, precision og PR-kurven på et testsett med den virkelige fordelingen, ikke med accuracy.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="oppsummering"><span class="sec">3.9</span>Oppsummering</h2>
+
+<div class="summary">
+  <h3>Kjernepunkter</h3>
+  <ul>
+    <li><strong>Tap ≠ metrikk.</strong> Tapet må være deriverbart for gradient descent. Metrikken skal være tolkbar og måle det problemet krever.</li>
+    <li><strong>Confusion matrix:</strong> TP og TN på diagonalen, FP (falsk alarm) og FN (oversett) utenfor. Les overskriftene, oppsettet varierer.</li>
+    <li><strong>Rad-metrikker</strong> (innen én sann klasse): TPR = recall = sensitivitet $= \frac{TP}{TP+FN}$, TNR = spesifisitet $=\frac{TN}{TN+FP}$, FPR $=\frac{FP}{FP+TN} = 1-$spesifisitet. <strong>Kolonne-metrikk:</strong> precision $=\frac{TP}{TP+FP}$.</li>
+    <li><strong>FN farlig</strong> (sykehus) → recall. <strong>FP dyrt</strong> (politi, raketter) → precision/spesifisitet høy, FPR lav.</li>
+    <li><strong>Terskelen</strong> flytter oss langs ROC-kurven. Terskel 1 → $(0,0)$, terskel 0 → $(1,1)$. Myntkast → diagonalen.</li>
+    <li><strong>ROC AUC</strong> = sannsynligheten for at et tilfeldig positivt punkt får høyere $\hat y$ enn et tilfeldig negativt. 0.5 = tilfeldig, 1 = perfekt.</li>
+    <li><strong>Precision = recall ⇔ FP = FN.</strong> Precision (og accuracy) avhenger av klassefordelingen. TPR, FPR og AUC gjør det ikke.</li>
+    <li><strong>Ubalanserte data</strong> gir høy accuracy (og ofte høy AUC), men lav recall. Prediksjonen domineres av prioren $p(C_k)$.</li>
+    <li><strong>Tiltak:</strong> flytt terskelen (endrer ikke modellen), undersampling (få data, underfit), oversampling (duplikater, overfit), vektet cross-entropy med $w_k \propto 1/N_k$. Resample bare treningsdata.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Recall / TPR / sensitivitet</div><div class="back">$\frac{TP}{TP+FN}$. Av alle faktisk positive, hvor mange fant vi? Viktig når FN er farlig.</div></div>
+  <div class="card"><div class="front">Precision / PPV</div><div class="back">$\frac{TP}{TP+FP}$. Av alle vi sa var positive, hvor mange var det? Viktig når FP er dyrt.</div></div>
+  <div class="card"><div class="front">Spesifisitet / TNR</div><div class="back">$\frac{TN}{TN+FP}$. Av alle faktisk negative, hvor mange fikk riktig «negativ»?</div></div>
+  <div class="card"><div class="front">FPR</div><div class="back">$\frac{FP}{FP+TN} = 1-$spesifisitet. Falsk alarm-raten. x-aksen i ROC.</div></div>
+  <div class="card"><div class="front">ROC-kurve</div><div class="back">TPR (y) mot FPR (x) for alle terskler. Fra $(0,0)$ (terskel 1) til $(1,1)$ (terskel 0).</div></div>
+  <div class="card"><div class="front">ROC AUC</div><div class="back">P(tilfeldig positivt punkt får høyere $\hat y$ enn tilfeldig negativt). 0.5 = myntkast, 1 = perfekt.</div></div>
+  <div class="card"><div class="front">Precision = recall når …</div><div class="back">… FP = FN (samme teller TP, like nevnere).</div></div>
+  <div class="card"><div class="front">Avhenger av klassefordelingen</div><div class="back">Precision og accuracy. Ikke TPR, FPR, spesifisitet eller ROC AUC.</div></div>
+  <div class="card"><div class="front">Prior probability shift</div><div class="back">Prediksjonene domineres av klasseprioren $p(C_k)$ og ikke av featurene, typisk ved sterk ubalanse.</div></div>
+  <div class="card"><div class="front">Undersampling vs. oversampling</div><div class="back">Under: kast fra flertallet, få data → underfit. Over: kopier mindretallet, duplikater → overfit.</div></div>
+  <div class="card"><div class="front">Vektet cross-entropy</div><div class="back">$-w_1 y\ln\hat y - w_0(1-y)\ln(1-\hat y)$, med $w_k \propto 1/N_k$.</div></div>
+  <div class="card"><div class="front">Flytte terskelen</div><div class="back">Endrer ikke modellen (samme $w$, samme ROC/AUC), bare tolkningen av $\hat y$. Lavere terskel → recall opp, precision ned.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+<!-- ======================= WIDGET-SKRIPT ======================= -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  /* ---------- Widget 1: terskel, CM, ROC og PR ---------- */
+  const r = CK.rng(7), N = 100;
+  const zP = Array.from({ length: N }, () => r.normal());
+  const zN = Array.from({ length: N }, () => r.normal());
+  const tS = document.getElementById("w1-t"), dS = document.getElementById("w1-d");
+  const H = CK.plot(document.getElementById("w1-hist"), { xmin: 0, xmax: 1, ymin: 0, ymax: 40, pad: { l: 40, r: 12, t: 12, b: 34 } });
+  const R = CK.plot(document.getElementById("w1-roc"), { xmin: 0, xmax: 1, ymin: 0, ymax: 1, pad: { l: 40, r: 10, t: 10, b: 34 } });
+  const Q = CK.plot(document.getElementById("w1-pr"), { xmin: 0, xmax: 1, ymin: 0, ymax: 1, pad: { l: 40, r: 10, t: 10, b: 34 } });
+  const sig = z => 1 / (1 + Math.exp(-z));
+  let sP = [], sN = [], roc = [], pr = [], auc = 0.5, lastD = null;
+  function regen(d) {
+    sP = zP.map(z => sig(1.3 * (z + d / 2)));
+    sN = zN.map(z => sig(1.3 * (z - d / 2)));
+    const all = sP.map(s => ({ s, y: 1 })).concat(sN.map(s => ({ s, y: 0 }))).sort((a, b) => b.s - a.s);
+    roc = [{ x: 0, y: 0 }]; pr = []; let tp = 0, fp = 0;
+    for (let i = 0; i < all.length; i++) {
+      if (all[i].y) tp++; else fp++;
+      if (i === all.length - 1 || all[i + 1].s !== all[i].s) {
+        roc.push({ x: fp / N, y: tp / N });
+        pr.push({ x: tp / N, y: tp / (tp + fp) });
+      }
+    }
+    let c = 0;
+    for (const a of sP) for (const b of sN) c += a > b ? 1 : (a === b ? 0.5 : 0);
+    auc = c / (N * N);
+  }
+  const f2 = v => (isFinite(v) ? v.toFixed(2) : "–");
+  function draw1() {
+    const t = +tS.value, d = +dS.value;
+    document.getElementById("w1-to").textContent = t.toFixed(2);
+    document.getElementById("w1-do").textContent = d.toFixed(1);
+    if (d !== lastD) { regen(d); lastD = d; }
+    const TP = sP.filter(s => s > t).length, FN = N - TP;
+    const FP = sN.filter(s => s > t).length, TN = N - FP;
+    document.getElementById("w1-tp").textContent = "TP = " + TP;
+    document.getElementById("w1-fn").textContent = "FN = " + FN;
+    document.getElementById("w1-fp").textContent = "FP = " + FP;
+    document.getElementById("w1-tn").textContent = "TN = " + TN;
+    const tpr = TP / N, fpr = FP / N, prec = TP + FP ? TP / (TP + FP) : NaN;
+    const m = [["Accuracy", (TP + TN) / (2 * N)], ["TPR / recall", tpr], ["Spesifisitet", TN / N], ["FPR", fpr], ["Precision", prec], ["ROC AUC", auc]];
+    document.getElementById("w1-metrics").innerHTML = m.map(([k, v]) => `<span class="readout">${k}: ${f2(v)}</span>`).join("");
+
+    // histogram
+    const bins = 20, cp = new Array(bins).fill(0), cn = new Array(bins).fill(0);
+    sP.forEach(s => cp[Math.min(bins - 1, Math.floor(s * bins))]++);
+    sN.forEach(s => cn[Math.min(bins - 1, Math.floor(s * bins))]++);
+    const ymax = Math.max(10, Math.ceil(Math.max(...cp, ...cn) * 1.15));
+    H.setView({ ymax });
+    H.clear();
+    H.rect(t, 0, 1, ymax, { fill: H.col("accent"), alpha: 0.08 });
+    H.grid({ nx: 10 }).axes({ xlabel: "modellens ŷ", ylabel: "antall", nx: 10, frame: true });
+    for (let b = 0; b < bins; b++) {
+      const x0 = b / bins;
+      if (cn[b]) H.rect(x0 + 0.004, 0, x0 + 0.025, cn[b], { fill: H.col("c2"), alpha: 0.85 });
+      if (cp[b]) H.rect(x0 + 0.025, 0, x0 + 0.046, cp[b], { fill: H.col("c1"), alpha: 0.85 });
+    }
+    H.line(t, 0, t, ymax, { color: H.col("text"), width: 2, dash: [6, 4] });
+    H.text("terskel", t, ymax * 0.93, { align: t > 0.85 ? "right" : "left", size: 12, color: H.col("text-soft") });
+    H.ctx.save(); H.ctx.globalAlpha = 0.85; H.ctx.fillStyle = H.col("surface"); H.ctx.fillRect(H.pad.l + 4, H.pad.t + 3, 140, 40); H.ctx.restore();
+    H.legend([{ color: H.col("c1"), label: "positive (y = 1)" }, { color: H.col("c2"), label: "negative (y = 0)" }], { x: H.pad.l + 10, y: H.pad.t + 14 });
+    H.text("→ predikeres positiv", Math.min(t + 0.01, 0.8), ymax * 0.8, { size: 12, color: H.col("muted") });
+
+    // ROC
+    R.clear().grid({ nx: 5, ny: 5 }).axes({ xlabel: "FPR", ylabel: "TPR", nx: 5, ny: 5, frame: true });
+    R.line(0, 0, 1, 1, { color: R.col("axis"), dash: [5, 4], width: 1.3 });
+    R.path(roc, { color: R.col("c1"), width: 2.2 });
+    R.points([{ x: fpr, y: tpr }], { color: R.col("c2"), r: 6 });
+    R.text("AUC = " + auc.toFixed(2), 0.55, 0.1, { bold: true, size: 13 });
+
+    // PR
+    Q.clear().grid({ nx: 5, ny: 5 }).axes({ xlabel: "recall", ylabel: "precision", nx: 5, ny: 5, frame: true });
+    Q.line(0, 0.5, 1, 0.5, { color: Q.col("axis"), dash: [5, 4], width: 1.3 });
+    Q.text("andel positive", 0.03, 0.46, { size: 11, color: Q.col("muted") });
+    Q.path(pr, { color: Q.col("c3"), width: 2.2 });
+    if (isFinite(prec)) Q.points([{ x: tpr, y: prec }], { color: Q.col("c2"), r: 6 });
+  }
+  tS.oninput = dS.oninput = draw1;
+  CK.live(draw1);
+
+  /* ---------- Widget 2: plasser matriser på ROC-kurven ---------- */
+  const sets = [
+    { pts: [[0.1, 0.45], [0.2, 0.6], [0.35, 0.75], [0.5, 0.85], [0.7, 0.95]],
+      mats: [{ t: "0.6", TP: 48, FN: 32, FP: 12, TN: 48, ans: 1 }, { t: "0.25", TP: 68, FN: 12, FP: 30, TN: 30, ans: 3 }] },
+    { pts: [[0.05, 0.3], [0.15, 0.55], [0.3, 0.7], [0.45, 0.8], [0.75, 0.9]],
+      mats: [{ t: "0.8", TP: 12, FN: 28, FP: 5, TN: 95, ans: 0 }, { t: "0.4", TP: 28, FN: 12, FP: 30, TN: 70, ans: 2 }] },
+    { pts: [[0.1, 0.35], [0.25, 0.6], [0.4, 0.7], [0.6, 0.85], [0.8, 0.95]],
+      mats: [{ t: "0.5", TP: 42, FN: 18, FP: 16, TN: 24, ans: 2 }, { t: "0.1", TP: 57, FN: 3, FP: 32, TN: 8, ans: 4 }] }
+  ];
+  let si = 0, step = 0, wrongPick = -1, wrongs = 0;
+  const cv = document.getElementById("w2-roc");
+  const P2 = CK.plot(cv, { xmin: 0, xmax: 1, ymin: 0, ymax: 1, pad: { l: 46, r: 14, t: 14, b: 40 } });
+  const matsEl = document.getElementById("w2-mats"), fb = document.getElementById("w2-fb"), setLbl = document.getElementById("w2-set");
+  const L = i => String.fromCharCode(65 + i);
+  const r2 = v => +v.toFixed(3);
+  function renderMats() {
+    const S = sets[si];
+    matsEl.innerHTML = S.mats.map((m, i) => `<div class="${i === step ? "active" : ""}${i < step ? " solved" : ""}"><h5>Matrise ${L(i)}: terskel ${m.t}${i < step ? " ✓" : ""}</h5><table class="cmx"><tr><th class="corner"></th><th>Pred. positiv</th><th>Pred. negativ</th></tr><tr><th>Label positiv</th><td>${m.TP}</td><td>${m.FN}</td></tr><tr><th>Label negativ</th><td>${m.FP}</td><td>${m.TN}</td></tr></table></div>`).join("");
+    setLbl.textContent = `Sett ${si + 1} av ${sets.length}`;
+  }
+  function draw2() {
+    const S = sets[si];
+    P2.clear().grid({ nx: 5, ny: 5 }).axes({ xlabel: "FPR", ylabel: "TPR", nx: 5, ny: 5, frame: true });
+    P2.line(0, 0, 1, 1, { color: P2.col("axis"), dash: [5, 4], width: 1.4 });
+    P2.path([{ x: 0, y: 0 }].concat(S.pts.map(p => ({ x: p[0], y: p[1] }))).concat([{ x: 1, y: 1 }]), { color: P2.col("c1"), width: 2.2 });
+    S.pts.forEach((p, i) => {
+      const solvedBy = S.mats.slice(0, step).findIndex(m => m.ans === i);
+      let col = P2.col("c2");
+      if (solvedBy >= 0) col = P2.col("ok");
+      if (i === wrongPick) col = P2.col("bad");
+      P2.points([{ x: p[0], y: p[1] }], { color: col, r: 8 });
+      P2.text(String(i + 1), P2.X(p[0]) + 11, P2.Y(p[1]) + 13, { px: true, bold: true, size: 14 });
+      if (solvedBy >= 0) P2.text("matrise " + L(solvedBy), P2.X(p[0]) - 12, P2.Y(p[1]) - 14, { px: true, size: 12, align: "right", color: P2.col("ok") });
+    });
+  }
+  function resetSet() { step = 0; wrongPick = -1; wrongs = 0; renderMats(); draw2(); fb.className = "fb"; fb.textContent = "Regn ut TPR og FPR for den markerte matrisen, og klikk på punktet den tilsvarer."; }
+  cv.addEventListener("click", e => {
+    if (step >= 2) return;
+    const m = P2.mouse(e), S = sets[si];
+    let best = -1, bd = 1e9;
+    S.pts.forEach((p, i) => { const d = Math.hypot(P2.X(p[0]) - m.px, P2.Y(p[1]) - m.py); if (d < bd) { bd = d; best = i; } });
+    if (bd > 24) { fb.className = "fb"; fb.textContent = "Klikk på et av de nummererte punktene."; return; }
+    const M = S.mats[step], tpr = M.TP / (M.TP + M.FN), fpr = M.FP / (M.FP + M.TN);
+    const calc = `TPR = ${M.TP}/(${M.TP}+${M.FN}) = ${r2(tpr)} og FPR = ${M.FP}/(${M.FP}+${M.TN}) = ${r2(fpr)}`;
+    if (best === M.ans) {
+      fb.className = "fb ok";
+      fb.textContent = `Riktig! Matrise ${L(step)}: ${calc}, altså punkt ${best + 1}. ` + (step === 0 ? "Nå matrise B." : "Ferdig med settet. Legg merke til at den laveste terskelen ligger lengst opp til høyre. Trykk «Nytt oppgavesett» for mer.");
+      step++; wrongPick = -1; wrongs = 0; renderMats();
+    } else {
+      wrongs++; wrongPick = best;
+      const p = S.pts[best];
+      fb.className = "fb bad";
+      fb.textContent = `Punkt ${best + 1} ligger i (FPR, TPR) = (${p[0]}, ${p[1]}). ` + (wrongs >= 2 ? `Løsning: ${calc}.` : `Husk: TPR = TP/(TP+FN) deler på antall faktisk positive, FPR = FP/(FP+TN) på antall faktisk negative. Prøv igjen.`);
+    }
+    draw2();
+  });
+  document.getElementById("w2-reset").onclick = resetSet;
+  document.getElementById("w2-next").onclick = () => { si = (si + 1) % sets.length; resetSet(); };
+  renderMats();
+  CK.live(draw2);
+
+  /* ---------- Widget 3: ubalanse-simulator ---------- */
+  function erf(x) { const s = Math.sign(x); x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return s * y; }
+  const Phi = x => 0.5 * (1 + erf(x / Math.SQRT2));
+  const prevs = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5];
+  const dd = 2.5, AUC3 = Phi(dd / Math.SQRT2);
+  const pS = document.getElementById("w3-p"), t3 = document.getElementById("w3-t");
+  const P3 = CK.plot(document.getElementById("w3"), { xmin: 0, xmax: 1, ymin: 0, ymax: 1, pad: { l: 44, r: 14, t: 12, b: 36 } });
+  function rates(pi, t) {
+    const xt = (Math.log(t / (1 - t)) - Math.log(pi / (1 - pi)) + dd * dd / 2) / dd;
+    const tpr = 1 - Phi(xt - dd), fpr = 1 - Phi(xt);
+    return { tpr, fpr, acc: pi * tpr + (1 - pi) * (1 - fpr), prec: pi * tpr / (pi * tpr + (1 - pi) * fpr) };
+  }
+  function draw3() {
+    const pi = prevs[+pS.value], t = +t3.value;
+    document.getElementById("w3-po").textContent = (pi * 100).toLocaleString("no") + " %";
+    document.getElementById("w3-to").textContent = t.toFixed(2);
+    P3.clear().grid({ nx: 10, ny: 5 }).axes({ xlabel: "terskel", ylabel: "metrikk", nx: 10, ny: 5, frame: true });
+    P3.line(0, 1 - pi, 1, 1 - pi, { color: P3.col("muted"), dash: [6, 4], width: 1.6 });
+    P3.fn(x => rates(pi, x).acc, { color: P3.col("c1"), width: 2.4 });
+    P3.fn(x => rates(pi, x).tpr, { color: P3.col("c2"), width: 2.4 });
+    P3.fn(x => rates(pi, x).prec, { color: P3.col("c3"), width: 2.4 });
+    P3.line(t, 0, t, 1, { color: P3.col("text"), width: 1.6, dash: [3, 3] });
+    P3.legend([{ color: P3.col("c1"), label: "accuracy" }, { color: P3.col("c2"), label: "recall" }, { color: P3.col("c3"), label: "precision" }, { color: P3.col("muted"), label: "accuracy «alltid frisk»" }], { x: P3.W - 200, y: P3.pad.t + 60 });
+    const q = rates(pi, t), Np = 10000 * pi, Nn = 10000 - Np;
+    const TP = q.tpr * Np, FN = Np - TP, FP = q.fpr * Nn, TN = Nn - FP;
+    const ri = v => Math.round(v).toLocaleString("no");
+    document.getElementById("w3-tp").textContent = ri(TP);
+    document.getElementById("w3-fn").textContent = ri(FN);
+    document.getElementById("w3-fp").textContent = ri(FP);
+    document.getElementById("w3-tn").textContent = ri(TN);
+    const pct = v => (isFinite(v) ? (v * 100).toFixed(1) + " %" : "–");
+    document.getElementById("w3-metrics").innerHTML = [
+      ["Accuracy", pct(q.acc)], ["Recall", pct(q.tpr)], ["Precision", pct(q.prec)], ["Spesifisitet", pct(1 - q.fpr)],
+      ["ROC AUC", AUC3.toFixed(2)], ["«Alltid frisk»: accuracy", pct(1 - pi)], ["«Alltid frisk»: recall", "0 %"]
+    ].map(([k, v]) => `<span class="readout">${k}: ${v}</span>`).join("");
+  }
+  pS.oninput = t3.oninput = draw3;
+  CK.live(draw3);
+});
+</script>
+
+</main>
+</body>
+</html>

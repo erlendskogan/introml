@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 · Dimensjonsreduksjon: PCA og t-SNE – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  .calc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 14px; margin-top: 10px; font-size: 15px; }
+  .calc-grid label { display: flex; flex-direction: column; gap: 4px; }
+  .calc-grid input[type=number] { font: inherit; font-family: var(--mono); padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%; }
+  @media (max-width: 520px) { .calc-grid { grid-template-columns: 1fr 1fr; } }
+  .steps-out { font-family: var(--mono); font-size: 13.5px; line-height: 1.6; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-top: 10px; white-space: pre-wrap; overflow-x: auto; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .presets .btn { font-size: 13.5px; padding: 5px 10px; margin: 0; }
+  .presets .btn + .btn { margin-left: 0; }
+  .note-what { font-size: 15px; color: var(--text-soft); margin: 10px 0 0; }
+  .note-what b { color: var(--text); }
+  .kl-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; margin-top: 12px; font-size: 14.5px; }
+  .kl-sliders h5 { margin: 0 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+  .kl-sliders label { display: flex; align-items: center; gap: 8px; }
+  .kl-sliders input[type=range] { flex: 1; min-width: 80px; accent-color: var(--accent); }
+  @media (max-width: 520px) { .kl-sliders { grid-template-columns: 1fr; } }
+  .mini-matrix { font-family: var(--mono); }
+  svg.diagram { display: block; width: 100%; height: auto; max-width: 680px; margin: 0 auto; }
+</style>
+</head>
+<body data-chapter="12">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 12 · Uveiledet læring</div>
+  <h1>Dimensjonsreduksjon: PCA og t-SNE</h1>
+  <p class="lead">Når dataene har hundrevis av features, kan vi verken se dem eller stole på avstandene i dem. Her lærer du to måter å presse dataene ned i få dimensjoner på: PCA, som finner de lineære retningene med mest varians, og t-SNE, som flytter punkter rundt til nabolagene ligner på originalen.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare <em>hvorfor</em> vi reduserer dimensjoner (visualisering, støyfjerning, feature discovery) og at det er både preprosessering og analyse</li>
+    <li>regne ut kovarians, kovariansmatrise, egenverdier og egenvektorer for et 2×2-eksempel med enkel kalkulator</li>
+    <li>forklare hva det betyr at «hovedkomponentene er egenvektorene til kovariansmatrisen», og hvorfor de er ortogonale</li>
+    <li>regne ut forklart varians-andel og avgjøre hvor mange komponenter som trengs</li>
+    <li>bruke PCA riktig i sklearn (fit på trening, transform på test, skaler først) og forklare hvorfor PCA til 2D feiler på MNIST</li>
+    <li>beskrive SNE og t-SNE: betingede sannsynligheter, KL-divergens, t-fordelingens tunge haler og perplexity</li>
+    <li>forklare hvorfor t-SNE ikke kan brukes på nye data, og hva du <em>ikke</em> kan lese ut av et t-SNE-plott</li>
+    <li>sammenligne PCA og t-SNE langs mål, gjenbrukbarhet, feature-generering, linearitet og beregningskostnad</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="hvorfor"><span class="sec">12.1</span>Hvorfor redusere dimensjoner?</h2>
+
+<p>I <a href="11-clustering.html">kapittel 11</a> så vi at avstander oppfører seg rart i høye dimensjoner. Trekker du to tilfeldige punkter i en $d$-dimensjonal enhetskube, blir avstanden mellom dem stor, mens spredningen i avstandene blir liten sammenlignet med middelverdien. Alle punkter havner omtrent like langt fra hverandre. Dette kalles <strong>concentration of distances</strong>, og det er en del av dimensjonsforbannelsen (<a href="04-sannsynlighet.html">kapittel 4</a>).</p>
+
+<figure class="card">
+  <img src="../assets/fig/notater/s49_1.png" alt="Histogrammer over avstander mellom tilfeldige punkter i d = 2, 3, 10, 100, 1000 og 10000 dimensjoner" width="680">
+  <figcaption><b>Figur 12.1</b> Fordelingen av euklidske avstander mellom to tilfeldige punkter i en $d$-dimensjonal enhetskube (fra forelesningsnotatene). Når $d$ vokser, flytter toppen seg utover og blir smal. For $d=10\,000$ er nesten alle avstander rundt 41, så «nær» og «fjern» betyr lite.</figcaption>
+</figure>
+
+<p>Konsekvensen er at metoder som bygger på avstand, som k-means og DBSCAN, slutter å fungere. Flere datapunkter hjelper ikke, fordi problemet ligger i geometrien og ikke i datamengden. Det vi kan gjøre, er å redusere antall dimensjoner og bare beholde retningene som faktisk bærer struktur.</p>
+
+<div class="callout def"><span class="label">Definisjon</span>
+<p><strong>Dimensjonsreduksjon</strong> (dimensionality reduction) er uveiledet læring som tar data med $n$ features og lager en representasjon med $n' \lt n$ features, slik at mest mulig av informasjonen bevares. Hva «informasjon» betyr, avhenger av metoden: for PCA er det <em>varians</em>, for t-SNE er det <em>nabolag</em>.</p>
+</div>
+
+<p>Forelesningsnotatene gir tre grunner til å gjøre dette:</p>
+<ul>
+  <li><strong>Datavisualisering.</strong> Vi kan bare plotte 2 eller 3 dimensjoner. Mønstre som klynger og anomalier er dessuten ofte usynlige i høye dimensjoner på grunn av dimensjonsforbannelsen.</li>
+  <li><strong>Støyfjerning.</strong> Hvis vi bare beholder de nye featurene (extracted features) som fanger variansen eller strukturen best, filtrerer vi bort retninger som stort sett er støy. Det kan gi mer robuste og mer tolkbare modeller.</li>
+  <li><strong>Feature discovery.</strong> Metoder som finner struktur som overlever dimensjonsreduksjonen, gir færre, sammensatte features med den viktigste informasjonen. Det hjelper oss å forstå dataene, og de blir billigere å lagre og analysere.</li>
+</ul>
+
+<figure class="card">
+<svg class="diagram" viewBox="0 0 680 210" role="img" aria-label="Skisse: en tabell med mange kolonner reduseres til en tabell med to kolonner">
+  <g font-size="13">
+    <text x="20" y="22" style="fill:var(--text-soft)">Opprinnelige data: N rader × n features</text>
+    <g style="stroke:var(--border)" fill="none">
+      <rect x="20" y="34" width="300" height="150" rx="6" style="fill:var(--surface-2)"/>
+    </g>
+    <g style="stroke:var(--c1)" stroke-width="10" stroke-linecap="round" opacity=".55">
+      <line x1="40" y1="50" x2="40" y2="168"/><line x1="64" y1="50" x2="64" y2="168"/><line x1="88" y1="50" x2="88" y2="168"/>
+      <line x1="112" y1="50" x2="112" y2="168"/><line x1="136" y1="50" x2="136" y2="168"/><line x1="160" y1="50" x2="160" y2="168"/>
+      <line x1="184" y1="50" x2="184" y2="168"/><line x1="208" y1="50" x2="208" y2="168"/><line x1="232" y1="50" x2="232" y2="168"/>
+      <line x1="256" y1="50" x2="256" y2="168"/><line x1="280" y1="50" x2="280" y2="168"/><line x1="304" y1="50" x2="304" y2="168"/>
+    </g>
+    <text x="170" y="202" text-anchor="middle" style="fill:var(--muted)">x₁ … xₙ (f.eks. n = 784 piksler)</text>
+    <g style="stroke:currentColor;fill:currentColor">
+      <line x1="345" y1="109" x2="420" y2="109" stroke-width="2"/>
+      <polygon points="420,103 432,109 420,115"/>
+    </g>
+    <text x="388" y="96" text-anchor="middle" style="fill:var(--text-soft)">PCA / t-SNE</text>
+    <text x="460" y="22" style="fill:var(--text-soft)">Reduserte data: N × n′</text>
+    <rect x="460" y="34" width="110" height="150" rx="6" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <g style="stroke:var(--c2)" stroke-width="14" stroke-linecap="round" opacity=".75">
+      <line x1="492" y1="50" x2="492" y2="168"/><line x1="538" y1="50" x2="538" y2="168"/>
+    </g>
+    <text x="515" y="202" text-anchor="middle" style="fill:var(--muted)">z₁, z₂ (n′ = 2)</text>
+    <text x="585" y="100" style="fill:var(--text-soft)">samme N</text>
+    <text x="585" y="118" style="fill:var(--text-soft)">rader!</text>
+  </g>
+</svg>
+<figcaption><b>Figur 12.2</b> Dimensjonsreduksjon beholder alle datapunktene (radene), men erstatter de $n$ kolonnene med $n'$ nye. De nye kolonnene er <em>ikke</em> et utvalg av de gamle. De er nye størrelser beregnet fra alle de gamle.</figcaption>
+</figure>
+
+<div class="chain">
+  <div><b>Problem</b>Mange features: kan ikke plottes, avstander konsentreres</div><div class="arrow">→</div>
+  <div><b>Løsning</b>Finn få nye akser som bevarer variansen eller nabolagene</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>Vi kan se klynger, fjerne støy og gi bedre input til clustering</div>
+</div>
+
+<p>Dimensjonsreduksjon kan altså være et <strong>preprosesseringssteg</strong>, for eksempel før clustering, og det kan være <strong>en analyse i seg selv</strong>, for eksempel når vi plotter dataene i 2D for å se hvor mange klynger det finnes.</p>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p>Ikke bland sammen <em>feature selection</em> (velge ut noen av de opprinnelige kolonnene, slik vi droppet «Name» i Titanic) og dimensjonsreduksjon med PCA (lage <em>nye</em> kolonner som er kombinasjoner av alle de gamle). PCA er <em>feature extraction</em>, ikke selection.</p>
+</div>
+
+<div class="quiz" data-multi data-id="12-hvorfor-grunner">
+  <p class="q">Hvilke av disse er gode grunner til å redusere dimensjonaliteten til et datasett?</p>
+  <ul>
+    <li data-correct>Å kunne visualisere dataene i 2D eller 3D</li>
+    <li>Å gi modellen flere features å lære av, slik at den kan fange mer informasjon</li>
+    <li data-correct>Å filtrere bort retninger som mest inneholder støy</li>
+    <li data-correct>Å finne færre, sammensatte features som oppsummerer den viktigste informasjonen</li>
+    <li>Å gjøre dataene lineært separerbare, slik at en lineær klassifikator alltid får 100 % accuracy</li>
+  </ul>
+  <div class="explain">Visualisering, støyfjerning og feature discovery er de tre grunnene i notatene. «Flere features» er det motsatte av dimensjonsreduksjon, og flere features gjør dimensjonsforbannelsen verre. Dimensjonsreduksjon gir heller ingen garanti for lineær separerbarhet. Den kan tvert imot slå sammen klasser som var adskilt i høy dimensjon (se MNIST-eksempelet i 12.6).</div>
+</div>
+
+<div class="quiz" data-id="12-preproc-clustering">
+  <p class="q">Du skal kjøre k-means på et datasett med 500 features, og klyngene blir dårlige. En medstudent foreslår å samle inn ti ganger så mye data. En annen foreslår å kjøre PCA ned til 20 komponenter først. Hvem har best argument?</p>
+  <ul>
+    <li>Den første, fordi k-means alltid blir bedre med flere datapunkter</li>
+    <li data-correct>Den andre, fordi problemet er at avstander konsentreres i høye dimensjoner, og det løses ikke av flere punkter</li>
+    <li>Ingen av dem. k-means er immun mot dimensjonsforbannelsen fordi den bruker gjennomsnitt</li>
+    <li>Den første, fordi PCA fjerner informasjon og derfor alltid gir dårligere klynger</li>
+  </ul>
+  <div class="explain">Notatene sier rett ut at å samle flere datapunkter ikke løser problemet, fordi det skyldes hvordan avstander oppfører seg i høye dimensjoner, ikke datasettets størrelse. k-means bruker euklidsk avstand og er derfor sårbar. PCA fjerner riktignok noe informasjon, men ofte mest støy, og de få gjenværende retningene gir meningsfulle avstander. Prosjekt 3 brukte nettopp PCA før clustering.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="pca-intuisjon"><span class="sec">12.2</span>PCA: intuisjonen</h2>
+
+<p><strong>Principal component analysis</strong> (PCA, hovedkomponentanalyse) ble utviklet av Karl Pearson i 1901, lenge før kunstig intelligens fantes som fag. Ideen er enkel: finn de aksene i datarommet som <strong>maksimerer variansen</strong>. Disse aksene kalles <strong>hovedkomponenter</strong> (principal components, PC).</p>
+
+<ul>
+  <li>Hver hovedkomponent er en <strong>lineær kombinasjon</strong> av de opprinnelige featurene, for eksempel $z_1 = 0.45\,x_1 + 0.89\,x_2$.</li>
+  <li>Hovedkomponentene er <strong>ortogonale</strong> (står vinkelrett på hverandre).</li>
+  <li>De er sortert: PC1 har mest varians, PC2 nest mest, og så videre.</li>
+</ul>
+
+<h3>Høyde, vekt og alder</h3>
+<p>Tenk deg et datasett med høyde, vekt og alder for en gruppe mennesker. Featurene er korrelerte: høye mennesker veier mer, og veldig unge mennesker er både lavere og lettere. PCA finner de uavhengige retningene der dataene varierer mest:</p>
+<ul>
+  <li><strong>PC1</strong> er retningen med mest varians. Her vil den trolig være en slags «størrelse» der høyde, vekt og (for barn) alder øker sammen. Den bærer mesteparten av informasjonen.</li>
+  <li><strong>PC2</strong> har nest mest varians og står vinkelrett på PC1. Den kan for eksempel skille folk som er tunge <em>for høyden sin</em> fra folk som er lette for høyden.</li>
+  <li><strong>PC3</strong> tar resten av variansen og står vinkelrett på både PC1 og PC2.</li>
+</ul>
+
+<div class="callout why"><span class="label">Hvorfor ortogonale?</span>
+<p>At komponentene er ortogonale, er en garanti for at de inneholder <em>ulik</em> informasjon. PC2 skal forklare en <em>ny</em> del av variansen som PC1 ikke allerede har tatt. Hvis PC2 hadde pekt delvis i samme retning som PC1, ville de to delt på den samme variasjonen, og vi hadde lagret noe dobbelt. Projeksjonene på ulike PC-er er dermed <strong>ukorrelerte</strong>.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span>
+<p><strong>2025 del 7.1</strong> spurte om hensikten med at komponentene er ortogonale. Riktig svar var at hver komponent forklarer en ulik del av variansen uten overlappende informasjon. Feilsvarene var at de skal fange like mye varians, være mest mulig korrelerte, eller kode redundant informasjon.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>PCA er å finne den beste kameravinkelen.</strong> Du skal ta ett bilde (2D) av en 3D-sky av punkter. Fra én vinkel ser alt ut som en klump. Fra en annen ser du at skyen er en lang pølse. PCA velger vinkelen der skyen ser <em>bredest</em> ut, altså der mest av variasjonen synes. Neste akse er den bredeste retningen av det som er igjen, vinkelrett på den første.</p>
+</div>
+
+<p>Prøv selv. Under ser du en sky av korrelerte punkter. Drei aksen og se hvor stor variansen til projeksjonene blir. Vinkelen der variansen er størst, er PC1.</p>
+
+<div class="widget">
+  <h4>Utforsk: finn PC1 ved å dreie en akse</h4>
+  <canvas id="rotCanvas" width="640" height="438"></canvas>
+  <canvas id="rotCurve" width="640" height="190" style="margin-top:8px"></canvas>
+  <div class="controls">
+    <label>Vinkel θ <input type="range" id="rotTheta" min="0" max="179" step="1" value="100"><output id="rotThetaO">100°</output></label>
+    <label><input type="checkbox" id="rotShow"> Vis PC1 og PC2 (fasit)</label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="rotVar">Var langs aksen: –</span>
+    <span class="readout" id="rotPerp">Var vinkelrett: –</span>
+    <span class="readout" id="rotTot">Total varians: –</span>
+    <span class="readout" id="rotEig">λ₁, λ₂: skjult</span>
+  </div>
+  <p class="note-what"><b>Legg merke til:</b> (1) Variansen langs aksen og variansen vinkelrett på den summerer seg alltid til den samme totale variansen. PCA flytter ikke på variansen, den <em>fordeler</em> den på nye akser. (2) Kurven nederst har ett maksimum og ett minimum, og de ligger nøyaktig 90° fra hverandre. Maksimum er PC1, minimum er PC2. (3) Ved maksimum er variansen lik den største egenverdien $\lambda_1$, og ved minimum lik $\lambda_2$. Det er dette 12.4 forklarer.</p>
+</div>
+
+<div class="quiz" data-id="12-pc-lincomb">
+  <p class="q">Hva er en hovedkomponent i PCA?</p>
+  <ul>
+    <li>Den av de opprinnelige featurene som har størst varians</li>
+    <li>En ikke-lineær transformasjon av featurene som maksimerer separasjonen mellom klasser</li>
+    <li data-correct>En retning (akse) som er en lineær kombinasjon av de opprinnelige featurene</li>
+    <li>Det datapunktet som ligger nærmest gjennomsnittet</li>
+  </ul>
+  <div class="explain">En PC er en ny akse $\mathbf{e} = (e_1,\dots,e_n)$, og koordinaten langs den er $z = e_1 x_1 + \dots + e_n x_n$ (etter sentrering), altså en lineær kombinasjon av <em>alle</em> featurene. Det er ikke én av de opprinnelige featurene (det ville vært feature selection). PCA er lineær, og den bruker ikke klasser i det hele tatt, fordi den er uveiledet. Den «separerer» derfor ikke klasser bevisst. Et datapunkt er heller ikke en akse.</div>
+</div>
+
+<div class="quiz" data-id="12-ortogonal">
+  <p class="q">PC2 tvinges til å stå vinkelrett på PC1. Hva er den viktigste konsekvensen?</p>
+  <ul>
+    <li>PC2 får like mye varians som PC1</li>
+    <li data-correct>Projeksjonene på PC1 og PC2 er ukorrelerte, så PC2 beskriver variasjon som PC1 ikke allerede har fanget</li>
+    <li>PC2 blir den retningen der variansen er størst</li>
+    <li>PC1 og PC2 blir mest mulig korrelerte, slik at de sammen gir et robust estimat</li>
+  </ul>
+  <div class="explain">Ortogonalitet gir ukorrelerte komponenter uten overlappende informasjon (eksamen 2025 del 7.1). PC2 har <em>mindre</em> eller lik varians som PC1, aldri mer, fordi PC1 per definisjon er retningen med størst varians. Korrelerte komponenter ville vært redundante, som er det motsatte av hensikten.</div>
+</div>
+
+<div class="reflect" data-id="12-hoyde-vekt">
+  <p class="q">I eksempelet med høyde, vekt og alder: Hvorfor tror du PC1 ville vært en kombinasjon av alle tre, og ikke bare «vekt»? Hva ville skjedd med PC1 hvis vekt var målt i gram i stedet for kilo?</p>
+  <div class="answer">Fordi de tre featurene er korrelerte, varierer dataene mest langs en diagonal retning der alle tre øker samtidig. Den diagonalen er en lineær kombinasjon av alle tre. Hvis vekt måles i gram, blir variansen til vekt en million ganger større (faktor $1000^2$). Da dominerer vekt den totale variansen, og PC1 blir nesten bare «vekt». PCA er altså følsom for skala. Derfor standardiserer vi (StandardScaler) før PCA når featurene har ulike enheter, se 12.6.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="kovarians"><span class="sec">12.3</span>Kovarians og kovariansmatrisen</h2>
+
+<p>Notatene sier at «PC-ene er egenvektorene til dataenes kovariansmatrise». For å forstå den setningen trenger vi to byggeklosser: kovarians og egenvektorer. Vi tar kovarians først.</p>
+
+<h3>Kovarians</h3>
+<p>Kovariansen måler om to features varierer <em>sammen</em>:</p>
+<div class="eq">
+  <p class="eq-note">Kovarians mellom feature $x_i$ og $x_j$ over $N$ datapunkter (likning 105 i notatene)</p>
+  $$\operatorname{cov}(x_i, x_j) = \frac{1}{N-1}\sum_{k=1}^{N} (x_{i,k}-\bar{x}_i)(x_{j,k}-\bar{x}_j)$$
+</div>
+<ul>
+  <li>Først <strong>sentrerer</strong> vi: trekker fra gjennomsnittet, slik at hver feature har middelverdi 0.</li>
+  <li>For hvert datapunkt ganger vi avvikene sammen. Er begge over snittet (eller begge under), blir produktet positivt. Er det ene over og det andre under, blir det negativt.</li>
+  <li>Til slutt tar vi et slags gjennomsnitt, men deler på $N-1$ i stedet for $N$.</li>
+</ul>
+
+<div class="callout why"><span class="label">Hvorfor N − 1?</span>
+<p>Vi bruker $\bar{x}$, som er beregnet fra de samme dataene. Avvikene fra $\bar{x}$ er i snitt litt mindre enn avvikene fra den sanne (ukjente) middelverdien, fordi $\bar{x}$ per konstruksjon ligger midt i akkurat disse punktene. Å dele på $N-1$ korrigerer for dette og gir et forventningsrett estimat. Det er også det <code>np.cov</code> gjør som standard. På eksamen: bruk $N-1$ når formelen står slik, og vær konsekvent.</p>
+</div>
+
+<table class="center">
+  <tr><th>Fortegn på $\operatorname{cov}(x_i,x_j)$</th><th>Betydning</th><th>Eksempel</th></tr>
+  <tr><td>positiv</td><td>de øker sammen</td><td>høyde og vekt</td></tr>
+  <tr><td>negativ</td><td>når den ene øker, minker den andre</td><td>$x_1=(1,2,3)$, $x_2=(2,1,0)$</td></tr>
+  <tr><td>≈ 0</td><td>ingen <em>lineær</em> samvariasjon</td><td>skostørrelse og fødselsmåned</td></tr>
+</table>
+
+<h3>Kovariansmatrisen</h3>
+<p>Med to features samler vi alle fire kovariansene i en 2×2-matrise:</p>
+<div class="eq">
+  <p class="eq-note">Kovariansmatrisen (likning 106)</p>
+  $$S = \begin{pmatrix} \operatorname{cov}(x_1,x_1) & \operatorname{cov}(x_1,x_2) \\ \operatorname{cov}(x_2,x_1) & \operatorname{cov}(x_2,x_2) \end{pmatrix}$$
+</div>
+<ul>
+  <li><strong>Diagonalen</strong> er variansene: $\operatorname{cov}(x_1,x_1) = \operatorname{Var}(x_1)$. Den forteller hvor mye hver feature sprer seg.</li>
+  <li><strong>Utenfor diagonalen</strong> står kovariansene, som forteller hvor mye to og to features samvarierer.</li>
+  <li>Matrisen er <strong>symmetrisk</strong>, fordi $\operatorname{cov}(x_1,x_2) = \operatorname{cov}(x_2,x_1)$.</li>
+  <li>Med $n$ features blir $S$ en $n\times n$-matrise. Summen av diagonalen (sporet, trace) er den <strong>totale variansen</strong>.</li>
+</ul>
+
+<h3>Det enkle eksempelet fra notatene</h3>
+<p>Vi har tre datapunkter med to features:</p>
+<div class="eq">$$x_1 = (1,\ 2,\ 3), \qquad x_2 = (2,\ 1,\ 0)$$</div>
+<p>Legg merke til at begge varierer, og at de varierer i motsatt retning. Vi regner ut $S$ steg for steg.</p>
+
+<details class="steps" open><summary>Utregning av S for det enkle eksempelet</summary><div>
+<p><strong>1. Gjennomsnitt:</strong> $\bar{x}_1 = (1+2+3)/3 = 2$ og $\bar{x}_2 = (2+1+0)/3 = 1$.</p>
+<p><strong>2. Sentrer:</strong> $x_1 - \bar{x}_1 = (-1,\ 0,\ 1)$ og $x_2 - \bar{x}_2 = (1,\ 0,\ -1)$.</p>
+<p><strong>3. Varians til $x_1$:</strong> $\operatorname{cov}(x_1,x_1) = \frac{1}{2}\big((-1)(-1) + 0\cdot 0 + 1\cdot 1\big) = \frac{1}{2}(1+0+1) = 1$.</p>
+<p><strong>4. Varians til $x_2$:</strong> $\operatorname{cov}(x_2,x_2) = \frac{1}{2}\big(1\cdot1 + 0 + (-1)(-1)\big) = 1$. (Dette er «Oppgave: finn tilsvarende verdi for cov(x₂, x₂)» i notatene.)</p>
+<p><strong>5. Kovarians:</strong> $\operatorname{cov}(x_1,x_2) = \frac{1}{2}\big((-1)(1) + 0 + (1)(-1)\big) = \frac{1}{2}(-1+0-1) = -1$.</p>
+<p><strong>6. Sett sammen:</strong></p>
+$$S = \begin{pmatrix} 1 & -1 \\ -1 & 1 \end{pmatrix}$$
+<p>Negativ kovarians bekrefter det vi så: når $x_1$ øker, minker $x_2$.</p>
+</div></details>
+
+<div class="calc" data-id="12-cov-x2" data-answer="1" data-tol="0.001">
+  <p class="q">Uten å se på utregningen over: Regn ut $\operatorname{cov}(x_2,x_2)$ for $x_2 = (2,1,0)$ med $N-1$ i nevneren.</p>
+  <div class="solution">$\bar{x}_2 = 1$, avvik $(1, 0, -1)$, kvadrater $(1, 0, 1)$, sum $2$, delt på $N-1=2$ gir $1$.</div>
+</div>
+
+<div class="calc" data-id="12-cov-ny" data-answer="5" data-tol="0.001">
+  <p class="q">Nye data: $x_1 = (2, 4, 6)$ og $x_2 = (1, 2, 6)$. Regn ut $\operatorname{cov}(x_1,x_2)$ med $N-1$ i nevneren.</p>
+  <div class="solution">$\bar{x}_1 = 4$, $\bar{x}_2 = 3$. Avvik: $(-2, 0, 2)$ og $(-2, -1, 3)$. Produkter: $4,\ 0,\ 6$, sum $10$. Delt på $N-1 = 2$: $\operatorname{cov}(x_1,x_2) = 5$.</div>
+</div>
+
+<div class="quiz" data-id="12-diagonal">
+  <p class="q">Hva står på diagonalen i kovariansmatrisen $S$?</p>
+  <ul>
+    <li data-correct>Variansen til hver enkelt feature</li>
+    <li>Kovariansen mellom hver feature og target</li>
+    <li>Egenverdiene til $S$</li>
+    <li>Korrelasjonskoeffisientene, som alltid er 1</li>
+  </ul>
+  <div class="explain">$\operatorname{cov}(x_i, x_i) = \operatorname{Var}(x_i)$, så diagonalen er variansene. Korrelasjonsmatrisen har 1 på diagonalen, men kovariansmatrisen har variansene (som bare er 1 hvis dataene er standardisert). Egenverdiene står på diagonalen først <em>etter</em> at matrisen er diagonalisert, altså i koordinatsystemet til hovedkomponentene. Target brukes ikke i det hele tatt: PCA er uveiledet.</div>
+</div>
+
+<div class="quiz" data-id="12-cov-fortegn">
+  <p class="q">For to features er $\operatorname{cov}(x_1,x_2) = -3.2$. Hva kan du si sikkert?</p>
+  <ul>
+    <li>$x_1$ og $x_2$ er uavhengige</li>
+    <li data-correct>Når $x_1$ er over gjennomsnittet sitt, har $x_2$ en tendens til å være under sitt</li>
+    <li>Sammenhengen er svak, fordi kovariansen er negativ</li>
+    <li>Minst én av variansene må være negativ</li>
+  </ul>
+  <div class="explain">Negativ kovarians betyr at avvikene typisk har motsatt fortegn. Fortegnet sier ingenting om <em>styrken</em> (kovarians avhenger av enhetene, så −3.2 kan være sterk eller svak). Uavhengighet ville gitt kovarians 0, ikke negativ. Varianser er aldri negative, fordi de er gjennomsnitt av kvadrater.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="egen"><span class="sec">12.4</span>Egenverdier og egenvektorer: hvorfor de gir hovedkomponentene</h2>
+
+<h3>En kort oppfriskning</h3>
+<p>En matrise $S$ virker på en vektor $\mathbf{v}$ ved å gange den: $S\mathbf{v}$. Vanligvis blir resultatet både strukket og dreid. Men noen spesielle retninger blir <em>bare strukket</em>, ikke dreid. De kalles <strong>egenvektorer</strong>, og strekkfaktoren kalles <strong>egenverdi</strong>:</p>
+<div class="eq">
+  <p class="eq-note">Definisjonen av egenvektor $\mathbf{e}$ og egenverdi $\lambda$</p>
+  $$S\,\mathbf{e} = \lambda\,\mathbf{e}$$
+</div>
+<p>For å finne egenverdiene skriver vi om til $(S-\lambda I)\mathbf{e} = \mathbf{0}$. Denne har en løsning $\mathbf{e}\neq\mathbf{0}$ bare hvis matrisen $S-\lambda I$ er singulær, altså hvis determinanten er null:</p>
+<div class="eq">
+  <p class="eq-note">Den karakteristiske likningen</p>
+  $$\det(S-\lambda I) = 0$$
+</div>
+
+<p>For en symmetrisk 2×2-matrise $S = \begin{pmatrix} a & b \\ b & c\end{pmatrix}$ gir det en andregradslikning:</p>
+<div class="eq">
+  $$(a-\lambda)(c-\lambda) - b^2 = \lambda^2 - (a+c)\lambda + (ac-b^2) = 0$$
+  $$\Rightarrow\quad \lambda_{1,2} = \frac{\operatorname{tr} S \pm \sqrt{(\operatorname{tr} S)^2 - 4\det S}}{2}, \qquad \operatorname{tr}S = a+c,\quad \det S = ac-b^2$$
+</div>
+<p>Egenvektoren til $\lambda$ finner du fra første rad i $(S-\lambda I)\mathbf{e} = \mathbf{0}$: $(a-\lambda)e_1 + b\,e_2 = 0$, som gir retningen $\mathbf{e} \propto (b,\ \lambda - a)$. Del på lengden, så egenvektoren får lengde 1.</p>
+
+<div class="callout hook"><span class="label">Knagg: to kontroller som redder deg på eksamen</span>
+<p><strong>Summen av egenverdiene er sporet, og produktet er determinanten:</strong> $\lambda_1 + \lambda_2 = a + c$ og $\lambda_1\lambda_2 = ac - b^2$. Har du regnet ut egenverdiene, sjekk dem mot disse to på kalkulatoren. Den første forteller også noe viktig: <em>total varians er bevart</em>. PCA bare fordeler den på nye akser.</p>
+</div>
+
+<h3>Hvorfor egenvektorene er retningene med mest varians</h3>
+<p>Nå kommer selve poenget. Ta en retning $\mathbf{u}$ med lengde 1 og projiser alle (sentrerte) datapunkter på den. Projeksjonen av punkt $k$ er tallet $z_k = \mathbf{u}^\top(\mathbf{x}_k - \bar{\mathbf{x}})$. Variansen til disse tallene viser seg å være</p>
+<div class="eq">
+  <p class="eq-note">Variansen til dataene projisert på enhetsvektoren $\mathbf{u}$</p>
+  $$\operatorname{Var}(z) = \mathbf{u}^\top S\,\mathbf{u}$$
+</div>
+
+<details class="steps"><summary>Vis utledningen av Var(z) = uᵀSu</summary><div>
+<p>Siden dataene er sentrert, er gjennomsnittet av $z_k$ lik 0. Da er</p>
+$$\operatorname{Var}(z) = \frac{1}{N-1}\sum_k z_k^2 = \frac{1}{N-1}\sum_k \big(\mathbf{u}^\top(\mathbf{x}_k-\bar{\mathbf{x}})\big)\big((\mathbf{x}_k-\bar{\mathbf{x}})^\top\mathbf{u}\big)$$
+<p>Trekk $\mathbf{u}^\top$ og $\mathbf{u}$ ut av summen, fordi de ikke avhenger av $k$:</p>
+$$= \mathbf{u}^\top\Big[\frac{1}{N-1}\sum_k (\mathbf{x}_k-\bar{\mathbf{x}})(\mathbf{x}_k-\bar{\mathbf{x}})^\top\Big]\mathbf{u} = \mathbf{u}^\top S\,\mathbf{u}$$
+<p>Uttrykket i hakeparentesen er nøyaktig kovariansmatrisen: element $(i,j)$ er $\frac{1}{N-1}\sum_k (x_{i,k}-\bar x_i)(x_{j,k}-\bar x_j)$.</p>
+</div></details>
+
+<p>PCA vil finne den $\mathbf{u}$ som gjør $\mathbf{u}^\top S\mathbf{u}$ størst, under kravet $\mathbf{u}^\top\mathbf{u} = 1$ (ellers kunne vi bare gjort $\mathbf{u}$ lengre). Løsningen er at $\mathbf{u}$ må være en egenvektor av $S$:</p>
+
+<details class="steps"><summary>Vis hvorfor maksimum er en egenvektor (Lagrange)</summary><div>
+<p>Vi maksimerer $\mathbf{u}^\top S\mathbf{u}$ med bibetingelsen $\mathbf{u}^\top\mathbf{u}=1$. Lagrangefunksjonen er $\mathcal{L} = \mathbf{u}^\top S\mathbf{u} - \lambda(\mathbf{u}^\top\mathbf{u}-1)$. Deriver med hensyn på $\mathbf{u}$ og sett lik null:</p>
+$$2S\mathbf{u} - 2\lambda\mathbf{u} = \mathbf{0} \quad\Rightarrow\quad S\mathbf{u} = \lambda\mathbf{u}$$
+<p>Altså må $\mathbf{u}$ være en egenvektor. Setter vi inn, får vi variansen $\mathbf{u}^\top S\mathbf{u} = \mathbf{u}^\top\lambda\mathbf{u} = \lambda$. Størst varians får vi derfor med egenvektoren som har <strong>størst egenverdi</strong>. Det er PC1. Gjentar vi med kravet om å stå vinkelrett på PC1, får vi egenvektoren med nest størst egenverdi, PC2, og så videre.</p>
+<p>Bonus: for en symmetrisk matrise (og $S$ er alltid symmetrisk) står egenvektorene automatisk vinkelrett på hverandre. Ortogonaliteten kommer altså «gratis».</p>
+</div></details>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Nå kan vi lese setningen fra notatene ord for ord:</p>
+<ul>
+  <li><strong>Egenvektorene</strong> av $S$ er retningene der variansen er størst (og minst). Det er hovedkomponentene.</li>
+  <li><strong>Egenverdien</strong> $\lambda_i$ <em>er</em> variansen til dataene langs PC $i$.</li>
+  <li>Sorterer vi egenverdiene synkende, får vi PC-ene sortert etter hvor mye varians de forklarer.</li>
+  <li>En egenverdi på 0 betyr at det ikke finnes noen variasjon i den retningen. Den retningen kan kastes uten å miste noe.</li>
+</ul>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span>
+<p><strong>2024 oppg. 25</strong> spurte: «Hva er prinsipalkomponentene vi finner når vi gjør PCA?» Riktig svar: <em>egenvektorene til kovariansmatrisen til dataene</em>. Distraktorene var «dataenes sentrale punkt», «antall features som beholdes» og «den lineære delen av kovariansen».</p>
+</div>
+
+<div class="quiz" data-id="12-egenverdi-betyr">
+  <p class="q">Kovariansmatrisen til et datasett har egenverdiene $\lambda_1 = 8$ og $\lambda_2 = 2$. Hva betyr $\lambda_1 = 8$?</p>
+  <ul>
+    <li>At PC1 er en lineær kombinasjon av 8 features</li>
+    <li data-correct>At variansen til dataene projisert på PC1 er 8</li>
+    <li>At standardavviket langs PC1 er 8</li>
+    <li>At 8 % av variansen forklares av PC1</li>
+  </ul>
+  <div class="explain">Egenverdien er variansen langs egenvektoren, fordi $\mathbf{e}^\top S\mathbf{e} = \lambda$. Standardavviket langs PC1 er derfor $\sqrt{8}\approx 2.83$, ikke 8. Andelen forklart varians er $8/(8+2) = 80\,\%$, ikke 8 %. Antall features har ingenting med egenverdien å gjøre.</div>
+</div>
+
+<div class="quiz" data-id="12-pc-egenvektor">
+  <p class="q">Hvilket utsagn om hovedkomponentene i PCA er riktig?</p>
+  <ul>
+    <li>De er egenvektorene til datamatrisen $X$ selv</li>
+    <li>De representerer middelverdien til hver feature</li>
+    <li>De er de featurene som har høyest korrelasjon med target</li>
+    <li data-correct>De er egenvektorene til kovariansmatrisen, sortert etter synkende egenverdi</li>
+  </ul>
+  <div class="explain">PC-ene er egenvektorene til <em>kovariansmatrisen</em> $S$, ikke til datamatrisen (som vanligvis ikke engang er kvadratisk, $N\times n$). Middelverdien brukes bare til å sentrere. Det finnes ingen target i PCA. Sorteringen etter egenverdi gjør at PC1 forklarer mest varians.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="for-haand"><span class="sec">12.5</span>PCA for hånd: to regneeksempler</h2>
+
+<h3>Eksempel 1: det enkle eksempelet helt ut</h3>
+<p>Vi fortsetter med $S = \begin{pmatrix} 1 & -1 \\ -1 & 1\end{pmatrix}$ fra 12.3.</p>
+
+<details class="steps" open><summary>Egenverdier og egenvektorer for S = [[1, −1], [−1, 1]]</summary><div>
+<p><strong>1. Karakteristisk likning:</strong></p>
+$$\det(S-\lambda I) = \begin{vmatrix} 1-\lambda & -1 \\ -1 & 1-\lambda\end{vmatrix} = (1-\lambda)^2 - 1 = 1 - 2\lambda + \lambda^2 - 1 = \lambda^2 - 2\lambda = 0$$
+<p>(Notatene skriver første ledd som «$(1-\lambda^2)$». Det skal være $(1-\lambda)^2$, men resten av utregningen er riktig.)</p>
+<p><strong>2. Egenverdier:</strong> $\lambda(\lambda-2) = 0$ gir $\lambda = 0$ og $\lambda = 2$. Kontroll: sum $= 2 = \operatorname{tr}S$, produkt $= 0 = \det S$. ✓</p>
+<p><strong>3. Egenvektor for $\lambda = 0$:</strong> $S\mathbf{v} = 0$ gir $v_1 - v_2 = 0$, altså $v_1 = v_2$. Normalisert: $\mathbf{e} = \tfrac{1}{\sqrt2}(1,\ 1)$.</p>
+<p><strong>4. Egenvektor for $\lambda = 2$:</strong> $S\mathbf{v} = 2\mathbf{v}$ gir $v_1 - v_2 = 2v_1$, altså $v_1 = -v_2$. Normalisert: $\mathbf{e} = \tfrac{1}{\sqrt2}(1,\ -1)$.</p>
+<p>Faktoren $\tfrac{1}{\sqrt2}$ er der fordi egenvektorene skal ha lengde 1: $\sqrt{1^2+1^2} = \sqrt2$.</p>
+<p><strong>5. Sorter:</strong> PC1 $= \tfrac{1}{\sqrt2}(1,-1)$ med $\lambda_1 = 2$, og PC2 $= \tfrac{1}{\sqrt2}(1,1)$ med $\lambda_2 = 0$. (Fortegnet på en egenvektor er vilkårlig. $(-1,1)/\sqrt2$ er like riktig, og figuren under bruker den.)</p>
+</div></details>
+
+<figure class="card">
+  <img src="../assets/fig/notater/s52_1.png" alt="Tre datapunkter (1,2), (2,1), (3,0) med to egenvektorer tegnet fra gjennomsnittet (2,1)" width="460">
+  <figcaption><b>Figur 12.3</b> Dataene fra det enkle eksempelet og de to egenvektorene, tegnet fra gjennomsnittet $(2,1)$ (fra notatene). Oransje: $\lambda = 2$, retningen dataene ligger langs. Grønn: $\lambda = 0$, retningen uten variasjon. Notatenes figurtekst sier «egenverdiene», men det er egenvektorene som er tegnet.</figcaption>
+</figure>
+
+<div class="callout cons"><span class="label">Tolkning: hvorfor én komponent holder</span>
+<p>Egenverdien 0 forteller at <strong>én hovedkomponent er nok til å representere all variansen</strong>. Det gir mening: $1+2 = 3$, $2+1 = 3$ og $3+0 = 3$. Summen $x_1 + x_2$ er alltid 3, så alle punktene ligger på linjen $x_1 + x_2 = 3$. Langs retningen $(1,1)$, som er den retningen summen endrer seg i, er det null variasjon. All variasjon ligger langs $(1,-1)$. PC1 forklarer $2/(2+0) = 100\,\%$ av variansen.</p>
+<p>Projiserer vi på PC1, $z_k = \tfrac{1}{\sqrt2}(1,-1)\cdot(\mathbf{x}_k - \bar{\mathbf{x}})$, får vi $z = (-\sqrt2,\ 0,\ \sqrt2) \approx (-1.41,\ 0,\ 1.41)$. Variansen er $\frac{2+0+2}{2} = 2 = \lambda_1$. ✓</p>
+</div>
+
+<h3>Kalkulator: kovariansmatrise inn, egenverdier ut</h3>
+<p>Bruk kalkulatoren til å sjekke håndregning, eller til å bygge intuisjon: Hva skjer med ellipsen og egenvektorene når kovariansen går mot 0? Når de to variansene er like?</p>
+
+<div class="widget">
+  <h4>Utforsk: 2×2-kovariansmatrise, egenverdier og egenvektorer</h4>
+  <canvas id="eigCanvas" width="640" height="380"></canvas>
+  <div class="calc-grid">
+    <label>Var(x₁) = a <input type="number" id="eigA" value="2.5" step="0.1"></label>
+    <label>cov(x₁,x₂) = b <input type="number" id="eigB" value="4.85" step="0.1"></label>
+    <label>Var(x₂) = c <input type="number" id="eigC" value="9.63" step="0.1"></label>
+  </div>
+  <div class="presets">
+    <button class="btn ghost" type="button" data-p="1,-1,1">Enkelt eksempel</button>
+    <button class="btn ghost" type="button" data-p="2.5,4.85,9.63">Tabell 9</button>
+    <button class="btn ghost" type="button" data-p="4,0,1">Ukorrelert</button>
+    <button class="btn ghost" type="button" data-p="2,0,2">Lik varians, ukorrelert</button>
+    <button class="btn ghost" type="button" data-p="3,1.5,3">Like varianser, korrelert</button>
+  </div>
+  <div class="steps-out" id="eigOut"></div>
+  <p class="note-what"><b>Legg merke til:</b> Ellipsen viser hvor dataene typisk ligger (1 og 2 standardavvik). Egenvektorene er alltid ellipsens akser, og pilene har lengde $2\sqrt{\lambda}$. Er $b = 0$, er de opprinnelige aksene allerede hovedkomponenter. Er i tillegg $a = c$, er ellipsen en sirkel: da har alle retninger lik varians, og PCA har ingen foretrukket retning. Med «Like varianser, korrelert» peker PC1 alltid langs diagonalen, uansett hvor stor $b$ er.</p>
+</div>
+
+<h3>Eksempel 2: tabell 9 som regneoppgave</h3>
+<p>Notatene gir datasettet under ($N = 5$) og sier «Oppgave: Do it». Vi gjør det.</p>
+
+<div class="two-col">
+<div>
+<table class="center">
+  <tr><th>$x_1$</th><th>$x_2$</th></tr>
+  <tr><td>1</td><td>1.6</td></tr>
+  <tr><td>2</td><td>4.2</td></tr>
+  <tr><td>3</td><td>5.7</td></tr>
+  <tr><td>4</td><td>8.4</td></tr>
+  <tr><td>5</td><td>9.2</td></tr>
+</table>
+</div>
+<div>
+<p>Gjennomsnitt: $\bar{x}_1 = 3$ og $\bar{x}_2 = 5.82$. Notatene oppgir</p>
+$$S = \begin{pmatrix} 2.5 & 4.85 \\ 4.85 & 9.63\end{pmatrix}$$
+<p class="small muted">Nøyaktig er $\operatorname{Var}(x_2) = 9.632$. Vi bruker 9.63 som i notatene. Forskjellen påvirker bare tredje desimal.</p>
+</div>
+</div>
+
+<p>Prøv selv før du åpner løsningen. Oppgavene under er stilt i samme rekkefølge som du ville regnet.</p>
+
+<div class="calc" data-id="12-t9-det" data-answer="0.5525" data-tol="0.002">
+  <p class="q">Regn ut $\det S = ac - b^2$ for $S$ over.</p>
+  <div class="solution">$2.5\cdot 9.63 - 4.85^2 = 24.075 - 23.5225 = 0.5525$.</div>
+</div>
+
+<div class="calc" data-id="12-t9-lam1" data-answer="12.084" data-tol="0.01">
+  <p class="q">Regn ut den største egenverdien $\lambda_1$ (to desimaler holder).</p>
+  <div class="solution">$\operatorname{tr}S = 2.5 + 9.63 = 12.13$. $\lambda = \frac{12.13 \pm\sqrt{12.13^2 - 4\cdot 0.5525}}{2} = \frac{12.13\pm\sqrt{147.1369 - 2.21}}{2} = \frac{12.13 \pm \sqrt{144.9269}}{2} = \frac{12.13\pm 12.0386}{2}$. Det gir $\lambda_1 \approx 12.084$.</div>
+</div>
+
+<div class="calc" data-id="12-t9-lam2" data-answer="0.0457" data-tol="0.002">
+  <p class="q">Regn ut den minste egenverdien $\lambda_2$.</p>
+  <div class="solution">$\lambda_2 = \frac{12.13 - 12.0386}{2} \approx 0.0457$. Kontroll: $\lambda_1+\lambda_2 = 12.13 = \operatorname{tr}S$ ✓ og $\lambda_1\lambda_2 = 12.084\cdot 0.0457 \approx 0.552 = \det S$ ✓. Tips: $\lambda_2 = \det S/\lambda_1$ er mer nøyaktig på kalkulator enn å trekke fra to nesten like tall.</div>
+</div>
+
+<div class="calc" data-id="12-t9-andel" data-answer="0.9962" data-tol="0.002">
+  <p class="q">Hvor stor andel av den totale variansen forklares av PC1? Oppgi som desimaltall (f.eks. 0.75).</p>
+  <div class="solution">$\frac{\lambda_1}{\lambda_1+\lambda_2} = \frac{12.084}{12.13} \approx 0.996$, altså 99.6 %. Én komponent holder nesten perfekt, slik figurene 12.4 og 12.5 viser.</div>
+</div>
+
+<div class="calc" data-id="12-t9-e1" data-answer="0.892" data-tol="0.005">
+  <p class="q">Finn egenvektoren $\mathbf{e}_1 = (e_{11}, e_{12})$ til $\lambda_1$ med lengde 1 og $e_{11} > 0$. Hva er $e_{12}$?</p>
+  <div class="solution">Retningen er $(b,\ \lambda_1 - a) = (4.85,\ 9.584)$. Forholdet er $9.584/4.85 \approx 1.976$, så $\mathbf{e}_1 \propto (1,\ 1.976)$. Lengden er $\sqrt{1 + 1.976^2} = \sqrt{4.905} \approx 2.215$. Normalisert: $\mathbf{e}_1 \approx (0.4515,\ 0.8923)$. PC2 står vinkelrett på den: $\mathbf{e}_2 \approx (-0.8923,\ 0.4515)$.</div>
+</div>
+
+<div class="calc" data-id="12-t9-proj" data-answer="-4.668" data-tol="0.03">
+  <p class="q">Projiser det første datapunktet $(1,\ 1.6)$ på PC1: $z = \mathbf{e}_1^\top(\mathbf{x} - \bar{\mathbf{x}})$.</p>
+  <div class="solution">$\mathbf{x}-\bar{\mathbf{x}} = (1-3,\ 1.6-5.82) = (-2,\ -4.22)$. $z = 0.4515\cdot(-2) + 0.8923\cdot(-4.22) = -0.903 - 3.766 \approx -4.67$. Det stemmer med punktet lengst til venstre i figur 12.5. Alle fem projeksjoner blir $(-4.67,\ -1.90,\ -0.11,\ 2.75,\ 3.92)$.</div>
+</div>
+
+<div class="two-col">
+<figure class="card">
+  <img src="../assets/fig/notater/s53_1.png" alt="Tabell 9-dataene i originale koordinater og transformert til PC1 og PC2" width="400">
+  <figcaption><b>Figur 12.4</b> Venstre: de opprinnelige dataene. Høyre: de samme punktene i koordinatsystemet (PC1, PC2). Nesten all spredning ligger langs PC1.</figcaption>
+</figure>
+<figure class="card">
+  <img src="../assets/fig/notater/s54_1.png" alt="PCA av tabell 9 til én komponent: røde punkter på en linje" width="380">
+  <figcaption><b>Figur 12.5</b> PCA til én komponent (<code>n_components=1</code>). Fra to features har vi laget én. Plottet har strengt tatt ingen y-akse. Røde punkter: $z = (-4.67, -1.90, -0.11, 2.75, 3.92)$.</figcaption>
+</figure>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil</span>
+<p><strong>Fortegnet på en egenvektor er vilkårlig.</strong> Hvis $\mathbf{e}$ er en egenvektor, er $-\mathbf{e}$ det også. sklearn kan derfor gi deg $(-0.45, -0.89)$, og da blir alle projeksjonene speilvendt. Det er like riktig. På eksamen: sjekk retningen (forholdet mellom komponentene) og lengden 1, ikke fortegnet.</p>
+</div>
+
+<h3>Projeksjon: fra to dimensjoner til én</h3>
+<p>Å redusere fra $d$ til $d'$ dimensjoner betyr å sortere PC-ene etter egenverdi og bare beholde de første $d'$. Hvert punkt erstattes av koordinatene sine langs disse aksene:</p>
+<div class="eq">
+  <p class="eq-note">Projeksjon av punkt $\mathbf{x}$ på de $d'$ første hovedkomponentene</p>
+  $$z_i = \mathbf{e}_i^\top(\mathbf{x}-\bar{\mathbf{x}}), \quad i = 1,\dots,d' \qquad\Longleftrightarrow\qquad \mathbf{z} = E_{d'}^\top(\mathbf{x}-\bar{\mathbf{x}})$$
+</div>
+<p>der kolonnene i $E_{d'}$ er de $d'$ første egenvektorene. Animasjonen under viser hva som skjer geometrisk.</p>
+
+<figure class="card">
+<svg class="diagram" viewBox="0 0 680 230" role="img" aria-label="Geometri for projeksjon av et punkt på en hovedkomponent">
+  <g font-size="14">
+    <line x1="60" y1="200" x2="620" y2="40" style="stroke:var(--c2)" stroke-width="2.5"/>
+    <text x="600" y="30" style="fill:var(--c2)" font-weight="600">PC1 (e₁)</text>
+    <circle cx="200" cy="160" r="6" style="fill:currentColor"/>
+    <text x="180" y="186" style="fill:var(--text-soft)">x̄ (gjennomsnitt)</text>
+    <circle cx="380" cy="40" r="7" style="fill:var(--c1)"/>
+    <text x="392" y="36" style="fill:var(--c1)" font-weight="600">x</text>
+    <line x1="380" y1="40" x2="424" y2="94" style="stroke:var(--muted)" stroke-dasharray="5 4" stroke-width="2"/>
+    <circle cx="424" cy="94" r="6" style="fill:var(--c2)"/>
+    <path d="M412 97 L416 108 L428 104" fill="none" style="stroke:var(--muted)" stroke-width="1.5"/>
+    <text x="436" y="120" style="fill:var(--c2)">projeksjonen</text>
+    <line x1="200" y1="172" x2="424" y2="108" style="stroke:var(--c3)" stroke-width="2"/>
+    <text x="290" y="160" style="fill:var(--c3)" font-weight="600">z = e₁ᵀ(x − x̄)</text>
+    <text x="300" y="60" style="fill:var(--muted)" font-size="13">tapt informasjon</text>
+    <text x="300" y="76" style="fill:var(--muted)" font-size="13">(avstand til linjen)</text>
+  </g>
+</svg>
+<figcaption><b>Figur 12.6</b> Projeksjon på PC1. Det nye tallet $z$ er avstanden langs linjen fra gjennomsnittet til fotpunktet. Den stiplede avstanden til linjen er det vi kaster. Å maksimere variansen til $z$ er det samme som å minimere summen av de kvadrerte stiplede avstandene (Pytagoras: total = langs + vinkelrett).</figcaption>
+</figure>
+
+<div class="widget">
+  <h4>Utforsk: projeksjon fra 2D til 1D</h4>
+  <canvas id="projCanvas" width="640" height="438"></canvas>
+  <div class="controls">
+    <label>Steg <input type="range" id="projT" min="0" max="1" step="0.01" value="0"><output id="projTO">0 %</output></label>
+    <button class="btn" type="button" id="projPlay">▶ Spill av</button>
+    <label><input type="radio" name="projPC" value="0" checked> Projiser på PC1</label>
+    <label><input type="radio" name="projPC" value="1"> på PC2</label>
+    <label><input type="checkbox" id="projBig"> Større datasett</label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="projKeep">Beholdt varians: –</span>
+    <span class="readout" id="projZ">z: –</span>
+  </div>
+  <p class="note-what"><b>Legg merke til:</b> Første halvdel av animasjonen flytter hvert punkt rett inn på linjen (vinkelrett). Andre halvdel dreier linjen ned til en vanlig tallinje: nå er dataene endimensjonale. Med PC1 og tabell 9 blir punktene nesten ikke flyttet i første halvdel, fordi de allerede ligger nær linjen (99.6 % beholdt). Velg PC2 og se at punktene klumper seg: nesten all informasjon forsvinner.</p>
+</div>
+
+<h3>Hvor mange komponenter skal vi beholde?</h3>
+<p>Andelen av variansen som PC $i$ forklarer, er</p>
+<div class="eq">
+  <p class="eq-note">Forklart varians-andel (explained variance ratio)</p>
+  $$\text{andel}_i = \frac{\lambda_i}{\sum_{j=1}^{n}\lambda_j} = \frac{\lambda_i}{\operatorname{tr}S}$$
+</div>
+<p>Vanlige måter å velge $d'$ på:</p>
+<ul>
+  <li><strong>Terskel på kumulativ andel:</strong> behold så mange komponenter at summen når for eksempel 90 % eller 95 %.</li>
+  <li><strong>Albue (scree plot):</strong> plott egenverdiene synkende og kutt der kurven flater ut.</li>
+  <li><strong>Formålet bestemmer:</strong> skal du visualisere, er $d' = 2$ (eller 3) gitt på forhånd, uansett hvor mye varians det gir.</li>
+</ul>
+<p>I sklearn heter dette <code>pca.explained_variance_</code> (egenverdiene) og <code>pca.explained_variance_ratio_</code> (andelene). Du kan også gi <code>PCA(n_components=0.95)</code>, så velger sklearn selv nok komponenter til å nå 95 %.</p>
+
+<div class="calc" data-id="12-antall-komp" data-answer="3" data-tol="0">
+  <p class="q">Et datasett med 5 features gir egenverdiene $4.2,\ 2.1,\ 1.0,\ 0.5,\ 0.2$. Hvor mange komponenter må du beholde for å forklare minst 90 % av variansen?</p>
+  <div class="solution">Total varians: $4.2+2.1+1.0+0.5+0.2 = 8.0$. Kumulativt: $4.2/8 = 52.5\,\%$, $6.3/8 = 78.75\,\%$, $7.3/8 = 91.25\,\%$. Tre komponenter er nok.</div>
+</div>
+
+<div class="quiz" data-id="12-lambda-null">
+  <p class="q">PCA på et datasett med tre features gir egenverdiene $5.1$, $1.9$ og $0$. Hva kan du konkludere?</p>
+  <ul>
+    <li data-correct>Dataene ligger i et plan, så to komponenter representerer all variansen</li>
+    <li>PCA har feilet, fordi en kovariansmatrise ikke kan ha egenverdi 0</li>
+    <li>Den tredje opprinnelige featuren er konstant og kan fjernes</li>
+    <li>PC3 er den viktigste komponenten fordi den har null støy</li>
+  </ul>
+  <div class="explain">Egenverdi 0 betyr null varians langs PC3: alle punkter ligger i planet utspent av PC1 og PC2, akkurat som i det enkle eksempelet der $x_1+x_2 = 3$ for alle punkter. Det betyr <em>ikke</em> nødvendigvis at én opprinnelig feature er konstant. Det kan være en lineær sammenheng mellom flere, for eksempel $x_3 = x_1 + x_2$. Egenverdi 0 er helt lovlig (kovariansmatriser er positivt semidefinitte). En PC med null varians bærer ingen informasjon og er den minst viktige.</div>
+</div>
+
+<div class="reflect" data-id="12-egen-setning">
+  <p class="q">Notatene ber deg skrive ned setningen «PC-ene er egenvektorene til dataenes kovariansmatrise» og forklare den til deg selv. Gjør det med dine egne ord, uten formler. Bruk ordene <em>retning</em>, <em>varians</em> og <em>strekk</em>.</p>
+  <div class="answer">Kovariansmatrisen beskriver hvordan dataene sprer seg i alle retninger: variansen langs en retning $\mathbf{u}$ er $\mathbf{u}^\top S\mathbf{u}$. Egenvektorene er de spesielle retningene som matrisen bare strekker, uten å dreie. Det viser seg at retningen med størst varians, og retningen med størst varians vinkelrett på den, osv., er nøyaktig disse egenvektorene. Strekkfaktoren (egenverdien) er variansen langs retningen. Så PC1 er egenvektoren med størst egenverdi, og egenverdien forteller hvor mye av spredningen den fanger.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="sklearn"><span class="sec">12.6</span>PCA i praksis: sklearn, S-kurven og MNIST</h2>
+
+<h3>Koden fra notatene</h3>
+<p>I stedet for å regne for hånd bruker vi <code>sklearn.decomposition.PCA</code>. Koden under gjør PCA på tabell 9:</p>
+<pre><code><span class="k">from</span> sklearn.decomposition <span class="k">import</span> PCA
+x1 = np.array([1, 2, 3, 4, 5])
+x2 = np.array([1.6, 4.2, 5.7, 8.4, 9.2])
+X = np.vstack((x1, x2)).T          <span class="c"># shape (5, 2): rader = datapunkter</span>
+
+pca = PCA(n_components=2)          <span class="c"># 2 = bare rotasjon, ingen reduksjon</span>
+X_pca = pca.fit_transform(X)
+PC1, PC2 = X_pca[:, 0], X_pca[:, 1]
+
+pca.components_                    <span class="c"># egenvektorene (én per rad)</span>
+pca.explained_variance_            <span class="c"># egenverdiene ≈ [12.09, 0.046]</span>
+pca.explained_variance_ratio_      <span class="c"># ≈ [0.996, 0.004]</span></code></pre>
+<p>Med <code>n_components=2</code> har vi bare rotert koordinatsystemet. Med <code>n_components=1</code> beholder vi bare PC1 og har redusert fra to features til én (figur 12.5).</p>
+
+<div class="callout warn"><span class="label">Vanlig feil: fit på alle data</span>
+<p>Notatene påpeker selv at tabell 9-eksempelet bruker <code>fit_transform</code> på hele datasettet, og at resultatet derfor ikke kunne vært brukt til å evaluere en modell. PCA er en transformasjon som <em>lærer</em> noe fra dataene (gjennomsnitt og egenvektorer). Den skal behandles nøyaktig som en scaler: <strong><code>fit</code> på treningsdata, <code>transform</code> på test</strong>. Ellers lekker informasjon fra testdataene inn i modellen.</p>
+</div>
+
+<pre><code>X_train, X_test, y_train, y_test = train_test_split(S_points, S_color)
+pca = PCA(n_components=2)
+pca.fit(X_train)                   <span class="c"># lær gjennomsnitt og egenvektorer KUN fra trening</span>
+S_pca = pca.transform(X_test)      <span class="c"># bruk de samme aksene på testdata</span></code></pre>
+
+<div class="callout why"><span class="label">Hvorfor kan PCA brukes på nye data?</span>
+<p>Etter <code>fit</code> har PCA lagret $\bar{\mathbf{x}}$ og egenvektorene. Et nytt punkt projiseres med samme formel, $\mathbf{z} = E^\top(\mathbf{x}-\bar{\mathbf{x}})$. PCA lager altså nye <strong>basisvektorer</strong>, en matematisk funksjon vi kan ta med oss. Det er den store forskjellen fra t-SNE (12.8).</p>
+</div>
+
+<h3>Skaler før PCA</h3>
+<p>PCA maksimerer varians, og varians avhenger av enhet. Måles én feature i millimeter og en annen i meter, får millimeter-featuren en million ganger større varians og stjeler hele PC1, uten at den er viktigere. Når featurene har ulike enheter eller størrelsesordener, standardiserer vi derfor først, slik at hver feature har middelverdi 0 og varians 1:</p>
+<pre><code><span class="k">from</span> sklearn.preprocessing <span class="k">import</span> StandardScaler
+scaler = StandardScaler().fit(X_train)
+pca = PCA(n_components=10).fit(scaler.transform(X_train))
+Z_test = pca.transform(scaler.transform(X_test))   <span class="c"># samme scaler og PCA på test</span></code></pre>
+<p>PCA sentrerer selv (trekker fra gjennomsnittet), men den skalerer ikke. Etter standardisering er kovariansmatrisen det samme som korrelasjonsmatrisen.</p>
+
+<h3>S-kurven: ikke-lineære data som likevel går fint</h3>
+<div class="two-col">
+<figure class="card">
+  <img src="../assets/fig/notater/s55_1.png" alt="S-formet punktsky i tre dimensjoner" width="360">
+  <figcaption><b>Figur 12.7</b> S-formede data i 3D (<code>make_s_curve</code>). Fargen viser posisjon langs S-en.</figcaption>
+</figure>
+<figure class="card">
+  <img src="../assets/fig/notater/s55_2.png" alt="PCA av S-kurven til to komponenter" width="360">
+  <figcaption><b>Figur 12.8</b> PCA til 2D (på testdata). S-en sees forfra, og fargene er fortsatt ordnet langs kurven.</figcaption>
+</figure>
+</div>
+<p>Dataene er ikke-lineære (en bøyd flate), men PCA fungerer likevel godt. Grunnen er at variansen kan representeres <strong>lineært</strong>: i dybderetningen ($x_2$) er det lite varians sammenlignet med de to andre retningene, så å kaste den retningen er som å se S-en rett forfra. Notatene formulerer det slik: PCA fungerer på ikke-lineære data så lenge variansen kan representeres langs lineærkombinasjoner av aksene.</p>
+<p>Legg merke til hva PCA <em>ikke</em> gjør: den «bretter ikke ut» S-en til et rett bånd. Den kan bare rotere og kaste akser. Punkter som ligger langt fra hverandre <em>langs</em> S-en, men nær hverandre i rommet (øverste og midterste bue), blir fortsatt liggende nær hverandre.</p>
+
+<h3>MNIST: der PCA til 2D ikke strekker til</h3>
+<p>MNIST består av håndskrevne sifre på $28\times 28$ piksler, altså $28\cdot 28 = 784$ features per bilde. (Notatene skriver «728» to steder. Det er en trykkfeil, riktig er 784, slik notatene selv skriver i tabell 5.)</p>
+<div class="two-col">
+<figure class="card">
+  <img src="../assets/fig/notater/s55_3.png" alt="Eksempler på håndskrevne sifre fra MNIST" width="360">
+  <figcaption><b>Figur 12.9</b> Eksempler fra MNIST.</figcaption>
+</figure>
+<figure class="card">
+  <img src="../assets/fig/notater/s55_4.png" alt="PCA av MNIST til to komponenter: klassene overlapper kraftig" width="360">
+  <figcaption><b>Figur 12.10</b> PCA av MNIST til 2D. Bare 0 (til høyre) og 1 (til venstre) skiller seg noenlunde ut. De andre sifrene ligger oppå hverandre.</figcaption>
+</figure>
+</div>
+
+<p>Notatene spør: <em>Hvorfor</em> fungerer dette dårlig? Det er tre grunner, og de henger sammen:</p>
+<ol>
+  <li><strong>Variansen er spredt på mange retninger.</strong> PC1 og PC2 forklarer til sammen bare rundt 17 % av variansen i MNIST. Man trenger omtrent 150 komponenter for å nå 95 %. To akser kaster altså mesteparten av informasjonen.</li>
+  <li><strong>Strukturen er ikke-lineær.</strong> Samme siffer skrevet med litt annen helning, tykkelse eller posisjon gir helt andre pikselverdier. Hver klasse ligger på en bøyd flate (en mangfoldighet) i 784-dimensjonalt rom, og en lineær projeksjon kan ikke rette den ut.</li>
+  <li><strong>PCA leter etter varians, ikke etter klasser.</strong> Retningene med mest varians, for eksempel «mye blekk vs lite blekk» (som skiller 0 fra 1), er ikke nødvendigvis de som skiller alle ti sifrene. PCA er uveiledet og vet ikke at klassene finnes.</li>
+</ol>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>For å <em>visualisere</em> komplekse data som MNIST trenger vi en ikke-lineær metode som bevarer lokale nabolag i stedet for global varians. Det er nettopp t-SNE (figur 12.12). PCA er likevel nyttig på MNIST, men da med mange komponenter (for eksempel 50) som et preprosesseringssteg, ikke med 2.</p>
+</div>
+
+<h3>Fordeler og ulemper med PCA</h3>
+<table>
+  <tr><th>Fordeler</th><th>Ulemper</th></tr>
+  <tr><td>Komponentene er <strong>ukorrelerte</strong>, og vi beholder <strong>mest mulig varians</strong> for et gitt antall dimensjoner</td><td>Bare lineære projeksjoner: kan ikke rette ut bøyde strukturer</td></tr>
+  <tr><td>Rask, deterministisk og har en lukket løsning (egenverdiproblem)</td><td>Følsom for skala: må standardisere når enhetene er ulike</td></tr>
+  <tr><td>Kan brukes på nye data (<code>transform</code>) og gi nye features</td><td>Følsom for outliers: ett ekstremt punkt kan dra PC1 mot seg</td></tr>
+  <tr><td>Kan rekonstruere data (<code>inverse_transform</code>), som gir et mål på hvor «typisk» et punkt er</td><td>Komponentene kan være vanskelige å tolke (blanding av alle features)</td></tr>
+</table>
+
+<div class="callout exam"><span class="label">Eksamen</span>
+<p><strong>2024 oppg. 24:</strong> «Hva er fordelen ved å bruke PCA?» Riktig svar: hovedkomponentene er <em>ukorrelerte</em>, og ved å bruke dem reduserer vi dimensjonene samtidig som mest mulig varians beholdes. Feller: «reduserer datasettets varians» (PCA <em>bevarer</em> mest mulig varians), «bevarer informasjon om alle originale features» (vi kaster de minste komponentene) og «er alltid korrelerte» (motsatt).</p>
+</div>
+
+<div class="quiz" data-id="12-fit-test">
+  <p class="q">Du har trent en klassifikator på PCA-transformerte treningsdata. Hvilken kode bruker du på testdataene?</p>
+  <ul>
+    <li><code>Z_test = PCA(n_components=10).fit_transform(X_test)</code></li>
+    <li><code>Z_test = pca.fit(X_test).transform(X_test)</code>, slik at aksene passer testdataene best</li>
+    <li><code>Z_test = X_test[:, :10]</code>, fordi PCA bare beholder de 10 første featurene</li>
+    <li data-correct><code>Z_test = pca.transform(X_test)</code>, der <code>pca</code> ble tilpasset på treningsdataene</li>
+  </ul>
+  <div class="explain">Testdata skal transformeres med de samme aksene som modellen ble trent med. Ny <code>fit</code> på testdata gir andre egenvektorer (og kanskje andre fortegn), slik at «komponent 1» betyr noe annet enn under trening, og det lekker informasjon fra test. Å ta de 10 første kolonnene er feature selection, ikke PCA: komponentene er kombinasjoner av <em>alle</em> featurene.</div>
+</div>
+
+<div class="quiz" data-id="12-skalering">
+  <p class="q">Et datasett har featurene «årsinntekt i kroner» (varians ≈ $10^{10}$) og «alder i år» (varians ≈ 200). Du kjører PCA uten å skalere. Hva skjer mest sannsynlig?</p>
+  <ul>
+    <li>PCA skalerer automatisk, så det spiller ingen rolle</li>
+    <li>PC1 blir dominert av alder, fordi den har minst varians og derfor er mest stabil</li>
+    <li>PCA gir en feilmelding fordi featurene har ulike enheter</li>
+    <li data-correct>PC1 blir nesten ren inntekt, bare fordi enheten gir store tall</li>
+  </ul>
+  <div class="explain">PCA maksimerer varians og vet ingenting om enheter. Inntekt i kroner har enorm varians og blir derfor PC1, selv om den ikke er viktigere. PCA sentrerer, men skalerer ikke, og gir ingen feilmelding. Løsningen er <code>StandardScaler</code> før PCA (fit på trening).</div>
+</div>
+
+<div class="quiz" data-multi data-id="12-mnist">
+  <p class="q">Hvorfor gir PCA fra 784 til 2 dimensjoner et dårlig bilde av MNIST? Velg alle gode forklaringer.</p>
+  <ul>
+    <li data-correct>De to første komponentene forklarer bare en liten del av den totale variansen</li>
+    <li data-correct>Sifferklassene ligger på bøyde, ikke-lineære strukturer som en lineær projeksjon ikke kan rette ut</li>
+    <li>PCA kan ikke brukes på bildedata, bare på tabelldata</li>
+    <li data-correct>PCA leter etter retninger med mye varians, ikke retninger som skiller klassene</li>
+    <li>PCA ble tilpasset på treningsdata og brukt på testdata, og det ødelegger resultatet</li>
+  </ul>
+  <div class="explain">Variansen er spredt på svært mange retninger, strukturen er ikke-lineær, og PCA er uveiledet, så den optimaliserer ikke for klasseseparasjon. Bilder er bare vektorer med 784 tall, og PCA fungerer fint på dem teknisk sett (prosjekt 3 brukte PCA på piksler). Fit på trening og transform på test er riktig praksis og er ikke årsaken. (Notatkoden kaller riktignok <code>fit_transform</code> på testdata etter <code>fit</code> på trening. Det betyr at PCA tilpasses på nytt på testdata, som er en liten slurvefeil, men det forklarer ikke overlappet.)</div>
+</div>
+
+<div class="quiz" data-id="12-pca-fordel">
+  <p class="q">Hva er den viktigste fordelen med å representere data med de første hovedkomponentene?</p>
+  <ul>
+    <li>Komponentene reduserer variansen i datasettet slik at modellen blir mer stabil</li>
+    <li>Komponentene bevarer all informasjon fra alle de opprinnelige featurene</li>
+    <li data-correct>Komponentene er ukorrelerte, og de første beholder mest mulig av variansen for et gitt antall dimensjoner</li>
+    <li>Komponentene er korrelerte med hverandre, slik at de forsterker de viktigste mønstrene</li>
+  </ul>
+  <div class="explain">Dette er eksamen 2024 oppg. 24 i ny drakt. PCA <em>bevarer</em> mest mulig varians (den reduserer antall dimensjoner, ikke variansen). Når vi kaster komponenter, mister vi den variansen de bar, så «all informasjon» stemmer bare hvis vi beholder alle. Ortogonale komponenter gir ukorrelerte projeksjoner, ikke korrelerte.</div>
+</div>
+
+<div class="quiz" data-id="12-shuffle">
+  <p class="q">I prosjekt 3 var pikslene i hvert bilde stokket i en fast, ukjent rekkefølge (samme permutasjon av kolonnene for alle rader). Hva skjer med egenverdiene fra PCA sammenlignet med PCA på de ustokkede bildene?</p>
+  <ul>
+    <li data-correct>De blir nøyaktig de samme, fordi en omstokking av features bare bytter om på koordinatene og ikke endrer avstander eller varians</li>
+    <li>De blir mindre, fordi stokkingen ødelegger den romlige strukturen og dermed variansen</li>
+    <li>De blir større, fordi stokkingen tilfører støy</li>
+    <li>PCA kan ikke kjøres før kolonnene er sortert riktig</li>
+  </ul>
+  <div class="explain">En permutasjon av kolonnene er en rotasjon/speiling av koordinatsystemet. Avstander mellom punkter og total varians er uendret, og kovariansmatrisen får bare radene og kolonnene byttet om, så egenverdiene blir de samme. Det som går tapt, er muligheten til å <em>se</em> bildene og bygge bildespesifikke features. PCA selv bryr seg ikke om rekkefølgen på kolonnene.</div>
+</div>
+
+<div class="reflect" data-id="12-mnist-hvorfor">
+  <p class="q">Forklar med egne ord, som om du skulle svart på notatenes «Oppgave: Hvorfor?» under figur 12.10: hvorfor ligger 0 og 1 litt adskilt i PCA-plottet av MNIST, mens de andre sifrene overlapper?</p>
+  <div class="answer">PC1 er retningen med mest varians i pikselverdiene. En stor del av den variansen handler om hvor mye «blekk» et bilde har, og hvor det ligger: en 0 har mye blekk i en ring, en 1 har lite blekk i en smal strek midt i bildet. Denne forskjellen er stor og nesten lineær i pikselrommet, så den fanges av de første komponentene. De andre sifrene skiller seg fra hverandre på mer subtile og ikke-lineære måter (form på buer, hvor strekene møtes), og den variasjonen er spredt på mange komponenter. Med bare to komponenter kastes den.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="sne"><span class="sec">12.7</span>Stochastic Neighbor Embedding og KL-divergens</h2>
+
+<p>PCA spør: «Hvilke retninger har mest varians?» SNE spør noe helt annet: <strong>«Hvem er naboen til hvem?»</strong> Målet er å plassere punktene i 2D slik at de som var naboer i det høydimensjonale rommet, fortsatt er naboer. Globale avstander og varians bryr den seg mindre om.</p>
+
+<h3>Steg 0: nabosannsynligheter i det høydimensjonale rommet</h3>
+<p>For hvert punkt $\mathbf{x}_i$ legger vi en gaussisk fordeling sentrert i $\mathbf{x}_i$. Den betingede sannsynligheten for at $\mathbf{x}_i$ ville valgt $\mathbf{x}_j$ som nabo er</p>
+<div class="eq">
+  <p class="eq-note">Nabosannsynlighet i det opprinnelige rommet (SNE)</p>
+  $$p_{j|i} = \frac{\exp\!\big(-\lVert\mathbf{x}_i-\mathbf{x}_j\rVert^2 / 2\sigma_i^2\big)}{\sum_{k\neq i}\exp\!\big(-\lVert\mathbf{x}_i-\mathbf{x}_k\rVert^2 / 2\sigma_i^2\big)}, \qquad p_{i|i} = 0$$
+</div>
+<ul>
+  <li>Nære punkter får høy $p_{j|i}$, fjerne punkter får nesten 0.</li>
+  <li>Nevneren normaliserer, så $\sum_j p_{j|i} = 1$ for hver $i$. Hvert punkt har sin egen fordeling $P_i$ over de andre punktene.</li>
+  <li>Gaussen har forventningsverdi $\mathbf{x}_i$, så den eneste parameteren igjen er variansen $\sigma_i^2$. Den velges for hvert punkt via <em>perplexity</em> (12.8).</li>
+</ul>
+<p class="small muted">Notatene skriver «sannsynligheten $p_{j|i}$ for at $x_j$ ville valgt $x_i$ som nabo». Vanlig formulering (van der Maaten og Hinton) er at $x_i$ velger $x_j$. Formelen er den samme, og det er den som teller.</p>
+
+<h3>Steg 1 og 2: plasser tilfeldig, flytt med gradient descent</h3>
+<ol>
+  <li>Alle punktene får en <strong>tilfeldig plassering</strong> $\mathbf{y}_i$ i det lavdimensjonale rommet (typisk 2D).</li>
+  <li>Vi regner ut tilsvarende nabosannsynligheter $q_{j|i}$ mellom de nye punktene, og <strong>flytter punktene stegvis med gradient descent</strong> slik at $Q$ blir mest mulig lik $P$. Tapsfunksjonen er KL-divergensen.</li>
+</ol>
+
+<figure class="card">
+<svg class="diagram" viewBox="0 0 680 250" role="img" aria-label="Flytdiagram for SNE">
+  <g font-size="13.5">
+    <rect x="10" y="20" width="200" height="96" rx="10" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <text x="110" y="44" text-anchor="middle" font-weight="700">Høy dimensjon</text>
+    <text x="110" y="66" text-anchor="middle" style="fill:var(--text-soft)">gauss rundt hvert xᵢ</text>
+    <text x="110" y="88" text-anchor="middle" style="fill:var(--c1)" font-weight="600">P: p(j|i)</text>
+    <text x="110" y="106" text-anchor="middle" style="fill:var(--muted)" font-size="12">regnes ut én gang</text>
+
+    <rect x="470" y="20" width="200" height="96" rx="10" style="fill:var(--surface-2);stroke:var(--border)"/>
+    <text x="570" y="44" text-anchor="middle" font-weight="700">Lav dimensjon (2D)</text>
+    <text x="570" y="66" text-anchor="middle" style="fill:var(--text-soft)">start: tilfeldig yᵢ</text>
+    <text x="570" y="88" text-anchor="middle" style="fill:var(--c2)" font-weight="600">Q: q(j|i)</text>
+    <text x="570" y="106" text-anchor="middle" style="fill:var(--muted)" font-size="12">endres når yᵢ flyttes</text>
+
+    <rect x="240" y="150" width="200" height="80" rx="10" style="fill:var(--accent-soft);stroke:var(--accent)"/>
+    <text x="340" y="176" text-anchor="middle" font-weight="700">Tap: KL(P ‖ Q)</text>
+    <text x="340" y="198" text-anchor="middle" style="fill:var(--text-soft)">gradient descent</text>
+    <text x="340" y="216" text-anchor="middle" style="fill:var(--text-soft)">på posisjonene yᵢ</text>
+
+    <g style="stroke:currentColor;fill:none" stroke-width="1.8">
+      <path d="M110 116 C110 170 180 190 236 190"/>
+      <path d="M570 116 C570 170 500 190 444 190"/>
+    </g>
+    <g style="fill:currentColor">
+      <polygon points="236,184 248,190 236,196"/>
+      <polygon points="444,184 432,190 444,196"/>
+    </g>
+    <g style="stroke:var(--c3);fill:none" stroke-width="2" stroke-dasharray="6 4">
+      <path d="M440 160 C500 140 520 130 540 122"/>
+    </g>
+    <polygon points="536,116 548,120 540,128" style="fill:var(--c3)"/>
+    <text x="500" y="160" style="fill:var(--c3)" font-weight="600">flytt yᵢ</text>
+  </g>
+</svg>
+<figcaption><b>Figur 12.11</b> SNE i ett bilde. $P$ beregnes fra de opprinnelige dataene og ligger fast. Posisjonene $\mathbf{y}_i$ i 2D er det som optimaliseres: hvert steg flytter punktene litt, slik at $Q$ kommer nærmere $P$. Overføringen fra høy- til lavdimensjonal plassering kalles en <strong>embedding</strong>.</figcaption>
+</figure>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>SNE er en bordplassering i et selskap.</strong> Du vet hvem som er venner (nabosannsynlighetene $P$). Gjestene settes først tilfeldig, og så flytter du dem litt etter litt til vennene sitter nær hverandre ($Q \approx P$). Du bryr deg mye om at venner ikke havner langt fra hverandre, og mindre om nøyaktig hvor langt det er mellom to fremmede.</p>
+</div>
+
+<h3>KL-divergens</h3>
+<div class="eq">
+  <p class="eq-note">Kullback–Leibler-divergens (relativ entropi), likning 116</p>
+  $$D_{KL}(P\,\|\,Q) = \sum_{x} P(x)\log\frac{P(x)}{Q(x)}$$
+</div>
+<p>KL-divergensen måler hvor forskjellig en fordeling $Q$ er fra en referansefordeling $P$. Den er forventningsverdien av den logaritmiske forskjellen $\log P(x) - \log Q(x)$, der forventningen tas over $x$ trukket fra $P$. Egenskaper du må kunne:</p>
+<ul>
+  <li><strong>$D_{KL}(P\|Q) \ge 0$</strong>, og den er 0 hvis og bare hvis $P = Q$.</li>
+  <li><strong>Den er ikke symmetrisk:</strong> $D_{KL}(P\|Q) \ne D_{KL}(Q\|P)$ generelt. Den er derfor ikke en avstand i matematisk forstand.</li>
+  <li><strong>Intuitiv tolkning:</strong> hvor overraskende resultater du får hvis du bruker $Q$ når dataene egentlig kommer fra $P$.</li>
+  <li><strong>Kobling til kryss-entropi</strong> (<a href="04-sannsynlighet.html">kapittel 4</a>): $D_{KL}(P\|Q) = H(P,Q) - H(P)$. Kryss-entropien er altså entropien til $P$ pluss den ekstra kostnaden ved å bruke feil fordeling.</li>
+  <li>Grunntallet i logaritmen bestemmer enheten: $\log_2$ gir bits, $\ln$ gir nats. Bruk det oppgaven sier.</li>
+</ul>
+
+<p>Notatene sier: «Velg to ulike sannsynlighetsfordelinger $P$ og $Q$ og beregn KL-divergensen mellom de to.» Her er et eksempel du kan regne med enkel kalkulator.</p>
+
+<div class="calc" data-id="12-kl-pq" data-answer="0.278" data-tol="0.005">
+  <p class="q">$P = (0.8,\ 0.2)$ og $Q = (0.5,\ 0.5)$. Regn ut $D_{KL}(P\|Q)$ med $\log_2$ (bits). Tre desimaler.</p>
+  <div class="solution">$D_{KL}(P\|Q) = 0.8\log_2\frac{0.8}{0.5} + 0.2\log_2\frac{0.2}{0.5} = 0.8\log_2 1.6 + 0.2\log_2 0.4 = 0.8\cdot 0.678 + 0.2\cdot(-1.322) = 0.542 - 0.264 \approx 0.278$ bits. (Kalkulatortips: $\log_2 x = \ln x / \ln 2$.)</div>
+</div>
+
+<div class="calc" data-id="12-kl-qp" data-answer="0.322" data-tol="0.005">
+  <p class="q">Regn nå ut den andre veien: $D_{KL}(Q\|P)$ med de samme fordelingene og $\log_2$.</p>
+  <div class="solution">$D_{KL}(Q\|P) = 0.5\log_2\frac{0.5}{0.8} + 0.5\log_2\frac{0.5}{0.2} = 0.5\cdot(-0.678) + 0.5\cdot 1.322 \approx 0.322$ bits. Ikke lik $0.278$: KL er ikke symmetrisk. Bonus: $H(P) = 0.722$ og $H(P,Q) = 1.000$, og $1.000 - 0.722 = 0.278 = D_{KL}(P\|Q)$. ✓</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: KL-divergens mellom to diskrete fordelinger</h4>
+  <canvas id="klCanvas" width="640" height="300"></canvas>
+  <div class="kl-sliders">
+    <div>
+      <h5 style="color:var(--c1)">P (referanse, «sannheten»)</h5>
+      <label>A <input type="range" id="klP0" min="0" max="100" value="80"></label>
+      <label>B <input type="range" id="klP1" min="0" max="100" value="20"></label>
+      <label>C <input type="range" id="klP2" min="0" max="100" value="0"></label>
+      <label>D <input type="range" id="klP3" min="0" max="100" value="0"></label>
+    </div>
+    <div>
+      <h5 style="color:var(--c2)">Q (modell, «det vi tror»)</h5>
+      <label>A <input type="range" id="klQ0" min="0" max="100" value="50"></label>
+      <label>B <input type="range" id="klQ1" min="0" max="100" value="50"></label>
+      <label>C <input type="range" id="klQ2" min="0" max="100" value="0"></label>
+      <label>D <input type="range" id="klQ3" min="0" max="100" value="0"></label>
+    </div>
+  </div>
+  <div class="controls">
+    <label><input type="radio" name="klBase" value="2" checked> log₂ (bits)</label>
+    <label><input type="radio" name="klBase" value="e"> ln (nats)</label>
+  </div>
+  <div class="presets">
+    <button class="btn ghost" type="button" data-kl="80,20,0,0|50,50,0,0">Eksempelet over</button>
+    <button class="btn ghost" type="button" data-kl="25,25,25,25|25,25,25,25">P = Q</button>
+    <button class="btn ghost" type="button" data-kl="40,40,20,0|50,50,0,0">Q mangler C</button>
+    <button class="btn ghost" type="button" data-kl="50,50,0,0|40,40,20,0">Q har en ekstra kategori</button>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="klPQ">D(P‖Q): –</span>
+    <span class="readout" id="klQP">D(Q‖P): –</span>
+    <span class="readout" id="klH">H(P): –</span>
+    <span class="readout" id="klCE">H(P,Q): –</span>
+  </div>
+  <p class="note-what"><b>Legg merke til:</b> Sliderne er vekter som normaliseres til sannsynligheter. (1) Med P = Q er begge divergensene 0. (2) De to retningene gir nesten alltid ulike tall. (3) Prøv «Q mangler C»: P gir C sannsynlighet, men Q sier at C er umulig. Da blir $D(P\|Q) = \infty$: uendelig overraskelse. Den motsatte situasjonen («Q har en ekstra kategori») koster derimot lite. (4) $H(P,Q) = H(P) + D(P\|Q)$ hele tiden.</p>
+</div>
+
+<div class="callout why"><span class="label">Hvorfor asymmetrien er viktig i SNE</span>
+<p>I tapet $\sum_j p_{j|i}\log\frac{p_{j|i}}{q_{j|i}}$ veier hvert ledd med $p_{j|i}$. To ekte naboer (stor $p$) som havner langt fra hverandre i 2D (liten $q$) gir et stort ledd: det straffes hardt. To punkter som var langt fra hverandre (liten $p$), men havner nær hverandre (stor $q$), gir et lite ledd fordi det ganges med en liten $p$. Konsekvensen er at SNE først og fremst <strong>bevarer lokal struktur</strong>: naboer holdes sammen, mens de store avstandene ikke blir like nøyaktige.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span>
+<p><strong>2025 del 7.3:</strong> hensikten med å minimere KL-divergensen mellom $P$ og $Q$ er å <em>bevare nabolagsrelasjoner ved å sørge for at like punkter forblir nær hverandre</em> i det lavdimensjonale rommet. <strong>2024 oppg. 28:</strong> KL-divergens brukes til å <em>måle forskjellen mellom sannsynlighetsfordelingen i det høydimensjonale rommet og den i det lavdimensjonale</em>. Feller: «korrelasjon», «øke ytelsen sammenlignet med PCA», «bestemmer hvor mange naboer som tas med» (det gjør perplexity).</p>
+</div>
+
+<div class="quiz" data-multi data-id="12-kl-egenskaper">
+  <p class="q">Hvilke utsagn om KL-divergensen $D_{KL}(P\|Q)$ er riktige?</p>
+  <ul>
+    <li data-correct>Den er alltid større enn eller lik 0</li>
+    <li>Den er symmetrisk, så $D_{KL}(P\|Q) = D_{KL}(Q\|P)$</li>
+    <li data-correct>Den er 0 når $P$ og $Q$ er like</li>
+    <li data-correct>Den kan tolkes som overraskelsen ved å bruke $Q$ når dataene egentlig kommer fra $P$</li>
+    <li>Den kan bli negativ når $Q$ er en bedre modell enn $P$</li>
+  </ul>
+  <div class="explain">KL er ikke-negativ og null bare for like fordelinger. Den er ikke symmetrisk (se regneoppgaven: 0.278 vs 0.322). «Negativ fordi Q er bedre» gir ikke mening: $P$ er referansen, og ingen fordeling kan være «bedre enn sannheten» etter dette målet. Det er nettopp derfor KL kan brukes som tap: minimum er 0, og det nås når $Q = P$.</div>
+</div>
+
+<div class="quiz" data-id="12-kl-hensikt">
+  <p class="q">I SNE og t-SNE minimeres KL-divergensen mellom $P$ (høy dimensjon) og $Q$ (lav dimensjon). Hva oppnår vi med det?</p>
+  <ul>
+    <li>At punkter som var langt fra hverandre i høy dimensjon, havner nær hverandre i lav dimensjon</li>
+    <li data-correct>At punkter som var naboer i høy dimensjon, fortsatt er naboer i lav dimensjon</li>
+    <li>At klyngene blir lineært separerbare i den nye representasjonen</li>
+    <li>At variansen langs hver akse i den nye representasjonen blir maksimal</li>
+  </ul>
+  <div class="explain">Lav KL betyr at nabosannsynlighetene i 2D ligner på dem i det opprinnelige rommet, altså at nabolagene bevares (eksamen 2025 del 7.3). Det første alternativet er det motsatte. Lineær separerbarhet er ingen garanti. Maksimal varians er PCA sitt mål, ikke SNE sitt.</div>
+</div>
+
+<div class="quiz" data-id="12-sne-steg">
+  <p class="q">Hva er det som faktisk optimaliseres med gradient descent i SNE?</p>
+  <ul>
+    <li>Variansen $\sigma_i$ til gaussene i det høydimensjonale rommet</li>
+    <li>Vektene i en avbildning $\mathbf{y} = W\mathbf{x}$ fra høy til lav dimensjon</li>
+    <li data-correct>Posisjonene $\mathbf{y}_i$ til hvert enkelt punkt i det lavdimensjonale rommet</li>
+    <li>Egenvektorene til kovariansmatrisen</li>
+  </ul>
+  <div class="explain">SNE har ingen avbildning $W$. Parametrene er selve koordinatene $\mathbf{y}_i$, én posisjon per datapunkt. $\sigma_i$ settes på forhånd fra perplexity (ved et binærsøk, ikke ved gradient descent), og $P$ ligger deretter fast. Egenvektorer hører til PCA. At det er posisjonene som optimaliseres, er nøyaktig grunnen til at t-SNE ikke kan brukes på nye data.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="tsne"><span class="sec">12.8</span>t-SNE: tunge haler, perplexity og hva plottet ikke sier</h2>
+
+<p>I 2008 forbedret Laurens van der Maaten og Geoffrey Hinton SNE med en liten endring: i stedet for gauss i både høy og lav dimensjon bruker <strong>t-SNE</strong> gauss i den høye dimensjonen og en <strong>Student t-fordeling</strong> (med én frihetsgrad) i den lave:</p>
+<div class="eq">
+  <p class="eq-note">Likhet i det lavdimensjonale rommet i t-SNE</p>
+  $$q_{ij} = \frac{\big(1+\lVert\mathbf{y}_i-\mathbf{y}_j\rVert^2\big)^{-1}}{\sum_{k\neq l}\big(1+\lVert\mathbf{y}_k-\mathbf{y}_l\rVert^2\big)^{-1}}$$
+</div>
+
+<h3>Hvorfor t-fordeling? Crowding-problemet</h3>
+<p>I et høydimensjonalt rom kan et punkt ha mange naboer som alle ligger på omtrent samme, moderate avstand. I 2D er det ikke plass til dem alle: det finnes rett og slett mindre «areal» på moderat avstand rundt et punkt. Med gauss i begge rom blir punktene derfor presset sammen midt i plottet, og klyngene flyter over i hverandre. Dette kalles <strong>crowding</strong>.</p>
+<p>t-fordelingen har <strong>tunge haler</strong>: den faller mye saktere enn gaussen når avstanden øker. For å få den samme lille likheten $q$ som en moderat fjern nabo hadde i $P$, må punktet da plasseres <em>lenger unna</em> i 2D. Moderat ulike punkter skyves ut, mens ekte naboer fortsatt holdes tett. Resultatet er tydelige, adskilte klynger.</p>
+<p class="small muted">Notatene beskriver t-fordelingen som at den «faller litt raskere og har en lengre hale». Det presise er: normalisert er t-fordelingen lavere og flatere på toppen, og den faller mye <em>saktere</em> ute i halene. Det er halene som er poenget.</p>
+
+<div class="widget">
+  <h4>Utforsk: gauss mot t-fordeling (tunge haler)</h4>
+  <canvas id="tCanvas" width="640" height="320"></canvas>
+  <div class="controls">
+    <label>Likhet k <input type="range" id="tK" min="-2" max="-0.1" step="0.01" value="-1"><output id="tKO">0.10</output></label>
+    <label>Frihetsgrader ν <input type="range" id="tNu" min="1" max="30" step="1" value="1"><output id="tNuO">1</output></label>
+    <label><input type="checkbox" id="tLog"> Log-skala på y</label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="tDg">Avstand, gauss: –</span>
+    <span class="readout" id="tDt">Avstand, t: –</span>
+    <span class="readout" id="tRatio">Forhold: –</span>
+  </div>
+  <p class="note-what"><b>Legg merke til:</b> Kurvene viser likhet som funksjon av avstand (begge har topp 1). Den vannrette linjen er en gitt likhet $k$. For $k = 0.1$ må punktet ligge på avstand 2.1 med gauss, men 3.0 med t ($\nu=1$). For $k = 0.01$ er det 3.0 mot 9.9. Jo mindre likhet, jo lenger ut skyver t-fordelingen punktet: klynger glir fra hverandre. Øk $\nu$ og se at t-fordelingen nærmer seg gaussen (da forsvinner effekten). t-SNE bruker $\nu = 1$.</p>
+</div>
+
+<h3>Perplexity: hvor mange naboer bryr hvert punkt seg om?</h3>
+<p>Hver gauss i høy dimensjon har sin egen bredde $\sigma_i$. Den velger vi ikke direkte. I stedet oppgir vi <strong>perplexity</strong>, og algoritmen tilpasser $\sigma_i$ for hvert punkt slik at entropien til $P_i$ matcher:</p>
+<div class="eq">
+  <p class="eq-note">Perplexity for punkt $i$ ($H$ i bits)</p>
+  $$\operatorname{Perp}(P_i) = 2^{H(P_i)}, \qquad H(P_i) = -\sum_j p_{j|i}\log_2 p_{j|i}$$
+</div>
+<ul>
+  <li>Intuitivt: perplexity er det <strong>effektive antallet naboer</strong> hvert punkts gausskurve bryr seg om. Er sannsynligheten fordelt likt på 5 naboer, er $H = \log_2 5$ og perplexity nøyaktig 5.</li>
+  <li>I tette områder blir $\sigma_i$ liten, i spredte områder stor. Slik får hvert punkt omtrent like mange effektive naboer.</li>
+  <li>Typiske verdier er 5–50. Lav perplexity gir mange små, fragmenterte klynger. Høy perplexity gir mer vekt på global struktur. Notatene bruker <code>perplexity=3</code>.</li>
+</ul>
+
+<div class="widget">
+  <h4>Utforsk: nabosannsynligheter og perplexity</h4>
+  <canvas id="sneCanvas" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>σ <input type="range" id="sneSig" min="-2.3" max="1.6" step="0.01" value="0"><output id="sneSigO">1.00</output></label>
+    <label><input type="checkbox" id="sneLock"> Lås perplexity til</label>
+    <label><input type="range" id="snePerp" min="1.5" max="7" step="0.1" value="3"><output id="snePerpO">3.0</output></label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="sneI">Valgt punkt i: –</span>
+    <span class="readout" id="sneH">H(Pᵢ): –</span>
+    <span class="readout" id="sneP">Perplexity: –</span>
+  </div>
+  <p class="note-what"><b>Klikk på et punkt</b> for å velge $\mathbf{x}_i$. Stolpene er $p_{j|i}$ for de andre punktene, og den stiplede kurven er gaussen rundt $\mathbf{x}_i$. <b>Legg merke til:</b> (1) Liten σ gir nesten all sannsynlighet til nærmeste nabo (perplexity nær 1). Stor σ sprer den på alle (perplexity mot 8). (2) Kryss av for «Lås perplexity» og klikk deg mellom punktene: σ tilpasses automatisk, og blir liten i den tette klyngen til venstre og stor for det isolerte punktet. Det er nøyaktig hva t-SNE gjør.</p>
+</div>
+
+<h3>t-SNE i sklearn, og hvorfor den ikke kan gjenbrukes</h3>
+<pre><code><span class="k">from</span> sklearn.manifold <span class="k">import</span> TSNE
+tsne = TSNE(n_components=2, learning_rate=<span class="s">'auto'</span>, init=<span class="s">'random'</span>, perplexity=3)
+X_embedded = tsne.fit_transform(X)   <span class="c"># tilpass og bruk på SAMME data</span></code></pre>
+
+<p>Notatene spør: «Er det noe rart her?» Ja: modellen tilpasses og brukes på de samme dataene. Det bryter med god praksis, men vi har ikke noe valg. <strong>t-SNE er ikke-parametrisk</strong>. Den lærer ingen funksjon fra høy til lav dimensjon. Den optimaliserer posisjonene til akkurat disse punktene direkte, basert på parvise naboforhold. Kommer det et nytt punkt, endres de relative forholdene, og hele embeddingen må regnes ut på nytt. Derfor har sklearn sin <code>TSNE</code> ingen <code>transform</code>-metode, bare <code>fit_transform</code>.</p>
+
+<figure class="card">
+  <img src="../assets/fig/notater/s56_1.png" alt="t-SNE av MNIST: ti fargede klynger som er tydelig adskilt" width="460">
+  <figcaption><b>Figur 12.12</b> t-SNE av MNIST (fra notatene). Sammenlign med PCA i figur 12.10: sifrene danner nå stort sett egne klynger, selv om t-SNE aldri så fargene (labelene).</figcaption>
+</figure>
+
+<div class="callout warn"><span class="label">Feller når du leser et t-SNE-plott</span>
+<ul>
+  <li><strong>Avstander mellom klynger betyr lite.</strong> At klynge A ligger nær klynge B, betyr ikke nødvendigvis at de ligner. t-SNE bevarer lokale nabolag, ikke globale avstander.</li>
+  <li><strong>Klyngestørrelser betyr lite.</strong> Tette klynger blåses opp og spredte krymper, fordi $\sigma_i$ tilpasses lokal tetthet.</li>
+  <li><strong>Aksene har ingen betydning.</strong> I motsetning til PC1 og PC2 er t-SNE-aksene ikke kombinasjoner av features.</li>
+  <li><strong>Resultatet avhenger av perplexity og tilfeldig start.</strong> Kjør med flere verdier og seeds før du konkluderer.</li>
+  <li><strong>t-SNE er ikke en clustering-algoritme.</strong> Den gir et bilde der klynger kan sees. Klyngene må fortsatt finnes med for eksempel k-means eller DBSCAN.</li>
+</ul>
+</div>
+
+<div class="callout exam"><span class="label">Eksamen</span>
+<p><strong>2025 del 7.2:</strong> t-SNE-embeddingen kan ikke brukes direkte på nye data <em>fordi t-SNE optimaliserer de lavdimensjonale posisjonene til de opprinnelige datapunktene direkte i stedet for å lære en transformasjon</em>. Distraktorer: «lærer en global lineær mapping» (det gjør PCA), «projeksjonsmatrisen er for stor til å lagres» (det finnes ingen matrise), «bevarer globale avstander» (den bevarer lokale). <strong>2024 oppg. 26:</strong> vanlig bruk av t-SNE er å <em>redusere dimensjonene for visualisering</em>, ikke clustering eller klassifisering.</p>
+</div>
+
+<div class="quiz" data-id="12-tfordeling">
+  <p class="q">Hvorfor bruker t-SNE en t-fordeling i det lavdimensjonale rommet i stedet for en gauss?</p>
+  <ul>
+    <li>Fordi t-fordelingen er raskere å regne ut enn en gauss</li>
+    <li>Fordi dataene i det høydimensjonale rommet antas å være t-fordelte</li>
+    <li>Fordi t-fordelingen gjør KL-divergensen symmetrisk</li>
+    <li data-correct>Fordi de tunge halene lar moderat ulike punkter plasseres lenger unna, som motvirker at alt klumper seg sammen (crowding)</li>
+  </ul>
+  <div class="explain">Tunge haler løser crowding-problemet: det er for lite plass i 2D til alle moderat nære naboer, og t-fordelingen lar dem skyves ut uten at likheten blir for liten. I høy dimensjon brukes fortsatt gauss, så dataene antas ikke t-fordelte. KL er fortsatt asymmetrisk. Beregningsfart er ikke grunnen.</div>
+</div>
+
+<div class="quiz" data-id="12-perplexity">
+  <p class="q">Hva styrer hyperparameteren <code>perplexity</code> i t-SNE?</p>
+  <ul>
+    <li>Antall dimensjoner i embeddingen</li>
+    <li>Læringsraten i gradient descent</li>
+    <li>Hvor mange klynger t-SNE skal lage</li>
+    <li data-correct>Bredden $\sigma_i$ til gaussene i det høydimensjonale rommet, slik at hvert punkt har omtrent et gitt effektivt antall naboer</li>
+  </ul>
+  <div class="explain">Perplexity $= 2^{H(P_i)}$ er et mål på effektivt antall naboer. Algoritmen tilpasser $\sigma_i$ for hvert punkt til perplexity stemmer. Antall dimensjoner er <code>n_components</code>, læringsraten er <code>learning_rate</code>, og t-SNE lager ingen klynger i det hele tatt.</div>
+</div>
+
+<div class="quiz" data-id="12-tsne-nye-data">
+  <p class="q">Du har laget en fin t-SNE-embedding av 10 000 kundeprofiler. Neste uke kommer 50 nye kunder. Hva er riktig?</p>
+  <ul>
+    <li data-correct>Du må kjøre t-SNE på nytt på alle 10 050 kundene, og plottet kan endre seg</li>
+    <li>Kjør <code>tsne.transform(X_ny)</code> for å plassere de nye kundene i samme plott</li>
+    <li>Gang de nye profilene med t-SNE-projeksjonsmatrisen</li>
+    <li>De nye kundene kan plasseres ved å bruke PCA-komponentene til t-SNE</li>
+  </ul>
+  <div class="explain">t-SNE optimaliserer posisjonene til de opprinnelige punktene direkte og lærer ingen avbildning (eksamen 2025 del 7.2). Det finnes ingen <code>transform</code> og ingen projeksjonsmatrise. Ny kjøring med nye punkter endrer de parvise forholdene, og plottet kan se annerledes ut. Trenger du en gjenbrukbar transformasjon, bruk PCA.</div>
+</div>
+
+<div class="quiz" data-id="12-tsne-bruk">
+  <p class="q">Hva brukes t-SNE typisk til i maskinlæring?</p>
+  <ul>
+    <li>Til å klassifisere datapunkter basert på sannsynlighet for naboskap</li>
+    <li data-correct>Til å redusere dimensjonene for å visualisere høydimensjonale data i 2D eller 3D</li>
+    <li>Til å finne hvilke datapunkter som følger en t-fordeling</li>
+    <li>Til å lage nye features som brukes i en veiledet modell på testdata</li>
+  </ul>
+  <div class="explain">t-SNE er et visualiseringsverktøy (eksamen 2024 oppg. 26). Den klassifiserer ikke. «t» refererer til fordelingen i lavdimensjonalt rom, ikke til dataene. Den kan heller ikke brukes til features på testdata, fordi den ikke kan transformere nye punkter.</div>
+</div>
+
+<div class="quiz" data-multi data-id="12-tsne-tolkning">
+  <p class="q">Et t-SNE-plott viser tre klynger: A er stor og spredt, B og C er små og ligger tett inntil hverandre. Hva kan du trygt konkludere?</p>
+  <ul>
+    <li>B og C ligner mer på hverandre enn på A</li>
+    <li>A inneholder flest datapunkter, fordi den er størst</li>
+    <li data-correct>Punktene innenfor hver klynge har trolig mange nære naboer i det opprinnelige rommet</li>
+    <li>A har størst varians i det opprinnelige rommet</li>
+    <li data-correct>Det er lurt å kjøre på nytt med andre perplexity-verdier og seeds før du konkluderer</li>
+  </ul>
+  <div class="explain">t-SNE bevarer lokale nabolag, så klynger i plottet tyder på at punktene var naboer. Avstander mellom klynger og klyngestørrelser er derimot ikke meningsfulle, og størrelse sier ikke noe om antall punkter eller opprinnelig varians. Siden resultatet avhenger av perplexity og tilfeldig start, bør du sjekke stabiliteten.</div>
+</div>
+
+<div class="reflect" data-id="12-tsne-rart">
+  <p class="q">Se på kodesnutten <code>X_embedded = tsne.fit_transform(X)</code>. Notatene spør: «Er det noe rart her?» og «Klarer du å tenke deg frem til hvorfor en TSNE-modell ikke kan gjenbrukes?» Svar på begge.</p>
+  <div class="answer">Det rare er at modellen tilpasses og brukes på de samme dataene, som vanligvis er dårlig praksis (vi vil fit på trening og transform på test). For t-SNE er det likevel eneste mulighet. t-SNE er ikke-parametrisk: «parametrene» er selve posisjonene til punktene i 2D, funnet med gradient descent ut fra de parvise nabosannsynlighetene. Det finnes ingen formel som tar et nytt $\mathbf{x}$ og gir et $\mathbf{y}$. Et nytt punkt endrer dessuten nabosannsynlighetene for de andre punktene, så hele embeddingen må beregnes på nytt.</div>
+</div>
+
+<details class="more"><summary>Fordypning: symmetriske sannsynligheter i t-SNE <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+<p>Original-SNE bruker de betingede $p_{j|i}$ og $q_{j|i}$. t-SNE gjør dem i tillegg symmetriske, $p_{ij} = \frac{p_{j|i}+p_{i|j}}{2N}$, og bruker én felles fordeling over alle par i stedet for én per punkt. Tapet blir da én KL-divergens, $D_{KL}(P\|Q) = \sum_{i\neq j} p_{ij}\log\frac{p_{ij}}{q_{ij}}$. Det gjør gradienten enklere og sikrer at også outliers (med små $p_{j|i}$) får et bidrag. Hovedideen er den samme: gauss i høy dimensjon, t-fordeling i lav, minimer KL med gradient descent.</p>
+</div></details>
+
+<!-- ===================================================================== -->
+<h2 id="sammenligning"><span class="sec">12.9</span>PCA mot t-SNE, og prosjekt 3</h2>
+
+<table>
+  <tr><th></th><th>PCA</th><th>t-SNE</th></tr>
+  <tr><td><strong>Mål</strong></td><td>Bevare mest mulig <em>varians</em></td><td>Minimere KL-divergensen mellom nabofordelingene $P$ og $Q$, altså bevare <em>nabolag</em></td></tr>
+  <tr><td><strong>Gjenbrukbarhet</strong></td><td>Lager nye basisvektorer: <code>fit</code> én gang, <code>transform</code> på nye data</td><td>Ikke-parametrisk: må tilpasses og brukes samtidig (<code>fit_transform</code>), kan ikke gjenbrukes</td></tr>
+  <tr><td><strong>Feature-generering</strong></td><td>Ja, komponentene kan brukes som nye features</td><td>Nei, ingen funksjon som kan brukes på nye punkter</td></tr>
+  <tr><td><strong>Linearitet</strong></td><td>Lineær: finner struktur langs lineære retninger</td><td>Ingen antakelse om linearitet</td></tr>
+  <tr><td><strong>Beregning</strong></td><td>Rask, lett og deterministisk</td><td>Treg på store datasett (mange parvise sannsynligheter), avhenger av seed</td></tr>
+  <tr><td><strong>Typisk bruk</strong></td><td>Preprosessering, støyfjerning, kompresjon, rask oversikt</td><td>Visualisering av komplekse data i 2D/3D</td></tr>
+</table>
+<p class="small muted">Notatene skriver at «PCA trenger lineært separerbare data». Mer presist: PCA kan bare finne struktur som ligger langs lineære retninger. S-kurven viser at dataene ikke må være lineære, men variansen må kunne beskrives lineært.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>PCA er et kart, t-SNE er et vennenettverk.</strong> Et kart (PCA) har faste akser, avstander du kan måle, og nye byer kan plottes inn. Et tegnet vennenettverk (t-SNE) viser hvem som henger sammen med hvem, men avstanden mellom to vennegjenger på tegningen betyr ingenting, og en ny person krever at du tegner hele nettverket på nytt.</p>
+</div>
+
+<div class="quiz" data-id="12-pca-vs-tsne">
+  <p class="q">Hvilket utsagn om PCA og t-SNE er riktig?</p>
+  <ul>
+    <li>Begge lærer en avbildning som kan brukes på nye datapunkter</li>
+    <li>t-SNE er lineær, mens PCA kan fange ikke-lineær struktur</li>
+    <li data-correct>PCA kan lage nye features til en modell, mens t-SNE ikke kan det fordi den ikke gir en funksjon for nye punkter</li>
+    <li>t-SNE er raskere enn PCA på store datasett</li>
+  </ul>
+  <div class="explain">Bare PCA lærer en gjenbrukbar transformasjon og kan dermed generere features. Det er PCA som er lineær og t-SNE som ikke har noen linearitetsantakelse. PCA er også den raske av de to.</div>
+</div>
+
+<div class="reflect" data-id="12-outliers">
+  <p class="q">Notatene avslutter med «Oppgave: Hvilken av metodene tror du fungerer best på outliers, og hvorfor?» Hva tror du? Tenk på hva hver metode optimaliserer.</p>
+  <div class="answer"><strong>PCA er følsom for outliers.</strong> Variansen er basert på kvadrerte avvik, så et ekstremt punkt bidrar svært mye og kan dra PC1 i sin retning. Da beskriver komponentene outlieren mer enn resten av dataene. <strong>t-SNE er mer robust</strong> for strukturen til resten av dataene: den bryr seg om lokale nabolag, og en outlier har få naboer. Dens $\sigma_i$ blir stor (via perplexity), og den påvirker de andre punktenes nabofordelinger lite. Men t-SNE er ingen outlier-detektor: outlieren kan havne inntil en tilfeldig klynge, og avstander i plottet er ikke meningsfulle. Vil du <em>finne</em> outliers med dimensjonsreduksjon, er PCA-rekonstruksjonsfeil et godt verktøy (se prosjektet under og <a href="13-anomali.html">kapittel 13</a>).</div>
+</div>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 3</span>
+<p>Prosjekt 3 ga et stort, umerket datasett med svært mange features (16 384 kolonner, som viste seg å være 128×128-bilder med stokkede piksler). ❓-spørsmålet «<em>Which dimensionality reduction methods helped you choose k? Compare PCA and t-SNE in 2D</em>» er nettopp dette kapittelet:</p>
+<ul>
+  <li><strong>PCA i 2D</strong> ga overlappende grupper (som MNIST-plottet), fordi strukturen ikke er lineær.</li>
+  <li><strong>t-SNE i 2D</strong> viste tydelige, adskilte grupper som kunne telles for å velge $k$. Men husk fellene: klyngestørrelse og avstand mellom klynger er ikke meningsfulle, og resultatet avhenger av perplexity og seed. Bekreft $k$ med metrikker som silhouette (<a href="11-clustering.html">kapittel 11</a>).</li>
+  <li><strong>PCA som preprosessering før t-SNE:</strong> <code>TSNE(...).fit_transform(PCA(50).fit_transform(X))</code>. PCA til rundt 50 komponenter fjerner støy og gjør t-SNE mye raskere, mens t-SNE gjør den ikke-lineære visualiseringen.</li>
+  <li>Outliers kunne finnes som rader med stor <strong>PCA-rekonstruksjonsfeil</strong>: punkter som ikke kan beskrives godt av komponentene alle de andre deler.</li>
+  <li>Spørsmålet om skjult modalitet: å stokke kolonnene endrer ikke avstander eller PCA, men ødelegger muligheten til å bruke bildestruktur.</li>
+</ul>
+</div>
+
+<div class="quiz" data-id="12-proj3-pipeline">
+  <p class="q">Hvorfor er det vanlig å kjøre PCA ned til for eksempel 50 komponenter <em>før</em> t-SNE på data med tusenvis av features?</p>
+  <ul>
+    <li>Fordi t-SNE bare kan ta inn ukorrelerte features</li>
+    <li data-correct>Fordi PCA fjerner mye støy og gjør t-SNE langt raskere, mens t-SNE står for den ikke-lineære visualiseringen</li>
+    <li>Fordi t-SNE da kan bruke PCA-komponentene til å transformere nye data</li>
+    <li>Fordi PCA gjør dataene lineært separerbare, slik at t-SNE konvergerer garantert</li>
+  </ul>
+  <div class="explain">PCA er billig og kaster retninger som stort sett er støy. t-SNE regner med parvise avstander, så færre dimensjoner gir raskere og ofte renere resultat. t-SNE krever ikke ukorrelerte input, blir fortsatt ikke-gjenbrukbar (PCA-steget endrer ikke det), og ingen av metodene gir garantier om separerbarhet eller konvergens.</div>
+</div>
+
+<!-- ===================================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li>Dimensjonsreduksjon går fra $n$ til $n' \lt n$ features og brukes til <strong>visualisering, støyfjerning og feature discovery</strong>, både som preprosessering og som analyse. Det motvirker at avstander konsentreres i høye dimensjoner.</li>
+    <li><strong>PCA</strong> (Pearson 1901) finner ortogonale akser som maksimerer varians. Hver PC er en lineær kombinasjon av featurene, og projeksjonene på ulike PC-er er ukorrelerte.</li>
+    <li>Kovarians: $\operatorname{cov}(x_i,x_j) = \frac{1}{N-1}\sum_k (x_{i,k}-\bar x_i)(x_{j,k}-\bar x_j)$. Kovariansmatrisen har variansene på diagonalen og er symmetrisk.</li>
+    <li><strong>PC-ene er egenvektorene til kovariansmatrisen</strong>, og egenverdien er variansen langs PC-en. Finn dem med $\det(S-\lambda I) = 0$. Kontroll: $\sum\lambda = \operatorname{tr}S$, $\prod\lambda = \det S$.</li>
+    <li>Forklart varians-andel er $\lambda_i/\sum_j\lambda_j$. Behold komponenter til kumulativ andel er høy nok (f.eks. 90–95 %), eller 2 for visualisering.</li>
+    <li>I praksis: skaler først, <code>fit</code> på trening, <code>transform</code> på test. PCA fungerer når variansen kan beskrives lineært (S-kurven), men ikke til 2D på MNIST (784 dimensjoner, ikke-lineær struktur, varians spredt på mange retninger).</li>
+    <li><strong>SNE</strong>: gaussiske nabosannsynligheter $p_{j|i}$ i høy dimensjon, tilfeldig start i lav dimensjon, flytt punktene med gradient descent for å minimere $D_{KL}(P\|Q)$. Målet er å bevare nabolag.</li>
+    <li><strong>KL-divergens</strong> $\sum P\log(P/Q)$ er $\ge 0$, null bare når $P = Q$, ikke symmetrisk, og måler overraskelsen ved å bruke $Q$ når dataene kommer fra $P$.</li>
+    <li><strong>t-SNE</strong> (van der Maaten og Hinton 2008) bruker t-fordeling med tunge haler i lav dimensjon mot crowding. Perplexity ≈ effektivt antall naboer. Den er ikke-parametrisk og kan ikke brukes på nye data. Avstander mellom klynger og klyngestørrelser er ikke meningsfulle.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Tre grunner til dimensjonsreduksjon</div><div class="back">Visualisering, støyfjerning og feature discovery.</div></div>
+  <div class="card"><div class="front">Hva er en hovedkomponent?</div><div class="back">En egenvektor til kovariansmatrisen: en retning (lineær kombinasjon av featurene) med maksimal varians, ortogonal på de forrige.</div></div>
+  <div class="card"><div class="front">Hva betyr egenverdien λᵢ i PCA?</div><div class="back">Variansen til dataene projisert på PC i.</div></div>
+  <div class="card"><div class="front">Kovarians-formelen</div><div class="back">$\frac{1}{N-1}\sum_k (x_{i,k}-\bar x_i)(x_{j,k}-\bar x_j)$</div></div>
+  <div class="card"><div class="front">Diagonalen i kovariansmatrisen</div><div class="back">Variansene til hver feature. Summen (sporet) er total varians.</div></div>
+  <div class="card"><div class="front">Egenverdier for 2×2</div><div class="back">$\lambda = \frac{\operatorname{tr}S\pm\sqrt{(\operatorname{tr}S)^2-4\det S}}{2}$; sjekk sum = spor, produkt = det.</div></div>
+  <div class="card"><div class="front">Forklart varians-andel</div><div class="back">$\lambda_i / \sum_j \lambda_j$</div></div>
+  <div class="card"><div class="front">Hvorfor ortogonale PC-er?</div><div class="back">Hver komponent forklarer en ny del av variansen uten overlapp; projeksjonene blir ukorrelerte.</div></div>
+  <div class="card"><div class="front">Egenverdi 0</div><div class="back">Ingen varians i den retningen; dataene ligger i et lavere-dimensjonalt underrom (enkelt eksempel: $x_1+x_2=3$).</div></div>
+  <div class="card"><div class="front">Hvorfor skalere før PCA?</div><div class="back">PCA maksimerer varians, og varians avhenger av enhet. Uten skalering dominerer features med store tall.</div></div>
+  <div class="card"><div class="front">Hvorfor feiler PCA til 2D på MNIST?</div><div class="back">Ikke-lineær struktur, varians spredt på mange retninger (~17 % i PC1+PC2), og PCA ser ikke klasser.</div></div>
+  <div class="card"><div class="front">KL-divergens</div><div class="back">$\sum_x P(x)\log\frac{P(x)}{Q(x)}$; ≥ 0, = 0 kun når P = Q, ikke symmetrisk.</div></div>
+  <div class="card"><div class="front">Hensikten med å minimere KL i t-SNE</div><div class="back">Bevare nabolag: like punkter forblir nær hverandre i lav dimensjon.</div></div>
+  <div class="card"><div class="front">Hvorfor t-fordeling i t-SNE?</div><div class="back">Tunge haler motvirker crowding: moderat ulike punkter kan plasseres lenger unna.</div></div>
+  <div class="card"><div class="front">Perplexity</div><div class="back">$2^{H(P_i)}$ ≈ effektivt antall naboer; styrer bredden σᵢ til hver gauss.</div></div>
+  <div class="card"><div class="front">Hvorfor kan ikke t-SNE brukes på nye data?</div><div class="back">Den optimaliserer posisjonene til punktene direkte i stedet for å lære en transformasjon (ikke-parametrisk).</div></div>
+  <div class="card"><div class="front">Hva betyr ingenting i et t-SNE-plott?</div><div class="back">Avstander mellom klynger, klyngestørrelser og aksene.</div></div>
+  <div class="card"><div class="front">PCA før t-SNE</div><div class="back">PCA (~50 komp.) fjerner støy og gjør t-SNE raskere; t-SNE visualiserer ikke-lineært.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const $id = id => document.getElementById(id);
+  const f2 = (v, d = 2) => (Math.abs(v) < 1e-12 ? 0 : v).toFixed(d);
+
+  /* egenverdier/-vektorer for symmetrisk 2x2 [[a,b],[b,c]] */
+  function eig2(a, b, c) {
+    const tr = a + c, det = a * c - b * b;
+    const disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+    const l1 = tr / 2 + disc, l2 = tr / 2 - disc;
+    let e1;
+    if (Math.abs(b) > 1e-12) e1 = [b, l1 - a];
+    else e1 = a >= c ? [1, 0] : [0, 1];
+    const n = Math.hypot(e1[0], e1[1]); e1 = [e1[0] / n, e1[1] / n];
+    if (e1[0] < 0 || (Math.abs(e1[0]) < 1e-12 && e1[1] < 0)) e1 = [-e1[0], -e1[1]];
+    const e2 = [-e1[1], e1[0]];
+    return { tr, det, l1, l2, e1, e2 };
+  }
+  function covOf(pts) {
+    const n = pts.length; let mx = 0, my = 0;
+    pts.forEach(p => { mx += p.x; my += p.y; }); mx /= n; my /= n;
+    let a = 0, b = 0, c = 0;
+    pts.forEach(p => { const dx = p.x - mx, dy = p.y - my; a += dx * dx; b += dx * dy; c += dy * dy; });
+    return { mx, my, a: a / (n - 1), b: b / (n - 1), c: c / (n - 1) };
+  }
+
+  /* ---------- W1: drei aksen ---------- */
+  (function () {
+    const P = CK.plot($id("rotCanvas"), { xmin: -6, xmax: 6, ymin: -4, ymax: 4 });
+    const Q = CK.plot($id("rotCurve"), { xmin: 0, xmax: 180, ymin: 0, ymax: 1, pad: { l: 48, r: 16, t: 14, b: 36 } });
+    const r = CK.rng(7), ang = 32 * Math.PI / 180, pts = [];
+    for (let i = 0; i < 70; i++) {
+      const u = r.normal(0, 2.0), v = r.normal(0, 0.7);
+      pts.push({ x: u * Math.cos(ang) - v * Math.sin(ang), y: u * Math.sin(ang) + v * Math.cos(ang) });
+    }
+    const C = covOf(pts), E = eig2(C.a, C.b, C.c);
+    const varAt = th => { const c = Math.cos(th), s = Math.sin(th); return c * c * C.a + 2 * c * s * C.b + s * s * C.c; };
+    Q.setView({ ymax: E.l1 * 1.15 });
+    const th = $id("rotTheta"), show = $id("rotShow");
+    function draw() {
+      const deg = +th.value, t = deg * Math.PI / 180, u = [Math.cos(t), Math.sin(t)];
+      $id("rotThetaO").textContent = deg + "°";
+      P.clear().grid().axes({ xlabel: "x₁ (sentrert)", ylabel: "x₂" });
+      const L = 9;
+      P.line(C.mx - L * u[0], C.my - L * u[1], C.mx + L * u[0], C.my + L * u[1], { color: P.col("c2"), width: 2.5 });
+      const proj = pts.map(p => { const d = (p.x - C.mx) * u[0] + (p.y - C.my) * u[1]; return { x: C.mx + d * u[0], y: C.my + d * u[1] }; });
+      pts.forEach((p, i) => P.line(p.x, p.y, proj[i].x, proj[i].y, { color: P.col("axis"), width: 1 }));
+      P.points(pts, { color: P.col("c1"), r: 4 });
+      P.points(proj, { color: P.col("c2"), r: 2.6, stroke: false });
+      if (show.checked) {
+        const s1 = 2 * Math.sqrt(E.l1), s2 = 2 * Math.sqrt(E.l2);
+        P.arrow(C.mx, C.my, C.mx + s1 * E.e1[0], C.my + s1 * E.e1[1], { color: P.col("c3"), width: 3 });
+        P.arrow(C.mx, C.my, C.mx + s2 * E.e2[0], C.my + s2 * E.e2[1], { color: P.col("c4"), width: 3 });
+        P.text("PC1", C.mx + s1 * E.e1[0] + 0.2, C.my + s1 * E.e1[1] + 0.2, { color: P.col("c3"), bold: true });
+        P.text("PC2", C.mx + s2 * E.e2[0] - 0.9, C.my + s2 * E.e2[1] + 0.2, { color: P.col("c4"), bold: true });
+      }
+      const v = varAt(t), tot = C.a + C.c;
+      $id("rotVar").textContent = "Var langs aksen: " + f2(v) + " (" + f2(100 * v / tot, 1) + " %)";
+      $id("rotPerp").textContent = "Var vinkelrett: " + f2(tot - v);
+      $id("rotTot").textContent = "Total varians: " + f2(tot);
+      $id("rotEig").textContent = show.checked ? "λ₁ = " + f2(E.l1) + ", λ₂ = " + f2(E.l2) : "λ₁, λ₂: skjult";
+      // kurve
+      Q.clear().grid({ xticks: [0, 30, 60, 90, 120, 150, 180] }).axes({ xticks: [0, 30, 60, 90, 120, 150, 180], xlabel: "θ (grader)", ylabel: "Var", frame: true });
+      Q.fn(x => varAt(x * Math.PI / 180), { color: P.col("c2"), width: 2.4 });
+      Q.line(deg, 0, deg, Q.ymax, { color: P.col("c1"), width: 1.5, dash: [5, 4] });
+      Q.points([{ x: deg, y: v }], { color: P.col("c1"), r: 5 });
+      if (show.checked) {
+        let a1 = Math.atan2(E.e1[1], E.e1[0]) * 180 / Math.PI; if (a1 < 0) a1 += 180;
+        let a2 = (a1 + 90) % 180;
+        Q.points([{ x: a1, y: E.l1 }], { color: P.col("c3"), r: 5 });
+        Q.points([{ x: a2, y: E.l2 }], { color: P.col("c4"), r: 5 });
+        Q.text("PC1: λ₁", a1 + 3, E.l1 * 0.93, { color: P.col("c3"), size: 12 });
+        Q.text("PC2: λ₂", a2 + 3, E.l2 + Q.ymax * 0.08, { color: P.col("c4"), size: 12 });
+      }
+    }
+    th.oninput = draw; show.onchange = draw;
+    CK.live(draw);
+  })();
+
+  /* ---------- W2: kovarians-/egenverdikalkulator ---------- */
+  (function () {
+    const cv = $id("eigCanvas");
+    const P = CK.plot(cv, { xmin: -1, xmax: 1, ymin: -1, ymax: 1 });
+    const A = $id("eigA"), B = $id("eigB"), Cc = $id("eigC"), out = $id("eigOut");
+    function draw() {
+      const a = parseFloat(A.value), b = parseFloat(B.value), c = parseFloat(Cc.value);
+      if (![a, b, c].every(isFinite)) { out.textContent = "Skriv inn tre tall."; return; }
+      const E = eig2(a, b, c);
+      const valid = a >= 0 && c >= 0 && E.det >= -1e-9;
+      const big = Math.sqrt(Math.max(E.l1, 0.01));
+      const yr = 2.6 * big, innerW = P.W - P.pad.l - P.pad.r, innerH = P.H - P.pad.t - P.pad.b;
+      const xr = yr * innerW / innerH;
+      P.setView({ xmin: -xr, xmax: xr, ymin: -yr, ymax: yr });
+      P.clear().grid().axes({ xlabel: "x₁ − x̄₁", ylabel: "x₂ − x̄₂" });
+      if (valid) {
+        [1, 2].forEach(k => {
+          const pts = [];
+          for (let i = 0; i <= 120; i++) {
+            const t = 2 * Math.PI * i / 120, s1 = k * Math.sqrt(Math.max(E.l1, 0)) * Math.cos(t), s2 = k * Math.sqrt(Math.max(E.l2, 0)) * Math.sin(t);
+            pts.push({ x: s1 * E.e1[0] + s2 * E.e2[0], y: s1 * E.e1[1] + s2 * E.e2[1] });
+          }
+          P.path(pts, { color: P.col("c1"), width: k === 1 ? 2.2 : 1.2, dash: k === 2 ? [5, 4] : null });
+        });
+        const s1 = 2 * Math.sqrt(Math.max(E.l1, 0)), s2 = 2 * Math.sqrt(Math.max(E.l2, 0));
+        P.arrow(0, 0, s1 * E.e1[0], s1 * E.e1[1], { color: P.col("c3"), width: 3 });
+        if (s2 > 1e-6) P.arrow(0, 0, s2 * E.e2[0], s2 * E.e2[1], { color: P.col("c4"), width: 3 });
+        P.legend([{ color: P.col("c3"), label: "PC1 (λ₁)" }, { color: P.col("c4"), label: "PC2 (λ₂)" }, { color: P.col("c1"), label: "1σ og 2σ" }]);
+      }
+      const tot = E.l1 + E.l2;
+      let s = "S = [[" + a + ", " + b + "], [" + b + ", " + c + "]]\n";
+      s += "tr S = a + c = " + f2(E.tr, 4) + "      det S = ac − b² = " + f2(E.det, 4) + "\n";
+      if (!valid) { s += "\n⚠ Ikke en gyldig kovariansmatrise: variansene må være ≥ 0 og det S ≥ 0 (|b| ≤ √(ac))."; out.textContent = s; return; }
+      s += "λ = tr/2 ± √((tr/2)² − det) = " + f2(E.tr / 2, 4) + " ± " + f2(Math.sqrt(Math.max(0, E.tr * E.tr / 4 - E.det)), 4) + "\n";
+      s += "λ₁ = " + f2(E.l1, 4) + "   λ₂ = " + f2(E.l2, 4) + "   (sum = " + f2(tot, 4) + ", produkt = " + f2(E.l1 * E.l2, 4) + ")\n";
+      s += "e₁ = (" + f2(E.e1[0], 4) + ", " + f2(E.e1[1], 4) + ")   e₂ = (" + f2(E.e2[0], 4) + ", " + f2(E.e2[1], 4) + ")\n";
+      s += "Forklart varians: PC1 " + (tot > 0 ? f2(100 * E.l1 / tot, 2) : "–") + " %,  PC2 " + (tot > 0 ? f2(100 * E.l2 / tot, 2) : "–") + " %";
+      if (Math.abs(E.l1 - E.l2) < 1e-9) s += "\n(Like egenverdier: alle retninger har samme varians, egenvektorene er ikke entydige.)";
+      out.textContent = s;
+    }
+    [A, B, Cc].forEach(i => i.oninput = draw);
+    document.querySelectorAll("[data-p]").forEach(btn => btn.onclick = () => {
+      const v = btn.dataset.p.split(","); A.value = v[0]; B.value = v[1]; Cc.value = v[2]; draw();
+    });
+    CK.live(draw);
+  })();
+
+  /* ---------- W3: projeksjonsanimasjon ---------- */
+  (function () {
+    const P = CK.plot($id("projCanvas"), { xmin: -6, xmax: 6, ymin: -4, ymax: 4 });
+    const t9 = [[1, 1.6], [2, 4.2], [3, 5.7], [4, 8.4], [5, 9.2]].map(p => ({ x: p[0], y: p[1] }));
+    const r = CK.rng(11), bigPts = [];
+    const ang = 0.55;
+    for (let i = 0; i < 60; i++) { const u = r.normal(0, 1.9), v = r.normal(0, 0.8); bigPts.push({ x: u * Math.cos(ang) - v * Math.sin(ang), y: u * Math.sin(ang) + v * Math.cos(ang) }); }
+    const T = $id("projT"), big = $id("projBig"), play = $id("projPlay");
+    let anim = null;
+    function data() {
+      const raw = big.checked ? bigPts : t9, C = covOf(raw);
+      return { pts: raw.map(p => ({ x: p.x - C.mx, y: p.y - C.my })), E: eig2(C.a, C.b, C.c) };
+    }
+    function draw() {
+      const t = +T.value; $id("projTO").textContent = Math.round(t * 100) + " %";
+      const which = +document.querySelector("input[name=projPC]:checked").value;
+      const { pts, E } = data(), e = which === 0 ? E.e1 : E.e2, lam = which === 0 ? E.l1 : E.l2;
+      const phi = Math.atan2(e[1], e[0]);
+      const s1 = Math.min(1, t / 0.5), s2 = Math.max(0, (t - 0.5) / 0.5);
+      const rot = -phi * s2, cr = Math.cos(rot), sr = Math.sin(rot);
+      P.clear().grid().axes({ xlabel: "sentrert x₁", ylabel: "sentrert x₂" });
+      const L = 9, lx = e[0] * cr - e[1] * sr, ly = e[0] * sr + e[1] * cr;
+      P.line(-L * lx, -L * ly, L * lx, L * ly, { color: P.col(which === 0 ? "c3" : "c4"), width: 2.5 });
+      if (t === 0) P.line(-L * (-e[1]), -L * e[0], L * (-e[1]), L * e[0], { color: P.col("grid"), width: 1 });
+      const zs = [], cur = pts.map(p => {
+        const z = p.x * e[0] + p.y * e[1]; zs.push(z);
+        const px = p.x + s1 * (z * e[0] - p.x), py = p.y + s1 * (z * e[1] - p.y);
+        return { x: px * cr - py * sr, y: px * sr + py * cr };
+      });
+      if (t < 0.5) pts.forEach((p, i) => P.line(p.x, p.y, zs[i] * e[0], zs[i] * e[1], { color: P.col("axis"), width: 1, dash: [3, 3] }));
+      P.points(cur, { color: P.col("c1"), r: big.checked ? 4 : 6 });
+      const tot = E.l1 + E.l2;
+      $id("projKeep").textContent = "Beholdt varians: " + f2(100 * lam / tot, 1) + " % (λ = " + f2(lam, 3) + " av " + f2(tot, 3) + ")";
+      $id("projZ").textContent = big.checked ? "z: (60 punkter)" : "z = (" + zs.map(z => f2(z, 2)).join(", ") + ")";
+    }
+    T.oninput = () => { if (anim) { cancelAnimationFrame(anim); anim = null; } draw(); };
+    document.querySelectorAll("input[name=projPC]").forEach(i => i.onchange = draw);
+    big.onchange = draw;
+    play.onclick = () => {
+      if (anim) cancelAnimationFrame(anim);
+      const t0 = performance.now(), dur = 3200;
+      const step = now => { const t = Math.min(1, (now - t0) / dur); T.value = t; draw(); anim = t < 1 ? requestAnimationFrame(step) : null; };
+      anim = requestAnimationFrame(step);
+    };
+    CK.live(draw);
+  })();
+
+  /* ---------- W4: KL-kalkulator ---------- */
+  (function () {
+    const P = CK.plot($id("klCanvas"), { xmin: 0, xmax: 4, ymin: 0, ymax: 1, pad: { l: 48, r: 16, t: 14, b: 32 } });
+    const ps = [0, 1, 2, 3].map(i => $id("klP" + i)), qs = [0, 1, 2, 3].map(i => $id("klQ" + i));
+    const norm = arr => { const v = arr.map(x => +x.value), s = v.reduce((a, b) => a + b, 0); return s > 0 ? v.map(x => x / s) : v.map(() => 0.25); };
+    function kl(p, q, lg) { let s = 0; for (let i = 0; i < p.length; i++) { if (p[i] === 0) continue; if (q[i] === 0) return Infinity; s += p[i] * lg(p[i] / q[i]); } return s; }
+    function H(p, lg) { return -p.reduce((s, x) => s + (x > 0 ? x * lg(x) : 0), 0); }
+    function CE(p, q, lg) { let s = 0; for (let i = 0; i < p.length; i++) { if (p[i] === 0) continue; if (q[i] === 0) return Infinity; s -= p[i] * lg(q[i]); } return s; }
+    const fmt = v => isFinite(v) ? v.toFixed(3) : "∞";
+    function draw() {
+      const p = norm(ps), q = norm(qs);
+      const base = document.querySelector("input[name=klBase]:checked").value;
+      const lg = base === "2" ? Math.log2 : Math.log, unit = base === "2" ? " bits" : " nats";
+      P.clear().grid({ xticks: [], ny: 5 }).axes({ xticks: false, ylabel: "sannsynlighet", frame: true });
+      ["A", "B", "C", "D"].forEach((lab, i) => {
+        P.rect(i + 0.12, 0, i + 0.48, p[i], { fill: P.col("c1"), alpha: 0.85 });
+        P.rect(i + 0.52, 0, i + 0.88, q[i], { fill: P.col("c2"), alpha: 0.85 });
+        P.text(lab, i + 0.5, -0.04, { align: "center", baseline: "top", color: P.col("text-soft") });
+        P.text(p[i].toFixed(2), i + 0.30, p[i] + 0.03, { align: "center", size: 11, color: P.col("c1") });
+        P.text(q[i].toFixed(2), i + 0.70, q[i] + 0.03, { align: "center", size: 11, color: P.col("c2") });
+      });
+      P.legend([{ color: P.col("c1"), label: "P" }, { color: P.col("c2"), label: "Q" }], { x: P.W - 80 });
+      $id("klPQ").textContent = "D(P‖Q) = " + fmt(kl(p, q, lg)) + unit;
+      $id("klQP").textContent = "D(Q‖P) = " + fmt(kl(q, p, lg)) + unit;
+      $id("klH").textContent = "H(P) = " + fmt(H(p, lg)) + unit;
+      $id("klCE").textContent = "H(P,Q) = " + fmt(CE(p, q, lg)) + unit;
+    }
+    ps.concat(qs).forEach(s => s.oninput = draw);
+    document.querySelectorAll("input[name=klBase]").forEach(i => i.onchange = draw);
+    document.querySelectorAll("[data-kl]").forEach(btn => btn.onclick = () => {
+      const [a, b] = btn.dataset.kl.split("|").map(s => s.split(","));
+      ps.forEach((s, i) => s.value = a[i]); qs.forEach((s, i) => s.value = b[i]); draw();
+    });
+    CK.live(draw);
+  })();
+
+  /* ---------- W5: gauss vs t ---------- */
+  (function () {
+    const P = CK.plot($id("tCanvas"), { xmin: 0, xmax: 10, ymin: 0, ymax: 1.05 });
+    const K = $id("tK"), Nu = $id("tNu"), Lg = $id("tLog");
+    function draw() {
+      const k = Math.pow(10, +K.value), nu = +Nu.value, lg = Lg.checked;
+      $id("tKO").textContent = k.toFixed(k < 0.1 ? 3 : 2); $id("tNuO").textContent = nu;
+      const g = d => Math.exp(-d * d / 2), tt = d => Math.pow(1 + d * d / nu, -(nu + 1) / 2);
+      const tr = y => lg ? Math.log10(Math.max(y, 1e-6)) : y;
+      if (lg) P.setView({ ymin: -4, ymax: 0.1 }); else P.setView({ ymin: 0, ymax: 1.05 });
+      P.clear().grid().axes({ xlabel: "avstand d", ylabel: lg ? "log₁₀ likhet" : "likhet (topp = 1)", frame: true });
+      P.fn(d => tr(g(d)), { color: P.col("c1"), width: 2.5 });
+      P.fn(d => tr(tt(d)), { color: P.col("c2"), width: 2.5 });
+      const dg = Math.sqrt(-2 * Math.log(k)), dt = Math.sqrt(nu * (Math.pow(k, -2 / (nu + 1)) - 1));
+      P.line(0, tr(k), 10, tr(k), { color: P.col("muted"), width: 1, dash: [5, 4] });
+      if (dg <= 10) { P.line(dg, P.ymin, dg, tr(k), { color: P.col("c1"), width: 1.5, dash: [3, 3] }); P.points([{ x: dg, y: tr(k) }], { color: P.col("c1"), r: 5 }); }
+      if (dt <= 10) { P.line(dt, P.ymin, dt, tr(k), { color: P.col("c2"), width: 1.5, dash: [3, 3] }); P.points([{ x: dt, y: tr(k) }], { color: P.col("c2"), r: 5 }); }
+      P.legend([{ color: P.col("c1"), label: "gauss: exp(−d²/2)" }, { color: P.col("c2"), label: "t (ν=" + nu + ")" }], { x: P.W - 190 });
+      $id("tDg").textContent = "Avstand, gauss: " + dg.toFixed(2);
+      $id("tDt").textContent = "Avstand, t: " + dt.toFixed(2);
+      $id("tRatio").textContent = "Forhold t/gauss: " + (dt / dg).toFixed(2);
+    }
+    [K, Nu].forEach(s => s.oninput = draw); Lg.onchange = draw;
+    CK.live(draw);
+  })();
+
+  /* ---------- W6: SNE-nabosannsynligheter og perplexity ---------- */
+  (function () {
+    const cv = $id("sneCanvas");
+    const P = CK.plot(cv, { xmin: -0.5, xmax: 9.5, ymin: -0.15, ymax: 1.05 });
+    const xs = [0, 0.4, 0.7, 1.0, 1.3, 3.6, 4.3, 5.0, 8.8];
+    let sel = 2;
+    const Sig = $id("sneSig"), Lock = $id("sneLock"), Perp = $id("snePerp");
+    function probs(i, s) {
+      const w = xs.map((x, j) => j === i ? 0 : Math.exp(-((x - xs[i]) ** 2) / (2 * s * s)));
+      const z = w.reduce((a, b) => a + b, 0) || 1; return w.map(v => v / z);
+    }
+    const entropy = p => -p.reduce((a, v) => a + (v > 1e-15 ? v * Math.log2(v) : 0), 0);
+    function solveSigma(i, target) {
+      let lo = -4, hi = 3;
+      for (let it = 0; it < 60; it++) { const mid = (lo + hi) / 2; if (Math.pow(2, entropy(probs(i, Math.exp(mid)))) > target) hi = mid; else lo = mid; }
+      return Math.exp((lo + hi) / 2);
+    }
+    function draw() {
+      $id("snePerpO").textContent = (+Perp.value).toFixed(1);
+      let s;
+      if (Lock.checked) { s = solveSigma(sel, +Perp.value); Sig.value = Math.max(+Sig.min, Math.min(+Sig.max, Math.log(s))); }
+      else s = Math.exp(+Sig.value);
+      $id("sneSigO").textContent = s.toFixed(2);
+      const p = probs(sel, s), H = entropy(p);
+      P.clear().grid({ xticks: [] }).axes({ xticks: [0, 2, 4, 6, 8], ylabel: "p(j|i)", frame: true });
+      P.fn(x => Math.exp(-((x - xs[sel]) ** 2) / (2 * s * s)), { color: P.col("muted"), width: 1.5, dash: [5, 4], samples: 600 });
+      xs.forEach((x, j) => { if (j !== sel) P.rect(x - 0.12, 0, x + 0.12, p[j], { fill: P.col("c1"), alpha: 0.85 }); });
+      P.points(xs.map((x, j) => ({ x, y: -0.07, color: j === sel ? P.col("c2") : P.col("text-soft"), r: j === sel ? 7 : 5 })), {});
+      P.text("xᵢ", xs[sel], -0.13, { align: "center", baseline: "top", color: P.col("c2"), bold: true, size: 12 });
+      $id("sneI").textContent = "Valgt punkt i: " + (sel + 1) + " (x = " + xs[sel] + ")";
+      $id("sneH").textContent = "H(Pᵢ) = " + H.toFixed(2) + " bits";
+      $id("sneP").textContent = "Perplexity = 2^H = " + Math.pow(2, H).toFixed(2);
+    }
+    cv.addEventListener("click", e => {
+      const m = P.mouse(e), x = P.invX(m.px);
+      let best = 0; xs.forEach((v, j) => { if (Math.abs(v - x) < Math.abs(xs[best] - x)) best = j; });
+      sel = best; draw();
+    });
+    Sig.oninput = () => { Lock.checked = false; draw(); };
+    Perp.oninput = () => { Lock.checked = true; draw(); };
+    Lock.onchange = draw;
+    CK.live(draw);
+  })();
+});
+</script>
+</body>
+</html>

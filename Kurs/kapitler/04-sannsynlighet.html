@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 · Entropi, Bayes og dimensjonsforbannelsen – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  figure.fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  figure.svgfig svg { display: block; margin: 0 auto; height: auto; }
+  .w-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  @media (max-width: 640px) { .w-grid { grid-template-columns: 1fr; } }
+  .w-cap { font-size: 13px; color: var(--muted); margin: 4px 0 0; text-align: center; }
+  .big-out { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .nb-table td, .nb-table th { text-align: center; font-variant-numeric: tabular-nums; }
+  .nb-table td:first-child, .nb-table th:first-child { text-align: left; }
+  .nb-table tr.win td { background: var(--ok-bg); font-weight: 700; }
+  .nb-table td.win { background: var(--ok-bg); font-weight: 700; }
+  .controls select { font: inherit; font-size: 15px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .counts td, .counts th { text-align: center; }
+  .counts td:first-child, .counts th:first-child { text-align: left; }
+  .legend-dots { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; margin-top: 8px; }
+  .legend-dots span::before { content: ""; display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--dot); border: 2px solid var(--ring, var(--dot)); }
+</style>
+</head>
+<body data-chapter="04">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 04 · Veiledet læring</div>
+  <h1>Entropi, Bayes og dimensjonsforbannelsen</h1>
+  <p class="lead">Tre ideer fra sannsynlighetsteorien som forklarer mye av maskinlæring: hvorfor tapsfunksjonen ser ut som den gjør (entropi), hva en klassifikator egentlig prøver å regne ut (Bayes), og hvorfor vi ikke bare kan regne det ut direkte (dimensjonsforbannelsen).</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare entropi som forventet overraskelse og regne ut $H(p)$ for enkle fordelinger</li>
+    <li>forklare kryss-entropi $H(p,q)$, hvem som er $p$ og $q$, og koble den til tapsfunksjonen fra kapittel 2</li>
+    <li>utlede Bayes' teorem og forklare prior, likelihood, evidens og posterior</li>
+    <li>forklare hvorfor $p(x)$ kan droppes, og hvorfor vi likevel ikke kan regne ut posterior eksakt</li>
+    <li>bruke naiv Bayes for hånd, og forklare antakelsen om betinget uavhengighet og hva den koster</li>
+    <li>regne ut hvor mange datapunkter som trengs i $d$ dimensjoner og hvor stor andel av volumet som ligger i et tynt skall</li>
+  </ul>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="entropi"><span class="sec">4.1</span>Entropi: hvor overrasket blir du?</h2>
+
+<p>Tenk deg at en venn forteller deg hva som skjedde i dag. «Sola sto opp» gir deg ingen ny informasjon, det visste du. «Jeg vant i Lotto» er svært overraskende og forteller deg mye. Informasjonsteorien gjør denne intuisjonen presis: <strong>jo mindre sannsynlig en hendelse er, jo mer informasjon (overraskelse) bærer den</strong>.</p>
+
+<p>Overraskelsen ved et utfall $x$ med sannsynlighet $p(x)$ defineres som</p>
+<div class="eq">$$\text{overraskelse}(x) = \log\frac{1}{p(x)} = -\log p(x)$$</div>
+
+<ul>
+  <li>$p(x) = 1$ gir overraskelse $\log 1 = 0$. Det sikre forteller oss ingenting.</li>
+  <li>$p(x) \to 0$ gir overraskelse $\to \infty$. Det nesten umulige er enormt overraskende.</li>
+  <li>To uavhengige hendelser har sannsynlighet $p_1 p_2$, og overraskelsen blir $-\log(p_1p_2) = -\log p_1 - \log p_2$. Overraskelser <em>adderes</em>. Det er derfor logaritmen er det naturlige valget.</li>
+</ul>
+
+<p><strong>Entropi</strong> (Shannon-entropi) er den <em>forventede</em> overraskelsen, altså gjennomsnittlig overraskelse når vi trekker fra fordelingen $p$. Den måler usikkerheten, eller hvor mye informasjon det i snitt er i ett utfall:</p>
+
+<div class="eq">
+  <p class="eq-note">Likning (28)–(30) i notatene</p>
+  $$H(X) = \mathbb{E}\left[\log\frac{1}{p(X)}\right] = -\sum_{x} p(x)\log p(x) \qquad\text{eller}\qquad H(p) = -\sum_i p(x_i)\log p(x_i)$$
+</div>
+
+<div class="callout warn"><span class="label">Trykkfeil i notatene</span>
+<p>Likning (28) i notatene står som $\mathbb{E}\left[\frac{1}{\log p(X)}\right]$. Det riktige er $\mathbb{E}\left[\log\frac{1}{p(X)}\right]$, altså logaritmen av $1/p$, ikke én delt på logaritmen. Det er dette som gir $-\sum p\log p$ i likning (29).</p>
+</div>
+
+<h3>Eksempler</h3>
+<p>Vi bruker $\log_2$, så enheten er <strong>bit</strong>.</p>
+<ul>
+  <li><strong>Rettferdig mynt</strong>, $p = (0.5,\,0.5)$: $H = -0.5\log_2 0.5 - 0.5\log_2 0.5 = 0.5 + 0.5 = 1$ bit. Ett myntkast gir nøyaktig én bit informasjon.</li>
+  <li><strong>Skjev mynt</strong>, $p = (0.9,\,0.1)$: $H = -0.9\log_2 0.9 - 0.1\log_2 0.1 = 0.137 + 0.332 \approx 0.47$ bit. Du vet nesten hva som kommer, så usikkerheten er lavere.</li>
+  <li><strong>Sikker mynt</strong>, $p = (1,\,0)$: $H = 0$ (vi bruker $0\log 0 = 0$). Ingen usikkerhet.</li>
+  <li><strong>Terning</strong>, seks like utfall: $H = -6\cdot\frac16\log_2\frac16 = \log_2 6 \approx 2.585$ bit. Flere like sannsynlige utfall gir mer usikkerhet.</li>
+</ul>
+
+<p>For to utfall er entropien størst når de er like sannsynlige (1 bit), og null når ett utfall er sikkert. Generelt er entropien størst for en uniform fordeling: med $K$ like utfall er $H = \log_2 K$.</p>
+
+<div class="callout hook"><span class="label">Knagg: entropi = antall ja/nei-spørsmål</span>
+<p>Entropi i bit er (omtrent) hvor mange ja/nei-spørsmål du i snitt må stille for å finne utfallet. Rettferdig mynt: ett spørsmål («kron?»). Fire like utfall: to spørsmål. Sikkert utfall: null spørsmål, du vet svaret allerede.</p>
+</div>
+
+<div class="callout def"><span class="label">$\log_2$ eller $\ln$?</span>
+<p>Med $\log_2$ måles entropi i <strong>bit</strong>, med $\ln$ i <strong>nat</strong>. De skiller seg bare med en konstant faktor: $\ln x = \ln 2\cdot\log_2 x \approx 0.693\log_2 x$. Rettferdig mynt har $H = 1$ bit $= \ln 2 \approx 0.693$ nat. Beslutningstrær (<a href="05-traer.html">kapittel 5</a>) bruker gjerne $\log_2$. Tapsfunksjonen i logistisk regresjon bruker $\ln$. Siden faktoren er konstant, endrer basen aldri <em>hvilket</em> alternativ som har lavest entropi eller tap.</p>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: entropi og Gini for to utfall</h4>
+  <canvas id="w-ent" width="660" height="280"></canvas>
+  <div class="controls">
+    <label>$p$ (sannsynlighet for klasse 1) <input type="range" id="ent-p" min="0" max="1" step="0.01" value="0.9"><output id="ent-po">0.90</output></label>
+  </div>
+  <div class="readouts" id="ent-out"></div>
+</div>
+<p><strong>Legg merke til:</strong> Begge kurvene er null når $p = 0$ eller $p = 1$ (ren node, ingen usikkerhet) og størst ved $p = 0.5$. Entropien har maks 1 bit, Gini-urenheten $1 - p^2 - (1-p)^2$ har maks 0.5 (for to klasser). Den sjeldne hendelsen har stor overraskelse, men bidrar lite til entropien fordi den sjelden skjer. Gini og entropi brukes begge som splittkriterium i beslutningstrær, se <a href="05-traer.html#gini">kapittel 5</a>.</p>
+
+<div class="quiz" data-id="04-surprise">
+  <p class="q">Hvilket utfall gir mest informasjon (størst overraskelse) når det inntreffer?</p>
+  <ul>
+    <li>Et utfall med sannsynlighet 0.5</li>
+    <li>Et utfall med sannsynlighet 0.99</li>
+    <li data-correct>Et utfall med sannsynlighet 0.01</li>
+    <li>Alle utfall gir like mye informasjon, det er entropien som varierer</li>
+  </ul>
+  <div class="explain">Overraskelsen er $-\log_2 p$: for $p = 0.01$ er den $\approx 6.6$ bit, for $p = 0.5$ er den 1 bit, og for $p = 0.99$ bare $\approx 0.014$ bit. Jo sjeldnere, jo mer informativt. Det siste alternativet blander overraskelsen til ett utfall med entropien, som er <em>gjennomsnittet</em> av overraskelsen over alle utfall.</div>
+</div>
+
+<div class="quiz" data-id="04-entropy-max">
+  <p class="q">En binær variabel har $P(\text{klasse }1) = p$. For hvilken $p$ er entropien størst, og hva er den da (i bit)?</p>
+  <ul>
+    <li>$p = 1$, $H = 1$</li>
+    <li data-correct>$p = 0.5$, $H = 1$</li>
+    <li>$p = 0.5$, $H = 0.5$</li>
+    <li>$p = 0$, $H = 0$</li>
+  </ul>
+  <div class="explain">Usikkerheten er størst når begge utfall er like sannsynlige: $H = -2\cdot 0.5\log_2 0.5 = 1$ bit. Ved $p = 0$ eller $1$ er utfallet sikkert, så $H = 0$ (et minimum, ikke maksimum). Verdien 0.5 er maksimum for <em>Gini</em>-urenheten med to klasser, ikke for entropien.</div>
+</div>
+
+<div class="calc" data-id="04-calc-h09" data-answer="0.469" data-tol="0.005">
+  <p class="q">Regn ut entropien (i bit) til en skjev mynt med $p = (0.9,\;0.1)$. Hint: $\log_2 0.9 \approx -0.152$ og $\log_2 0.1 \approx -3.322$.</p>
+  <div class="solution">$H = -0.9\cdot(-0.152) - 0.1\cdot(-3.322) = 0.137 + 0.332 \approx 0.469$ bit.</div>
+</div>
+
+<div class="calc" data-id="04-calc-hdie" data-answer="2.585" data-tol="0.01">
+  <p class="q">Hva er entropien (i bit) til en rettferdig sekssidet terning?</p>
+  <div class="solution">Seks like utfall: $H = -\sum_{i=1}^6 \tfrac16 \log_2\tfrac16 = \log_2 6 \approx 2.585$ bit.</div>
+</div>
+
+<div class="quiz" data-id="04-log-base">
+  <p class="q">Du regner ut entropien til samme fordeling med $\ln$ i stedet for $\log_2$. Hva skjer?</p>
+  <ul>
+    <li>Rekkefølgen kan endre seg, så en annen fordeling kan få høyest entropi.</li>
+    <li>Entropien blir negativ fordi $\ln$ av tall under 1 er negativt.</li>
+    <li>Ingenting, verdien blir nøyaktig den samme.</li>
+    <li data-correct>Verdien ganges med $\ln 2 \approx 0.693$ (nat i stedet for bit), men sammenligninger blir de samme.</li>
+  </ul>
+  <div class="explain">$\ln x = \ln 2\cdot\log_2 x$, så hele summen skaleres med samme positive konstant. Verdien endres, men rekkefølgen mellom fordelinger (og hvilket split eller hvilke vekter som er best) er uendret. Entropien blir ikke negativ, fordi minustegnet foran summen opphever at logaritmene er negative.</div>
+</div>
+
+<div class="reflect" data-id="04-r-entropy">
+  <p class="q">Hvorfor bruker vi akkurat logaritmen for å måle overraskelse? Hva ville gått galt hvis vi bare brukte $1/p$ eller $1-p$?</p>
+  <div class="answer">Vi vil at informasjonen fra to uavhengige hendelser skal <em>adderes</em>: å få vite to uavhengige ting skal gi summen av informasjonen. Sannsynligheten for begge er $p_1p_2$, og bare logaritmen gjør produkter om til summer: $-\log(p_1p_2) = -\log p_1 - \log p_2$. Med $1/p$ ville informasjonen blitt multiplisert, og med $1-p$ ville to sikre hendelser ikke gitt 0 på en konsistent måte, og sjeldne hendelser ville aldri gitt mer enn 1. I tillegg gir logaritmen 0 for sikre utfall og vokser mot uendelig for umulige.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="kryssentropi"><span class="sec">4.2</span>Kryss-entropi: overraskelsen når du tror feil</h2>
+
+<p>Nå har vi to fordelinger. <strong>$p$ er virkeligheten</strong>: fordelingen observasjonene faktisk kommer fra (alltid!). For Titanic er det fordelingen av targets (Survived). <strong>$q$ er det vi tror</strong>: fordelingen modellen predikerer. Kryss-entropien er den forventede overraskelsen når utfallene kommer fra $p$, men vi måler overraskelsen med $q$:</p>
+
+<div class="eq">
+  <p class="eq-note">Likning (31) i notatene</p>
+  $$H(p,q) = -\sum_i p(x_i)\log q(x_i)$$
+</div>
+
+<p>Se på hvor $p$ og $q$ står. Vektene i summen (hvor ofte hvert utfall faktisk skjer) kommer fra dataene, $p$. Inne i logaritmen står det vi tror, $q$. Tror modellen at et utfall er usannsynlig (liten $q$) mens det faktisk skjer ofte (stor $p$), blir det et stort bidrag.</p>
+
+<div class="callout hook"><span class="label">Knagg: værmeldingen</span>
+<p>$p$ er været som faktisk kommer, $q$ er værmeldingen. Kryss-entropien er hvor overrasket du i snitt blir når du har stolt på værmeldingen. Er værmeldingen perfekt ($q = p$), blir du bare så overrasket som været selv er uforutsigbart: $H(p,q) = H(p)$. Hver feil i værmeldingen gjør overraskelsen større.</p>
+</div>
+
+<p>Det gjelder alltid at $H(p,q) \ge H(p)$, med likhet bare når $q = p$. Kryss-entropien måler altså forskjellen mellom de to fordelingene (pluss den usikkerheten som uansett ligger i dataene). Å minimere $H(p,q)$ med hensyn på $q$ er å gjøre modellen så lik dataene som mulig.</p>
+
+<details class="steps"><summary>Regneeksempel: $H(p)$ mot $H(p,q)$</summary><div>
+<p>Dataene: $p = (0.8,\,0.2)$. Modellen tror: $q = (0.6,\,0.4)$. Med $\log_2$:</p>
+<p>$H(p) = -0.8\log_2 0.8 - 0.2\log_2 0.2 = 0.258 + 0.464 = 0.722$ bit.</p>
+<p>$H(p,q) = -0.8\log_2 0.6 - 0.2\log_2 0.4 = 0.8\cdot 0.737 + 0.2\cdot 1.322 = 0.590 + 0.264 = 0.854$ bit.</p>
+<p>Forskjellen, $0.854 - 0.722 = 0.132$ bit, er prisen for å tro feil. (Den kalles KL-divergensen, se fordypningen under.)</p>
+</div></details>
+
+<div class="calc" data-id="04-calc-hpq" data-answer="0.854" data-tol="0.006">
+  <p class="q">Regn ut $H(p,q)$ i bit for $p = (0.8,\,0.2)$ og $q = (0.6,\,0.4)$ uten å se på løsningen over. Hint: $\log_2 0.6 \approx -0.737$, $\log_2 0.4 \approx -1.322$.</p>
+  <div class="solution">$H(p,q) = -0.8\cdot(-0.737) - 0.2\cdot(-1.322) = 0.590 + 0.264 \approx 0.854$ bit.</div>
+</div>
+
+<h3>Koblingen til tapsfunksjonen</h3>
+<p>Sammenlign med tapsfunksjonen for logistisk regresjon fra <a href="02-logistisk.html">kapittel 2</a> (likning 10). For ett datapunkt er den «sanne fordelingen» $p = (y,\;1-y)$, altså enten $(1,0)$ eller $(0,1)$. Modellens fordeling er $q = (\hat y,\;1-\hat y)$. Setter vi inn i $H(p,q)$ med $\ln$:</p>
+
+<div class="eq">$$H(p,q) = -\,y\ln\hat y \;-\; (1-y)\ln(1-\hat y) = L(\hat y, y)$$</div>
+
+<p>Det er nøyaktig binær cross-entropy! Tapsfunksjonen måler altså forskjellen mellom fordelingen av labels i datasettet og fordelingen modellen predikerer. Vi trener modellen ved å gjøre den forskjellen minst mulig. Navnet «cross-entropy loss» kommer herfra.</p>
+
+<div class="chain">
+  <div><b>Problem</b>vi vil at modellens $q$ skal ligne dataenes $p$</div><div class="arrow">→</div>
+  <div><b>Mål forskjellen</b>med kryss-entropi $H(p,q)$</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>tapet er stort når modellen er sikker og tar feil</div>
+</div>
+
+<h3>Flere klasser</h3>
+<p>Med $K$ klasser generaliserer det samme uttrykket til (likning 32 i notatene)</p>
+<div class="eq">$$L(\hat y, y) = -\sum_{i=1}^{K} y_i\log\hat y_i$$</div>
+<p>der $y$ er <strong>one-hot-kodet</strong>: en vektor med 1 for riktig klasse og 0 ellers. Da er alle ledd null unntatt det for den riktige klassen, og tapet blir rett og slett $-\log$ av sannsynligheten modellen ga den riktige klassen.</p>
+
+<details class="steps"><summary>Regneeksempel: tre klasser</summary><div>
+<p>Et bilde er en katt. Klassene er (hund, katt, fugl), så $y = (0,\,1,\,0)$. Modellen gir $\hat y = (0.2,\,0.7,\,0.1)$.</p>
+<p>$L = -(0\cdot\ln 0.2 + 1\cdot\ln 0.7 + 0\cdot\ln 0.1) = -\ln 0.7 \approx 0.357$.</p>
+<p>Hadde modellen gitt katt bare 0.2, ville tapet vært $-\ln 0.2 \approx 1.61$. Hvordan sannsynligheten fordeler seg på de <em>gale</em> klassene, spiller ingen direkte rolle.</p>
+</div></details>
+
+<div class="calc" data-id="04-calc-ce3" data-answer="0.357" data-tol="0.004">
+  <p class="q">Klassene er (rød, grønn, blå), riktig klasse er blå, og modellen gir $\hat y = (0.1,\,0.2,\,0.7)$. Hva er cross-entropy-tapet (naturlig logaritme)?</p>
+  <div class="solution">$y = (0,0,1)$, så bare blå-leddet overlever: $L = -\ln 0.7 \approx 0.357$.</div>
+</div>
+
+<div class="quiz" data-id="04-ce-roles">
+  <p class="q">I kryss-entropien $H(p,q) = -\sum_i p(x_i)\log q(x_i)$ brukt som tapsfunksjon, hva er $p$ og $q$?</p>
+  <ul>
+    <li>$p$ er modellens prediksjoner, $q$ er labels i datasettet</li>
+    <li data-correct>$p$ er fordelingen av labels i dataene, $q$ er modellens predikerte fordeling</li>
+    <li>$p$ er prioren og $q$ er posterior</li>
+    <li>$p$ og $q$ er to modeller vi sammenligner, og rollene kan byttes fritt</li>
+  </ul>
+  <div class="explain">Observasjonene kommer alltid fra $p$, så $p$ (labels, $y$) står utenfor logaritmen som vekter. Det vi tror, modellens $q$ ($\hat y$), står inne i logaritmen. Rollene kan ikke byttes: $H(p,q) \ne H(q,p)$ generelt, og med one-hot-labels ville $\log 0$ dukket opp. Prior og posterior hører til Bayes, se 4.3.</div>
+</div>
+
+<div class="quiz" data-id="04-ce-onehot">
+  <p class="q">Med one-hot-kodede labels og $K = 10$ klasser: hvor mange ledd i $-\sum_i y_i\log\hat y_i$ bidrar til tapet for ett datapunkt?</p>
+  <ul>
+    <li data-correct>Ett, leddet for den riktige klassen</li>
+    <li>Ni, leddene for de gale klassene</li>
+    <li>Alle ti</li>
+    <li>Ingen, fordi one-hot-vektorer summerer til 1</li>
+  </ul>
+  <div class="explain">One-hot betyr $y_i = 1$ for riktig klasse og $0$ ellers. Alle ledd med $y_i = 0$ forsvinner, så tapet er $-\log\hat y_{\text{riktig}}$. De gale klassene påvirker tapet bare indirekte: siden $\sum\hat y_i = 1$ (softmax), betyr mer sannsynlighet på gale klasser mindre på den riktige.</div>
+</div>
+
+<div class="quiz" data-multi data-id="04-ce-min">
+  <p class="q">Hvilke utsagn om kryss-entropien $H(p,q)$ er riktige?</p>
+  <ul>
+    <li data-correct>$H(p,q) \ge H(p)$, med likhet når $q = p$.</li>
+    <li>$H(p,q)$ er alltid lik $H(q,p)$.</li>
+    <li data-correct>Binær cross-entropy er $H(p,q)$ med $p = (y, 1-y)$ og $q = (\hat y, 1-\hat y)$.</li>
+    <li>Kryss-entropien kan bli negativ hvis modellen er veldig god.</li>
+  </ul>
+  <div class="explain">Den beste modellen kan bare gjøre overraskelsen like lav som dataenes egen usikkerhet, $H(p)$, og det skjer når $q = p$. BCE er nettopp kryss-entropien mellom label-fordelingen og prediksjonen. $H(p,q)$ er ikke symmetrisk (vektene kommer fra $p$, logaritmen fra $q$). Den er aldri negativ, fordi $-\log q \ge 0$ for $q \le 1$.</div>
+</div>
+
+<details class="more"><summary>Fordypning: KL-divergens <span class="tag">kommer igjen i t-SNE</span></summary><div>
+<p>Forskjellen mellom kryss-entropien og entropien kalles <strong>Kullback–Leibler-divergensen</strong>:</p>
+<div class="eq">$$D_{KL}(p\,\|\,q) = H(p,q) - H(p) = \sum_i p(x_i)\log\frac{p(x_i)}{q(x_i)} \ge 0$$</div>
+<p>Den er null bare når $q = p$. Siden $H(p)$ avhenger bare av dataene, er det å minimere kryss-entropien det samme som å minimere KL-divergensen. t-SNE (<a href="12-dimensjonsreduksjon.html">kapittel 12</a>) minimerer KL-divergensen mellom nabofordelingene i høy og lav dimensjon.</p>
+</div></details>
+
+<!-- ================================================================== -->
+<h2 id="bayes"><span class="sec">4.3</span>Bayes' teorem</h2>
+
+<p>Se på de to overlappende mengdene $A$ og $B$ under. Hvis du trekker et tilfeldig element, hva er sannsynligheten for at det havner i overlappet $A\cap B$?</p>
+
+<figure class="fig">
+  <img src="../assets/fig/notater/s14_1.png" alt="To delvis overlappende rektangler A og B med overlappet A snitt B" width="300">
+  <figcaption><b>Figur 4.1</b> To delvis overlappende mengder $A$ og $B$ (fra notatene, figur 8).</figcaption>
+</figure>
+
+<p>Du kan regne det ut på to måter. Enten først «havner jeg i $B$?» og deretter «gitt at jeg er i $B$, havner jeg også i $A$?». Eller motsatt. Begge veier gir samme svar:</p>
+
+<details class="steps" open><summary>Utledning av Bayes' teorem steg for steg</summary><div>
+<p><b>Steg 1.</b> Betinget sannsynlighet er andelen av $B$ som også er i $A$: $P(A\mid B) = \dfrac{P(A\cap B)}{P(B)}$. Altså $P(A\cap B) = P(A\mid B)P(B)$.</p>
+<p><b>Steg 2.</b> Samme logikk andre veien: $P(A\cap B) = P(B\mid A)P(A)$.</p>
+<p><b>Steg 3.</b> Overlappet er det samme uansett vei (likning 33):</p>
+<div class="eq">$$P(A\cap B) = P(A\mid B)P(B) = P(B\mid A)P(A)$$</div>
+<p><b>Steg 4.</b> Del på $P(B)$ (likning 34):</p>
+<div class="eq">$$P(A\mid B) = \frac{P(B\mid A)\,P(A)}{P(B)}$$</div>
+<p>Dette er <strong>Bayes' teorem</strong>. Det holder uansett om du tolker sannsynlighet frekventistisk eller bayesiansk.</p>
+</div></details>
+
+<h3>Bayes' teorem for klassifisering</h3>
+<p>Når vi klassifiserer, vil vi vite sannsynligheten for klasse $C_k$ gitt en observasjon $x$ (f.eks. Survived = 1 gitt en passasjers features). Bytt $A \to C_k$ og $B \to x$ (likning 35):</p>
+
+<div class="eq">$$\underbrace{p(C_k\mid x)}_{\text{posterior}} = \frac{\overbrace{p(x\mid C_k)}^{\text{likelihood}}\;\overbrace{p(C_k)}^{\text{prior}}}{\underbrace{p(x)}_{\text{evidens}}}$$</div>
+
+<ul>
+  <li><strong>Prior $p(C_k)$</strong> (a priori-sannsynlighet): fordelingen av klassene i treningsdataene. Det vi vet <em>før</em> vi ser på datapunktet. Legg merke til at $x$ ikke er med.</li>
+  <li><strong>Likelihood $p(x\mid C_k)$</strong>: fordelingen av dataene gitt klassen. Én fordeling per klasse, med like mange dimensjoner som det er features.</li>
+  <li><strong>Evidens $p(x)$</strong>: fordelingen av selve dataene, uavhengig av klasse. Også den har like mange dimensjoner som det er features. $C_k$ er ikke med.</li>
+  <li><strong>Posterior $p(C_k\mid x)$</strong>: det vi vil ha, sannsynligheten for klassen <em>etter</em> at vi har sett $x$.</li>
+</ul>
+
+<div class="callout hook"><span class="label">Knagg: detektiven</span>
+<p><strong>Prior</strong> er hva detektiven mener før hun har sett åstedet («de fleste innbrudd er gjort av naboer»). <strong>Likelihood</strong> er hvor godt sporene passer med hver mistenkt («hvor sannsynlig er disse fotsporene hvis det var naboen?»). <strong>Posterior</strong> er den oppdaterte mistanken. Evidensen er bare skalaen som sørger for at mistankene summerer til 100 %.</p>
+</div>
+
+<h3>Hvorfor kan vi droppe $p(x)$?</h3>
+<p>$p(x)$ inneholder ikke $C_k$, så den er <strong>den samme for alle klasser</strong>. Den skalerer alle posteriorene med samme tall. Den er en normalisering som sørger for at posteriorene summerer til 1. Med loven om total sannsynlighet er den nemlig</p>
+<div class="eq">$$p(x) = \sum_k p(x\mid C_k)\,p(C_k)$$</div>
+<p>Vil vi bare vite <em>hvilken</em> klasse som er mest sannsynlig, kan vi droppe den (likning 36):</p>
+<div class="eq">$$p(C_k\mid x) \propto p(x\mid C_k)\,p(C_k)$$</div>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 2.1</span>
+<p>Spørsmål: hva er hensikten med leddet $p(x)$ i $p(C=1\mid x) = \frac{p(C=1)p(x\mid C=1)}{p(x)}$? Riktig svar: <strong>det sikrer at posterior-sannsynlighetene over alle klasser utgjør en gyldig sannsynlighetsfordeling</strong>. Det avhenger <em>ikke</em> av klassen, det er <em>ikke</em> $p(x\mid C=1)$, og det bestemmer <em>ikke</em> hvilken klasse som vinner (det er likt for alle).</p>
+</div>
+
+<div class="quiz" data-id="04-px-purpose">
+  <p class="q">I Bayes' teorem $p(C_k\mid x) = \frac{p(x\mid C_k)p(C_k)}{p(x)}$: hvorfor kan vi ignorere $p(x)$ når vi bare skal velge den mest sannsynlige klassen?</p>
+  <ul>
+    <li>Fordi $p(x)$ alltid er lik 1 for observerte data.</li>
+    <li>Fordi $p(x)$ er lik prioren for den største klassen.</li>
+    <li data-correct>Fordi $p(x)$ er den samme for alle klasser, så den skalerer alle posteriorer likt og endrer ikke rekkefølgen.</li>
+    <li>Fordi $p(x)$ bestemmer hvilken klasse som vinner, og den vinneren vet vi allerede.</li>
+  </ul>
+  <div class="explain">$p(x)$ inneholder ikke $C_k$. Den er en felles normaliseringskonstant $\sum_k p(x\mid C_k)p(C_k)$. Å dele alle tall på samme positive konstant endrer ikke hvilket som er størst. $p(x)$ er ikke 1 (det er sannsynligheten/tettheten for akkurat denne $x$-verdien), og den er ikke prioren. Den bestemmer ingenting om vinneren, nettopp fordi den er lik for alle.</div>
+</div>
+
+<div class="quiz" data-multi data-id="04-bayes-terms">
+  <p class="q">Hvilke koblinger er riktige for $p(C_k\mid x) = \frac{p(x\mid C_k)p(C_k)}{p(x)}$?</p>
+  <ul>
+    <li data-correct>$p(C_k)$ er prior: klassefordelingen i treningsdataene, uten å se på $x$.</li>
+    <li>$p(x\mid C_k)$ er posterior: det vi vil finne.</li>
+    <li data-correct>$p(x)$ er evidens: fordelingen av dataene uavhengig av klasse.</li>
+    <li data-correct>$p(x\mid C_k)$ er likelihood: én fordeling over alle features for hver klasse.</li>
+    <li>$p(C_k\mid x)$ er prior, fordi den kommer først i likningen.</li>
+  </ul>
+  <div class="explain">Prior = $p(C_k)$, likelihood = $p(x\mid C_k)$, evidens = $p(x)$, posterior = $p(C_k\mid x)$. Det er lett å bytte om likelihood og posterior: posterior er sannsynligheten for <em>klassen</em> gitt dataene (det vi vil ha), likelihood er sannsynligheten for <em>dataene</em> gitt klassen (det vi kan telle opp i treningsdataene).</div>
+</div>
+
+<h3>Sykdomstesten: Bayes' viktigste lærdom</h3>
+<p>En test for en sjelden sykdom er 95 % sensitiv (finner 95 % av de syke) og 95 % spesifikk (gir negativt svar til 95 % av de friske). 1 % av befolkningen har sykdommen. Du tester positivt. Hvor sannsynlig er det at du er syk?</p>
+<p>De fleste gjetter 95 %. Svaret er 16 %. Prøv selv:</p>
+
+<div class="widget">
+  <h4>Utforsk: Bayes-kalkulator for en medisinsk test</h4>
+  <canvas id="w-bayes" width="660" height="270"></canvas>
+  <div class="legend-dots">
+    <span style="--dot:var(--c1)">syk, positiv test (TP)</span>
+    <span style="--dot:transparent;--ring:var(--c1)">syk, negativ test (FN)</span>
+    <span style="--dot:var(--c2)">frisk, positiv test (FP)</span>
+    <span style="--dot:var(--grid)">frisk, negativ test (TN)</span>
+  </div>
+  <div class="controls">
+    <label>Andel syke (prior) <input type="range" id="by-prev" min="0" max="9" step="1" value="3"><output id="by-prevo">1 %</output></label>
+    <label>Sensitivitet <input type="range" id="by-sens" min="50" max="100" step="1" value="95"><output id="by-senso">95 %</output></label>
+    <label>Spesifisitet <input type="range" id="by-spec" min="50" max="100" step="0.5" value="95"><output id="by-speco">95 %</output></label>
+  </div>
+  <div class="readouts" id="by-out"></div>
+  <p class="small" id="by-calc" style="margin:10px 0 0"></p>
+</div>
+<p class="small muted">Hver prikk er én av 1000 personer. Tallene under er per 10 000 for å få mindre avrunding.</p>
+
+<details class="steps"><summary>Regn det ut med Bayes og med naturlige frekvenser</summary><div>
+<p><b>Naturlige frekvenser.</b> Tenk 10 000 personer. 1 % er syke: 100 syke og 9900 friske.</p>
+<ul>
+  <li>Av de 100 syke tester 95 % positivt: TP = 95.</li>
+  <li>Av de 9900 friske tester 5 % positivt: FP = 495.</li>
+</ul>
+<p>Positive tester totalt: $95 + 495 = 590$. Andelen som faktisk er syke: $95/590 \approx 0.161$.</p>
+<p><b>Med Bayes' teorem.</b></p>
+<div class="eq">$$P(\text{syk}\mid +) = \frac{P(+\mid\text{syk})P(\text{syk})}{P(+\mid\text{syk})P(\text{syk}) + P(+\mid\text{frisk})P(\text{frisk})} = \frac{0.95\cdot 0.01}{0.95\cdot 0.01 + 0.05\cdot 0.99} = \frac{0.0095}{0.059} \approx 0.161$$</div>
+<p>Nevneren er $p(x)$, regnet ut med loven om total sannsynlighet.</p>
+</div></details>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Når sykdommen er sjelden, er det så mange flere friske enn syke at selv en liten falsk positiv-rate gir flere falske alarmer enn ekte funn. <strong>En positiv test på en sjelden sykdom er ofte falsk alarm.</strong> Dette er nøyaktig det samme som i <a href="03-evaluering.html#pr">kapittel 3</a>: precision (som her er $P(\text{syk}\mid +)$) avhenger av klassefordelingen, mens sensitivitet og spesifisitet ikke gjør det. Prioren er det som gjør ubalanserte data vanskelige.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Sjelden sykdom → mest falske alarmer.</strong> Se for deg en stadion med 10 000 mennesker. 100 er syke, og testen finner 95 av dem. Men den slår også ut på 495 av de friske. Står du blant de 590 som fikk positivt svar, er de fleste rundt deg friske.</p>
+</div>
+
+<div class="calc" data-id="04-calc-ppv" data-answer="0.161" data-tol="0.003">
+  <p class="q">Uten å se på løsningen: andel syke 1 %, sensitivitet 95 %, spesifisitet 95 %. Hva er $P(\text{syk}\mid\text{positiv test})$?</p>
+  <div class="solution">Per 10 000: TP $= 95$, FP $= 0.05\cdot 9900 = 495$. $P = 95/(95+495) = 95/590 \approx 0.161$.</div>
+</div>
+
+<div class="calc" data-id="04-calc-ppv2" data-answer="0.0902" data-tol="0.003">
+  <p class="q">En enda bedre test: sensitivitet 99 % og spesifisitet 99 %, men sykdommen rammer bare 1 av 1000 (0.1 %). Hva er $P(\text{syk}\mid +)$?</p>
+  <div class="solution">Per 100 000: 100 syke, TP $= 99$. 99 900 friske, FP $= 0.01\cdot 99\,900 = 999$. $P = 99/(99+999) = 99/1098 \approx 0.090$. Selv en 99 % nøyaktig test gir bare 9 % sannsynlighet for sykdom når prioren er 0.1 %.</div>
+</div>
+
+<div class="quiz" data-id="04-disease-intuition">
+  <p class="q">En test for en sjelden sykdom har høy sensitivitet og høy spesifisitet. Hvorfor kan likevel de fleste positive testene være falske alarmer?</p>
+  <ul>
+    <li>Fordi høy sensitivitet alltid gir mange falske positive.</li>
+    <li data-correct>Fordi det er så mange flere friske enn syke at en liten andel falske positive blant de friske blir flere enn de sanne positive.</li>
+    <li>Fordi spesifisitet og sensitivitet ikke kan være høye samtidig.</li>
+    <li>Fordi Bayes' teorem bare gjelder når klassene er balanserte.</li>
+  </ul>
+  <div class="explain">Antall FP er $(1-\text{spesifisitet})\cdot\text{antall friske}$, og når de friske er 99 % av befolkningen, blir selv 5 % av dem mange. Sensitiviteten påvirker antall TP, ikke FP. Sensitivitet og spesifisitet kan godt være høye samtidig. Bayes' teorem gjelder alltid, og det er nettopp den som forklarer effekten.</div>
+</div>
+
+<h3>Hvorfor regner vi ikke bare ut posterior eksakt?</h3>
+<p>Bayes' teorem er et eksakt uttrykk for $p(C_k\mid x)$. Klarer vi å regne ut alle leddene, trenger vi ingen maskinlæring. Så hvorfor gjør vi det ikke? Se på hvert ledd for Titanic-dataene:</p>
+<ul>
+  <li><strong>$p(C_k)$ kan beregnes</strong>: antall Survived = 1 (og = 0) delt på antall passasjerer. Overlever 38 %, er $p(C_1) = 0.38$.</li>
+  <li><strong>$p(x)$ er problematisk</strong>: vi trenger fordelingen av <em>alle kombinasjoner</em> av alle features, og det er ikke sikkert den har et analytisk uttrykk. Men vi kan droppe den, se over.</li>
+  <li><strong>$p(x\mid C_k)$ er også problematisk</strong>: så lenge featurene avhenger av hverandre, er dette en flerdimensjonal <em>simultanfordeling</em> (joint distribution). Den er like vanskelig å estimere som $p(x)$, og vi kan <em>ikke</em> droppe den.</li>
+</ul>
+<p>Problemet er altså likelihooden. Med mange features er det for mange kombinasjoner til at vi har data nok til å telle opp hver av dem. Det er dimensjonsforbannelsen (4.6). Maskinlæringsmodeller er i stor grad måter å <em>tilnærme</em> $p(C_k\mid x)$ uten å måtte estimere hele simultanfordelingen.</p>
+
+<div class="quiz" data-id="04-why-not-exact">
+  <p class="q">Hvilket ledd i Bayes' teorem er det egentlige hinderet for å regne ut posterior eksakt i et klassifiseringsproblem med mange features?</p>
+  <ul>
+    <li>Prioren $p(C_k)$, fordi klassefordelingen er ukjent.</li>
+    <li data-correct>Likelihooden $p(x\mid C_k)$, fordi den er en høydimensjonal simultanfordeling som krever enorme mengder data å estimere, og den kan ikke droppes.</li>
+    <li>Evidensen $p(x)$, fordi den må regnes ut for å finne den beste klassen.</li>
+    <li>Posterior, fordi den alltid er 0 eller 1.</li>
+  </ul>
+  <div class="explain">Prioren er lett: tell klassene. Evidensen er vanskelig, men kan droppes fordi den er lik for alle klasser. Likelihooden er også en simultanfordeling over alle features, men den avhenger av klassen og kan derfor <em>ikke</em> droppes. Med mange features vokser antall kombinasjoner eksponentielt. Posterior er en sannsynlighet mellom 0 og 1, ikke bare 0 eller 1.</div>
+</div>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt 2</span>
+<p>Prosjekt 2 spurte: <em>«Try estimating the factors of Bayes theorem using this dataset. What terms can you estimate and which ones are difficult and why?»</em> Svaret er avsnittet over, med viking-dataene: prioren $P(\text{survived})$ er lett (222 av 500 overlevde, altså 0.444). Én-dimensjonale likelihooder som $P(\text{sex}=\text{Male}\mid\text{survived})$ er lette å telle opp. Den fulle likelihooden $P(\text{sex},\text{age},\text{role},\text{ship},\ldots\mid\text{survived})$ og evidensen $P(x)$ er vanskelige: med ti features er det langt flere kombinasjoner enn 500 vikinger, så de fleste cellene er tomme. Derfor naiv Bayes (neste seksjon).</p>
+</div>
+
+<div class="reflect" data-id="04-r-bayes-proj">
+  <p class="q">Forklar med egne ord, slik du ville gjort i prosjekt 2: hvilke ledd i Bayes' teorem kan du estimere fra et datasett med 500 rader og 10 features, og hvilke er vanskelige?</p>
+  <div class="answer">Prioren $p(C_k)$ kan estimeres direkte som andelen av hver klasse. Hver én-dimensjonale fordeling $p(x_i\mid C_k)$ kan også estimeres ved å telle (kategoriske features) eller lage histogram (kontinuerlige features), fordi hver av dem bare har noen få verdier å fordele 500 punkter på. Den fulle likelihooden $p(x_1,\ldots,x_{10}\mid C_k)$ er vanskelig: antall kombinasjoner av verdier er produktet av antall verdier for hver feature, langt flere enn 500, så de fleste kombinasjoner er aldri observert. Det samme gjelder evidensen $p(x)$, men den trenger vi ikke, fordi den er lik for alle klasser.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="naiv-bayes"><span class="sec">4.4</span>Naiv Bayes</h2>
+
+<p>Løsningen som «noen ganger fungerer i praksis» er å <strong>anta at featurene er uavhengige gitt klassen</strong> (betinget uavhengighet). For eksempel at det å være kvinne eller mann ikke sier noe om alderen, innenfor hver klasse. Da kan simultanfordelingen skrives som et produkt av én-dimensjonale fordelinger:</p>
+
+<div class="eq">$$p(x_1, x_2, \ldots, x_n\mid C_k) = p(x_1\mid C_k)\,p(x_2\mid C_k)\cdots p(x_n\mid C_k) = \prod_{i=1}^n p(x_i\mid C_k)$$</div>
+
+<p>Sammen med $p(C_k\mid x)\propto p(x\mid C_k)p(C_k)$ gir det (likning 37 og 38 i notatene):</p>
+
+<div class="eq">
+  <p class="eq-note">Naiv Bayes: estimat og prediksjon</p>
+  $$p(C_k\mid x)\;\propto\; p(C_k)\prod_{i=1}^n p(x_i\mid C_k) \qquad\qquad \hat y = \arg\max_{k}\; p(C_k)\prod_{i=1}^n p(x_i\mid C_k)$$
+</div>
+
+<p>Det kalles <strong>naiv</strong> Bayes fordi det er naivt å tro at featurene er uavhengige (selv om det i noen tilfeller kan stemme). $\arg\max_k$ betyr «den $k$ som gir størst verdi»: vi regner ut produktet for hver klasse og velger klassen med størst produkt.</p>
+
+<div class="chain">
+  <div><b>Problem</b>$p(x\mid C_k)$ er en høydimensjonal simultanfordeling</div><div class="arrow">→</div>
+  <div><b>Antakelse</b>features er betinget uavhengige</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>bare én-dimensjonale fordelinger å estimere, men tallene er ikke kalibrerte</div>
+</div>
+
+<div class="callout why"><span class="label">Hvorfor er dette så mye lettere?</span>
+<p>Med 10 features som hver har 10 mulige verdier, har simultanfordelingen $10^{10}$ celler per klasse. Med naiv Bayes estimerer vi i stedet 10 fordelinger med 10 verdier hver, altså $10\cdot 10 = 100$ tall per klasse. <strong>Naiv Bayes bytter $10^d$ mot $10\cdot d$.</strong> Det er en direkte måte å unnslippe dimensjonsforbannelsen på, med en antakelse som pris.</p>
+</div>
+
+<h3>Regneeksempel: overlever vikingen?</h3>
+<p>Inspirert av prosjekt 2. Vi har et lite (oppdiktet) datasett med 20 vikinger fra tidligere tokt, med tre features: kjønn, rolle og rustning. 8 overlevde ($C_1$) og 12 døde ($C_0$). Tellingene:</p>
+
+<div class="two-col">
+<table class="counts">
+  <tr><th>Overlevde ($C_1$, 8 stk.)</th><th>Antall</th></tr>
+  <tr><td>Kjønn: mann / kvinne</td><td>4 / 4</td></tr>
+  <tr><td>Rolle: jarl / hirdmann / karl / træl</td><td>1 / 3 / 3 / 1</td></tr>
+  <tr><td>Rustning: ringbrynje / ingen</td><td>4 / 4</td></tr>
+</table>
+<table class="counts">
+  <tr><th>Døde ($C_0$, 12 stk.)</th><th>Antall</th></tr>
+  <tr><td>Kjønn: mann / kvinne</td><td>9 / 3</td></tr>
+  <tr><td>Rolle: jarl / hirdmann / karl / træl</td><td>0 / 2 / 6 / 4</td></tr>
+  <tr><td>Rustning: ringbrynje / ingen</td><td>2 / 10</td></tr>
+</table>
+</div>
+
+<p>En ny viking, Endre, skal på tokt: <strong>mann, hirdmann, ringbrynje</strong>. Overlever han?</p>
+
+<details class="steps" open><summary>Naiv Bayes for Endre, steg for steg</summary><div>
+<p><b>Steg 1: prior.</b> $p(C_1) = 8/20 = 0.4$ og $p(C_0) = 12/20 = 0.6$.</p>
+<p><b>Steg 2: likelihood for hver feature</b>, talt opp innenfor hver klasse:</p>
+<table class="nb-table">
+  <tr><th></th><th>Overlevde $C_1$</th><th>Døde $C_0$</th></tr>
+  <tr><td>$p(\text{mann}\mid C)$</td><td>$4/8 = 0.5$</td><td>$9/12 = 0.75$</td></tr>
+  <tr><td>$p(\text{hirdmann}\mid C)$</td><td>$3/8 = 0.375$</td><td>$2/12 \approx 0.167$</td></tr>
+  <tr><td>$p(\text{ringbrynje}\mid C)$</td><td>$4/8 = 0.5$</td><td>$2/12 \approx 0.167$</td></tr>
+</table>
+<p><b>Steg 3: multipliser</b> prior og likelihoodene:</p>
+<p>$C_1$: $\;0.4\cdot 0.5\cdot 0.375\cdot 0.5 = 0.0375$</p>
+<p>$C_0$: $\;0.6\cdot 0.75\cdot \tfrac{2}{12}\cdot \tfrac{2}{12} = 0.6\cdot 0.75\cdot\tfrac{1}{36} = 0.0125$</p>
+<p><b>Steg 4: arg max.</b> $0.0375 > 0.0125$, så $\hat y = C_1$: <strong>Endre forventes å overleve</strong>. Han har tre ganger så høy skår for å overleve som for å dø.</p>
+<p><b>Steg 5 (valgfritt): normaliser.</b> Summen $0.0375 + 0.0125 = 0.05$ spiller rollen som $p(x)$. Normalisert: $0.0375/0.05 = 0.75$ for å overleve og $0.25$ for å dø.</p>
+</div></details>
+
+<div class="callout warn"><span class="label">Sannsynlighetene er ikke kalibrerte</span>
+<p>De 75 % er <strong>ikke</strong> en ekte posterior. Uavhengighetsantakelsen er (nesten) aldri helt riktig: en hirdmann har nok oftere ringbrynje enn en træl, så de to featurene teller «samme bevis» to ganger. Naiv Bayes blir derfor ofte <em>for sikker</em>. Men så lenge vi bare vil vite hvilken klasse som er mest sannsynlig, og beregner begge på samme måte, fungerer det ofte godt. Sammenligningen er nyttig, selve tallet må tas med en klype salt.</p>
+</div>
+
+<div class="calc" data-id="04-calc-nb-score" data-answer="0.0375" data-tol="0.0005">
+  <p class="q">Regn ut den unormaliserte naiv Bayes-skåren for «overlevde» for en <strong>kvinne, karl, ringbrynje</strong>. (Bruk tabellene over.)</p>
+  <div class="solution">$p(C_1)\,p(\text{kvinne}\mid C_1)\,p(\text{karl}\mid C_1)\,p(\text{ringbrynje}\mid C_1) = 0.4\cdot\tfrac48\cdot\tfrac38\cdot\tfrac48 = 0.4\cdot 0.5\cdot 0.375\cdot 0.5 = 0.0375$. (For $C_0$: $0.6\cdot\tfrac{3}{12}\cdot\tfrac{6}{12}\cdot\tfrac{2}{12} = 0.0125$, så hun forventes også å overleve.)</div>
+</div>
+
+<div class="calc" data-id="04-calc-nb-post" data-answer="0.1667" data-tol="0.004">
+  <p class="q">En <strong>mann, karl, uten rustning</strong>. Hva blir den normaliserte naiv Bayes-sannsynligheten for å overleve?</p>
+  <div class="solution">$C_1$: $0.4\cdot\tfrac48\cdot\tfrac38\cdot\tfrac48 = 0.0375$. $C_0$: $0.6\cdot\tfrac{9}{12}\cdot\tfrac{6}{12}\cdot\tfrac{10}{12} = 0.6\cdot 0.75\cdot 0.5\cdot 0.833 = 0.1875$. Normalisert: $0.0375/(0.0375+0.1875) = 0.0375/0.225 \approx 0.167$. Han forventes å dø.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: naiv Bayes steg for steg</h4>
+  <div class="controls">
+    <label>Kjønn <select id="nb-sex"><option>mann</option><option>kvinne</option></select></label>
+    <label>Rolle <select id="nb-role"><option>jarl</option><option selected>hirdmann</option><option>karl</option><option>træl</option></select></label>
+    <label>Rustning <select id="nb-arm"><option>ringbrynje</option><option>ingen</option></select></label>
+    <label><input type="checkbox" id="nb-lap"> Laplace-glatting</label>
+  </div>
+  <div id="nb-out" style="margin-top:12px"></div>
+</div>
+<p><strong>Legg merke til:</strong> Velg rolle <em>jarl</em>. Ingen jarl i datasettet døde, så $p(\text{jarl}\mid C_0) = 0/12 = 0$, og hele produktet for $C_0$ blir 0, uansett hva de andre featurene sier. Én tom celle overstyrer alt annet bevis. Skru på Laplace-glatting for å se hvordan det fikses (se fordypningen under).</p>
+
+<div class="quiz" data-id="04-nb-zero">
+  <p class="q">I naiv Bayes-eksempelet har ingen jarl dødd ($0/12$). Hva skjer når vi klassifiserer en jarl, uansett øvrige features?</p>
+  <ul>
+    <li>Jarlen får posterior 0.5, fordi vi mangler informasjon.</li>
+    <li>Rolle-featuren ignoreres automatisk for jarler.</li>
+    <li data-correct>Produktet for «døde» blir 0, så modellen sier «overlever» med full sikkerhet.</li>
+    <li>Modellen kan ikke regne ut noe, fordi man ikke kan dele på 0.</li>
+  </ul>
+  <div class="explain">Naiv Bayes multipliserer, og én faktor lik 0 gjør hele produktet 0. Da vinner $C_1$ uansett, og normalisert blir sannsynligheten 1. Ingen deling på 0 skjer (vi deler på antall i klassen, 12). Featuren ignoreres ikke av seg selv. Det er dette Laplace-glatting løser. Det er også en miniversjon av problemet med tomme celler, som vokser kraftig med flere features.</div>
+</div>
+
+<details class="more"><summary>Fordypning: Laplace-glatting og kontinuerlige features <span class="tag">nyttig i praksis</span></summary><div>
+<p><strong>Laplace-glatting</strong> legger til 1 i hver telling: $p(x_i = v\mid C_k) = \dfrac{n(v, C_k) + 1}{n(C_k) + V}$, der $V$ er antall mulige verdier for featuren. Da blir ingen sannsynlighet 0. For jarl blant de døde: $(0+1)/(12+4) = 1/16$.</p>
+<p><strong>Kontinuerlige features</strong> som alder kan deles inn i intervaller (bins) og telles som kategorier, eller modelleres med en normalfordeling per klasse (gaussisk naiv Bayes), der vi bare estimerer gjennomsnitt og standardavvik for hver klasse.</p>
+</div></details>
+
+<div class="callout exam"><span class="label">Eksamen 2025 del 2.2</span>
+<p>En naiv Bayes-klassifikator for e-post med features «antall ganger "offer"», «antall ganger "free"» og «antall lenker», med $p(x_1,x_2,x_3\mid\text{spam}) = p(x_1\mid\text{spam})p(x_2\mid\text{spam})p(x_3\mid\text{spam})$. Riktig utsagn: <strong>modellen antar betinget uavhengighet selv om den sanne datafordelingen bryter denne antakelsen</strong>. Featurene trenger <em>ikke</em> være uavhengige i det faktiske datasettet for at modellen skal kunne brukes, antakelsen gjelder ikke bare numeriske features, og posterior kan alltid beregnes.</p>
+</div>
+
+<div class="quiz" data-id="04-nb-assumption">
+  <p class="q">En naiv Bayes-modell skal oppdage svindel ut fra beløp, tidspunkt og land. Beløp og land er tydelig korrelert i dataene. Hvilket utsagn er riktig?</p>
+  <ul>
+    <li>Modellen kan ikke brukes, fordi featurene må være statistisk uavhengige i datasettet.</li>
+    <li>Modellen oppdager korrelasjonen og estimerer simultanfordelingen for beløp og land i stedet.</li>
+    <li>Uavhengighetsantakelsen gjelder bare kategoriske features, så korrelasjonen med beløp spiller ingen rolle.</li>
+    <li data-correct>Modellen antar betinget uavhengighet uansett. Den kan fortsatt brukes, men sannsynlighetene blir mindre pålitelige.</li>
+  </ul>
+  <div class="explain">Naiv Bayes er en <em>modellantakelse</em>: modellen regner som om featurene er uavhengige gitt klassen, uansett hvordan dataene egentlig er. Det går fint å bruke den, men sannsynlighetene blir ikke kalibrerte (korrelerte features telles dobbelt), og klassifiseringen kan bli dårligere. Modellen oppdager ikke korrelasjoner av seg selv. Antakelsen gjelder alle features, kategoriske og numeriske.</div>
+</div>
+
+<div class="quiz" data-id="04-nb-calibrated">
+  <p class="q">Naiv Bayes gir «0.97» for at en e-post er spam. Hvordan bør du tolke tallet?</p>
+  <ul>
+    <li>Som en eksakt posterior: 97 av 100 slike e-poster er spam.</li>
+    <li data-correct>Som en rangering: modellen mener spam er mye mer sannsynlig enn ikke-spam, men 0.97 er ikke en kalibrert sannsynlighet.</li>
+    <li>Som accuracy: modellen har rett 97 % av gangene.</li>
+    <li>Som prioren for spam i treningsdataene.</li>
+  </ul>
+  <div class="explain">Fordi uavhengighetsantakelsen sjelden holder, er naiv Bayes-sannsynlighetene ikke kalibrerte, ofte er de for ekstreme. Notatene sier det slik: «Denne sannsynligheten er ikke kalibrert, så den er ikke en ekte posterior», men den relative sammenligningen fungerer. Accuracy er en egenskap ved modellen over mange punkter, ikke ved én prediksjon. Prioren er bare klassefordelingen og har ikke sett e-posten.</div>
+</div>
+
+<div class="reflect" data-id="04-r-nb-why-works">
+  <p class="q">Naiv Bayes bygger på en antakelse vi vet er feil. Hvorfor kan den likevel klassifisere godt?</p>
+  <div class="answer">For å klassifisere riktig trenger vi bare at den riktige klassen får størst skår, ikke at sannsynlighetene er riktige. Selv om avhengigheter gjør tallene for ekstreme, påvirker de ofte begge klassene i samme retning, så rekkefølgen holder. I tillegg har naiv Bayes svært få parametre (én-dimensjonale fordelinger), så den trenger lite data og overtilpasser lite: høy bias, lav varians. Med få datapunkter og mange features er det ofte bedre enn å prøve å estimere en simultanfordeling vi ikke har data til.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="avhengige"><span class="sec">4.5</span>Ikke-uavhengige features</h2>
+
+<p>Notatenes oppgave: hvilke features i Titanic-dataene er ikke uavhengige? I forelesningen plottet vi passasjerklasse mot kjønn:</p>
+<pre><code>p_cond = pd.crosstab(df.Pclass, df.Sex, normalize="index")
+p_marg = df.Sex.value_counts(normalize=True)
+ax = p_cond.plot.bar(rot=0)</code></pre>
+
+<p>Fra Titanic-treningsdataene (891 passasjerer):</p>
+<table class="counts">
+  <tr><th>Pclass</th><th>Kvinner</th><th>Menn</th><th>Andel kvinner</th></tr>
+  <tr><td>1. klasse</td><td>94</td><td>122</td><td>0.44</td></tr>
+  <tr><td>2. klasse</td><td>76</td><td>108</td><td>0.41</td></tr>
+  <tr><td>3. klasse</td><td>144</td><td>347</td><td>0.29</td></tr>
+  <tr><td><b>Alle</b></td><td>314</td><td>577</td><td><b>0.35</b></td></tr>
+</table>
+
+<p>Hvis Pclass og Sex var uavhengige, ville andelen kvinner vært den samme (ca. 0.35) i hver klasse: $p(\text{Sex}\mid\text{Pclass}) = p(\text{Sex})$. Det er den ikke. I 3. klasse er det langt flere menn. Kjenner du klassen, vet du noe om kjønnet. <strong>Featurene er avhengige.</strong> Også Pclass og billettpris (Fare) henger åpenbart sammen, og det samme gjør antall søsken/ektefeller og antall foreldre/barn om bord.</p>
+
+<p>I viking-dataene fra prosjekt 2 er rolle og rustning et enda tydeligere eksempel: ingen træl eller karl har ringbrynje, mens de fleste jarler har det.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span>
+<p>Naiv Bayes ganger sammen $p(\text{Pclass}\mid C)$ og $p(\text{Sex}\mid C)$ som om de var uavhengige bevis. Men delvis forteller de det samme («3. klasse» bærer allerede litt «mann» i seg), så beviset telles dobbelt. Resultatet er for selvsikre sannsynligheter og noen ganger feil klasse.</p>
+</div>
+
+<div class="quiz" data-id="04-dependent-features">
+  <p class="q">Andelen kvinner er 0.44 i 1. klasse og 0.29 i 3. klasse, mens den er 0.35 totalt. Hva viser dette?</p>
+  <ul>
+    <li>At Sex og Pclass er uavhengige, siden alle klassene har både kvinner og menn.</li>
+    <li data-correct>At Sex og Pclass er avhengige, siden $p(\text{Sex}\mid\text{Pclass})$ varierer med klassen og ikke er lik $p(\text{Sex})$.</li>
+    <li>At Sex forårsaker hvilken klasse man reiser på.</li>
+    <li>At naiv Bayes vil gi nøyaktig riktige sannsynligheter for Titanic.</li>
+  </ul>
+  <div class="explain">Uavhengighet betyr at det å vite den ene ikke endrer fordelingen til den andre: $p(\text{Sex}\mid\text{Pclass}) = p(\text{Sex})$ for alle klasser. Her varierer andelen fra 0.29 til 0.44, så de er avhengige. At alle kombinasjoner forekommer, sier ingenting om uavhengighet. Avhengighet er ikke det samme som årsak. Og siden antakelsen brytes, blir naiv Bayes-sannsynlighetene ikke eksakte.</div>
+</div>
+
+<h3>Estimere simultanfordelingen direkte</h3>
+<p>Hva om vi dropper uavhengighetsantakelsen? Da må vi estimere simultanfordelingen av alle features for hver klasse, altså $p(\text{Sex}, \text{Age}, \text{Pclass}\mid \text{Survived} = 0)$ og tilsvarende for Survived = 1, og sammenligne (likning 41)</p>
+<div class="eq">$$\frac{p(x\mid C_0)\,p(C_0)}{p(x\mid C_1)\,p(C_1)}$$</div>
+<p>Den beste måten er en tabell der hver verdi av $x_1$ kombineres med hver verdi av $x_2$ og $x_3$ (rekkefølgen spiller ingen rolle). Kontinuerlige features som Age deles inn i for eksempel ti kategorier med <code>numpy.histogram(data[feature], bins=10)</code>. For Titanic gir det $2\cdot 10\cdot 3 = 60$ celler per klasse.</p>
+
+<p>For vikingeksempelet med kjønn (2), rolle (4) og rustning (2) blir det $2\cdot 4\cdot 2 = 16$ celler per klasse. Men vi har bare 8 overlevende og 12 døde! Minst halvparten av cellene for de overlevende er tomme. Endres celle (mann, hirdmann, ringbrynje) inneholder 2 overlevende og 1 død. Merk at $p(x\mid C_k)p(C_k) = \frac{n(x, C_k)}{n(C_k)}\cdot\frac{n(C_k)}{N} = \frac{n(x, C_k)}{N}$, så vi sammenligner rett og slett tellingene: 2 mot 1. Normalisert gir det $2/3 \approx 0.67$ for å overleve, basert på <em>tre</em> vikinger. Estimatet bruker riktig modell, men har nesten ingen data bak seg.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Tomme celler i tabellen er dimensjonsforbannelsen i miniatyr.</strong> Hver ny feature ganger antall celler, mens antall datapunkter står stille. Det er notatenes overgang til neste tema.</p>
+</div>
+
+<div class="quiz" data-id="04-joint-cells">
+  <p class="q">Du estimerer simultanfordelingen av tre features med 3, 4 og 5 mulige verdier, separat for hver av to klasser. Klasse 1 har 50 datapunkter. Hva er det minste antallet tomme celler for klasse 1?</p>
+  <ul>
+    <li>0, siden 50 datapunkter er nok</li>
+    <li>12</li>
+    <li data-correct>10</li>
+    <li>60</li>
+  </ul>
+  <div class="explain">Antall celler er $3\cdot 4\cdot 5 = 60$. Med 50 punkter kan maksimalt 50 celler ha minst ett punkt, så minst $60-50 = 10$ er tomme (i praksis langt flere, og mange av de andre har bare 1–2 punkter). 12 er summen $3+4+5$, som er antall tall naiv Bayes trenger per klasse. 60 er antall celler, ikke antall tomme.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="dimensjon"><span class="sec">4.6</span>Dimensjonsforbannelsen</h2>
+
+<p>Notatenes tankeeksperiment: vi vil estimere en fordeling med et histogram. Vi synes 10 bins per akse (feature) er nok oppløsning, og vi vil ha 10 datapunkter i hver bin for at tellingen skal være noenlunde pålitelig. Hvor mange datapunkter trenger vi for $d$ features? Tenk deg om før du leser videre.</p>
+
+<figure class="fig svgfig">
+<svg viewBox="0 0 660 230" width="660" role="img" aria-label="10 bins per akse i 1, 2 og 3 dimensjoner">
+<rect x="20" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="38" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="56" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="74" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="92" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="110" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="128" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="146" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="164" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="182" y="100" width="18" height="18" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<text x="110" y="190" text-anchor="middle" font-weight="700" font-size="14">d = 1: 10 bins</text>
+<text x="110" y="208" text-anchor="middle" font-size="12" style="fill:var(--muted)">trenger 100 punkter</text>
+<rect x="255" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="255" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="267" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="279" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="291" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="303" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="315" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="327" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="339" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="351" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="40" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="52" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="64" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="76" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="88" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="100" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="112" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="124" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="136" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<rect x="363" y="148" width="12" height="12" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1);stroke-width:1"/>
+<text x="315" y="190" text-anchor="middle" font-weight="700" font-size="14">d = 2: 100 bins</text>
+<text x="315" y="208" text-anchor="middle" font-size="12" style="fill:var(--muted)">trenger 1 000 punkter</text>
+<polygon points="460,62 504,32 604,32 560,62" style="fill:var(--c1);fill-opacity:0.2;stroke:var(--c1)"/>
+<polygon points="560,62 604,32 604,132 560,162" style="fill:var(--c1);fill-opacity:0.28;stroke:var(--c1)"/>
+<rect x="460" y="62" width="100" height="100" style="fill:var(--c1);fill-opacity:0.12;stroke:var(--c1)"/>
+<line x1="470.0" y1="62" x2="470.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="72.0" x2="560" y2="72.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="470.0" y1="62" x2="514.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="464.4" y1="59.0" x2="564.4" y2="59.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="72.0" x2="604" y2="42.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="564.4" y1="59.0" x2="564.4" y2="159.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="480.0" y1="62" x2="480.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="82.0" x2="560" y2="82.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="480.0" y1="62" x2="524.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="468.8" y1="56.0" x2="568.8" y2="56.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="82.0" x2="604" y2="52.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="568.8" y1="56.0" x2="568.8" y2="156.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="490.0" y1="62" x2="490.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="92.0" x2="560" y2="92.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="490.0" y1="62" x2="534.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="473.2" y1="53.0" x2="573.2" y2="53.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="92.0" x2="604" y2="62.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="573.2" y1="53.0" x2="573.2" y2="153.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="500.0" y1="62" x2="500.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="102.0" x2="560" y2="102.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="500.0" y1="62" x2="544.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="477.6" y1="50.0" x2="577.6" y2="50.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="102.0" x2="604" y2="72.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="577.6" y1="50.0" x2="577.6" y2="150.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="510.0" y1="62" x2="510.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="112.0" x2="560" y2="112.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="510.0" y1="62" x2="554.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="482.0" y1="47.0" x2="582.0" y2="47.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="112.0" x2="604" y2="82.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="582.0" y1="47.0" x2="582.0" y2="147.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="520.0" y1="62" x2="520.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="122.0" x2="560" y2="122.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="520.0" y1="62" x2="564.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="486.4" y1="44.0" x2="586.4" y2="44.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="122.0" x2="604" y2="92.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="586.4" y1="44.0" x2="586.4" y2="144.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="530.0" y1="62" x2="530.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="132.0" x2="560" y2="132.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="530.0" y1="62" x2="574.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="490.8" y1="41.0" x2="590.8" y2="41.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="132.0" x2="604" y2="102.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="590.8" y1="41.0" x2="590.8" y2="141.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="540.0" y1="62" x2="540.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="142.0" x2="560" y2="142.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="540.0" y1="62" x2="584.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="495.2" y1="38.0" x2="595.2" y2="38.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="142.0" x2="604" y2="112.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="595.2" y1="38.0" x2="595.2" y2="138.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="550.0" y1="62" x2="550.0" y2="162" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="460" y1="152.0" x2="560" y2="152.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="550.0" y1="62" x2="594.0" y2="32" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="499.6" y1="35.0" x2="599.6" y2="35.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="560" y1="152.0" x2="604" y2="122.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<line x1="599.6" y1="35.0" x2="599.6" y2="135.0" style="stroke:var(--c1);stroke-width:0.8;stroke-opacity:0.7"/>
+<text x="530" y="190" text-anchor="middle" font-weight="700" font-size="14">d = 3: 1 000 bins</text>
+<text x="530" y="208" text-anchor="middle" font-size="12" style="fill:var(--muted)">trenger 10 000 punkter</text>
+</svg>
+  <figcaption><b>Figur 4.2</b> Med 10 bins per akse blir det $10^d$ bins i $d$ dimensjoner. Hver ny dimensjon ganger antall bins med 10.</figcaption>
+</figure>
+
+<p>Antall bins er $10^d$, og med 10 punkter i hver bin trenger vi</p>
+<div class="eq">$$\text{datapunkter} = 10\cdot 10^d = 10^{d+1}$$</div>
+<p>For tre features er det $10^4 = 10\,000$ punkter, som er overkommelig. Men se hva som skjer videre (tabell 5 i notatene):</p>
+
+<table class="center">
+  <tr><th>Dimensjoner $d$</th><th>Bins</th><th>Datapunkter</th><th>Til sammenligning</th></tr>
+  <tr><td>1</td><td>$10$</td><td>$10^2$</td><td>ett regneark</td></tr>
+  <tr><td>3</td><td>$10^3$</td><td>$10^4$</td><td>overkommelig</td></tr>
+  <tr><td>10</td><td>$10^{10}$</td><td>$10^{11}$</td><td>over 10 ganger så mange som det finnes mennesker</td></tr>
+  <tr><td>784 (MNIST)</td><td>$10^{784}$</td><td>$10^{785}$</td><td>det finnes ~$10^{82}$ atomer i universet</td></tr>
+</table>
+
+<p>MNIST er et mye brukt datasett med håndskrevne sifre på $28\times 28 = 784$ piksler, så hvert bilde er et punkt i 784 dimensjoner. Datasettet har 70 000 bilder. Det er $7\cdot 10^4$, mot de $10^{785}$ histogrammet ville trengt.</p>
+
+<div class="callout hook"><span class="label">Knagg</span>
+<p><strong>Hver ny feature ganger datakravet med 10.</strong> Data vokser lineært (du samler inn litt til), mens rommet vokser eksponentielt. Rommet vinner alltid.</p>
+</div>
+
+<div class="quiz" data-id="04-curse-points">
+  <p class="q">Med 10 bins per feature og krav om 10 datapunkter per bin: hvor mange datapunkter trengs for 5 features?</p>
+  <ul>
+    <li>$500$</li>
+    <li>$10^5$</li>
+    <li>$5^{10}$</li>
+    <li data-correct>$10^6$</li>
+  </ul>
+  <div class="explain">Antall bins er $10^5$, og med 10 punkter i hver blir det $10\cdot 10^5 = 10^6$. $10^5$ er antall bins (glemmer de 10 punktene per bin). $500 = 5\cdot 10\cdot 10$ er hva naiv Bayes ville trengt med sine én-dimensjonale histogrammer. $5^{10}$ har byttet om grunntall og eksponent.</div>
+</div>
+
+<div class="calc" data-id="04-calc-points" data-answer="100000" data-tol="0">
+  <p class="q">Hvor mange datapunkter trengs for $d = 4$ features (10 bins per akse, 10 punkter per bin)?</p>
+  <div class="solution">$10^{d+1} = 10^5 = 100\,000$.</div>
+</div>
+
+<h3>Nesten alt volumet ligger ved overflaten</h3>
+<p>Notatenes andre oppgave: hvor stor andel av en $d$-dimensjonal kule ligger i et tynt skall med tykkelse $\epsilon$ ytterst?</p>
+
+<figure class="fig svgfig">
+<svg viewBox="0 0 660 220" width="660" role="img" aria-label="Tynt skall i en sirkel">
+<circle cx="130" cy="105" r="85" style="fill:var(--c2);fill-opacity:0.55"/>
+<circle cx="130" cy="105" r="76.5" style="fill:var(--surface);"/>
+<circle cx="130" cy="105" r="76.5" style="fill:var(--c1);fill-opacity:0.15;stroke:var(--c1)"/>
+<line x1="130" y1="105" x2="215" y2="105" style="stroke:var(--text-soft)"/>
+<text x="168.25" y="99" text-anchor="middle" font-size="12">r = 1</text>
+<text x="130" y="145" text-anchor="middle" font-size="12">indre kule</text><text x="130" y="160" text-anchor="middle" font-size="12">radius 1 − ε</text>
+<text x="223" y="45" font-size="12" style="fill:var(--c2)">skall, tykkelse ε</text>
+<text x="470" y="22" text-anchor="middle" font-weight="700" font-size="13">Andel av volumet i skallet (ε = 0.1)</text>
+<rect x="330" y="45" width="260" height="26" style="fill:var(--c1);fill-opacity:0.15;stroke:var(--border)"/>
+<rect x="540.6" y="45" width="49.4" height="26" style="fill:var(--c2);fill-opacity:0.7"/>
+<text x="322" y="63" text-anchor="end" font-size="13">d = 2</text>
+<text x="598" y="63" font-size="13" font-weight="700">19 %</text>
+<rect x="330" y="97" width="260" height="26" style="fill:var(--c1);fill-opacity:0.15;stroke:var(--border)"/>
+<rect x="420.74" y="97" width="169.26000000000002" height="26" style="fill:var(--c2);fill-opacity:0.7"/>
+<text x="322" y="115" text-anchor="end" font-size="13">d = 10</text>
+<text x="598" y="115" font-size="13" font-weight="700">65 %</text>
+<rect x="330" y="149" width="260" height="26" style="fill:var(--c1);fill-opacity:0.15;stroke:var(--border)"/>
+<rect x="330.0078" y="149" width="259.9922" height="26" style="fill:var(--c2);fill-opacity:0.7"/>
+<text x="322" y="167" text-anchor="end" font-size="13">d = 100</text>
+<text x="598" y="167" font-size="13" font-weight="700">≈100 %</text>
+</svg>
+  <figcaption><b>Figur 4.3</b> Til venstre: en kule (her tegnet i 2D) med et skall av tykkelse $\epsilon$. Til høyre: andelen av volumet som ligger i skallet når $\epsilon = 0.1$. I 2D er det 19 %, i 100 dimensjoner praktisk talt alt.</figcaption>
+</figure>
+
+<details class="steps" open><summary>Utledning steg for steg</summary><div>
+<p><b>Steg 1.</b> Volumet av en kule med radius $r$ i 3D er $\frac43\pi r^3$. I $d$ dimensjoner er det $V_d(r) = K_d\,r^d$, der $K_d$ er en konstant som bare avhenger av $d$.</p>
+<p><b>Steg 2.</b> Velg $r = 1$ (enhetskule, notatenes hint). Hele kula har volum $K_d\cdot 1^d = K_d$.</p>
+<p><b>Steg 3.</b> Den indre kula, uten skallet, har radius $1-\epsilon$ og volum $K_d(1-\epsilon)^d$.</p>
+<p><b>Steg 4.</b> Skallet er differansen. Andelen i skallet er</p>
+<div class="eq">$$\frac{K_d - K_d(1-\epsilon)^d}{K_d} = 1-(1-\epsilon)^d$$</div>
+<p>Prefaktoren $K_d$ forkortes bort, så vi trenger aldri å vite den. (Samme resultat får du for en kube med halv sidelengde 1, fordi volumet også der skalerer som $r^d$.)</p>
+<p><b>Steg 5.</b> Siden $0 \lt 1-\epsilon \lt 1$, går $(1-\epsilon)^d \to 0$ når $d$ vokser, og andelen i skallet går mot 1. En nyttig tilnærming for liten $\epsilon$ er $(1-\epsilon)^d \approx e^{-\epsilon d}$.</p>
+</div></details>
+
+<table class="center">
+  <tr><th>$d$</th><th>$\epsilon = 0.01$</th><th>$\epsilon = 0.05$</th><th>$\epsilon = 0.1$</th></tr>
+  <tr><td>1</td><td>0.01</td><td>0.05</td><td>0.10</td></tr>
+  <tr><td>3</td><td>0.030</td><td>0.143</td><td>0.271</td></tr>
+  <tr><td>10</td><td>0.096</td><td>0.401</td><td>0.651</td></tr>
+  <tr><td>100</td><td>0.634</td><td>0.994</td><td>0.99997</td></tr>
+  <tr><td>784</td><td>0.9996</td><td>≈ 1</td><td>≈ 1</td></tr>
+</table>
+
+<p>Et skall som er bare 1 % av radien tykt, inneholder 63 % av volumet i 100 dimensjoner og 99.96 % i 784. <strong>I høye dimensjoner er en kule nesten hul</strong>: nesten alt volumet, og dermed nesten alle jevnt fordelte datapunkter, ligger helt ytterst.</p>
+
+<div class="calc" data-id="04-calc-shell" data-answer="0.634" data-tol="0.004">
+  <p class="q">Hvor stor andel av volumet i en 100-dimensjonal enhetskule ligger i det ytterste skallet med tykkelse $\epsilon = 0.01$? Hint: $0.99^{100} \approx 0.366$.</p>
+  <div class="solution">$1 - (1-0.01)^{100} = 1 - 0.99^{100} \approx 1 - 0.366 = 0.634$.</div>
+</div>
+
+<div class="quiz" data-id="04-shell">
+  <p class="q">Hva skjer med andelen $1-(1-\epsilon)^d$ av volumet i et tynt skall når $d$ blir veldig stor (og $\epsilon$ holdes fast)?</p>
+  <ul>
+    <li>Den går mot $\epsilon$, fordi skallet er like tynt uansett dimensjon.</li>
+    <li data-correct>Den går mot 1, så nesten alt volumet ligger i skallet.</li>
+    <li>Den går mot 0, fordi skallet blir relativt tynnere.</li>
+    <li>Den går mot 0.5, fordi halve volumet alltid ligger ytterst.</li>
+  </ul>
+  <div class="explain">$(1-\epsilon)$ er et tall mellom 0 og 1, og opphøyd i stadig høyere potens går det mot 0. Da går $1-(1-\epsilon)^d$ mot 1. Andelen er lik $\epsilon$ bare i én dimensjon. Intuisjonen fra 2D og 3D, der skallet er en liten del, holder ikke i høye dimensjoner.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: hva skjer når dimensjonen øker?</h4>
+  <div class="w-grid">
+    <div><canvas id="w-shell" width="340" height="260"></canvas><p class="w-cap">Andel av volumet i ytterste skall</p></div>
+    <div><canvas id="w-dist" width="340" height="260"></canvas><p class="w-cap">Avstander fra ett punkt til 300 tilfeldige punkter (delt på snittet)</p></div>
+  </div>
+  <div class="controls">
+    <label>Dimensjon $d$ <input type="range" id="dim-d" min="0" max="10" step="1" value="2"><output id="dim-do">3</output></label>
+    <label>Skalltykkelse $\epsilon$ <input type="range" id="dim-e" min="0.01" max="0.2" step="0.01" value="0.05"><output id="dim-eo">0.05</output></label>
+  </div>
+  <div class="readouts" id="dim-out"></div>
+</div>
+<p><strong>Legg merke til:</strong></p>
+<ul>
+  <li>Datakravet $10^{d+1}$ passerer antall atomer i universet allerede ved $d = 82$.</li>
+  <li>Skallandelen skyter mot 1 når $d$ øker, raskere jo tykkere skallet er.</li>
+  <li>Avstandene i høyre plott klumper seg rundt 1 når $d$ øker. I 1D er nærmeste nabo mye nærmere enn den fjerneste. I 784 dimensjoner er nærmeste og fjerneste nabo nesten like langt unna. «Nær» og «fjern» mister mening.</li>
+</ul>
+
+<h3>Hva betyr dette for maskinlæring?</h3>
+<ul>
+  <li><strong>Rommet er tomt.</strong> Med et realistisk antall datapunkter er nesten alle «celler» i et høydimensjonalt rom tomme. Vi kan ikke estimere fordelinger ved å telle, som vi så med simultanfordelingen i 4.5.</li>
+  <li><strong>Vi trenger enormt mye data</strong>, eller modeller med sterke antakelser (induktiv bias) som klarer seg med lite: naiv Bayes (uavhengighet), lineære modeller (linearitet), nevrale nett (glatthet og struktur).</li>
+  <li><strong>Avstander blir like.</strong> Metoder som bygger på avstand, som k-means, DBSCAN og k-nærmeste-nabo, får problemer når alle punkter er omtrent like langt fra hverandre. Se <a href="11-clustering.html">kapittel 11</a>.</li>
+  <li><strong>Alt ligger «ytterst».</strong> Når nesten alt volumet er ved overflaten, ligger de fleste punktene langt fra sentrum, og intuisjonen fra 2D og 3D svikter.</li>
+  <li><strong>Mottiltak:</strong> færre features (feature selection), dimensjonsreduksjon som PCA (<a href="12-dimensjonsreduksjon.html">kapittel 12</a>), og modeller med antakelser som utnytter strukturen i dataene. Ekte data ligger dessuten ofte nær en mye lavere-dimensjonal flate (et MNIST-siffer er ikke en tilfeldig pikselkombinasjon), og det er derfor ML fungerer i praksis.</li>
+</ul>
+
+<div class="quiz" data-multi data-id="04-curse-consequences">
+  <p class="q">Hvilke er konsekvenser av dimensjonsforbannelsen?</p>
+  <ul>
+    <li data-correct>Antall datapunkter som trengs for å dekke rommet vokser eksponentielt med antall features.</li>
+    <li data-correct>Avstanden til nærmeste og fjerneste nabo blir omtrent like stor, så avstandsbaserte metoder svekkes.</li>
+    <li>Modeller blir automatisk bedre med flere features, fordi de får mer informasjon.</li>
+    <li data-correct>Det meste av volumet i en høydimensjonal kule ligger nær overflaten.</li>
+    <li>Gradient descent slutter å fungere når $d > 3$.</li>
+  </ul>
+  <div class="explain">De tre markerte er hovedpoengene i notatene og i 4.6. Flere features kan gi mer informasjon, men uten tilsvarende mer data blir rommet tommere, og modellen kan overtilpasse. Det er ikke automatisk bedre. Gradient descent fungerer fint i millioner av dimensjoner (nevrale nett har millioner av vekter). Forbannelsen handler om data og avstander, ikke om optimering.</div>
+</div>
+
+<div class="quiz" data-id="04-nb-curse">
+  <p class="q">Hvordan unngår naiv Bayes det verste av dimensjonsforbannelsen når den estimerer $p(x\mid C_k)$ med 10 bins per feature og $d$ features?</p>
+  <ul>
+    <li>Den bruker færre bins når $d$ er stor.</li>
+    <li>Den dropper $p(x\mid C_k)$ fordi den er lik for alle klasser.</li>
+    <li data-correct>Ved å anta betinget uavhengighet trenger den bare $d$ én-dimensjonale histogrammer, altså $10\cdot d$ bins per klasse i stedet for $10^d$.</li>
+    <li>Den velger automatisk ut de viktigste featurene.</li>
+  </ul>
+  <div class="explain">Uavhengighetsantakelsen gjør simultanfordelingen om til et produkt av én-dimensjonale fordelinger. Antall tall som må estimeres vokser da lineært ($10d$) i stedet for eksponentielt ($10^d$). Det er $p(x)$, ikke $p(x\mid C_k)$, som kan droppes fordi den er lik for alle klasser. Naiv Bayes gjør ingen automatisk feature selection og endrer ikke antall bins.</div>
+</div>
+
+<div class="reflect" data-id="04-r-curse">
+  <p class="q">Du har 1000 pasienter og vil legge til 500 nye genmarkører som features i en modell som bruker avstand mellom pasienter (f.eks. k-nærmeste-nabo). Hva tror du skjer, og hva ville du gjort?</p>
+  <div class="answer">Med 500 features og bare 1000 punkter blir rommet ekstremt tomt. Avstandene mellom pasienter blir omtrent like store, så «nærmeste nabo» er nesten tilfeldig, og de få informative markørene drukner i støyen fra de mange irrelevante. Modellen blir sannsynligvis dårligere, ikke bedre. Jeg ville redusert antall features (velge ut de mest relevante, eller bruke PCA), samlet inn mer data hvis mulig, og valgt en modell med sterkere antakelser eller regularisering.</div>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="oppsummering"><span class="sec">4.7</span>Oppsummering</h2>
+
+<div class="summary">
+  <h3>Kjernepunkter</h3>
+  <ul>
+    <li><strong>Overraskelse</strong> $= -\log p(x)$. <strong>Entropi</strong> $H(p) = -\sum p\log p$ er forventet overraskelse: maks for uniform fordeling ($\log_2 K$), 0 for et sikkert utfall. Rettferdig mynt: 1 bit.</li>
+    <li>$\log_2$ gir bit, $\ln$ gir nat. Forskjellen er en konstant faktor, så sammenligninger påvirkes ikke.</li>
+    <li><strong>Kryss-entropi</strong> $H(p,q) = -\sum p\log q$: $p$ = dataene (utenfor log), $q$ = modellen (inne i log). $H(p,q)\ge H(p)$, likhet når $q=p$. BCE er $H(p,q)$ med $p=(y,1-y)$, $q=(\hat y,1-\hat y)$. Multiklasse med one-hot: $-\log\hat y_{\text{riktig}}$.</li>
+    <li><strong>Bayes:</strong> $p(C_k\mid x) = \frac{p(x\mid C_k)p(C_k)}{p(x)}$. Posterior = likelihood · prior / evidens.</li>
+    <li>$p(x)$ er en normalisering, lik for alle klasser, så den kan droppes: $p(C_k\mid x)\propto p(x\mid C_k)p(C_k)$.</li>
+    <li>Prioren er lett å estimere. Likelihooden er en høydimensjonal simultanfordeling og er det egentlige problemet.</li>
+    <li><strong>Sjelden sykdom:</strong> selv en god test gir mest falske alarmer, fordi prioren er liten.</li>
+    <li><strong>Naiv Bayes:</strong> anta betinget uavhengighet, $\hat y = \arg\max_k p(C_k)\prod_i p(x_i\mid C_k)$. Modellen antar det selv om dataene bryter det. Sannsynlighetene er ikke kalibrerte. En nulltelling gjør hele produktet 0.</li>
+    <li>Avhengige features (Pclass og Sex) gjør naiv Bayes for sikker. Å estimere simultanfordelingen gir mange tomme celler.</li>
+    <li><strong>Dimensjonsforbannelsen:</strong> 10 bins og 10 punkter per bin krever $10^{d+1}$ punkter. Skallandel $1-(1-\epsilon)^d \to 1$. Rommet blir tomt, avstander blir like.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Entropi</div><div class="back">$H(p) = -\sum_i p_i\log p_i$. Forventet overraskelse/usikkerhet. Maks $\log_2 K$ (uniform), 0 når et utfall er sikkert.</div></div>
+  <div class="card"><div class="front">Kryss-entropi</div><div class="back">$H(p,q) = -\sum_i p_i\log q_i$. $p$ = data, $q$ = modell. $\ge H(p)$, likhet når $q = p$.</div></div>
+  <div class="card"><div class="front">BCE som kryss-entropi</div><div class="back">$p = (y,1-y)$, $q = (\hat y, 1-\hat y)$ gir $-y\ln\hat y - (1-y)\ln(1-\hat y)$.</div></div>
+  <div class="card"><div class="front">Multiklasse-CE med one-hot</div><div class="back">$-\sum_i y_i\log\hat y_i = -\log\hat y_{\text{riktig klasse}}$.</div></div>
+  <div class="card"><div class="front">Bayes' teorem</div><div class="back">$p(C_k\mid x) = \dfrac{p(x\mid C_k)\,p(C_k)}{p(x)}$</div></div>
+  <div class="card"><div class="front">Prior / likelihood / evidens / posterior</div><div class="back">$p(C_k)$ / $p(x\mid C_k)$ / $p(x)$ / $p(C_k\mid x)$</div></div>
+  <div class="card"><div class="front">Hvorfor droppe $p(x)$?</div><div class="back">Den er lik for alle klasser, en normalisering som får posteriorene til å summere til 1. Endrer ikke arg max.</div></div>
+  <div class="card"><div class="front">Naiv Bayes</div><div class="back">$\hat y = \arg\max_k p(C_k)\prod_i p(x_i\mid C_k)$. Antar betinget uavhengighet. Ikke kalibrert.</div></div>
+  <div class="card"><div class="front">Sjelden sykdom, positiv test</div><div class="back">1 % syke, 95 % sens./spes.: $P(\text{syk}\mid +) = 95/590 \approx 16\%$. Prioren dominerer.</div></div>
+  <div class="card"><div class="front">Datakrav i $d$ dimensjoner</div><div class="back">10 bins per akse, 10 punkter per bin: $10^{d+1}$ punkter. MNIST: $10^{785}$, atomer: ~$10^{82}$.</div></div>
+  <div class="card"><div class="front">Tynt skall</div><div class="back">Andel av volumet: $1-(1-\epsilon)^d \to 1$ når $d\to\infty$. $d=100$, $\epsilon=0.01$: 63 %.</div></div>
+  <div class="card"><div class="front">Konsekvenser av dimensjonsforbannelsen</div><div class="back">Tomt rom, eksponentielt datakrav, avstander blir like (k-means, k-NN svekkes), behov for dimensjonsreduksjon.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+<!-- ======================= WIDGET-SKRIPT ======================= -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const fmt = (v, n = 3) => (isFinite(v) ? v.toFixed(n) : "–");
+  const lg2 = x => Math.log(x) / Math.LN2;
+
+  /* ---------- Entropi og Gini ---------- */
+  const pS = document.getElementById("ent-p");
+  const PE = CK.plot(document.getElementById("w-ent"), { xmin: 0, xmax: 1, ymin: 0, ymax: 1.08, pad: { l: 44, r: 14, t: 12, b: 36 } });
+  const Hb = p => (p <= 0 || p >= 1) ? 0 : -p * lg2(p) - (1 - p) * lg2(1 - p);
+  const Gi = p => 1 - p * p - (1 - p) * (1 - p);
+  function drawEnt() {
+    const p = +pS.value;
+    document.getElementById("ent-po").textContent = p.toFixed(2);
+    PE.clear().grid({ nx: 10, ny: 5 }).axes({ xlabel: "p", ylabel: "urenhet / usikkerhet", nx: 10, frame: true });
+    PE.fn(Hb, { color: PE.col("c1"), width: 2.6 });
+    PE.fn(Gi, { color: PE.col("c3"), width: 2.6 });
+    PE.line(p, 0, p, 1.05, { color: PE.col("muted"), dash: [4, 4], width: 1.2 });
+    PE.points([{ x: p, y: Hb(p) }], { color: PE.col("c1"), r: 6 });
+    PE.points([{ x: p, y: Gi(p) }], { color: PE.col("c3"), r: 6 });
+    PE.legend([{ color: PE.col("c1"), label: "entropi H(p) i bit" }, { color: PE.col("c3"), label: "Gini 1 − p² − (1−p)²" }], { x: PE.W - 200, y: PE.pad.t + 14 });
+    const s1 = p > 0 ? -lg2(p) : Infinity, s0 = p < 1 ? -lg2(1 - p) : Infinity;
+    document.getElementById("ent-out").innerHTML = [
+      ["H(p)", fmt(Hb(p)) + " bit"], ["Gini", fmt(Gi(p))],
+      ["overraskelse klasse 1", isFinite(s1) ? fmt(s1, 2) + " bit" : "∞"],
+      ["overraskelse klasse 0", isFinite(s0) ? fmt(s0, 2) + " bit" : "∞"]
+    ].map(([k, v]) => `<span class="readout">${k}: ${v}</span>`).join("");
+  }
+  pS.oninput = drawEnt;
+  CK.live(drawEnt);
+
+  /* ---------- Bayes-kalkulator ---------- */
+  const prevs = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5];
+  const bp = document.getElementById("by-prev"), bs = document.getElementById("by-sens"), bc = document.getElementById("by-spec");
+  const cvB = document.getElementById("w-bayes"), ctxB = cvB.getContext("2d");
+  const WB = 660, HB = 270, dpr = Math.max(1, window.devicePixelRatio || 1);
+  cvB.width = WB * dpr; cvB.height = HB * dpr; cvB.style.aspectRatio = WB + " / " + HB; ctxB.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pctS = v => (v * 100).toLocaleString("no", { maximumFractionDigits: 1 }) + " %";
+  function drawBayes() {
+    const pi = prevs[+bp.value], se = +bs.value / 100, sp = +bc.value / 100;
+    document.getElementById("by-prevo").textContent = pctS(pi);
+    document.getElementById("by-senso").textContent = pctS(se);
+    document.getElementById("by-speco").textContent = pctS(sp);
+    // prikker
+    const sick = Math.round(1000 * pi), tpD = Math.round(sick * se), fnD = sick - tpD;
+    const fpD = Math.round((1000 - sick) * (1 - sp));
+    ctxB.fillStyle = CK.cssVar("surface"); ctxB.fillRect(0, 0, WB, HB);
+    const cols = 50, rows = 20, cw = WB / cols, ch = HB / rows, rad = Math.min(cw, ch) * 0.36;
+    for (let i = 0; i < 1000; i++) {
+      const c = i % cols, r = Math.floor(i / cols), x = c * cw + cw / 2, y = r * ch + ch / 2;
+      ctxB.beginPath(); ctxB.arc(x, y, rad, 0, 2 * Math.PI);
+      if (i < tpD) { ctxB.fillStyle = CK.cssVar("c1"); ctxB.fill(); }
+      else if (i < sick) { ctxB.lineWidth = 2; ctxB.strokeStyle = CK.cssVar("c1"); ctxB.stroke(); }
+      else if (i < sick + fpD) { ctxB.fillStyle = CK.cssVar("c2"); ctxB.fill(); }
+      else { ctxB.fillStyle = CK.cssVar("grid"); ctxB.fill(); }
+    }
+    // tall per 10 000
+    const S = 10000 * pi, F = 10000 - S, TP = S * se, FN = S - TP, FP = F * (1 - sp), TN = F - FP;
+    const post = TP / (TP + FP), npv = TN / (TN + FN);
+    const r0 = v => Math.round(v).toLocaleString("no");
+    document.getElementById("by-out").innerHTML =
+      `<span class="readout">syke: ${r0(S)}</span><span class="readout">friske: ${r0(F)}</span><span class="readout">TP: ${r0(TP)}</span><span class="readout">FP: ${r0(FP)}</span><span class="readout">FN: ${r0(FN)}</span>` +
+      `<span class="readout">P(syk | positiv) = <b>${pctS(post)}</b></span><span class="readout">P(frisk | negativ) = ${pctS(npv)}</span>`;
+    document.getElementById("by-calc").textContent =
+      `Per 10 000: ${r0(TP)} sanne positive og ${r0(FP)} falske positive. P(syk | positiv) = ${r0(TP)} / (${r0(TP)} + ${r0(FP)}) ≈ ${post.toFixed(3)}. ` +
+      (post < 0.5 ? "Flertallet av de positive testene er falske alarmer." : "Flertallet av de positive testene er ekte.");
+  }
+  bp.oninput = bs.oninput = bc.oninput = drawBayes;
+  CK.live(drawBayes);
+
+  /* ---------- Naiv Bayes steg for steg ---------- */
+  const data = {
+    C1: { n: 8, sex: { mann: 4, kvinne: 4 }, role: { jarl: 1, hirdmann: 3, karl: 3, "træl": 1 }, arm: { ringbrynje: 4, ingen: 4 } },
+    C0: { n: 12, sex: { mann: 9, kvinne: 3 }, role: { jarl: 0, hirdmann: 2, karl: 6, "træl": 4 }, arm: { ringbrynje: 2, ingen: 10 } }
+  };
+  const NT = 20;
+  const sSex = document.getElementById("nb-sex"), sRole = document.getElementById("nb-role"), sArm = document.getElementById("nb-arm"), sLap = document.getElementById("nb-lap");
+  function drawNB() {
+    const lap = sLap.checked, v = { sex: sSex.value, role: sRole.value, arm: sArm.value };
+    const feats = [["sex", "kjønn", v.sex], ["role", "rolle", v.role], ["arm", "rustning", v.arm]];
+    const res = {};
+    for (const k of ["C1", "C0"]) {
+      const d = data[k]; let prod = d.n / NT; const cells = [];
+      for (const [f, name, val] of feats) {
+        const V = Object.keys(d[f]).length, num = d[f][val] + (lap ? 1 : 0), den = d.n + (lap ? V : 0);
+        cells.push(`${num}/${den} = ${(num / den).toFixed(3)}`); prod *= num / den;
+      }
+      res[k] = { prior: `${d.n}/${NT} = ${(d.n / NT).toFixed(2)}`, cells, prod };
+    }
+    const tot = res.C1.prod + res.C0.prod;
+    const win = res.C1.prod >= res.C0.prod ? "C1" : "C0";
+    const w1 = win === "C1" ? ' class="win"' : "", w0 = win === "C0" ? ' class="win"' : "";
+    let h = `<table class="nb-table"><tr><th>Ledd</th><th>Overlevde (C₁)</th><th>Døde (C₀)</th></tr>`;
+    h += `<tr><td>prior p(C)</td><td>${res.C1.prior}</td><td>${res.C0.prior}</td></tr>`;
+    feats.forEach(([f, name, val], i) => { h += `<tr><td>p(${name} = ${val} | C)</td><td>${res.C1.cells[i]}</td><td>${res.C0.cells[i]}</td></tr>`; });
+    h += `<tr><td><b>produkt</b></td><td${w1}>${res.C1.prod.toFixed(4)}</td><td${w0}>${res.C0.prod.toFixed(4)}</td></tr>`;
+    h += `<tr><td>normalisert (ikke kalibrert)</td><td>${tot > 0 ? (res.C1.prod / tot).toFixed(3) : "–"}</td><td>${tot > 0 ? (res.C0.prod / tot).toFixed(3) : "–"}</td></tr></table>`;
+    const ratio = res.C0.prod > 0 && res.C1.prod > 0 ? ` Forholdet er ${(Math.max(res.C1.prod, res.C0.prod) / Math.min(res.C1.prod, res.C0.prod)).toFixed(2)} : 1.` : " Ett av produktene er 0, så den andre klassen vinner med «full sikkerhet».";
+    h += `<p style="margin-top:8px"><b>arg max:</b> ${win === "C1" ? "overlever" : "dør"}.${ratio}</p>`;
+    document.getElementById("nb-out").innerHTML = h;
+  }
+  [sSex, sRole, sArm, sLap].forEach(e => e.onchange = drawNB);
+  drawNB();
+
+  /* ---------- Dimensjonsforbannelsen ---------- */
+  const dims = [1, 2, 3, 5, 10, 20, 50, 100, 200, 500, 784];
+  const dS = document.getElementById("dim-d"), eS = document.getElementById("dim-e");
+  const PS = CK.plot(document.getElementById("w-shell"), { xmin: 0, xmax: Math.log10(1000), ymin: 0, ymax: 1.02, pad: { l: 40, r: 10, t: 10, b: 34 } });
+  const PD = CK.plot(document.getElementById("w-dist"), { xmin: 0, xmax: 2.5, ymin: 0, ymax: 1, pad: { l: 40, r: 10, t: 10, b: 34 } });
+  let lastDim = null, dists = [];
+  function sampleDists(d) {
+    const r = CK.rng(11), q = Array.from({ length: d }, () => r());
+    dists = [];
+    for (let i = 0; i < 300; i++) { let s = 0; for (let j = 0; j < d; j++) { const t = r() - q[j]; s += t * t; } dists.push(Math.sqrt(s)); }
+  }
+  function drawDim() {
+    const d = dims[+dS.value], eps = +eS.value;
+    document.getElementById("dim-do").textContent = d;
+    document.getElementById("dim-eo").textContent = eps.toFixed(2);
+    if (d !== lastDim) { sampleDists(d); lastDim = d; }
+    // skall
+    const ld = Math.log10(d);
+    PS.clear().grid({ xticks: [0, 1, 2, 3], ny: 5 }).axes({ xlabel: "d (log-skala)", xticks: false, frame: true });
+    [0, 1, 2, 3].forEach(v => PS.text(String(10 ** v), PS.X(v), PS.H - PS.pad.b + 12, { px: true, align: "center", size: 12, color: PS.col("muted") }));
+    PS.fn(x => 1 - Math.pow(1 - eps, Math.pow(10, x)), { color: PS.col("c2"), width: 2.6 });
+    const frac = 1 - Math.pow(1 - eps, d);
+    PS.points([{ x: ld, y: frac }], { color: PS.col("c1"), r: 6 });
+    // avstander
+    const mean = dists.reduce((a, b) => a + b, 0) / dists.length;
+    const rel = dists.map(x => x / mean), bins = 40, cnt = new Array(bins).fill(0);
+    rel.forEach(x => { const b = Math.floor(x / 2.5 * bins); if (b >= 0 && b < bins) cnt[b]++; });
+    const ym = Math.max(...cnt) * 1.1;
+    PD.setView({ ymax: ym });
+    PD.clear().grid({ nx: 5, ny: 4 }).axes({ xlabel: "avstand / snitt", nx: 5, yticks: false, frame: true });
+    for (let b = 0; b < bins; b++) if (cnt[b]) PD.rect(b * 2.5 / bins + 0.005, 0, (b + 1) * 2.5 / bins - 0.005, cnt[b], { fill: PD.col("c4"), alpha: 0.85 });
+    const mn = Math.min(...dists), mx = Math.max(...dists);
+    document.getElementById("dim-out").innerHTML = [
+      ["bins", d <= 6 ? (10 ** d).toLocaleString("no") : "10^" + d],
+      ["punkter som trengs", d <= 5 ? (10 ** (d + 1)).toLocaleString("no") : "10^" + (d + 1) + (d + 1 > 82 ? " (flere enn atomer i universet, ~10^82)" : "")],
+      ["andel i skallet", frac > 0.99995 ? "≈ 100 % (1 − " + Math.pow(1 - eps, d).toExponential(1) + ")" : (frac * 100).toFixed(frac > 0.999 ? 2 : 1) + " %"],
+      ["nærmeste / fjerneste nabo", (mn / mx).toFixed(3)]
+    ].map(([k, v]) => `<span class="readout">${k}: ${v}</span>`).join("");
+  }
+  dS.oninput = eS.oninput = drawDim;
+  CK.live(drawDim);
+});
+</script>
+
+</main>
+</body>
+</html>

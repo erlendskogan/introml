@@ -1,0 +1,1526 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11 · Clustering – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  /* kapittelspesifikke farger for inline-SVG (fungerer i mørk modus) */
+  .k11 .f1 { fill: var(--c1); } .k11 .f2 { fill: var(--c2); } .k11 .f3 { fill: var(--c3); }
+  .k11 .f4 { fill: var(--c4); } .k11 .f5 { fill: var(--c5); } .k11 .fm { fill: var(--muted); }
+  .k11 .fs { fill: var(--surface-2); } .k11 .fbg { fill: var(--surface); }
+  .k11 .s1 { stroke: var(--c1); } .k11 .s2 { stroke: var(--c2); } .k11 .s3 { stroke: var(--c3); }
+  .k11 .s4 { stroke: var(--c4); } .k11 .sm { stroke: var(--muted); } .k11 .st { stroke: var(--text); }
+  .k11 .sb { stroke: var(--border); }
+  .k11 .nf { fill: none; }
+  .k11 text { font-size: 13px; }
+  .k11 text.t-s { font-size: 11.5px; fill: var(--text-soft); }
+  .k11 text.t-b { font-weight: 700; }
+  .k11-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 600px) { .k11-grid2 { grid-template-columns: 1fr; } }
+  .k11-grid2 canvas { border: 1px solid var(--border); }
+  .controls select { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .k11-status { font-size: 14.5px; color: var(--text-soft); margin-top: 8px; min-height: 1.5em; }
+  .k11-key { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; font-size: 14px; color: var(--text-soft); }
+  .k11-key i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+</style>
+</head>
+<body data-chapter="11">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 11 · Del III · Uveiledet læring</div>
+  <h1>Clustering</h1>
+  <p class="lead">Nå har vi ikke lenger fasit. Hvordan finner en algoritme grupper i data når ingen har fortalt den hva gruppene er? Vi ser på k-means, som definerer likhet som avstand, og DBSCAN, som definerer likhet som tetthet. Underveis ser vi hvorfor begge får problemer i høye dimensjoner.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>forklare hva uveiledet læring er, og nevne de tre kategoriene vi ser på i faget</li>
+    <li>gå gjennom k-means steg for steg, og si hva algoritmen minimerer (inertia)</li>
+    <li>regne ut sannsynligheten $k!/k^k$ for god tilfeldig initialisering, og forklare hvorfor k-means++ er bedre enn «punktet lengst unna»</li>
+    <li>regne ut og tolke inertia, silhouette og Calinski–Harabasz, og forklare hvorfor valg av $k$ er vanskelig</li>
+    <li>nevne de implisitte antakelsene i k-means og når den feiler</li>
+    <li>forklare DBSCAN med kjernepunkter, kantpunkter og støy, og hva som skjer når $\varepsilon$ eller min_samples er for høy eller for lav</li>
+    <li>plassere algoritmer i de fire hovedkategoriene</li>
+    <li>forklare konsentrasjon av avstander, og hvorfor mer data ikke løser det</li>
+  </ul>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="uveiledet"><span class="sec">11.1</span>Uveiledet læring: læring uten fasit</h2>
+
+<p>I alt vi har gjort hittil har hvert datapunkt $x^{(i)}$ hatt et target $y^{(i)}$. Tapsfunksjonen målte hvor langt prediksjonen var fra fasiten, og gradient descent dyttet parametrene i riktig retning. I <strong>uveiledet læring (unsupervised learning)</strong> har vi bare $x^{(i)}$. Dataene er <strong>umerkede (unlabeled)</strong>. Målet er fortsatt å lage en databasert modell, men nå skal modellen finne <em>mønstre</em> i dataene selv.</p>
+
+<p>Hvorfor vil vi det? Fordi labels er dyre. Noen må sitte og merke hvert bilde, hver transaksjon eller hver pasientjournal. Rådata derimot har vi ofte i massevis. Uveiledet læring lar oss utnytte dem, enten for å forstå dataene eller som et forarbeid før vi gjør noe annet.</p>
+
+<p>I faget ser vi på tre kategorier uveiledet læring:</p>
+
+<figure class="card">
+<svg class="k11" viewBox="0 0 660 200" role="img" aria-label="Tre kategorier uveiledet læring: clustering, dimensjonsreduksjon og anomalideteksjon">
+  <!-- panel 1: clustering -->
+  <rect x="5" y="5" width="205" height="160" rx="10" class="fs"/>
+  <ellipse cx="65" cy="65" rx="38" ry="30" class="nf s1" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <ellipse cx="150" cy="70" rx="35" ry="28" class="nf s2" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <ellipse cx="100" cy="128" rx="40" ry="24" class="nf s3" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <g class="f1"><circle cx="50" cy="60" r="4"/><circle cx="68" cy="52" r="4"/><circle cx="78" cy="70" r="4"/><circle cx="58" cy="78" r="4"/><circle cx="72" cy="85" r="4"/><circle cx="45" cy="72" r="4"/></g>
+  <g class="f2"><circle cx="140" cy="60" r="4"/><circle cx="160" cy="58" r="4"/><circle cx="152" cy="78" r="4"/><circle cx="168" cy="74" r="4"/><circle cx="135" cy="80" r="4"/></g>
+  <g class="f3"><circle cx="80" cy="125" r="4"/><circle cx="100" cy="120" r="4"/><circle cx="118" cy="130" r="4"/><circle cx="92" cy="138" r="4"/><circle cx="110" cy="142" r="4"/><circle cx="75" cy="138" r="4"/></g>
+  <text x="107" y="188" text-anchor="middle" class="t-b">Clustering</text>
+  <!-- panel 2: dimensjonsreduksjon -->
+  <rect x="227" y="5" width="205" height="160" rx="10" class="fs"/>
+  <line x1="245" y1="140" x2="415" y2="35" class="sm" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <g class="f4"><circle cx="262" cy="122" r="4"/><circle cx="280" cy="118" r="4"/><circle cx="290" cy="100" r="4"/><circle cx="310" cy="98" r="4"/><circle cx="322" cy="80" r="4"/><circle cx="345" cy="78" r="4"/><circle cx="352" cy="60" r="4"/><circle cx="375" cy="58" r="4"/><circle cx="390" cy="45" r="4"/><circle cx="300" cy="112" r="4"/><circle cx="335" cy="92" r="4"/><circle cx="365" cy="68" r="4"/></g>
+  <text x="330" y="150" text-anchor="middle" class="t-s">2D → 1D: behold retningen med struktur</text>
+  <text x="330" y="188" text-anchor="middle" class="t-b">Dimensjonsreduksjon</text>
+  <!-- panel 3: anomali -->
+  <rect x="449" y="5" width="205" height="160" rx="10" class="fs"/>
+  <g class="f1"><circle cx="520" cy="90" r="4"/><circle cx="535" cy="80" r="4"/><circle cx="545" cy="98" r="4"/><circle cx="528" cy="108" r="4"/><circle cx="512" cy="76" r="4"/><circle cx="555" cy="85" r="4"/><circle cx="540" cy="115" r="4"/><circle cx="505" cy="100" r="4"/><circle cx="560" cy="105" r="4"/></g>
+  <circle cx="620" cy="35" r="6" class="f2"/>
+  <circle cx="620" cy="35" r="12" class="nf s2" stroke-width="1.5"/>
+  <text x="608" y="62" text-anchor="middle" class="t-s">«hører ikke hjemme»</text>
+  <text x="551" y="188" text-anchor="middle" class="t-b">Anomalideteksjon</text>
+</svg>
+<figcaption><b>Figur 11.1</b> De tre kategoriene uveiledet læring i faget. Dette kapittelet handler om clustering. <a href="12-dimensjonsreduksjon.html">Kapittel 12</a> tar dimensjonsreduksjon og <a href="13-anomali.html">kapittel 13</a> anomalideteksjon.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Clustering / klynging:</strong> finne grupper av like datapunkter.</li>
+  <li><strong>Dimensjonsreduksjon (dimensionality reduction):</strong> beskrive dataene med færre features, men beholde strukturen.</li>
+  <li><strong>Anomalideteksjon (outlier detection):</strong> finne punktene som ikke ligner resten.</li>
+</ul>
+
+<h3>Clustering er «klassifisering uten labels»</h3>
+<p>Clustering kan tolkes som klassifisering der ingen har fortalt oss hvilke klasser som finnes. Vi vil finne grupperinger der punktene i samme gruppe ligner hverandre og punktene i ulike grupper er ulike. Det krever to ting:</p>
+
+<ol>
+  <li><strong>Et likhetsmål.</strong> Hva betyr det at to punkter «ligner»? Det vanligste valget er avstand: nære punkter er like. Et annet valg er tetthet: punkter som henger sammen i et tett område hører sammen.</li>
+  <li><strong>Et læringssignal.</strong> Maskinlæring er optimering, og optimering trenger noe å minimere. Uten labels kan ikke tapet måle «avstand til fasit». Det må måle noe ved selve grupperingen, for eksempel hvor kompakte klyngene er.</li>
+</ol>
+
+<div class="chain">
+  <div><b>Problem</b>Ingen targets, altså ingen fasit å sammenligne med</div><div class="arrow">→</div>
+  <div><b>Løsning</b>Definer likhet (avstand eller tetthet) og et tap som måler hvor «god» grupperingen er</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>Resultatet avhenger av valget av likhetsmål. Hver algoritme har sine egne antakelser om hva en klynge er</div>
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span><p>Tenk deg at du tømmer en pose med blandet godteri på bordet og sorterer uten å vite navnene. Du må selv bestemme hva «likt» betyr (farge? form? størrelse?), og svaret blir forskjellig etter hva du velger. Det er clustering.</p></div>
+
+<p>I faget ser vi på to algoritmer: <strong>k-means</strong>, der likhet er avstand, og <strong>DBSCAN</strong>, der likhet er tetthet.</p>
+
+<div class="quiz" data-multi data-id="11-uveiledet-hvilke">
+  <p class="q">Hvilke av disse oppgavene er uveiledet læring?</p>
+  <ul>
+    <li data-correct>Gruppere kunder etter kjøpsmønster uten å vite på forhånd hvilke kundetyper som finnes</li>
+    <li>Predikere boligpris fra areal og beliggenhet, med historiske salgspriser som fasit</li>
+    <li data-correct>Finne uvanlige servertrafikk-mønstre når ingen har merket hvilke som var angrep</li>
+    <li>Klassifisere e-post som spam eller ikke spam fra et merket datasett</li>
+    <li data-correct>Redusere 100 features til 2 for å kunne plotte dataene</li>
+  </ul>
+  <div class="explain">Uveiledet betyr at vi ikke har targets. Kundegruppering er clustering, uvanlig trafikk uten merking er anomalideteksjon, og 100 → 2 features er dimensjonsreduksjon, altså de tre kategoriene fra figur 11.1. Boligpris (regresjon) og spamfilter (klassifisering) er veiledet læring fordi vi har fasit for hvert eksempel. Det er ikke oppgavetypen, men om vi har labels, som avgjør.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="kmeans"><span class="sec">11.2</span>k-means steg for steg</h2>
+
+<p>k-means deler et datasett med $n$ punkter inn i $k$ klynger. Hver klynge representeres av en <strong>sentroide (centroid)</strong>, altså klyngens midtpunkt. Hvert datapunkt tilhører klyngen med nærmest sentroide. Algoritmen ser slik ut (som i notatene):</p>
+
+<ol>
+  <li>Velg et tall $k$, antall klynger. Det er en hyperparameter, og du velger den.</li>
+  <li>Velg $k$ startsentroider, for eksempel tilfeldig. En sentroide er midten av en klynge, <em>ikke</em> nødvendigvis et datapunkt (selv om den kan falle sammen med et).</li>
+  <li>(Notatene: tildel hvert punkt en tilfeldig klynge. Det overskrives uansett i steg 5.)</li>
+  <li>Beregn den euklidske avstanden fra hvert datapunkt til alle sentroidene.</li>
+  <li><strong>Tildel (assign):</strong> hvert punkt får klyngen til nærmeste sentroide.</li>
+  <li><strong>Flytt (update):</strong> regn ut nye sentroider som gjennomsnittet (<code>np.mean</code>) av punktene i hver klynge.</li>
+  <li>Gjenta steg 4–6 til klyngene ikke endrer seg.</li>
+</ol>
+
+<div class="eq">
+  <p class="eq-note">Euklidsk avstand mellom to punkter $p$ og $q$ med $d$ features (notatene skriver $d_2$)</p>
+  $$d_2(p,q)=\sqrt{(p_1-q_1)^2+(p_2-q_2)^2+\dots+(p_d-q_d)^2}$$
+</div>
+<p class="small muted">Notatene skriver formelen uten rottegn. For å finne <em>nærmeste</em> sentroide spiller det ingen rolle, fordi kvadratroten er monoton. Kvadratet $d_2^2$ er også det som inngår i inertia.</p>
+
+<figure class="card">
+<svg class="k11" viewBox="0 0 660 170" role="img" aria-label="k-means-løkken: initialiser, tildel, flytt, gjenta til ingen endring">
+  <defs><marker id="k11ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fm"/></marker></defs>
+  <rect x="10" y="55" width="120" height="56" rx="10" class="fs sb" stroke-width="1"/>
+  <text x="70" y="78" text-anchor="middle" class="t-b">Velg k og</text>
+  <text x="70" y="96" text-anchor="middle">startsentroider</text>
+  <line x1="132" y1="83" x2="186" y2="83" class="sm" stroke-width="1.6" marker-end="url(#k11ar)"/>
+  <rect x="190" y="20" width="170" height="56" rx="10" class="fs s1" stroke-width="1.6"/>
+  <text x="275" y="43" text-anchor="middle" class="t-b">Tildel</text>
+  <text x="275" y="62" text-anchor="middle" class="t-s">hvert punkt → nærmeste sentroide</text>
+  <rect x="190" y="98" width="170" height="56" rx="10" class="fs s2" stroke-width="1.6"/>
+  <text x="275" y="121" text-anchor="middle" class="t-b">Flytt</text>
+  <text x="275" y="140" text-anchor="middle" class="t-s">sentroide = snitt av klyngen</text>
+  <path d="M362,48 C400,48 400,126 362,126" class="nf sm" stroke-width="1.6" marker-end="url(#k11ar)"/>
+  <path d="M188,126 C150,126 150,48 188,48" class="nf sm" stroke-width="1.6" marker-end="url(#k11ar)"/>
+  <line x1="398" y1="87" x2="470" y2="87" class="sm" stroke-width="1.6" marker-end="url(#k11ar)"/>
+  <text x="434" y="78" text-anchor="middle" class="t-s">ingen endring</text>
+  <rect x="474" y="59" width="176" height="56" rx="10" class="fs s3" stroke-width="1.6"/>
+  <text x="562" y="82" text-anchor="middle" class="t-b">Ferdig</text>
+  <text x="562" y="101" text-anchor="middle" class="t-s">(lokalt minimum av inertia)</text>
+</svg>
+<figcaption><b>Figur 11.2</b> k-means veksler mellom to steg. Begge stegene kan bare senke (eller beholde) inertia, så algoritmen konvergerer alltid, men bare til et <em>lokalt</em> minimum.</figcaption>
+</figure>
+
+<h3>Hva minimerer k-means?</h3>
+<p>Læringssignalet i k-means heter <strong>inertia</strong> (også kalt within-cluster sum of squares). Det er summen av kvadrerte avstander fra hvert punkt til sentroiden det er tildelt:</p>
+
+<div class="eq">
+  <p class="eq-note">Inertia, der $\mu_{c(i)}$ er sentroiden til klyngen punkt $i$ er tildelt</p>
+  $$\text{inertia}=\sum_{i=1}^{n}\big\lVert x^{(i)}-\mu_{c(i)}\big\rVert^2$$
+</div>
+
+<details class="steps"><summary>Hvorfor senker begge stegene inertia?</summary><div>
+<p><strong>Tildel-steget:</strong> Med sentroidene holdt fast velger hvert punkt den sentroiden som gir minst kvadrert avstand. Hvert ledd i summen blir dermed mindre eller likt, så summen kan ikke øke.</p>
+<p><strong>Flytt-steget:</strong> Med tildelingen holdt fast ser vi på én klynge med punktene $x^{(1)},\dots,x^{(m)}$. Hvilket punkt $\mu$ minimerer $\sum_j \lVert x^{(j)}-\mu\rVert^2$? Deriver med hensyn på $\mu$ og sett lik null:</p>
+<p>$$\frac{\partial}{\partial\mu}\sum_j\lVert x^{(j)}-\mu\rVert^2=-2\sum_j\big(x^{(j)}-\mu\big)=0\;\Rightarrow\;\mu=\frac{1}{m}\sum_j x^{(j)}$$</p>
+<p>Gjennomsnittet er altså nøyaktig det punktet som minimerer kvadrert avstand. Derfor heter algoritmen k-<em>means</em>.</p>
+<p><strong>Konsekvens:</strong> Inertia synker eller står stille i hvert steg, og det finnes bare endelig mange måter å fordele $n$ punkter på $k$ klynger. Algoritmen må derfor stoppe. Men den kan stoppe i et lokalt minimum, og hvilket minimum den havner i avhenger av startsentroidene. Det er grunnen til at initialisering er så viktig (neste seksjon).</p>
+</div></details>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2025 del 6.1 spurte nettopp: «Hvilken størrelse forsøker k-means å minimere?» Svaret er summen av kvadrerte avstander mellom hvert punkt og den tildelte sentroiden. Silhouette og Calinski–Harabasz er <em>evalueringsmetrikker</em> vi regner ut etterpå, ikke det k-means optimerer.</p></div>
+
+<div class="quiz" data-id="11-kmeans-minimerer">
+  <p class="q">Hvilken størrelse minimerer k-means under trening?</p>
+  <ul>
+    <li>Silhouette-koeffisienten, slik at klyngene blir best mulig separert</li>
+    <li>Den gjennomsnittlige avstanden mellom sentroidene</li>
+    <li data-correct>Summen av kvadrerte avstander fra hvert punkt til sentroiden det er tildelt</li>
+    <li>Antall punkter som bytter klynge mellom to iterasjoner</li>
+  </ul>
+  <div class="explain">Inertia, $\sum_i\lVert x^{(i)}-\mu_{c(i)}\rVert^2$, er det både tildel- og flytt-steget senker. Silhouette skal vi tvert imot ha <em>høy</em>, og den beregnes etterpå for å vurdere resultatet. Avstand <em>mellom</em> sentroider vil vi heller ha stor, og den optimeres ikke direkte. Antall punkter som bytter klynge brukes som stoppkriterium (stopp når det er 0), men det er ikke det som minimeres.</div>
+</div>
+
+<div class="calc" data-id="11-euklid" data-answer="5" data-tol="0.01">
+  <p class="q">Et punkt ligger i $p=(1,\,2)$ og en sentroide i $q=(4,\,6)$. Hva er den euklidske avstanden mellom dem?</p>
+  <div class="solution">$d=\sqrt{(1-4)^2+(2-6)^2}=\sqrt{9+16}=\sqrt{25}=5$.</div>
+</div>
+
+<div class="calc" data-id="11-sentroide" data-answer="4" data-tol="0.01">
+  <p class="q">Etter tildel-steget består en klynge av punktene $(2,\,1)$, $(4,\,3)$ og $(6,\,2)$. Hva blir $x$-koordinaten til den nye sentroiden?</p>
+  <div class="solution">Sentroiden er gjennomsnittet av punktene: $x=\frac{2+4+6}{3}=4$ (og $y=\frac{1+3+2}{3}=2$). Den nye sentroiden $(4,2)$ er her ikke et av datapunktene. Det er helt normalt.</div>
+</div>
+
+<div class="calc" data-id="11-inertia" data-answer="4" data-tol="0.01">
+  <p class="q">Endimensjonale data: klynge A er $\{1,2,3\}$ med sentroide $2$, og klynge B er $\{8,10\}$ med sentroide $9$. Hva er inertia?</p>
+  <div class="solution">Klynge A: $(1-2)^2+(2-2)^2+(3-2)^2=1+0+1=2$. Klynge B: $(8-9)^2+(10-9)^2=1+1=2$. Inertia $=2+2=4$.</div>
+</div>
+
+<h3>Prøv selv: k-means steg for steg</h3>
+
+<div class="widget">
+  <h4>Utforsk: k-means, ett steg om gangen</h4>
+  <canvas id="km-canvas" width="640" height="400"></canvas>
+  <div class="controls">
+    <label>Datasett
+      <select id="km-data">
+        <option value="blobs3">Tre runde klynger</option>
+        <option value="uneven">Ulik størrelse og tetthet</option>
+        <option value="elong">Avlange klynger</option>
+        <option value="moons">Måner (ikke-konvekse)</option>
+        <option value="rings">Ringer (ikke-konvekse)</option>
+        <option value="outlier">Klynger + én outlier</option>
+        <option value="uniform">Ingen struktur</option>
+      </select></label>
+    <label>k <input type="range" id="km-k" min="1" max="8" step="1" value="3"><output id="km-ko">3</output></label>
+    <label>Init
+      <select id="km-init">
+        <option value="random">Tilfeldig</option>
+        <option value="far">Lengst unna</option>
+        <option value="kpp" selected>k-means++</option>
+      </select></label>
+  </div>
+  <div class="controls">
+    <button class="btn" id="km-btn-init" type="button">1 · Initialiser</button>
+    <button class="btn ghost" id="km-btn-assign" type="button">2 · Tildel</button>
+    <button class="btn ghost" id="km-btn-move" type="button">3 · Flytt sentroider</button>
+    <button class="btn ghost" id="km-btn-run" type="button">Kjør til konvergens</button>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="km-it">Iterasjon: 0</span>
+    <span class="readout" id="km-in">Inertia: –</span>
+  </div>
+  <div class="k11-status" id="km-status">Trykk «Initialiser» for å plassere sentroidene.</div>
+</div>
+
+<p><strong>Legg merke til:</strong></p>
+<ul>
+  <li>Inertia går <em>aldri opp</em> når du trykker Tildel eller Flytt. Sjekk tallet.</li>
+  <li>Bakgrunnsfargene viser hvilken sentroide som er nærmest. Grensene er rette linjer midt mellom sentroidene (et Voronoi-diagram). k-means kan derfor bare lage <em>konvekse</em> klynger.</li>
+  <li>Velg «Tilfeldig» init på «Tre runde klynger» og initialiser flere ganger. Noen ganger havner to sentroider i samme klynge, og algoritmen konvergerer til en dårlig løsning med høyere inertia.</li>
+  <li>Prøv «Måner» og «Ringer» med $k=2$. Selv med riktig $k$ klipper k-means tvers gjennom klyngene. Det kommer vi tilbake til i 11.5.</li>
+  <li>Prøv «Avlange klynger» med $k=3$. Løsningen med lavest inertia deler ofte tvers over de tre stripene i stedet for langs dem.</li>
+</ul>
+
+<div class="quiz" data-multi data-id="11-kmeans-egenskaper">
+  <p class="q">Hvilke påstander om k-means stemmer?</p>
+  <ul>
+    <li data-correct>Inertia kan ikke øke fra én iterasjon til den neste</li>
+    <li>Algoritmen finner alltid det globale minimumet av inertia</li>
+    <li data-correct>En sentroide trenger ikke å være et av datapunktene</li>
+    <li>Ulike startsentroider gir alltid samme sluttresultat</li>
+    <li data-correct>Grensene mellom klyngene er rette (de ligger midt mellom to sentroider)</li>
+  </ul>
+  <div class="explain">Begge stegene senker eller beholder inertia, så den kan ikke øke. Men k-means er en grådig lokal metode: den konvergerer til et <em>lokalt</em> minimum, og hvilket avhenger av startpunktet. Derfor er påstandene om globalt minimum og «alltid samme resultat» feil (det er også derfor sklearn kjører flere initialiseringer, <code>n_init</code>, og beholder den med lavest inertia). Sentroiden er et gjennomsnitt og ligger typisk mellom datapunktene. Grensen mellom to sentroider er mengden av punkter like langt fra begge, altså midtnormalen, som er en rett linje (et hyperplan i flere dimensjoner).</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="init"><span class="sec">11.3</span>Initialisering: hvorfor tilfeldig start går galt</h2>
+
+<p>Siden k-means bare finner et lokalt minimum, avgjør startsentroidene mye av resultatet. Notatene sier at sannsynligheten for å starte «på uegnede steder» øker eksponensielt med $k$. La oss regne på det.</p>
+
+<p>Anta at (1) vi har valgt riktig $k$, og (2) hver sanne klynge har like mange punkter. En god start er en der hver sanne klynge får nøyaktig én sentroide. Hvis vi plukker sentroidene tilfeldig blant datapunktene, havner hver sentroide i en tilfeldig klynge med sannsynlighet $1/k$ for hver.</p>
+
+<div class="eq">
+  <p class="eq-note">Sannsynligheten for at $k$ tilfeldige sentroider havner i $k$ ulike klynger (notatene lign. 103)</p>
+  $$P(\text{én per klynge})=\frac{k!}{k^k}=\frac{1\cdot2\cdot3\cdots k}{k\cdot k\cdot k\cdots k}=\frac{1}{k}\cdot\frac{2}{k}\cdot\frac{3}{k}\cdots\frac{k}{k}$$
+</div>
+
+<details class="steps"><summary>To måter å forstå $k!/k^k$ på</summary><div>
+<p><strong>Telling:</strong> Hver sentroide har $k$ mulige klynger, så det finnes $k^k$ like sannsynlige sekvenser. De gunstige sekvensene er de der alle $k$ sentroidene er i ulike klynger. Det er bare forskjellige rekkefølger av de $k$ klyngene, og det finnes $k!$ slike. Gunstige over mulige gir $k!/k^k$.</p>
+<p><strong>Én og én trekning:</strong></p>
+<ul>
+  <li>Første sentroide kan havne hvor som helst: sannsynlighet $1 = k/k$.</li>
+  <li>Andre må unngå klyngen som er tatt: $(k-1)/k$.</li>
+  <li>Tredje må unngå to tatte klynger: $(k-2)/k$.</li>
+  <li>…og den siste har bare én ledig klynge: $1/k$.</li>
+</ul>
+<p>Ganger vi sammen, får vi $\dfrac{k(k-1)(k-2)\cdots1}{k^k}=\dfrac{k!}{k^k}$.</p>
+<p><strong>Hvor fort faller det?</strong> Stirlings approksimasjon er $k!\approx\sqrt{2\pi k}\,e^{-k}k^k$. Satt inn får vi</p>
+<p>$$\frac{k!}{k^k}\approx\frac{\sqrt{2\pi k}\,e^{-k}k^k}{k^k}=\sqrt{2\pi k}\,e^{-k}\;\propto\;\sqrt{k}\,e^{-k}$$</p>
+<p>Faktoren $e^{-k}$ dominerer over $\sqrt{k}$, så sannsynligheten avtar <em>eksponensielt</em> med $k$.</p>
+</div></details>
+
+<div class="calc" data-id="11-init-k3" data-answer="0.2222" data-tol="0.005">
+  <p class="q">Med $k=3$ like store klynger og helt tilfeldig initialisering: hva er sannsynligheten for at hver klynge får nøyaktig én sentroide? (Desimaltall, eller brøk som 6/27.)</p>
+  <div class="solution">$\dfrac{3!}{3^3}=\dfrac{6}{27}\approx0.22$. Med én og én trekning: $1\cdot\frac{2}{3}\cdot\frac{1}{3}=\frac{2}{9}\approx0.22$. Bare drøyt én av fem tilfeldige starter er «gode».</div>
+</div>
+
+<div class="calc" data-id="11-init-k5" data-answer="0.0384" data-tol="0.0006">
+  <p class="q">Samme spørsmål for $k=5$. Oppgi med fire desimaler.</p>
+  <div class="solution">$\dfrac{5!}{5^5}=\dfrac{120}{3125}=0.0384$. Én og én: $1\cdot\frac45\cdot\frac35\cdot\frac25\cdot\frac15=\frac{24}{625}=0.0384$. Stirling gir $\sqrt{2\pi\cdot5}\,e^{-5}\approx5.60\cdot0.00674\approx0.0378$, altså svært nær. Med $k=10$ er tallet $10!/10^{10}\approx0.00036$.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: sannsynligheten for en god tilfeldig start</h4>
+  <canvas id="ip-canvas" width="640" height="280"></canvas>
+  <div class="controls">
+    <label>k <input type="range" id="ip-k" min="2" max="12" step="1" value="3"><output id="ip-ko">3</output></label>
+    <button class="btn ghost" id="ip-sim" type="button">Simuler 10 000 tilfeldige starter</button>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="ip-prod">–</span>
+    <span class="readout" id="ip-st">–</span>
+    <span class="readout" id="ip-emp">Simulert: –</span>
+  </div>
+</div>
+<p>Den loddrette aksen er logaritmisk, så en rett linje nedover betyr eksponensielt fall. Simuleringen trekker $k$ klynger tilfeldig (med tilbakelegging) og teller hvor ofte alle er forskjellige. Den treffer formelen godt. <strong>Legg merke til:</strong> allerede ved $k=8$ er under 1 % av tilfeldige starter gode. Det er derfor vi trenger smartere initialisering.</p>
+
+<h3>Bedre: plasser neste sentroide lengst unna</h3>
+<p>En første forbedring er å plassere den første sentroiden tilfeldig og den neste på datapunktet som ligger <strong>lengst unna</strong>. Generelt: sentroide $j$ settes på datapunktet der avstanden til <em>nærmeste</em> eksisterende sentroide er størst. Da sprer sentroidene seg utover.</p>
+
+<p>Problemet er at punktet lengst unna nesten alltid ligger i <strong>utkanten</strong> av en klynge, ikke i midten. Og finnes det en outlier, er det gjerne den som ligger lengst unna av alle. Da får outlieren sin egen sentroide.</p>
+
+<h3>Best: k-means++</h3>
+<p><strong>k-means++</strong> beholder ideen om å spre sentroidene, men legger inn tilfeldighet. Neste sentroide trekkes blant datapunktene med sannsynlighet proporsjonal med <strong>kvadrert avstand</strong> til nærmeste allerede valgte sentroide:</p>
+
+<div class="eq">
+  <p class="eq-note">k-means++: $D(x)$ er avstanden fra $x$ til nærmeste valgte sentroide</p>
+  $$P\big(x^{(i)}\text{ blir neste sentroide}\big)=\frac{D\big(x^{(i)}\big)^2}{\sum_{j}D\big(x^{(j)}\big)^2}$$
+</div>
+
+<figure class="card">
+<svg class="k11" viewBox="0 0 660 230" role="img" aria-label="Lengst unna velger outlieren eller kanten; k-means++ velger med sannsynlighet proporsjonal med kvadrert avstand">
+  <rect x="5" y="5" width="320" height="190" rx="10" class="fs"/>
+  <rect x="335" y="5" width="320" height="190" rx="10" class="fs"/>
+  <!-- venstre: lengst unna -->
+  <g class="f1" opacity=".85"><circle cx="50" cy="95" r="4"/><circle cx="62" cy="80" r="4"/><circle cx="72" cy="102" r="4"/><circle cx="58" cy="115" r="4"/><circle cx="80" cy="88" r="4"/><circle cx="45" cy="108" r="4"/><circle cx="67" cy="92" r="4"/></g>
+  <g class="fm"><circle cx="175" cy="90" r="4"/><circle cx="188" cy="76" r="4"/><circle cx="198" cy="100" r="4"/><circle cx="182" cy="112" r="4"/><circle cx="205" cy="85" r="4"/><circle cx="168" cy="104" r="4"/><circle cx="192" cy="92" r="4"/><circle cx="210" cy="108" r="4"/></g>
+  <circle cx="295" cy="40" r="4" class="fm"/>
+  <path d="M59,85 l16,16 M75,85 l-16,16" class="s1" stroke-width="3"/>
+  <text x="67" y="140" text-anchor="middle" class="t-s">sentroide 1</text>
+  <line x1="72" y1="90" x2="288" y2="43" class="s2" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <path d="M287,32 l16,16 M303,32 l-16,16" class="s2" stroke-width="3"/>
+  <text x="270" y="70" text-anchor="middle" class="t-s">sentroide 2 =</text>
+  <text x="270" y="84" text-anchor="middle" class="t-s">outlieren!</text>
+  <text x="165" y="182" text-anchor="middle" class="t-b">Lengst unna (deterministisk)</text>
+  <!-- høyre: k-means++ -->
+  <g class="f1" opacity=".85"><circle cx="380" cy="95" r="4"/><circle cx="392" cy="80" r="4"/><circle cx="402" cy="102" r="4"/><circle cx="388" cy="115" r="4"/><circle cx="410" cy="88" r="4"/><circle cx="375" cy="108" r="4"/><circle cx="397" cy="92" r="4"/></g>
+  <path d="M389,85 l16,16 M405,85 l-16,16" class="s1" stroke-width="3"/>
+  <g class="f2"><circle cx="505" cy="90" r="6.5" opacity=".75"/><circle cx="518" cy="76" r="7" opacity=".8"/><circle cx="528" cy="100" r="7.5" opacity=".8"/><circle cx="512" cy="112" r="7" opacity=".75"/><circle cx="535" cy="85" r="8" opacity=".85"/><circle cx="498" cy="104" r="6.5" opacity=".75"/><circle cx="522" cy="92" r="7.5" opacity=".8"/><circle cx="540" cy="108" r="8" opacity=".85"/></g>
+  <circle cx="625" cy="40" r="11" class="f2" opacity=".9"/>
+  <text x="625" y="68" text-anchor="middle" class="t-s">stor vekt, men</text>
+  <text x="625" y="82" text-anchor="middle" class="t-s">bare ett punkt</text>
+  <text x="520" y="145" text-anchor="middle" class="t-s">mange punkter med litt mindre vekt</text>
+  <text x="520" y="159" text-anchor="middle" class="t-s">→ samlet mest sannsynlig</text>
+  <text x="495" y="182" text-anchor="middle" class="t-b">k-means++ (P ∝ D²)</text>
+  <text x="330" y="220" text-anchor="middle" class="t-s">Sirkelstørrelsen til høyre viser sannsynligheten for å bli valgt.</text>
+</svg>
+<figcaption><b>Figur 11.3</b> Venstre: «lengst unna» velger alltid det mest ekstreme punktet, her en outlier. Høyre: k-means++ gir fjerne punkter høy sannsynlighet, men fordi hele klyngen til sammen har mye mer sannsynlighetsmasse enn ett enkelt ekstremt punkt, havner neste sentroide som regel inne i klyngen.</figcaption>
+</figure>
+
+<div class="chain">
+  <div><b>Problem</b>Tilfeldig start: to sentroider i samme klynge, og sannsynligheten for en god start faller som $\sqrt k\,e^{-k}$</div><div class="arrow">→</div>
+  <div><b>Første fiks</b>Lengst unna sprer sentroidene, men treffer kanter og outliers</div><div class="arrow">→</div>
+  <div><b>k-means++</b>Trekk med $P\propto D^2$: fortsatt spredning, men tilfeldigheten gjør at vi oftere treffer midten av klyngene</div>
+</div>
+
+<p>Det finnes et bevis for at k-means++ i forventning gir en løsning som er høyst en faktor $O(\log k)$ dårligere (i inertia) enn den optimale. Det er en sterk garanti for en så enkel regel. k-means++ er standard i sklearn (<code>init="k-means++"</code>).</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p>«Lengst unna» er som å alltid velge den som sitter alene i hjørnet på festen som representant for en vennegjeng. k-means++ trekker lodd der de fjerne får flere lodd, så du ender som regel opp med noen fra midt i gjengen.</p></div>
+
+<div class="calc" data-id="11-kpp" data-answer="0.762" data-tol="0.005">
+  <p class="q">Endimensjonale data: første sentroide ligger i $0$. De andre punktene er $1$, $2$ og $4$. Med k-means++, hva er sannsynligheten for at punktet $4$ blir neste sentroide? (Med «lengst unna» ville sannsynligheten vært 1.)</p>
+  <div class="solution">Kvadrerte avstander: $1^2=1$, $2^2=4$, $4^2=16$, med sum $21$. $P(4)=16/21\approx0.76$. Punktet $4$ er fortsatt mest sannsynlig, men punktet $2$ har $4/21\approx0.19$ sjanse. Den tilfeldigheten er poenget.</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2025 del 6.2: «Hvorfor er k-means++ å foretrekke fremfor å alltid velge punktet som ligger lengst unna?» Riktig svar: den sprer sentroidene <em>samtidig som den beholder tilfeldighet</em>, så sentroidene oftere havner nær sentrum av de ekte klyngene i stedet for ute ved kantene.</p></div>
+
+<div class="quiz" data-id="11-kpp-hvorfor">
+  <p class="q">I k-means++ trekkes neste sentroide med sannsynlighet proporsjonal med kvadrert avstand til nærmeste eksisterende sentroide. Hva er hovedgrunnen til at dette er bedre enn å alltid velge punktet lengst unna?</p>
+  <ul>
+    <li>Det gir nøyaktig lik avstand mellom alle sentroidene</li>
+    <li data-correct>Sentroidene spres utover, men tilfeldigheten gjør at de oftere havner nær midten av klyngene enn i utkanten eller på outliers</li>
+    <li>Det foretrekker punkter som ligger nær sentroidene som allerede er valgt</li>
+    <li>Det gjør at k-means alltid finner det globale minimumet</li>
+  </ul>
+  <div class="explain">Kvadrert avstand gir fjerne punkter høy vekt (spredning), men trekningen er tilfeldig, så den store massen av punkter inne i en klynge vinner oftest over ett ekstremt punkt. Det gir ingen lik avstand mellom sentroidene. Punkter <em>nær</em> eksisterende sentroider får tvert imot lav sannsynlighet ($D^2$ er liten). Og selv om garantien er god ($O(\log k)$ fra optimum i forventning), er det ingen garanti for globalt minimum.</div>
+</div>
+
+<div class="quiz" data-id="11-init-skalering">
+  <p class="q">Hvordan oppfører sannsynligheten for at tilfeldig initialisering gir én sentroide i hver av $k$ like store klynger seg når $k$ vokser?</p>
+  <ul>
+    <li>Den avtar som $1/k$</li>
+    <li>Den er konstant $1/2$, fordi hver sentroide enten treffer eller bommer</li>
+    <li>Den avtar polynomisk, som $1/k^2$</li>
+    <li data-correct>Den avtar eksponensielt, omtrent som $\sqrt{k}\,e^{-k}$</li>
+  </ul>
+  <div class="explain">Sannsynligheten er $k!/k^k$, og Stirling gir $k!/k^k\approx\sqrt{2\pi k}\,e^{-k}$. Faktoren $e^{-k}$ gjør fallet eksponensielt, mye raskere enn $1/k$ eller $1/k^2$. Ved $k=10$ er den bare $0.00036$. «Treff eller bom» er ikke 50/50: sentroide nummer $j$ må unngå $j-1$ tatte klynger.</div>
+</div>
+
+<h3>I praksis: sklearn og MiniBatchKMeans</h3>
+<p>Notatene anbefaler <code>MiniBatchKMeans</code>, særlig for store datasett. I stedet for å bruke hele datasettet i hver iterasjon bruker den et lite tilfeldig utvalg (en mini-batch), akkurat som mini-batch SGD i <a href="10-trening-nn.html">kapittel 10</a>. Det går mye raskere og gir nesten like gode klynger.</p>
+
+<div class="callout warn"><span class="label">Trykkfeil i notatene</span><p>Notatene skriver «<code>keras.cluster.MiniBatchKmeans</code>». Det riktige er <code>sklearn.cluster.MiniBatchKMeans</code> fra scikit-learn (Keras har ingen clustering-modul). Notatene sier også at algoritmen prøver å velge $k$ selv hvis du ikke oppgir det. I sklearn er standardverdien <code>n_clusters=8</code>, så <em>du</em> må velge $k$ med omhu.</p></div>
+
+<pre><code><span class="k">from</span> sklearn.cluster <span class="k">import</span> KMeans, MiniBatchKMeans
+
+km = KMeans(n_clusters=4, init=<span class="s">"k-means++"</span>, n_init=10, random_state=0)
+labels = km.fit_predict(X)       <span class="c"># klyngenummer per rad</span>
+km.cluster_centers_              <span class="c"># sentroidene, form (k, d)</span>
+km.inertia_                      <span class="c"># summen av kvadrerte avstander</span>
+
+mbk = MiniBatchKMeans(n_clusters=4, batch_size=1024)   <span class="c"># for store n</span>
+mbk.fit(X)</code></pre>
+
+<div class="quiz" data-id="11-minibatch">
+  <p class="q">Hva er forskjellen på <code>MiniBatchKMeans</code> og vanlig <code>KMeans</code>?</p>
+  <ul>
+    <li data-correct>MiniBatchKMeans oppdaterer sentroidene med et lite tilfeldig utvalg av punkter per iterasjon i stedet for hele datasettet</li>
+    <li>MiniBatchKMeans velger antall klynger automatisk</li>
+    <li>MiniBatchKMeans bruker tetthet i stedet for avstand som likhetsmål</li>
+    <li>MiniBatchKMeans er en del av Keras og kan derfor kjøre på GPU</li>
+  </ul>
+  <div class="explain">Mini-batch betyr at hver oppdatering bruker et lite tilfeldig utvalg, som gjør hver iterasjon mye billigere for stor $n$. Resultatet er litt mer støyete, men som regel nesten like godt. $k$ må fortsatt oppgis (<code>n_clusters</code>). Likhetsmålet er fortsatt euklidsk avstand, og klassen ligger i <code>sklearn.cluster</code>, ikke i Keras (notatene har en trykkfeil der).</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="velge-k"><span class="sec">11.4</span>Hvor mange klynger? Metrikker for å velge $k$</h2>
+
+<p>$k$ er en hyperparameter, og i uveiledet læring har vi ingen valideringsfasit å sjekke mot. Valg av $k$ er derfor blant de store utfordringene i clustering. Det vi kan gjøre, er å tilpasse flere modeller med ulike $k$ og regne ut <strong>klyngemetrikker</strong> som måler hvor «god» grupperingen ser ut. <code>sklearn.metrics.cluster</code> har mange. Du bør kjenne til tre.</p>
+
+<h3>1. Inertia (lav er bra, men…)</h3>
+<p>Inertia er summen av kvadrerte avstander til sentroiden. Lav verdi betyr kompakte klynger. Men svakheten er stor: den enkleste måten å få lav inertia på er å øke $k$. Med $k=n$ får hvert punkt sin egen sentroide, og inertia blir $0$. Inertia synker (nesten) alltid når $k$ øker, så <em>minimum</em> av inertia sier ingenting om riktig $k$.</p>
+
+<p><strong>Albuemetoden (elbow method)</strong> er måten vi likevel bruker inertia på: plott inertia mot $k$ og se etter «albuen», der kurven går fra bratt til flat. Før albuen gir en ekstra klynge stor gevinst fordi vi deler en ekte klynge i to. Etter albuen gir det lite. Albuen er ofte uskarp, så metoden krever skjønn.</p>
+
+<h3>2. Silhouette-koeffisienten (nær 1 er bra)</h3>
+<p>Silhouette måler for hvert punkt hvor godt det passer i sin egen klynge sammenlignet med nærmeste andre klynge:</p>
+
+<div class="eq">
+  <p class="eq-note">Silhouette for ett punkt. $a$ = midlere avstand til de andre punktene i egen klynge (mean intra-cluster distance), $b$ = midlere avstand til punktene i nærmeste andre klynge (mean nearest-cluster distance)</p>
+  $$s=\frac{b-a}{\max(a,\,b)}\in[-1,\,1]$$
+</div>
+
+<p>Silhouette for hele clusteringen er gjennomsnittet av $s$ over alle punkter. Tolkningen:</p>
+<table>
+  <tr><th>Verdi</th><th>Betyr</th><th>Hvorfor</th></tr>
+  <tr><td>$s\approx1$</td><td>Punktet ligger godt i sin klynge (best)</td><td>$a\ll b$: tett på egne, langt fra andre</td></tr>
+  <tr><td>$s\approx0$</td><td>Punktet ligger på grensen, eller klyngene overlapper</td><td>$a\approx b$</td></tr>
+  <tr><td>$s\approx-1$</td><td>Punktet er i feil klynge (verst)</td><td>$a\gg b$: nærmere en annen klynge enn sin egen</td></tr>
+</table>
+
+<div class="callout why"><span class="label">Hvorfor deler vi på max(a, b)?</span><p>For å gjøre tallet skalafritt og begrenset til $[-1,1]$. Hvis $b>a$, blir $s=1-a/b$, som går mot 1 når $a$ blir liten. Hvis $a>b$, blir $s=b/a-1$, som går mot $-1$. Uten nevneren ville tallet avhenge av hvilke enheter featurene er målt i. I motsetning til inertia straffer silhouette også å dele en ekte klynge i to, fordi $b$ da blir liten (den «andre» klyngen er rett ved siden av).</p></div>
+
+<div class="calc" data-id="11-silhouette" data-answer="0.444" data-tol="0.005">
+  <p class="q">Endimensjonale data. Klynge A er $\{1,\,2,\,4\}$ og klynge B er $\{8,\,9\}$. Hva er silhouette-verdien til punktet $4$? Oppgi med tre desimaler.</p>
+  <div class="solution">
+    $a$ = midlere avstand til de andre i A: $\frac{|4-1|+|4-2|}{2}=\frac{3+2}{2}=2.5$.<br>
+    $b$ = midlere avstand til B (eneste andre klynge): $\frac{|4-8|+|4-9|}{2}=\frac{4+5}{2}=4.5$.<br>
+    $s=\frac{4.5-2.5}{\max(2.5,\,4.5)}=\frac{2}{4.5}\approx0.444$. Positivt, så punktet ligger riktig, men nærmere grensen enn punktene 1 og 2.
+  </div>
+</div>
+
+<div class="calc" data-id="11-silhouette-neg" data-answer="-0.25" data-tol="0.005">
+  <p class="q">Et punkt har midlere avstand $a=4$ til sin egen klynge og $b=3$ til nærmeste andre klynge. Hva er silhouette-verdien?</p>
+  <div class="solution">$s=\frac{3-4}{\max(4,3)}=\frac{-1}{4}=-0.25$. Negativ verdi: punktet ligger i snitt nærmere den andre klyngen enn sin egen, og er trolig tildelt feil.</div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: silhouette for ett punkt (dra punktene)</h4>
+  <canvas id="sil-canvas" width="640" height="340"></canvas>
+  <div class="readouts">
+    <span class="readout" id="sil-a">a = –</span>
+    <span class="readout" id="sil-b">b = –</span>
+    <span class="readout" id="sil-s">s = –</span>
+    <span class="readout" id="sil-mean">Snitt over alle punkter: –</span>
+  </div>
+  <div class="controls"><button class="btn ghost" id="sil-reset" type="button">Tilbakestill</button></div>
+</div>
+<p>Klikk på et punkt for å velge det, og dra det rundt. Klyngetilhørigheten (fargen) er låst, så du kan se hva som skjer med et punkt som er tildelt «feil». Heltrukne linjer går til egne klyngemedlemmer (gjennomsnittet er $a$), stiplede til den andre klyngen (gjennomsnittet er $b$). <strong>Legg merke til:</strong> dra et blått punkt over til den oransje klyngen, så blir $s$ negativ. Legg det midt mellom klyngene, så blir $s\approx0$. Flytt flere oransje punkter inn mot de blå, så synker snittet for <em>alle</em> punktene, fordi $b$ blir mindre for begge klyngene.</p>
+
+<h3>3. Calinski–Harabasz (høy er bra)</h3>
+<p>Calinski–Harabasz-scoren er et forhold mellom spredning <em>mellom</em> klyngene (vil vi ha stor) og spredning <em>innad</em> i klyngene (vil vi ha liten). Den måler hvor langt det er mellom klyngene, normalisert med hvor store klyngene er. Høy verdi betyr tette klynger med god separasjon.</p>
+
+<details class="steps"><summary>Formelen (greit å ha sett)</summary><div>
+<p>Med $n$ punkter, $k$ klynger, $n_j$ punkter i klynge $j$, sentroider $\mu_j$ og totalt gjennomsnitt $\mu$:</p>
+<p>$$\text{CH}=\frac{B/(k-1)}{W/(n-k)},\qquad B=\sum_{j=1}^{k}n_j\lVert\mu_j-\mu\rVert^2,\qquad W=\sum_{i}\lVert x^{(i)}-\mu_{c(i)}\rVert^2$$</p>
+<p>$W$ er akkurat inertia. Faktorene $k-1$ og $n-k$ korrigerer for at $B$ vokser og $W$ krymper bare fordi vi øker $k$. Uten dem ville CH, som inertia, alltid foretrekke flere klynger.</p>
+</div></details>
+
+<table>
+  <tr><th>Metrikk</th><th>Bra verdi</th><th>Måler</th><th>Fallgruve</th></tr>
+  <tr><td>Inertia</td><td>Lav</td><td>Kompakthet innad</td><td>Går mot 0 når $k\to n$. Bruk albuen, ikke minimum</td></tr>
+  <tr><td>Silhouette</td><td>Nær 1 (område $[-1,1]$)</td><td>Egen klynge vs nærmeste andre, per punkt</td><td>$O(n^2)$ å regne ut. Favoriserer runde, godt separerte klynger</td></tr>
+  <tr><td>Calinski–Harabasz</td><td>Høy (ingen øvre grense)</td><td>Mellom-spredning / innad-spredning</td><td>Favoriserer også konvekse, runde klynger</td></tr>
+</table>
+
+<div class="widget">
+  <h4>Utforsk: albue, silhouette og Calinski–Harabasz for k = 1…8</h4>
+  <div class="k11-grid2">
+    <canvas id="mt-data" width="320" height="230"></canvas>
+    <canvas id="mt-in" width="320" height="230"></canvas>
+    <canvas id="mt-sil" width="320" height="230"></canvas>
+    <canvas id="mt-ch" width="320" height="230"></canvas>
+  </div>
+  <div class="controls">
+    <label>Datasett
+      <select id="mt-set">
+        <option value="four">Fire tydelige klynger</option>
+        <option value="overlap">Tre klynger, to nesten oppå hverandre</option>
+        <option value="hier">To grupper med to underklynger hver</option>
+        <option value="uniform">Ingen struktur (uniform)</option>
+      </select></label>
+    <label>Vis k <input type="range" id="mt-k" min="1" max="8" step="1" value="4"><output id="mt-ko">4</output></label>
+  </div>
+  <div class="k11-status" id="mt-status"></div>
+</div>
+<p>Hver kurve er regnet ut med k-means++ (beste av fem starter) for hver $k$. Den markerte ringen viser hvilken $k$ hver metrikk foreslår (albuen er her funnet automatisk som den $k$ der fallet i inertia inn til $k$ er størst sammenlignet med fallet videre til $k+1$, en enkel tommelfingerregel). <strong>Legg merke til:</strong> på «Fire tydelige klynger» er alle enige. På de andre datasettene peker de ofte på ulike $k$, og på data uten struktur foreslår de likevel en $k$. Metrikkene finner alltid <em>noe</em>, enten det finnes klynger eller ikke.</p>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2025 del 6.3: «Hvorfor er det vanskelig å velge antall klynger $k$ i k-means?» Riktig svar: <strong>ulike metrikker kan foreslå ulike verdier for $k$</strong>. Feilsvarene var at det finnes én metrikk som alltid gir optimal $k$, at k-means velger $k$ selv, og at $k$ alltid er lik antall klasser.</p></div>
+
+<div class="quiz" data-id="11-velge-k">
+  <p class="q">Du kjører k-means for $k=2,\dots,10$. Albuen i inertia-plottet ser ut til å ligge ved $k=4$, mens silhouette er høyest ved $k=3$. Hva er den beste konklusjonen?</p>
+  <ul>
+    <li data-correct>Metrikkene måler ulike ting og kan være uenige. Se på dataene (f.eks. i 2D etter dimensjonsreduksjon), klyngestørrelser og domenekunnskap før du bestemmer deg</li>
+    <li>Velg $k=10$, fordi inertia er lavest der</li>
+    <li>Silhouette er alltid riktig, så $k=3$ er fasit</li>
+    <li>Det er en feil i koden, fordi metrikkene alltid skal gi samme $k$</li>
+  </ul>
+  <div class="explain">Det er helt normalt at metrikkene er uenige, og det er nettopp derfor valg av $k$ er vanskelig. Ingen metrikk er «fasit». Lavest inertia ved $k=10$ er et artefakt: inertia synker alltid med $k$. I prosjekt 3 hadde silhouette nesten likt toppunkt ved $k=4$ (0.375) og $k=5$ (0.379), men $k=5$ skilte bare ut en liten bit av én klynge. Klyngestørrelser og visualisering avgjorde at $k=4$ var riktig.</div>
+</div>
+
+<div class="quiz" data-id="11-inertia-svakhet">
+  <p class="q">Hvorfor kan vi ikke bare velge den $k$ som gir lavest inertia?</p>
+  <ul>
+    <li>Fordi inertia bare kan regnes ut for $k\le3$</li>
+    <li data-correct>Fordi inertia synker når $k$ øker, og blir 0 når hvert punkt har sin egen sentroide ($k=n$)</li>
+    <li>Fordi lav inertia betyr at klyngene overlapper</li>
+    <li>Fordi inertia er tilfeldig og varierer mye fra kjøring til kjøring</li>
+  </ul>
+  <div class="explain">Flere sentroider betyr at hvert punkt får en sentroide nærmere seg, så inertia synker (nesten) monotont med $k$. Minimum er alltid ved $k=n$ med inertia 0, som er ubrukelig. Lav inertia betyr kompakte klynger, ikke overlapp. Litt variasjon mellom kjøringer finnes (lokale minima), men det er ikke hovedproblemet. Bruk heller albuen, silhouette eller CH.</div>
+</div>
+
+<div class="quiz" data-id="11-silhouette-tolk">
+  <p class="q">Et datapunkt har silhouette-verdi $-0.7$. Hva forteller det?</p>
+  <ul>
+    <li>Punktet ligger svært godt plassert midt i sin klynge</li>
+    <li>Punktet ligger nøyaktig på grensen mellom to klynger</li>
+    <li>Punktet er en outlier som DBSCAN ville merket med $-1$</li>
+    <li data-correct>Punktet ligger i snitt mye nærmere en annen klynge enn sin egen, og er sannsynligvis tildelt feil klynge</li>
+  </ul>
+  <div class="explain">Negativ $s$ betyr $a>b$: midlere avstand til egen klynge er større enn til nærmeste andre klynge. Nær $-1$ er det klart feil tildelt. Midt i klyngen gir $s$ nær $+1$, og på grensen gir $s\approx0$. Silhouette og DBSCANs label $-1$ har ingenting med hverandre å gjøre, selv om tallet ligner.</div>
+</div>
+
+<div class="quiz" data-id="11-ch">
+  <p class="q">Hva betyr en høy Calinski–Harabasz-score?</p>
+  <ul>
+    <li data-correct>Klyngene er tette og godt separert fra hverandre</li>
+    <li>Klyngene er store og spredte</li>
+    <li>Mange punkter har negativ silhouette</li>
+    <li>Det er valgt for mange klynger</li>
+  </ul>
+  <div class="explain">CH er (spredning mellom klynger) / (spredning innad), justert for $k$ og $n$. Høy verdi krever stor teller (klyngene ligger langt fra hverandre) og liten nevner (punktene ligger tett rundt sin sentroide). Store, spredte klynger gir stor nevner og dermed lav CH. CH sier ingenting direkte om enkeltpunkters silhouette. Normaliseringen med $k-1$ og $n-k$ gjør at for mange klynger ikke automatisk belønnes.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="antakelser"><span class="sec">11.5</span>Hva k-means antar, og når den feiler</h2>
+
+<p>I forelesningen ble det vist eksempler der k-means ikke finner klyngene selv med riktig $k$. Det skjer typisk når avstanden <em>innad</em> i en klynge er større enn avstanden <em>mellom</em> naboklynger. Det er en direkte konsekvens av at k-means bruker avstand til en sentroide som likhetsmål.</p>
+
+<div class="callout def"><span class="label">Viktig prinsipp</span><p>Alle læringsalgoritmer har implisitte antakelser om problemet de skal løse (jf. induktiv bias i <a href="01-grunnlag.html">kapittel 1</a>). Når dataene bryter antakelsene, feiler algoritmen, uansett hvor mye vi tuner den.</p></div>
+
+<div class="reflect" data-id="11-r-implisitt">
+  <p class="q">Oppgave fra notatene: Hvilken implisitt antakelse ligger i k-means? Tenk på hvordan et punkt tildeles en klynge, og hvordan grensene mellom klyngene ser ut.</p>
+  <div class="answer">
+    <p>Hovedantakelsen er at <strong>avstanden mellom punkter i samme klynge er mindre enn avstanden til punkter i andre klynger</strong>, altså at klyngene er kompakte «klumper» rundt et sentrum. Det gir flere mer konkrete antakelser:</p>
+    <ul>
+      <li><strong>Konvekse klynger:</strong> hver klynge er en Voronoi-celle med rette grenser, så måner, ringer og spiraler kan ikke fanges.</li>
+      <li><strong>Sfæriske (runde) klynger:</strong> euklidsk avstand behandler alle retninger likt, så avlange klynger blir kuttet på tvers.</li>
+      <li><strong>Omtrent like store klynger</strong> (både i utstrekning og antall punkter): grensen ligger midt mellom sentroidene, så en stor klynge «gir bort» punkter til en liten nabo.</li>
+      <li>At $k$ er kjent, og at alle punkter hører til en klynge (ingen støy).</li>
+    </ul>
+  </div>
+</div>
+
+<figure class="card">
+<svg class="k11" viewBox="0 0 660 220" role="img" aria-label="Tre tilfeller der k-means feiler: avlange klynger, ulik størrelse og ringer">
+  <rect x="5" y="5" width="205" height="175" rx="10" class="fs"/>
+  <rect x="227" y="5" width="205" height="175" rx="10" class="fs"/>
+  <rect x="449" y="5" width="205" height="175" rx="10" class="fs"/>
+  <!-- avlange -->
+  <g class="f1"><ellipse cx="107" cy="50" rx="85" ry="9" opacity=".35"/></g>
+  <g class="f2"><ellipse cx="107" cy="92" rx="85" ry="9" opacity=".35"/></g>
+  <g class="f3"><ellipse cx="107" cy="134" rx="85" ry="9" opacity=".35"/></g>
+  <line x1="78" y1="20" x2="78" y2="165" class="st" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <line x1="136" y1="20" x2="136" y2="165" class="st" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="107" y="200" text-anchor="middle" class="t-s">Avlange: k-means kutter på tvers</text>
+  <!-- ulik størrelse -->
+  <circle cx="300" cy="92" r="58" class="f1" opacity=".3"/>
+  <circle cx="390" cy="92" r="16" class="f2" opacity=".45"/>
+  <line x1="352" y1="20" x2="352" y2="165" class="st" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="330" y="200" text-anchor="middle" class="t-s">Ulik størrelse: grensen midt mellom</text>
+  <text x="330" y="214" text-anchor="middle" class="t-s">sentroidene stjeler fra den store</text>
+  <!-- ringer -->
+  <circle cx="551" cy="92" r="65" class="nf s1" stroke-width="10" opacity=".35"/>
+  <circle cx="551" cy="92" r="22" class="f2" opacity=".45"/>
+  <line x1="551" y1="20" x2="551" y2="165" class="st" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="551" y="200" text-anchor="middle" class="t-s">Ringer: ikke konvekse, deles i to halvdeler</text>
+</svg>
+<figcaption><b>Figur 11.4</b> Tre typiske feil. Fargene viser de sanne klyngene, og stiplede linjer viser hvor k-means typisk legger grensene. I alle tilfellene er avstanden innad i en sann klynge større enn avstanden til naboklyngen.</figcaption>
+</figure>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2024 oppg. 29: «Når bør vi bruke k-means?» Riktig: <strong>når avstanden innad i klyngen er mindre enn avstandene mellom klyngene</strong>. Distraktorene var «når vi ikke har en god hypotese om antall klynger» (da passer DBSCAN bedre), «når features har ulike størrelsesordener» (da må vi skalere først) og «når klyngene ikke er lineært separerbare» (k-means lager nettopp lineære grenser).</p></div>
+
+<div class="quiz" data-id="11-kmeans-naar">
+  <p class="q">I hvilken situasjon passer k-means best?</p>
+  <ul>
+    <li>Når klyngene har form som to halvmåner som griper inn i hverandre</li>
+    <li data-correct>Når klyngene er kompakte og omtrent runde, slik at punkter i samme klynge er nærmere hverandre enn punkter i andre klynger</li>
+    <li>Når vi ikke aner hvor mange klynger det finnes, og dataene inneholder mye støy</li>
+    <li>Når klyngene har svært ulik størrelse og tetthet</li>
+  </ul>
+  <div class="explain">k-means lager konvekse Voronoi-celler rundt sentroider, så den fungerer når klyngene er kompakte og runde. Halvmåner er ikke-konvekse, og avstanden innad i en måne er større enn til nabomånen. Ukjent $k$ og mye støy taler for DBSCAN, som ikke trenger $k$ og merker støy. Ulik størrelse bryter antakelsen om like store klynger.</div>
+</div>
+
+<h3>Fordeler og ulemper</h3>
+<div class="two-col">
+<div class="callout hook" style="margin:0"><span class="label">Fordeler</span>
+<ul>
+  <li>Lett å forstå og implementere</li>
+  <li>Rask, og fungerer godt på store datasett (stor $n$), særlig med MiniBatchKMeans</li>
+  <li>Parametrisk: sentroidene kan brukes til å tildele <em>nye</em> punkter (<code>predict</code>)</li>
+</ul></div>
+<div class="callout warn" style="margin:0"><span class="label">Ulemper</span>
+<ul>
+  <li>Følsom for valg av $k$. Automatisk valg fungerer ofte dårlig, og manuelt valg er bare så godt som metoden</li>
+  <li>Svak med outliers: de trekker sentroidene (gjennomsnittet) bort fra klyngene</li>
+  <li>Dårlig i høye dimensjoner: euklidsk avstand konvergerer mot en konstant for stor $d$ (11.8)</li>
+  <li>Antar konvekse, runde, like store klynger</li>
+  <li>Avhenger av skalering av features</li>
+</ul></div>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil: glemme å skalere</span><p>Hvis én feature er inntekt i kroner (0–1 000 000) og en annen er alder i år (0–100), dominerer inntekten den euklidske avstanden fullstendig, og k-means klynger i praksis bare på inntekt. Standardiser (<code>StandardScaler</code>) før k-means og DBSCAN. Det gjelder alle avstandsbaserte metoder, også kNN.</p></div>
+
+<div class="callout cons"><span class="label">Hva fører outliers til?</span><p>Sentroiden er et gjennomsnitt, og gjennomsnitt er følsomt for ekstremverdier (som MSE i <a href="06-regresjon.html">kapittel 6</a>). Én outlier langt unna kan dra en sentroide bort fra klyngens midte, eller med «lengst unna»-init få en hel sentroide for seg selv. Prøv datasettet «Klynger + én outlier» i widgeten over med init «Lengst unna».</p></div>
+
+<div class="quiz" data-multi data-id="11-kmeans-ulemper">
+  <p class="q">Hvilke er reelle svakheter ved k-means?</p>
+  <ul>
+    <li data-correct>Outliers kan trekke sentroidene bort fra de faktiske klyngene</li>
+    <li data-correct>Fungerer dårlig i høydimensjonale rom fordi euklidske avstander blir nesten like</li>
+    <li>Fungerer ikke på store datasett</li>
+    <li data-correct>Resultatet avhenger av hvordan featurene er skalert</li>
+    <li>Kan ikke brukes til å tildele nye datapunkter etter trening</li>
+  </ul>
+  <div class="explain">Outliers, høye dimensjoner og skalering er alle reelle svakheter. Store datasett er derimot en <em>styrke</em>: k-means er rask, og MiniBatchKMeans skalerer enda bedre. Nye punkter tildeles enkelt ved å finne nærmeste sentroide (<code>km.predict</code>), så den kan absolutt brukes på nye data. Det er DBSCAN som mangler den muligheten.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="dbscan"><span class="sec">11.6</span>DBSCAN: klynger som tette områder</h2>
+
+<p>DBSCAN (Density-Based Spatial Clustering of Applications with Noise) ble utviklet av Martin Ester, Hans-Peter Kriegel, Jörg Sander og Xiaowei Xu i 1996. I stedet for «nær en sentroide» bruker den <strong>tetthet</strong> som likhetsmål: en klynge er et sammenhengende område der punktene ligger tett. Punkter i tynne områder hører ikke til noen klynge.</p>
+
+<h3>To hyperparametre og tre typer punkter</h3>
+<ul>
+  <li>$\boldsymbol{\varepsilon}$ (<code>eps</code>): maksimal avstand mellom to punkter for at de skal regnes som naboer.</li>
+  <li><strong>min_samples</strong>: minimum antall naboer innenfor $\varepsilon$ for at et punkt skal være et kjernepunkt.</li>
+</ul>
+
+<p>Med disse deles punktene i tre typer:</p>
+<ul>
+  <li><strong>Kjernepunkter (core points):</strong> har minst min_samples naboer innenfor $\varepsilon$. De ligger «inne i» en klynge og <em>utvider</em> den.</li>
+  <li><strong>Ikke-kjernepunkter / kantpunkter (border points):</strong> har for få naboer til å være kjernepunkt, men ligger innenfor $\varepsilon$ av et kjernepunkt. De hører til klyngen, men utvider den ikke.</li>
+  <li><strong>Outliers / støy (noise):</strong> er verken kjernepunkt eller innenfor $\varepsilon$ av et kjernepunkt. De får label $-1$ og blir ikke puttet i noen klynge.</li>
+</ul>
+
+<figure class="card">
+<svg class="k11" viewBox="0 0 660 260" role="img" aria-label="DBSCAN med kjernepunkt, kantpunkt og støy og epsilon-sirkler">
+  <rect x="5" y="5" width="650" height="215" rx="10" class="fs"/>
+  <!-- eps-sirkler: radius 40 -->
+  <circle cx="200" cy="110" r="45" class="f1 s1" fill-opacity=".08" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <circle cx="300" cy="150" r="45" class="nf s1" stroke-width="1.1" stroke-dasharray="3 3" opacity=".6"/>
+  <circle cx="338" cy="170" r="45" class="f5" fill-opacity=".1" style="stroke:var(--c5)" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <circle cx="520" cy="75" r="45" class="f2" fill-opacity=".08" style="stroke:var(--c2)" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <!-- kjernepunkter -->
+  <g class="f1"><circle cx="200" cy="110" r="7"/><circle cx="230" cy="100" r="7"/><circle cx="215" cy="140" r="7"/><circle cx="175" cy="135" r="7"/><circle cx="255" cy="135" r="7"/><circle cx="282" cy="128" r="7"/><circle cx="300" cy="150" r="7"/><circle cx="270" cy="168" r="7"/></g>
+  <!-- kantpunkter -->
+  <circle cx="170" cy="95" r="6" class="fbg" style="stroke:var(--c1)" stroke-width="3"/>
+  <circle cx="338" cy="170" r="6" class="fbg" style="stroke:var(--c1)" stroke-width="3"/>
+  <!-- støy -->
+  <circle cx="520" cy="75" r="7" class="fbg" style="stroke:var(--muted)" stroke-width="2.5"/>
+  <line x1="200" y1="110" x2="245" y2="110" class="st" stroke-width="1.3"/>
+  <text x="222" y="105" text-anchor="middle" class="t-s">ε</text>
+  <!-- etiketter -->
+  <text x="110" y="45" class="t-b">Kjernepunkt</text>
+  <text x="110" y="62" class="t-s">≥ min_samples innenfor ε</text>
+  <line x1="150" y1="68" x2="192" y2="104" class="sm" stroke-width="1"/>
+  <text x="395" y="200" class="t-b">Kantpunkt</text>
+  <text x="395" y="216" class="t-s">for få naboer, men nær et kjernepunkt</text>
+  <text x="485" y="140" class="t-b">Støy (label −1)</text>
+  <text x="485" y="156" class="t-s">ingen kjernepunkt innenfor ε</text>
+  <text x="330" y="245" text-anchor="middle" class="t-s">min_samples = 4 (sklearn teller punktet selv med). Den gule sirkelen rundt kantpunktet inneholder bare 2 punkter, men ett av dem er et kjernepunkt.</text>
+</svg>
+<figcaption><b>Figur 11.5</b> De tre punkttypene i DBSCAN. Kantpunktene (ringene) er med i klyngen fordi de ligger innenfor $\varepsilon$ av et kjernepunkt, men de har selv for få naboer til å spre klyngen videre.</figcaption>
+</figure>
+
+<h3>Prosedyren</h3>
+<ol>
+  <li><strong>Finn kjernepunktene:</strong> tell antall naboer innenfor $\varepsilon$ for hvert punkt. Er det nok (min_samples), er punktet et kjernepunkt.</li>
+  <li><strong>Spre klyngene:</strong> start i et kjernepunkt og legg til alle naboene. Er en nabo selv et kjernepunkt, fortsetter klyngen å vokse fra den. Er den ikke det, blir den et kantpunkt og spredningen stopper der.</li>
+  <li><strong>Resten er støy:</strong> punkter som ikke ble nådd fra noe kjernepunkt, er outliers.</li>
+</ol>
+
+<p>Vi vet altså om et punkt er et kjernepunkt allerede i steg 1, bare ut fra hyperparametrene. Forskjellen på kantpunkter og støy vet vi først etter steg 2.</p>
+
+<div class="callout warn"><span class="label">Telle med seg selv eller ikke?</span><p>Notatene skriver at et punkt er kjernepunkt hvis antall naboer er «større enn min_samples». I sklearn teller punktet <em>seg selv</em> med, og kravet er <em>minst</em> min_samples punkter innenfor $\varepsilon$. Ulike kilder bruker litt ulike konvensjoner. Ideen er den samme, men pass på hvordan oppgaven er formulert hvis du skal telle.</p></div>
+
+<h3>Når er to punkter i samme klynge?</h3>
+<p>Det er her DBSCAN skiller seg fra k-means. To punkter er i samme klynge hvis du kan gå fra det ene til det andre gjennom en <strong>kjede av punkter der hvert steg er høyst $\varepsilon$</strong> (og kjeden går gjennom kjernepunkter). De to punktene kan ligge langt fra hverandre i luftlinje. Derfor kan DBSCAN finne klynger med vilkårlig form, som måner, ringer og smilefjes.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p>DBSCAN er som en hviskelek i et folksomt rom: en beskjed sprer seg bare fra person til person som står innenfor en armlengde ($\varepsilon$). Alle som nås av beskjeden, er én klynge. Kjernepunktene er de som står midt i mengden og sender beskjeden videre. Kantpunktene hører den, men står så alene at de ikke når noen nye. Støyen står for langt unna til å høre noe.</p></div>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2025 del 6.4: «Ifølge DBSCAN tilhører to punkter samme klynge dersom…» Riktig: det ene kan nås fra det andre gjennom en kjede av punkter der hvert skritt har lengde som ikke overstiger $\varepsilon$. Distraktorene blandet inn k-means-begreper (sentroider og Voronoi-regioner).</p></div>
+
+<div class="quiz" data-id="11-dbscan-kjede">
+  <p class="q">Ifølge DBSCAN, når tilhører to punkter samme klynge?</p>
+  <ul>
+    <li>Når de har samme nærmeste sentroide</li>
+    <li>Når avstanden mellom dem er mindre enn $\varepsilon$</li>
+    <li>Når begge har minst min_samples naboer</li>
+    <li data-correct>Når det ene kan nås fra det andre gjennom en kjede av (kjerne)punkter der hvert steg er høyst $\varepsilon$</li>
+  </ul>
+  <div class="explain">Klyngetilhørighet i DBSCAN er <em>transitiv</em> via kjeder av $\varepsilon$-steg. Direkte avstand under $\varepsilon$ er nok, men ikke nødvendig. To punkter i hver sin ende av en lang måne kan være langt fra hverandre og likevel i samme klynge. Sentroider finnes ikke i DBSCAN. At begge er kjernepunkter sier ingenting om de henger sammen: de kan være kjernepunkter i hver sin klynge.</div>
+</div>
+
+<div class="calc" data-id="11-dbscan-tell" data-answer="3" data-tol="0.01">
+  <p class="q">Endimensjonale data: $\{1,\,2,\,3,\,7,\,8,\,15\}$. Bruk $\varepsilon=1.5$ og min_samples $=3$ (punktet selv telles med, som i sklearn). Hvor mange punkter blir støy?</p>
+  <div class="solution">
+    Naboer innenfor 1.5 (inkludert seg selv): $1:\{1,2\}$ (2), $2:\{1,2,3\}$ (3), $3:\{2,3\}$ (2), $7:\{7,8\}$ (2), $8:\{7,8\}$ (2), $15:\{15\}$ (1).<br>
+    Bare punktet $2$ har minst 3 og er kjernepunkt. Punktene $1$ og $3$ ligger innenfor $\varepsilon$ av $2$ og blir kantpunkter i samme klynge.<br>
+    $7$ og $8$ er naboer, men ingen av dem er kjernepunkt, og ingen kjernepunkt er nær, så de blir støy. Det blir også $15$. <strong>Svar: 3 støypunkter</strong> ($7$, $8$, $15$) og én klynge $\{1,2,3\}$. Med min_samples $=2$ ville $\{7,8\}$ blitt en egen klynge.
+  </div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: DBSCAN med ε og min_samples</h4>
+  <canvas id="db-canvas" width="640" height="400"></canvas>
+  <div class="controls">
+    <label>Datasett
+      <select id="db-data">
+        <option value="smiley">Smilefjes (eksamen 2024)</option>
+        <option value="moons">Måner</option>
+        <option value="rings">Ringer</option>
+        <option value="density">Ulik tetthet</option>
+        <option value="blobsnoise">Klynger + støy</option>
+      </select></label>
+    <label>ε <input type="range" id="db-eps" min="0.1" max="2.5" step="0.05" value="0.3"><output id="db-epso">0.30</output></label>
+    <label>min_samples <input type="range" id="db-ms" min="1" max="20" step="1" value="5"><output id="db-mso">5</output></label>
+    <label><input type="checkbox" id="db-circles" checked> vis ε-områder rundt kjernepunkter</label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="db-nc">Klynger: –</span>
+    <span class="readout" id="db-ncore">Kjerne: –</span>
+    <span class="readout" id="db-nborder">Kant: –</span>
+    <span class="readout" id="db-nnoise">Støy: –</span>
+  </div>
+  <div style="margin-top:8px">
+    <span class="k11-key"><i style="background:var(--c1)"></i>kjernepunkt (stor, fylt)</span>
+    <span class="k11-key"><i style="border:2.5px solid var(--c1);background:var(--surface)"></i>kantpunkt (ring)</span>
+    <span class="k11-key"><i style="border:2px solid var(--muted);background:var(--surface)"></i>støy</span>
+  </div>
+  <div class="k11-status" id="db-hover">Hold musepekeren over et punkt for å se ε-sirkelen og antall naboer.</div>
+</div>
+
+<p>Startinnstillingen ($\varepsilon=0.3$) ligner figuren fra eksamen 2024. <strong>Legg merke til:</strong></p>
+<ul>
+  <li><strong>For lav $\varepsilon$:</strong> få punkter har nok naboer, så smilefjeset brytes opp i mange småklynger og mye blir støy. Dra $\varepsilon$ opp mot ca. 0.6–0.8, så blir ansikt, øyne og munn hver sin klynge.</li>
+  <li><strong>For høy $\varepsilon$:</strong> klyngene smelter sammen. Ved $\varepsilon\approx1.5$ blir øyne, munn og ansikt én stor klynge.</li>
+  <li><strong>For høy min_samples:</strong> nesten ingen punkter blir kjernepunkter, så mye blir støy (ligner for lav $\varepsilon$). <strong>For lav min_samples</strong> (f.eks. 1–2): hvert lille par av støypunkter blir sin egen «klynge».</li>
+  <li>På «Ulik tetthet» finnes det ingen $\varepsilon$ som passer begge klyngene: liten $\varepsilon$ gjør den spredte klyngen til støy, stor $\varepsilon$ sluker støyen inn i klyngene. Det er ulempen med globale parametre.</li>
+</ul>
+
+<figure class="card">
+  <img src="../assets/fig/k11/smiley-2024.png" alt="DBSCAN-resultat på smilefjes-data der klyngene er splittet i mange små biter og mange punkter er hvite støypunkter" width="460">
+  <figcaption><b>Figur 11.6</b> Figuren fra eksamen 2024 oppg. 30. Fargene er klynger, hvite punkter er støy. Ringen rundt ansiktet er splittet i rundt 20 biter, og mange punkter er merket som støy.</figcaption>
+</figure>
+
+<div class="quiz" data-id="11-smiley">
+  <p class="q">Figur 11.6 er resultatet av en DBSCAN-modell med ett dårlig parametervalg. Hvilket?</p>
+  <ul>
+    <li>For høy verdi av $\varepsilon$</li>
+    <li>For lav verdi av min_samples</li>
+    <li data-correct>For lav verdi av $\varepsilon$</li>
+    <li>For høy verdi av min_samples, i kombinasjon med for høy $\varepsilon$</li>
+  </ul>
+  <div class="explain">Ansiktsringen, som tydelig er én sammenhengende struktur, er delt i mange små klynger med hull imellom, og mange punkter langs ringen er støy. Det betyr at kjedene av $\varepsilon$-steg brytes for lett, altså er $\varepsilon$ for liten (fasit i 2024). For høy $\varepsilon$ ville gitt det motsatte: få, store, sammenslåtte klynger og nesten ingen støy. For lav min_samples gjør det <em>lettere</em> å være kjernepunkt, så vi ville fått mindre støy, ikke mer (men gjerne bitte små klynger av støypar). For høy min_samples kan gi mye støy, men ville ikke gitt alle de små tette klyngene med fem–ti punkter, og det var bare ett parameter som var feil.</div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2024 oppg. 30 (smilefjeset). Lær deg mønstrene: <strong>mange små klynger + mye støy</strong> → $\varepsilon$ for lav (eller min_samples for høy). <strong>Få store klynger som slår sammen ulike strukturer + nesten ingen støy</strong> → $\varepsilon$ for høy. <strong>Mange bitte små klynger av 2–3 punkter i det som burde vært støy</strong> → min_samples for lav.</p></div>
+
+<div class="quiz" data-id="11-dbscan-hoy-eps">
+  <p class="q">Hva skjer typisk hvis $\varepsilon$ settes alt for høyt i DBSCAN?</p>
+  <ul>
+    <li>Nesten alle punkter blir støy</li>
+    <li data-correct>Separate klynger smelter sammen til én eller noen få store klynger, og nesten ingen punkter blir støy</li>
+    <li>Algoritmen krever at vi oppgir antall klynger</li>
+    <li>Hvert punkt blir sin egen klynge</li>
+  </ul>
+  <div class="explain">Stor $\varepsilon$ gir alle punkter mange naboer, så nesten alle blir kjernepunkter og kjedene når over gapene mellom klyngene. I ytterste konsekvens blir alt én klynge. Mye støy og mange småklynger er symptomer på for <em>lav</em> $\varepsilon$. DBSCAN trenger aldri antall klynger.</div>
+</div>
+
+<h3>Fordeler og ulemper</h3>
+<div class="two-col">
+<div class="callout hook" style="margin:0"><span class="label">Fordeler</span>
+<ul>
+  <li>Trenger ikke antall klynger, og gjør ingen antakelse om det</li>
+  <li>Identifiserer outliers og putter dem ikke i klynger, og er derfor robust mot outliers</li>
+  <li>Finner klynger med vilkårlig form (ikke-konvekse)</li>
+</ul></div>
+<div class="callout warn" style="margin:0"><span class="label">Ulemper</span>
+<ul>
+  <li>Følsom for valg av $\varepsilon$ og min_samples</li>
+  <li>Parametrene er <em>globale</em>: klynger med ulik tetthet kan ikke håndteres med én $\varepsilon$</li>
+  <li>Treg for store datasett: må finne avstander mellom (i verste fall) alle par av punkter, $O(n^2)$</li>
+  <li>Svak i høye dimensjoner: bygger på avstand, som mister mening der (11.8)</li>
+  <li>Ikke-parametrisk: kan ikke tildele nye punkter uten å kjøre på nytt</li>
+</ul></div>
+</div>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2024 oppg. 27: «Hvilken egenskap gjør DBSCAN særlig robust?» Riktig: <strong>den identifiserer outliers og prøver ikke å putte disse i klynger</strong>. «Hyperparameteren for antall klynger er valgfri» var en felle: DBSCAN har ingen slik hyperparameter i det hele tatt. «Kan bruke ulike hyperparametre i ulike klynger» er feil, siden parametrene er globale.</p></div>
+
+<div class="quiz" data-id="11-dbscan-robust">
+  <p class="q">Hvilken egenskap gjør DBSCAN særlig robust sammenlignet med k-means?</p>
+  <ul>
+    <li>Den bruker ulike verdier av $\varepsilon$ i ulike deler av rommet</li>
+    <li>Om et punkt er kjernepunkt, avhenger ikke av $\varepsilon$</li>
+    <li data-correct>Den merker outliers som støy i stedet for å tvinge dem inn i en klynge</li>
+    <li>Den har en valgfri hyperparameter for antall klynger</li>
+  </ul>
+  <div class="explain">I k-means må hvert punkt tilhøre en klynge, så outliers drar sentroidene skjevt. DBSCAN gir dem label $-1$, og klyngene påvirkes ikke. $\varepsilon$ er global (én verdi for hele rommet), og kjernepunkt-statusen avhenger direkte av $\varepsilon$, så de to første er feil. Antall klynger er ikke en hyperparameter i DBSCAN i det hele tatt, verken obligatorisk eller valgfri.</div>
+</div>
+
+<div class="quiz" data-multi data-id="11-dbscan-ulemper">
+  <p class="q">Hvilke er ulemper med DBSCAN?</p>
+  <ul>
+    <li data-correct>Den sliter når klyngene har svært ulik tetthet</li>
+    <li>Den kan bare finne konvekse (runde) klynger</li>
+    <li data-correct>Den blir treg for svært store datasett</li>
+    <li data-correct>Den fungerer dårligere i høydimensjonale data</li>
+    <li>Den må vite antall klynger på forhånd</li>
+  </ul>
+  <div class="explain">Ulik tetthet (globale parametre), treghet for stor $n$ (avstander mellom mange punktpar) og høye dimensjoner (avstand mister mening) er de tre ulempene i notatene. At den bare finner konvekse klynger og må vite $k$, er ulemper ved <em>k-means</em>. DBSCAN finner vilkårlige former og trenger ikke $k$.</div>
+</div>
+
+<div class="reflect" data-id="11-r-velg-algoritme">
+  <p class="q">Du har GPS-posisjoner for alle taxiturer som startet i Trondheim en lørdag. Du vil finne «populære hentesteder». Mange turer starter tilfeldige steder. Ville du brukt k-means eller DBSCAN? Begrunn med antakelsene.</p>
+  <div class="answer">DBSCAN passer best. (1) Du vet ikke hvor mange hentesteder som finnes, og DBSCAN trenger ikke $k$. (2) Mange turer starter tilfeldige steder. Det er støy, som DBSCAN merker med $-1$, mens k-means ville tvunget dem inn i klynger og dratt sentroidene skjevt. (3) Hentesteder kan ha rare former (langs en gate, rundt en stasjon), og DBSCAN finner vilkårlige former. Ulempen er at et travelt sted som Solsiden og et roligere sted har ulik tetthet, så én global $\varepsilon$ passer kanskje ikke begge. Dataene er bare 2D, så dimensjonsforbannelsen er ikke et problem.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="kategorier"><span class="sec">11.7</span>Fire hovedkategorier av clustering</h2>
+
+<p>Clustering-algoritmer deles gjerne inn i fire hovedkategorier:</p>
+
+<figure class="card">
+<svg class="k11" viewBox="0 0 660 200" role="img" aria-label="Fire kategorier: sentroidebasert, tetthetsbasert, fordelingsbasert og hierarkibasert">
+  <g transform="translate(5,5)">
+    <rect width="155" height="150" rx="10" class="fs"/>
+    <g class="f1"><circle cx="40" cy="50" r="3.5"/><circle cx="52" cy="40" r="3.5"/><circle cx="58" cy="58" r="3.5"/><circle cx="35" cy="65" r="3.5"/><circle cx="48" cy="70" r="3.5"/></g>
+    <g class="f2"><circle cx="105" cy="95" r="3.5"/><circle cx="118" cy="105" r="3.5"/><circle cx="100" cy="112" r="3.5"/><circle cx="122" cy="88" r="3.5"/><circle cx="112" cy="120" r="3.5"/></g>
+    <path d="M41,49 l12,12 M53,49 l-12,12" class="st" stroke-width="2.5"/>
+    <path d="M105,98 l12,12 M117,98 l-12,12" class="st" stroke-width="2.5"/>
+    <text x="77" y="175" text-anchor="middle" class="t-b">Sentroidebasert</text>
+    <text x="77" y="191" text-anchor="middle" class="t-s">k-means</text>
+  </g>
+  <g transform="translate(170,5)">
+    <rect width="155" height="150" rx="10" class="fs"/>
+    <path d="M25,40 Q75,15 125,45 Q140,60 120,62 Q75,40 35,58 Q15,55 25,40 Z" class="f1" opacity=".35"/>
+    <path d="M30,110 Q75,140 130,105 Q140,95 125,95 Q75,125 38,98 Q22,100 30,110 Z" class="f2" opacity=".35"/>
+    <g class="fm"><circle cx="70" cy="80" r="3"/><circle cx="140" cy="20" r="3"/><circle cx="15" cy="135" r="3"/></g>
+    <text x="77" y="175" text-anchor="middle" class="t-b">Tetthetsbasert</text>
+    <text x="77" y="191" text-anchor="middle" class="t-s">DBSCAN</text>
+  </g>
+  <g transform="translate(335,5)">
+    <rect width="155" height="150" rx="10" class="fs"/>
+    <ellipse cx="60" cy="70" rx="40" ry="25" class="nf s1" stroke-width="1.2" transform="rotate(-25 60 70)"/>
+    <ellipse cx="60" cy="70" rx="24" ry="14" class="nf s1" stroke-width="1.2" transform="rotate(-25 60 70)"/>
+    <ellipse cx="60" cy="70" rx="9" ry="5" class="f1" transform="rotate(-25 60 70)"/>
+    <ellipse cx="110" cy="105" rx="30" ry="22" class="nf s2" stroke-width="1.2"/>
+    <ellipse cx="110" cy="105" rx="16" ry="11" class="nf s2" stroke-width="1.2"/>
+    <ellipse cx="110" cy="105" rx="6" ry="4" class="f2"/>
+    <text x="77" y="175" text-anchor="middle" class="t-b">Fordelingsbasert</text>
+    <text x="77" y="191" text-anchor="middle" class="t-s">f.eks. Gaussian mixture</text>
+  </g>
+  <g transform="translate(500,5)">
+    <rect width="155" height="150" rx="10" class="fs"/>
+    <g class="nf st" stroke-width="1.6">
+      <path d="M25,130 V100 H45 V130"/><path d="M65,130 V110 H85 V130"/><path d="M35,100 V70 H75 V110"/>
+      <path d="M105,130 V95 H130 V130"/><path d="M55,70 V35 H117 V95"/>
+    </g>
+    <line x1="15" y1="85" x2="140" y2="85" class="s2" stroke-width="1.4" stroke-dasharray="4 3"/>
+    <text x="77" y="175" text-anchor="middle" class="t-b">Hierarkibasert</text>
+    <text x="77" y="191" text-anchor="middle" class="t-s">dendrogram, kutt på et nivå</text>
+  </g>
+</svg>
+<figcaption><b>Figur 11.7</b> De fire hovedkategoriene. Du må kunne plassere k-means og DBSCAN. De to siste skal du bare ha hørt om.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Sentroidebasert:</strong> starter med sentroider, knytter punkter til dem og justerer frem til konvergens. <em>k-means.</em></li>
+  <li><strong>Tetthetsbasert:</strong> klynger er områder med høy tetthet av punkter. Isolerte punkter er outliers. <em>DBSCAN.</em></li>
+  <li><strong>Fordelingsbasert:</strong> antar at hver klynge består av punkter trukket fra en sannsynlighetsfordeling, vanligvis en gaussisk, og finner parametrene til fordelingene.</li>
+  <li><strong>Hierarkibasert:</strong> lager et hierarki av klynger. I starten er hvert punkt sin egen klynge, og på slutten er alle i samme klynge. Man velger klyngene fra ett nivå i hierarkiet (der den stiplede linjen kutter dendrogrammet).</li>
+</ul>
+
+<div class="callout exam"><span class="label">Eksamenstips</span><p>Eksamen 2024 oppg. 22 spurte hvilken kategori k-means og DBSCAN tilhører: <strong>k-means er sentroidebasert, DBSCAN er tetthetsbasert</strong>. Notatene sier at de to andre kategoriene ikke er pensum, i den forstand at du bør ha hørt om dem, men ikke trenger å kunne algoritmer derfra.</p></div>
+
+<div class="quiz" data-id="11-kategori">
+  <p class="q">Hvilken kombinasjon er riktig?</p>
+  <ul>
+    <li>k-means er fordelingsbasert, DBSCAN er hierarkibasert</li>
+    <li>k-means er tetthetsbasert, DBSCAN er sentroidebasert</li>
+    <li>Begge er sentroidebaserte, men DBSCAN har i tillegg en støyklasse</li>
+    <li data-correct>k-means er sentroidebasert, DBSCAN er tetthetsbasert</li>
+  </ul>
+  <div class="explain">k-means representerer hver klynge med en sentroide og tildeler punkter til nærmeste. DBSCAN har ingen sentroider. Den definerer klynger som sammenhengende tette områder og merker isolerte punkter som støy. Fordelingsbasert (f.eks. gaussiske blandingsmodeller) og hierarkibasert (dendrogram) er de to kategoriene du bare skal ha hørt om.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="dimensjoner"><span class="sec">11.8</span>Dimensjonsforbannelsen igjen: når alle avstander blir like</h2>
+
+<p>Både k-means og DBSCAN står og faller på at avstand betyr noe: punkter i samme klynge skal være <em>nærmere</em> hverandre enn punkter i ulike klynger. I <a href="04-sannsynlighet.html">kapittel 4</a> så vi at høydimensjonale rom stort sett er tomme. Nå ser vi en annen side av samme forbannelse.</p>
+
+<p>Notatene gjør et enkelt eksperiment: trekk to tilfeldige punkter uniformt i enhetskuben $[0,1]^d$, regn ut den euklidske avstanden mellom dem, og gjenta 1000 ganger. Gjør det for $d=2,3,10,100,1000,10000$.</p>
+
+<pre><code><span class="k">def</span> get_cube_dist(dim):
+    dims = range(dim)
+    P1 = np.array([np.random.uniform() <span class="k">for</span> _ <span class="k">in</span> dims])
+    P2 = np.array([np.random.uniform() <span class="k">for</span> _ <span class="k">in</span> dims])
+    dist = np.linalg.norm(P1-P2)
+    <span class="k">return</span> dist
+
+n_iter = 1000
+dims = [2, 3, 10, 100, 1000, 10000]
+<span class="k">for</span> dim <span class="k">in</span> dims:                            <span class="c"># (forenklet fra notatene)</span>
+    dists = [get_cube_dist(dim) <span class="k">for</span> _ <span class="k">in</span> range(n_iter)]
+    plt.hist(dists, label=f<span class="s">"d={dim}"</span>)</code></pre>
+
+<figure class="card">
+  <img src="../assets/fig/notater/s49_1.png" alt="Seks histogrammer av avstander mellom tilfeldige punkter for d = 2, 3, 10, 100, 1000 og 10000. Fordelingen flytter seg mot høyre og blir smalere relativt til middelverdien." width="700">
+  <figcaption><b>Figur 11.8</b> (Figur 22 i notatene.) Fordelingen av euklidske avstander mellom to tilfeldige punkter i en $d$-dimensjonal enhetskube. Merk at $x$-aksen starter i 0 i alle panelene.</figcaption>
+</figure>
+
+<div class="reflect" data-id="11-r-fig22">
+  <p class="q">Oppgave fra notatene: Hva forteller fordelingene i figur 11.8 oss om hvordan avstand oppfører seg i høydimensjonale rom? Se på både hvor fordelingen ligger og hvor bred den er, sammenlignet med avstanden fra 0.</p>
+  <div class="answer">
+    <p>Middelavstanden vokser med $d$ (omtrent som $\sqrt{d/6}$: 0.5 ved $d=2$, ca. 4 ved $d=100$, ca. 41 ved $d=10000$). Men bredden (standardavviket) er nesten konstant, rundt 0.24. <strong>Relativt</strong> til middelverdien blir fordelingen derfor ekstremt smal: ved $d=10000$ ligger nesten alle avstandene mellom ca. 40 og 41.5.</p>
+    <p>Det er <strong>konsentrasjon av avstander (concentration of distances)</strong>: alle punkter er omtrent like langt fra alle andre. «Nærmeste» og «fjerneste» nabo er nesten like langt unna, så begrepet «nær» mister mening. Clustering-algoritmer som bygger på at punkter i samme klynge er nærmere hverandre enn punkter i andre klynger, klarer da ikke å skille klyngene.</p>
+  </div>
+</div>
+
+<div class="widget">
+  <h4>Utforsk: avstandsfordelingen når d vokser</h4>
+  <canvas id="dd-canvas" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>d <input type="range" id="dd-d" min="0" max="9" step="1" value="0"><output id="dd-do">2</output></label>
+    <label><input type="checkbox" id="dd-rel"> relativ skala (avstand / middelverdi)</label>
+    <button class="btn ghost" id="dd-new" type="button">Ny trekning</button>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="dd-mean">snitt: –</span>
+    <span class="readout" id="dd-sd">std: –</span>
+    <span class="readout" id="dd-cv">std / snitt: –</span>
+    <span class="readout" id="dd-mm">maks / min: –</span>
+  </div>
+</div>
+<p>Widgeten trekker 1000 punktpar for hver $d$, akkurat som i notatene. <strong>Legg merke til:</strong> med absolutt skala (som i figuren) flytter fordelingen seg mot høyre og ser ut til å bli en tynn strek. Slå på relativ skala: ved $d=2$ er den største avstanden mange ganger den minste, mens ved $d=10000$ er forholdet maks/min bare rundt 1.05. Da finnes det ingen «nære» punkter å bygge klynger av.</p>
+
+<div class="calc" data-id="11-dist-d" data-answer="10" data-tol="0.3">
+  <p class="q">For to uniformt tilfeldige punkter i $[0,1]^d$ er den forventede kvadrerte avstanden $d/6$, så typisk avstand er omtrent $\sqrt{d/6}$. Omtrent hvor stor er typisk avstand når $d=600$?</p>
+  <div class="solution">$\sqrt{600/6}=\sqrt{100}=10$. Standardavviket holder seg rundt 0.24 uansett $d$, så nesten alle avstander ligger mellom ca. 9.5 og 10.5. Relativ spredning er bare noen få prosent.</div>
+</div>
+
+<details class="more"><summary>Fordypning: hvorfor $\sqrt{d/6}$ og konstant spredning? <span class="tag">ikke nødvendig til eksamen</span></summary><div>
+<p>Kvadrert avstand er en sum av $d$ uavhengige ledd $(U_j-V_j)^2$ med $U_j,V_j\sim\text{Uniform}(0,1)$. Hvert ledd har forventning $1/6$ og varians $7/180$. Summen har derfor forventning $d/6$ og standardavvik $\sqrt{7d/180}$, altså begge vokser lineært med $d$ og $\sqrt d$. Etter rottegnet blir avstanden omtrent $\sqrt{d/6}$ med standardavvik $\approx\sqrt{7/120}\approx0.24$, uavhengig av $d$. Relativ spredning er dermed $\propto1/\sqrt d\to0$.</p>
+</div></details>
+
+<div class="callout warn"><span class="label">Mer data hjelper ikke</span><p>Det er fristende å tro at problemet forsvinner med flere datapunkter. Det gjør det ikke. Konsentrasjonen er en egenskap ved hvordan avstander oppfører seg i høydimensjonale rom, ikke ved størrelsen på datasettet. Trekker du 10 ganger så mange punktpar i widgeten, får du det samme smale histogrammet. Løsningen er å redusere antall dimensjoner, og behold bare retningene som bærer strukturen i dataene.</p></div>
+
+<div class="chain">
+  <div><b>Problem</b>Mange features: avstander konsentreres, og alle punkter er omtrent like langt fra hverandre</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>k-means og DBSCAN klarer ikke å skille klyngene, og mer data hjelper ikke</div><div class="arrow">→</div>
+  <div><b>Løsning</b>Dimensjonsreduksjon (PCA, t-SNE) før clustering → <a href="12-dimensjonsreduksjon.html">kapittel 12</a></div>
+</div>
+
+<div class="quiz" data-id="11-konsentrasjon">
+  <p class="q">Hva er hovedpoenget med figur 11.8 (figur 22 i notatene)?</p>
+  <ul>
+    <li>Avstandene blir mindre når $d$ øker, så alle punkter havner nær hverandre</li>
+    <li data-correct>Avstandene blir store, men spredningen blir liten relativt til middelverdien, slik at alle punkter er omtrent like langt fra hverandre</li>
+    <li>Fordelingen av avstander blir uniform i høye dimensjoner</li>
+    <li>Avstander kan ikke regnes ut når $d$ er større enn antall datapunkter</li>
+  </ul>
+  <div class="explain">Middelavstanden vokser (ca. $\sqrt{d/6}$), mens standardavviket er nesten konstant. Relativ spredning går mot null: det er konsentrasjon av avstander. Avstandene blir altså <em>større</em>, ikke mindre. Fordelingen blir smalere og mer klokkeformet, ikke uniform. Euklidsk avstand kan regnes ut i alle dimensjoner uansett antall punkter.</div>
+</div>
+
+<div class="quiz" data-id="11-mer-data">
+  <p class="q">Du har 2000 features og k-means gir meningsløse klynger. En kollega foreslår å samle inn ti ganger så mye data. Hva er den beste responsen?</p>
+  <ul>
+    <li>Godt forslag, flere punkter fyller rommet og gjør avstandene meningsfulle</li>
+    <li>Bytt til DBSCAN, som ikke påvirkes av antall dimensjoner</li>
+    <li>Øk $k$ til antall datapunkter, så forsvinner problemet</li>
+    <li data-correct>Mer data løser ikke konsentrasjon av avstander. Reduser heller dimensjonaliteten først (f.eks. PCA), og cluster i det lavdimensjonale rommet</li>
+  </ul>
+  <div class="explain">Problemet ligger i geometrien til høydimensjonale rom: alle parvise avstander blir nesten like, uansett hvor mange punkter du har. DBSCAN bygger også på avstand og er like utsatt (det så vi i prosjekt 3). $k=n$ gir inertia 0, men ingen klynger. Dimensjonsreduksjon, som er temaet i neste kapittel, er den riktige veien.</div>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="prosjekt"><span class="sec">11.9</span>Prosjekt 3: KMeans mot DBSCAN i praksis</h2>
+
+<div class="callout proj"><span class="label">Kobling til prosjekt</span><p>Problem 2 i prosjekt 3 ga et datasett med 4000 rader og 16 384 features (128 × 128 stokkede piksler), og spurte bl.a.: «❓ Which clustering algorithm and hyperparameters did you use? Compare KMeans and DBSCAN.» og «❓ Which dimensionality reduction methods helped you choose <em>k</em>?»</p></div>
+
+<p>Dataene viste seg å være kartutsnitt av fire steder i Trondheim (IKEA Leangen, Studentersamfundet, Trondheim Spektrum og Pirbadet), rotert og zoomet tilfeldig. Gangen i løsningen illustrerer nesten hele dette kapittelet:</p>
+
+<ol>
+  <li><strong>Ikke cluster direkte på 16 384 dimensjoner.</strong> Avstander konsentreres, og i tillegg dominerer rotasjon og zoom over hvilket sted bildet viser. Først ble det laget rotasjonsinvariante features, så PCA ned til 50 komponenter (<a href="12-dimensjonsreduksjon.html">kapittel 12</a>).</li>
+  <li><strong>Velge $k$:</strong> silhouette for KMeans på 20 komponenter var 0.375 ved $k=4$ og 0.379 ved $k=5$, altså nesten likt. Men $k=5$ skilte bare ut en gruppe på 223 punkter fra én klynge, mens $k=4$ ga fire klynger på ca. 1000 hver. t-SNE viste fire tydelige grupper. Metrikk + visualisering + klyngestørrelser ga sammen $k=4$.</li>
+  <li><strong>KMeans</strong> ($k=4$) kuttet over de avlange, buede klyngene (hvert sted under varierende rotasjon blir en buet «manifold», ikke en rund klump) og fikk bare 97.8 % samsvar, under kravet på 99 %. Antakelsen om runde klynger var brutt.</li>
+  <li><strong>DBSCAN</strong> på 20 komponenter ga 15–97 klynger og hundrevis av støypunkter, avhengig av $\varepsilon$. På bare 5 komponenter med <code>eps=10, min_samples=5</code> fant den nøyaktig 4 klynger uten støy og 99.95 % samsvar. Men det krevde et sveip over parametrene.</li>
+</ol>
+
+<div class="reflect" data-id="11-r-prosjekt-dbscan">
+  <p class="q">Hvorfor var DBSCAN så vanskelig å få til i 20 dimensjoner, men fungerte i 5? Bruk begrepene fra dette kapittelet.</p>
+  <div class="answer">
+    <p>I 20 dimensjoner er avstandene mer konsentrerte: forskjellen mellom «nær nabo» og «langt unna» er liten relativt til avstandene selv. En fast $\varepsilon$ treffer da dårlig. Litt for liten, og nesten ingen punkter har nok naboer (mye støy, mange småklynger). Litt for stor, og alt henger sammen. Vinduet med gode verdier blir smalt eller forsvinner. I tillegg har klyngene ulik tetthet, og DBSCAN har bare én global $\varepsilon$ og min_samples. Tettheten (punkter per volum) faller også raskt med $d$, så samme antall punkter blir «tynnere» i 20D enn i 5D.</p>
+    <p>I 5 dimensjoner (de fem første PCA-komponentene, som bærer mest av strukturen) er avstandene mer informative, og en $\varepsilon$ som skiller klyngene finnes. Lærdom: reduser dimensjonen før tetthets- og avstandsbasert clustering.</p>
+  </div>
+</div>
+
+<div class="reflect" data-id="11-r-laeringssignal">
+  <p class="q">Sammenlign læringssignalet i k-means med tapet i logistisk regresjon. Hva er likt, og hva mangler i k-means?</p>
+  <div class="answer">Begge minimerer en tapsfunksjon iterativt: logistisk regresjon minimerer cross-entropy med gradient descent, k-means minimerer inertia ved å veksle mellom tildel og flytt. Forskjellen er at cross-entropy sammenligner prediksjonen med en kjent fasit $y$, mens inertia bare måler hvor kompakte klyngene er. Det finnes ingen fasit som sier om klyngene er «riktige». Derfor kan k-means få lav inertia med en gruppering som er meningsløs for oss (for eksempel ved å øke $k$, eller ved å kutte avlange klynger på tvers), og derfor trenger vi ekstra metrikker og skjønn for å vurdere resultatet.</div>
+</div>
+
+<!-- ===================================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Uveiledet læring</strong> finner mønstre i data uten targets: clustering, dimensjonsreduksjon og anomalideteksjon. Clustering er «klassifisering uten labels» og trenger et likhetsmål og et læringssignal.</li>
+    <li><strong>k-means:</strong> velg $k$, initialiser sentroider, gjenta <em>tildel</em> (nærmeste sentroide, euklidsk avstand) og <em>flytt</em> (gjennomsnitt) til ingenting endres. Minimerer <strong>inertia</strong> = summen av kvadrerte avstander til tildelt sentroide. Konvergerer til et lokalt minimum.</li>
+    <li><strong>Initialisering:</strong> tilfeldig start gir én sentroide per klynge med sannsynlighet $k!/k^k\approx\sqrt{2\pi k}\,e^{-k}$ (k=3: 0.22, k=5: 0.038). «Lengst unna» havner i utkanten eller på outliers. <strong>k-means++</strong> trekker med $P\propto D^2$: spredning pluss tilfeldighet, og i forventning høyst $O(\log k)$ fra optimum.</li>
+    <li><strong>Valg av $k$ er vanskelig</strong>, og ulike metrikker kan foreslå ulike $k$. Inertia (lav, men 0 ved $k=n$, så bruk albuen), silhouette $s=(b-a)/\max(a,b)$ (1 bra, 0 grense, −1 feil klynge) og Calinski–Harabasz (høy = tette, godt separerte klynger).</li>
+    <li><strong>k-means antar</strong> at avstand innad &lt; avstand mellom klynger: konvekse, runde, like store klynger. Svak mot outliers og høye dimensjoner, og krever skalering. Rask og enkel.</li>
+    <li><strong>DBSCAN</strong> (tetthetsbasert): kjernepunkter (≥ min_samples innen $\varepsilon$), kantpunkter og støy (label −1). Samme klynge = kjede av $\varepsilon$-steg. Trenger ikke $k$, er robust mot outliers og finner vilkårlige former. Men globale parametre (ulik tetthet), treg for stor $n$, svak i høye dimensjoner.</li>
+    <li><strong>For lav $\varepsilon$</strong> → mange småklynger og mye støy (smilefjeset 2024). <strong>For høy $\varepsilon$</strong> → klynger smelter sammen.</li>
+    <li><strong>Kategorier:</strong> sentroide- (k-means), tetthets- (DBSCAN), fordelings- og hierarkibasert.</li>
+    <li><strong>Konsentrasjon av avstander:</strong> i høye $d$ er alle punkter omtrent like langt fra hverandre. Clustering feiler, og mer data hjelper ikke. Reduser dimensjonen først (kapittel 12).</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Uveiledet læring</div><div class="back">Læring fra data uten targets. Tre kategorier i faget: clustering, dimensjonsreduksjon, anomalideteksjon.</div></div>
+  <div class="card"><div class="front">k-means: de to stegene</div><div class="back">Tildel: hvert punkt til nærmeste sentroide. Flytt: sentroide = gjennomsnittet av klyngen. Gjenta til ingen endring.</div></div>
+  <div class="card"><div class="front">Inertia</div><div class="back">$\sum_i\lVert x^{(i)}-\mu_{c(i)}\rVert^2$. Det k-means minimerer. Lav = kompakt, men 0 når $k=n$.</div></div>
+  <div class="card"><div class="front">$k!/k^k$</div><div class="back">Sannsynlighet for at tilfeldig init gir én sentroide per klynge. k=3: 6/27≈0.22. Avtar som $\sqrt k\,e^{-k}$ (Stirling).</div></div>
+  <div class="card"><div class="front">k-means++</div><div class="back">Neste sentroide trekkes med sannsynlighet ∝ kvadrert avstand til nærmeste valgte. Spredning + tilfeldighet → nær klyngesentrum. $O(\log k)$-garanti.</div></div>
+  <div class="card"><div class="front">«Lengst unna»-init: problem</div><div class="back">Velger alltid det mest ekstreme punktet → sentroider i utkanten av klynger eller på outliers.</div></div>
+  <div class="card"><div class="front">Silhouette</div><div class="back">$s=\frac{b-a}{\max(a,b)}$. $a$: snittavstand i egen klynge, $b$: til nærmeste andre klynge. 1 bra, 0 på grensen, −1 feil klynge.</div></div>
+  <div class="card"><div class="front">Calinski–Harabasz</div><div class="back">Spredning mellom klynger / spredning innad (justert for $k$, $n$). Høy = tette, godt separerte klynger.</div></div>
+  <div class="card"><div class="front">Albuemetoden</div><div class="back">Plott inertia mot $k$ og velg der kurven knekker fra bratt til flat.</div></div>
+  <div class="card"><div class="front">k-means' implisitte antakelse</div><div class="back">Avstand innad i klyngen &lt; avstand mellom klynger. Konvekse, runde, omtrent like store klynger.</div></div>
+  <div class="card"><div class="front">DBSCAN: kjernepunkt</div><div class="back">Har minst min_samples punkter innenfor $\varepsilon$. Utvider klyngen.</div></div>
+  <div class="card"><div class="front">DBSCAN: kantpunkt vs støy</div><div class="back">Kantpunkt: for få naboer, men innenfor $\varepsilon$ av et kjernepunkt (med i klyngen). Støy: ingen kjernepunkt innen $\varepsilon$ → label −1.</div></div>
+  <div class="card"><div class="front">DBSCAN: samme klynge</div><div class="back">Hvis det finnes en kjede av punkter der hvert steg er ≤ $\varepsilon$.</div></div>
+  <div class="card"><div class="front">For lav / for høy ε</div><div class="back">For lav: mange småklynger og mye støy. For høy: klynger smelter sammen, lite støy.</div></div>
+  <div class="card"><div class="front">Fire kategorier</div><div class="back">Sentroide- (k-means), tetthets- (DBSCAN), fordelings- (Gauss), hierarkibasert (dendrogram).</div></div>
+  <div class="card"><div class="front">Konsentrasjon av avstander</div><div class="back">I høye $d$ blir avstander store, men nesten like. Relativ spredning → 0. Clustering feiler, og mer data hjelper ikke.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+<script>
+/* ---------- Felles hjelpefunksjoner for kapittel 11 (datasett, k-means, metrikker) ---------- */
+window.K11 = (function () {
+  const XMAX = 16, YMAX = 9.8;
+  function d2(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy; }
+  function blob(r, out, cx, cy, sx, sy, n) { for (let i = 0; i < n; i++) out.push({ x: r.normal(cx, sx), y: r.normal(cy, sy) }); }
+  function clip(pts) { return pts.filter(p => p.x > 0.15 && p.x < XMAX - 0.15 && p.y > 0.15 && p.y < YMAX - 0.15); }
+  function gen(name, seed) {
+    const r = CK.rng(seed || 7), P = [];
+    switch (name) {
+      case "blobs3": blob(r, P, 4, 6.6, .85, .85, 70); blob(r, P, 11.5, 7, .85, .85, 70); blob(r, P, 8, 2.6, .85, .85, 70); break;
+      case "uneven": blob(r, P, 5, 5, 1.8, 1.8, 160); blob(r, P, 12.3, 7.6, .4, .4, 30); blob(r, P, 12.6, 2.3, .4, .4, 30); break;
+      case "elong": [2, 4.9, 7.8].forEach(y => blob(r, P, 8, y, 3.1, .3, 80)); break;
+      case "moons":
+        for (let i = 0; i < 110; i++) { const t = Math.PI * r(); P.push({ x: 6.4 + 3.3 * Math.cos(t) + r.normal(0, .22), y: 4.3 + 3.3 * Math.sin(t) + r.normal(0, .22) }); }
+        for (let i = 0; i < 110; i++) { const t = Math.PI + Math.PI * r(); P.push({ x: 9.7 + 3.3 * Math.cos(t) + r.normal(0, .22), y: 5.6 + 3.3 * Math.sin(t) + r.normal(0, .22) }); }
+        break;
+      case "rings":
+        for (let i = 0; i < 80; i++) { const t = 2 * Math.PI * r(); P.push({ x: 8 + 1.2 * Math.cos(t) + r.normal(0, .16), y: 4.9 + 1.2 * Math.sin(t) + r.normal(0, .16) }); }
+        for (let i = 0; i < 170; i++) { const t = 2 * Math.PI * r(); P.push({ x: 8 + 3.8 * Math.cos(t) + r.normal(0, .16), y: 4.9 + 3.8 * Math.sin(t) + r.normal(0, .16) }); }
+        break;
+      case "outlier": blob(r, P, 4, 5, .8, .8, 70); blob(r, P, 8.5, 5, .8, .8, 70); P.push({ x: 15.3, y: 9.2 }); break;
+      case "uniform": for (let i = 0; i < 220; i++) P.push({ x: .3 + r() * 15.4, y: .3 + r() * 9.2 }); break;
+      case "smiley":
+        for (let i = 0; i < 230; i++) { const t = 2 * Math.PI * r(); P.push({ x: 8 + 4.3 * Math.cos(t) + r.normal(0, .17), y: 4.9 + 4.3 * Math.sin(t) + r.normal(0, .17) }); }
+        blob(r, P, 6.4, 6.3, .22, .22, 22); blob(r, P, 9.6, 6.3, .22, .22, 22);
+        for (let i = 0; i < 60; i++) { const t = Math.PI * (1.18 + .64 * r()); P.push({ x: 8 + 2.4 * Math.cos(t) + r.normal(0, .14), y: 5.0 + 2.4 * Math.sin(t) + r.normal(0, .14) }); }
+        for (let i = 0; i < 30; i++) { const t = 2 * Math.PI * r(), rr = 3.7 * Math.sqrt(r()); P.push({ x: 8 + rr * Math.cos(t), y: 4.9 + rr * Math.sin(t) }); }
+        break;
+      case "density": blob(r, P, 4, 6, .35, .35, 90); blob(r, P, 11, 4.6, 1.4, 1.4, 90); for (let i = 0; i < 18; i++) P.push({ x: .3 + r() * 15.4, y: .3 + r() * 9.2 }); break;
+      case "blobsnoise": blob(r, P, 4, 6.6, .6, .6, 60); blob(r, P, 11.5, 7, .6, .6, 60); blob(r, P, 8, 2.6, .6, .6, 60); for (let i = 0; i < 30; i++) P.push({ x: .3 + r() * 15.4, y: .3 + r() * 9.2 }); break;
+      /* datasett for metrikk-widgeten */
+      case "four": blob(r, P, 3.5, 7, .7, .7, 50); blob(r, P, 12, 7.2, .7, .7, 50); blob(r, P, 4, 2.5, .7, .7, 50); blob(r, P, 12.3, 2.6, .7, .7, 50); break;
+      case "overlap": blob(r, P, 4, 5, .8, .8, 60); blob(r, P, 11, 6.4, .8, .8, 60); blob(r, P, 12.1, 4.2, .8, .8, 60); break;
+      case "hier": blob(r, P, 2.6, 5.4, .5, .5, 45); blob(r, P, 4.8, 4.4, .5, .5, 45); blob(r, P, 11.2, 5.5, .5, .5, 45); blob(r, P, 13.4, 4.5, .5, .5, 45); break;
+    }
+    return clip(P);
+  }
+  function assign(pts, C) { return pts.map(p => { let bi = 0, bd = Infinity; for (let j = 0; j < C.length; j++) { const d = d2(p, C[j]); if (d < bd) { bd = d; bi = j; } } return bi; }); }
+  function update(pts, lab, C) {
+    return C.map((c, j) => { let sx = 0, sy = 0, n = 0; for (let i = 0; i < pts.length; i++) if (lab[i] === j) { sx += pts[i].x; sy += pts[i].y; n++; } return n ? { x: sx / n, y: sy / n } : { x: c.x, y: c.y }; });
+  }
+  function inertia(pts, lab, C) { let s = 0; for (let i = 0; i < pts.length; i++) s += d2(pts[i], C[lab[i]]); return s; }
+  function init(pts, k, method, r) {
+    const pick = i => ({ x: pts[i].x, y: pts[i].y });
+    if (method === "random") {
+      const idx = []; while (idx.length < Math.min(k, pts.length)) { const i = Math.floor(r() * pts.length); if (!idx.includes(i)) idx.push(i); }
+      return idx.map(pick);
+    }
+    const C = [pick(Math.floor(r() * pts.length))];
+    while (C.length < k) {
+      const D = pts.map(p => { let m = Infinity; for (const c of C) m = Math.min(m, d2(p, c)); return m; });
+      let chosen = 0;
+      if (method === "far") { for (let i = 1; i < D.length; i++) if (D[i] > D[chosen]) chosen = i; }
+      else {
+        let S = 0; for (const v of D) S += v;
+        let t = r() * S; chosen = D.length - 1;
+        for (let i = 0; i < D.length; i++) { t -= D[i]; if (t <= 0) { chosen = i; break; } }
+      }
+      C.push(pick(chosen));
+    }
+    return C;
+  }
+  function kmeans(pts, k, method, r, maxIt = 100) {
+    let C = init(pts, k, method, r), lab = assign(pts, C);
+    for (let it = 0; it < maxIt; it++) {
+      C = update(pts, lab, C);
+      const nl = assign(pts, C);
+      if (nl.every((v, i) => v === lab[i])) { lab = nl; break; }
+      lab = nl;
+    }
+    return { C, lab, inertia: inertia(pts, lab, C) };
+  }
+  function silhouette(pts, lab, k) {
+    const n = pts.length; if (k < 2) return NaN;
+    const D = []; for (let i = 0; i < n; i++) { D.push(new Float64Array(n)); for (let j = 0; j < n; j++) D[i][j] = Math.sqrt(d2(pts[i], pts[j])); }
+    let tot = 0;
+    for (let i = 0; i < n; i++) {
+      const sum = new Float64Array(k), cnt = new Float64Array(k);
+      for (let j = 0; j < n; j++) if (j !== i) { sum[lab[j]] += D[i][j]; cnt[lab[j]]++; }
+      if (cnt[lab[i]] === 0) continue;   // enslig punkt i klynge: s = 0
+      const a = sum[lab[i]] / cnt[lab[i]];
+      let b = Infinity; for (let c = 0; c < k; c++) if (c !== lab[i] && cnt[c] > 0) b = Math.min(b, sum[c] / cnt[c]);
+      if (!isFinite(b)) continue;
+      tot += (b - a) / Math.max(a, b);
+    }
+    return tot / n;
+  }
+  function calinski(pts, lab, C) {
+    const n = pts.length, k = C.length; if (k < 2) return NaN;
+    const m = { x: 0, y: 0 }; pts.forEach(p => { m.x += p.x / n; m.y += p.y / n; });
+    const cnt = new Array(k).fill(0); lab.forEach(l => cnt[l]++);
+    let B = 0; C.forEach((c, j) => B += cnt[j] * d2(c, m));
+    const W = inertia(pts, lab, C);
+    return (B / (k - 1)) / (W / (n - k));
+  }
+  function palette(P) { return ["c1", "c2", "c3", "c4", "c5"].map(c => P.col(c)).concat(["#e0559a", "#6b7f95", "#9a6b3c", "#2bb3c0", "#a3a832"]); }
+  return { XMAX, YMAX, d2, gen, assign, update, inertia, init, kmeans, silhouette, calinski, palette };
+})();
+</script>
+
+<script>
+/* ---------- Widget: k-means steg for steg ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const K = window.K11, $ = id => document.getElementById(id);
+  const cv = $("km-canvas");
+  const P = CK.plot(cv, { xmin: 0, xmax: K.XMAX, ymin: 0, ymax: K.YMAX, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  const S = { pts: [], C: null, lab: null, prevLab: null, it: 0, trail: [], converged: false, seed: 1 };
+  const status = msg => $("km-status").textContent = msg;
+
+  function reset(keepMsg) {
+    S.pts = K.gen($("km-data").value, 11); S.C = null; S.lab = null; S.prevLab = null; S.it = 0; S.trail = []; S.converged = false;
+    if (!keepMsg) status("Trykk «Initialiser» for å plassere sentroidene.");
+    draw();
+  }
+  function doInit() {
+    const k = +$("km-k").value, m = $("km-init").value;
+    S.C = K.init(S.pts, k, m, CK.rng(1000 + 37 * S.seed++)); S.lab = null; S.prevLab = null; S.it = 0; S.converged = false;
+    S.trail = S.C.map(c => [{ x: c.x, y: c.y }]);
+    const how = { random: "k tilfeldige datapunkter", far: "første tilfeldig, deretter punktet lengst unna nærmeste sentroide", kpp: "første tilfeldig, deretter trukket med sannsynlighet ∝ D²" }[m];
+    status(`Initialisert med ${how}. Tallene viser rekkefølgen. Trykk «Tildel».`);
+    draw();
+  }
+  function doAssign() {
+    if (!S.C) { status("Initialiser først."); return; }
+    const nl = K.assign(S.pts, S.C);
+    const changed = S.lab ? nl.reduce((a, v, i) => a + (v !== S.lab[i]), 0) : nl.length;
+    S.prevLab = S.lab; S.lab = nl;
+    if (S.prevLab && changed === 0) { S.converged = true; status("Ingen punkter byttet klynge: k-means har konvergert (til et lokalt minimum)."); }
+    else status(`Tildelt: ${changed} punkter fikk ny klynge. Trykk «Flytt sentroider».`);
+    draw();
+  }
+  function doMove() {
+    if (!S.lab) { status("Tildel punktene først."); return; }
+    const before = K.inertia(S.pts, S.lab, S.C);
+    S.C = K.update(S.pts, S.lab, S.C); S.it++;
+    S.C.forEach((c, j) => S.trail[j].push({ x: c.x, y: c.y }));
+    const after = K.inertia(S.pts, S.lab, S.C);
+    status(`Sentroidene flyttet til gjennomsnittet av klyngen. Inertia ${before.toFixed(1)} → ${after.toFixed(1)}. Trykk «Tildel» igjen.`);
+    draw();
+  }
+  function doRun() {
+    if (!S.C) doInit();
+    let guard = 0;
+    if (!S.lab) S.lab = K.assign(S.pts, S.C);
+    while (guard++ < 200) {
+      S.C = K.update(S.pts, S.lab, S.C); S.it++;
+      S.C.forEach((c, j) => S.trail[j].push({ x: c.x, y: c.y }));
+      const nl = K.assign(S.pts, S.C);
+      const same = nl.every((v, i) => v === S.lab[i]);
+      S.prevLab = S.lab; S.lab = nl;
+      if (same) break;
+    }
+    S.converged = true;
+    status(`Konvergert etter ${S.it} iterasjoner. Initialiser på nytt for å se om du havner i et annet (kanskje dårligere) minimum.`);
+    draw();
+  }
+
+  function draw() {
+    const col = K.palette(P), ctx = P.ctx;
+    P.clear();
+    if (S.C) {   // Voronoi-bakgrunn
+      const step = 6;
+      ctx.save(); ctx.globalAlpha = 0.11;
+      for (let px = P.pad.l; px < P.W - P.pad.r; px += step) for (let py = P.pad.t; py < P.H - P.pad.b; py += step) {
+        const q = { x: P.invX(px + step / 2), y: P.invY(py + step / 2) };
+        let bi = 0, bd = Infinity; S.C.forEach((c, j) => { const d = K.d2(q, c); if (d < bd) { bd = d; bi = j; } });
+        ctx.fillStyle = col[bi % col.length]; ctx.fillRect(px, py, step, step);
+      }
+      ctx.restore();
+    }
+    P.points(S.pts.map((p, i) => ({ x: p.x, y: p.y, color: S.lab ? col[S.lab[i] % col.length] : P.col("muted") })), { r: 3.6 });
+    if (S.C) {
+      S.trail.forEach((tr, j) => { if (tr.length > 1) P.path(tr, { color: P.col("text"), width: 1.2, dash: [3, 3] }); });
+      S.C.forEach((c, j) => {
+        const x = P.X(c.x), y = P.Y(c.y);
+        ctx.save(); ctx.beginPath(); ctx.arc(x, y, 9, 0, 2 * Math.PI); ctx.fillStyle = col[j % col.length]; ctx.fill();
+        ctx.lineWidth = 2.5; ctx.strokeStyle = P.col("text"); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.strokeStyle = P.col("surface"); ctx.lineWidth = 2; ctx.stroke();
+        ctx.restore();
+        if (S.it === 0 && !S.lab) P.text(String(j + 1), c.x, c.y, { bold: true, size: 13, align: "left", color: P.col("text"), baseline: "bottom" });
+      });
+    }
+    $("km-it").textContent = "Iterasjon: " + S.it;
+    $("km-in").textContent = "Inertia: " + (S.C && S.lab ? K.inertia(S.pts, S.lab, S.C).toFixed(1) : "–");
+  }
+  $("km-k").oninput = () => { $("km-ko").textContent = $("km-k").value; reset(); };
+  $("km-data").onchange = () => reset();
+  $("km-init").onchange = () => { S.C = null; S.lab = null; S.it = 0; S.trail = []; status("Init-metode endret. Trykk «Initialiser»."); draw(); };
+  $("km-btn-init").onclick = doInit; $("km-btn-assign").onclick = doAssign; $("km-btn-move").onclick = doMove; $("km-btn-run").onclick = doRun;
+  reset();
+  CK.onTheme(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: sannsynlighet for god tilfeldig initialisering ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const $ = id => document.getElementById(id);
+  const P = CK.plot($("ip-canvas"), { xmin: 1.5, xmax: 12.5, ymin: -5, ymax: 0.2, pad: { l: 56, r: 16, t: 14, b: 40 } });
+  const fact = k => { let f = 1; for (let i = 2; i <= k; i++) f *= i; return f; };
+  const exact = k => fact(k) / Math.pow(k, k);
+  const stir = k => Math.sqrt(2 * Math.PI * k) * Math.exp(-k);
+  let emp = null, simSeed = 5;
+  function draw() {
+    const k = +$("ip-k").value; $("ip-ko").textContent = k;
+    P.clear().grid({ yticks: [-5, -4, -3, -2, -1, 0], xticks: [2, 4, 6, 8, 10, 12] });
+    P.axes({ frame: true, xticks: false, yticks: [-5, -4, -3, -2, -1, 0], fmt: v => (v === 0 ? "1" : "1e" + v), xlabel: "k" });
+    [2, 4, 6, 8, 10, 12].forEach(x => P.text(String(x), P.X(x), P.H - P.pad.b + 6, { px: true, align: "center", baseline: "top", size: 12, color: P.col("muted") }));
+    P.fn(x => Math.log10(stir(x)), { color: P.col("c2"), width: 2, dash: [6, 4] });
+    const pts = []; for (let j = 2; j <= 12; j++) pts.push({ x: j, y: Math.log10(exact(j)), r: j === k ? 7 : 4.5, color: j === k ? P.col("c1") : P.col("c4") });
+    P.points(pts);
+    if (emp && emp.k === k && emp.p > 0) P.points([{ x: k, y: Math.log10(emp.p) }], { color: P.col("c3"), r: 4 });
+    P.legend([{ color: P.col("c4"), label: "k!/kᵏ (eksakt)" }, { color: P.col("c2"), label: "√(2πk)·e⁻ᵏ (Stirling)" }, { color: P.col("c3"), label: "simulert" }], { x: P.W - 190, y: 26 });
+    const factors = []; for (let j = k; j >= 1; j--) factors.push(j === k ? "1" : `${j}/${k}`);
+    $("ip-prod").textContent = `k!/kᵏ = ${k <= 6 ? factors.join("·") + " = " : ""}${exact(k).toPrecision(3)}`;
+    $("ip-st").textContent = `Stirling: ${stir(k).toPrecision(3)}`;
+    $("ip-emp").textContent = emp && emp.k === k ? `Simulert: ${emp.hits} av 10 000 = ${emp.p.toFixed(4)}` : "Simulert: –";
+  }
+  $("ip-k").oninput = draw;
+  $("ip-sim").onclick = () => {
+    const k = +$("ip-k").value, r = CK.rng(100 + simSeed++); let hits = 0;
+    for (let t = 0; t < 10000; t++) {
+      const seen = new Array(k).fill(false); let ok = true;
+      for (let j = 0; j < k; j++) { const c = Math.floor(r() * k); if (seen[c]) { ok = false; break; } seen[c] = true; }
+      if (ok) hits++;
+    }
+    emp = { k, hits, p: hits / 10000 }; draw();
+  };
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: silhouette for ett punkt ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const $ = id => document.getElementById(id), K = window.K11;
+  const cv = $("sil-canvas");
+  const P = CK.plot(cv, { xmin: 0, xmax: 16, ymin: 0, ymax: 8.5, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  const START = [
+    [3, 4.2, 0], [4.2, 5.4, 0], [4.8, 3.6, 0], [3.4, 2.8, 0], [2.2, 5.2, 0], [5.6, 4.8, 0], [3.9, 6.4, 0],
+    [11, 4.5, 1], [12.2, 5.6, 1], [12.6, 3.7, 1], [11.3, 2.9, 1], [10.2, 5.8, 1], [13.6, 4.8, 1], [11.8, 6.6, 1]
+  ];
+  let pts, sel = 0, drag = false;
+  function reset() { pts = START.map(([x, y, c]) => ({ x, y, c })); sel = 5; draw(); }
+  function silOf(i) {
+    const p = pts[i]; let sa = 0, na = 0, sb = 0, nb = 0;
+    pts.forEach((q, j) => { if (j === i) return; const d = Math.sqrt(K.d2(p, q)); if (q.c === p.c) { sa += d; na++; } else { sb += d; nb++; } });
+    const a = sa / na, b = sb / nb; return { a, b, s: (b - a) / Math.max(a, b) };
+  }
+  function draw() {
+    const col = [P.col("c1"), P.col("c2")];
+    P.clear();
+    const p = pts[sel];
+    pts.forEach((q, j) => { if (j === sel) return; P.line(p.x, p.y, q.x, q.y, { color: col[q.c], width: q.c === p.c ? 1.4 : 1, dash: q.c === p.c ? null : [4, 4] }); });
+    P.points(pts.map((q, j) => ({ x: q.x, y: q.y, color: col[q.c], r: j === sel ? 9 : 6 })));
+    const ctx = P.ctx; ctx.save(); ctx.beginPath(); ctx.arc(P.X(p.x), P.Y(p.y), 13, 0, 2 * Math.PI); ctx.strokeStyle = P.col("text"); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    const r = silOf(sel);
+    let mean = 0; pts.forEach((_, i) => mean += silOf(i).s); mean /= pts.length;
+    $("sil-a").textContent = `a = ${r.a.toFixed(2)}`; $("sil-b").textContent = `b = ${r.b.toFixed(2)}`;
+    $("sil-s").textContent = `s = (b − a)/max(a, b) = ${r.s.toFixed(2)}`; $("sil-mean").textContent = `Snitt over alle punkter: ${mean.toFixed(2)}`;
+    P.text(r.s > 0.5 ? "godt plassert" : r.s > 0.1 ? "ok, men nær grensen" : r.s > -0.1 ? "på grensen" : "i feil klynge!", p.x, p.y + 0.75, { align: "center", size: 12, bold: true, color: P.col("text") });
+  }
+  function nearest(e) { const m = P.mouse(e); let bi = -1, bd = 18 * 18; pts.forEach((q, j) => { const dx = P.X(q.x) - m.px, dy = P.Y(q.y) - m.py, d = dx * dx + dy * dy; if (d < bd) { bd = d; bi = j; } }); return bi; }
+  cv.addEventListener("pointerdown", e => { const i = nearest(e); if (i >= 0) { sel = i; drag = true; cv.setPointerCapture(e.pointerId); draw(); } });
+  cv.addEventListener("pointermove", e => { if (!drag) return; const m = P.mouse(e); pts[sel].x = Math.min(15.8, Math.max(.2, P.invX(m.px))); pts[sel].y = Math.min(8.3, Math.max(.2, P.invY(m.py))); draw(); });
+  const up = () => { drag = false; }; cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  $("sil-reset").onclick = reset;
+  reset(); CK.onTheme(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: albue, silhouette og CH ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const $ = id => document.getElementById(id), K = window.K11;
+  const Pd = CK.plot($("mt-data"), { xmin: 0, xmax: 16, ymin: 0, ymax: 9.8, pad: { l: 4, r: 4, t: 4, b: 4 } });
+  const mk = id => CK.plot($(id), { xmin: 0.5, xmax: 8.5, ymin: 0, ymax: 1, pad: { l: 46, r: 10, t: 26, b: 28 } });
+  const Pi = mk("mt-in"), Ps = mk("mt-sil"), Pc = mk("mt-ch");
+  let R = null;
+  function compute() {
+    const pts = K.gen($("mt-set").value, 21), res = [];
+    for (let k = 1; k <= 8; k++) {
+      let best = null;
+      for (let t = 0; t < 5; t++) { const r = K.kmeans(pts, k, "kpp", CK.rng(500 + 13 * k + t)); if (!best || r.inertia < best.inertia) best = r; }
+      best.sil = k > 1 ? K.silhouette(pts, best.lab, k) : NaN;
+      best.ch = k > 1 ? K.calinski(pts, best.lab, best.C) : NaN;
+      res.push(best);
+    }
+    // albue: k der fallet inn til k er størst i forhold til fallet videre (k → k+1)
+    const I = res.map(r => r.inertia);
+    let elbow = 2, bd = -1;
+    for (let k = 2; k <= 7; k++) { const ratio = (I[k - 2] - I[k - 1]) / Math.max(I[k - 1] - I[k], 1e-9 * I[0]); if (ratio > bd) { bd = ratio; elbow = k; } }
+    const argmax = key => { let bk = 2; for (let k = 2; k <= 8; k++) if (res[k - 1][key] > res[bk - 1][key]) bk = k; return bk; };
+    R = { pts, res, elbow, silK: argmax("sil"), chK: argmax("ch") };
+  }
+  function curve(P, vals, title, mark, kSel, fmt) {
+    const v = vals.filter(x => isFinite(x)), lo = Math.min(0, ...v), hi = Math.max(...v) * 1.12 || 1;
+    P.setView({ ymin: lo, ymax: hi });
+    P.clear().grid({ xticks: [1, 2, 3, 4, 5, 6, 7, 8], ny: 4 });
+    P.axes({ frame: true, xticks: [1, 2, 3, 4, 5, 6, 7, 8], ny: 4, fmt });
+    const pts = []; vals.forEach((y, i) => { if (isFinite(y)) pts.push({ x: i + 1, y }); });
+    P.path(pts, { color: P.col("c1"), width: 2 });
+    P.points(pts.map(p => ({ x: p.x, y: p.y, r: p.x === kSel ? 6 : 3.5, color: p.x === kSel ? P.col("c2") : P.col("c1") })));
+    const m = pts.find(p => p.x === mark);
+    if (m) { const ctx = P.ctx; ctx.save(); ctx.beginPath(); ctx.arc(P.X(m.x), P.Y(m.y), 11, 0, 2 * Math.PI); ctx.strokeStyle = P.col("c3"); ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore(); }
+    P.text(title, P.W / 2, 13, { px: true, align: "center", bold: true, size: 13 });
+  }
+  function draw() {
+    if (!R) compute();
+    const k = +$("mt-k").value; $("mt-ko").textContent = k;
+    const r = R.res[k - 1], col = K.palette(Pd);
+    Pd.clear();
+    Pd.points(R.pts.map((p, i) => ({ x: p.x, y: p.y, color: col[r.lab[i] % col.length] })), { r: 3 });
+    r.C.forEach(c => { Pd.points([{ x: c.x, y: c.y }], { color: Pd.col("text"), r: 5 }); });
+    Pd.text(`k = ${k}`, 10, 14, { px: true, bold: true });
+    const sh = v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + "k" : String(+v.toFixed(2));
+    curve(Pi, R.res.map(x => x.inertia), "Inertia (albue)", R.elbow, k, sh);
+    curve(Ps, R.res.map(x => x.sil), "Silhouette (høy er bra)", R.silK, k, sh);
+    curve(Pc, R.res.map(x => x.ch), "Calinski–Harabasz (høy)", R.chK, k, sh);
+    const s = isFinite(r.sil) ? r.sil.toFixed(2) : "–", c = isFinite(r.ch) ? r.ch.toFixed(0) : "–";
+    $("mt-status").textContent = `Forslag: albue k = ${R.elbow}, silhouette k = ${R.silK}, Calinski–Harabasz k = ${R.chK}.  Valgt k = ${k}: inertia ${r.inertia.toFixed(1)}, silhouette ${s}, CH ${c}.`;
+  }
+  $("mt-set").onchange = () => { R = null; draw(); };
+  $("mt-k").oninput = draw;
+  CK.live(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: DBSCAN ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const $ = id => document.getElementById(id), K = window.K11;
+  const cv = $("db-canvas");
+  const P = CK.plot(cv, { xmin: 0, xmax: K.XMAX, ymin: 0, ymax: K.YMAX, pad: { l: 8, r: 8, t: 8, b: 8 } });
+  let pts = [], res = null, hover = -1;
+  function dbscan(eps, ms) {
+    const n = pts.length, e2 = eps * eps, nb = [];
+    for (let i = 0; i < n; i++) { const a = []; for (let j = 0; j < n; j++) if (K.d2(pts[i], pts[j]) <= e2) a.push(j); nb.push(a); }
+    const core = nb.map(a => a.length >= ms), lab = new Array(n).fill(-1); let c = 0;
+    for (let i = 0; i < n; i++) {
+      if (!core[i] || lab[i] !== -1) continue;
+      lab[i] = c; const q = [i];
+      while (q.length) { const u = q.pop(); if (!core[u]) continue; for (const v of nb[u]) if (lab[v] === -1) { lab[v] = c; if (core[v]) q.push(v); } }
+      c++;
+    }
+    return { nb, core, lab, nc: c };
+  }
+  function recompute() { res = dbscan(+$("db-eps").value, +$("db-ms").value); }
+  function draw() {
+    const eps = +$("db-eps").value, ms = +$("db-ms").value;
+    $("db-epso").textContent = eps.toFixed(2); $("db-mso").textContent = ms;
+    const col = K.palette(P), ctx = P.ctx, rpx = P.X(eps) - P.X(0);
+    P.clear();
+    if ($("db-circles").checked) {
+      ctx.save(); ctx.globalAlpha = 0.16;
+      pts.forEach((p, i) => { if (!res.core[i]) return; ctx.beginPath(); ctx.arc(P.X(p.x), P.Y(p.y), rpx, 0, 2 * Math.PI); ctx.fillStyle = col[res.lab[i] % col.length]; ctx.fill(); });
+      ctx.restore();
+    }
+    pts.forEach((p, i) => {
+      const x = P.X(p.x), y = P.Y(p.y); ctx.save(); ctx.beginPath();
+      if (res.core[i]) { ctx.arc(x, y, 4.2, 0, 2 * Math.PI); ctx.fillStyle = col[res.lab[i] % col.length]; ctx.fill(); ctx.strokeStyle = P.col("surface"); ctx.lineWidth = 1; ctx.stroke(); }
+      else if (res.lab[i] >= 0) { ctx.arc(x, y, 3.6, 0, 2 * Math.PI); ctx.fillStyle = P.col("surface"); ctx.fill(); ctx.strokeStyle = col[res.lab[i] % col.length]; ctx.lineWidth = 2.2; ctx.stroke(); }
+      else { ctx.arc(x, y, 3.4, 0, 2 * Math.PI); ctx.fillStyle = P.col("surface"); ctx.fill(); ctx.strokeStyle = P.col("muted"); ctx.lineWidth = 1.5; ctx.stroke(); }
+      ctx.restore();
+    });
+    if (hover >= 0) {
+      const p = pts[hover]; ctx.save(); ctx.beginPath(); ctx.arc(P.X(p.x), P.Y(p.y), rpx, 0, 2 * Math.PI);
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = P.col("text"); ctx.lineWidth = 1.6; ctx.stroke(); ctx.restore();
+      res.nb[hover].forEach(j => { if (j !== hover) P.line(p.x, p.y, pts[j].x, pts[j].y, { color: P.col("text"), width: .8 }); });
+      const cnt = res.nb[hover].length, type = res.core[hover] ? "kjernepunkt" : res.lab[hover] >= 0 ? "kantpunkt" : "støy";
+      const why = res.core[hover] ? `${cnt} ≥ ${ms}` : res.lab[hover] >= 0 ? `${cnt} < ${ms}, men et kjernepunkt ligger innenfor ε` : `${cnt} < ${ms}, og ingen kjernepunkt innenfor ε`;
+      $("db-hover").textContent = `Dette punktet har ${cnt} punkter innenfor ε (inkludert seg selv): ${why} → ${type}.`;
+    }
+    const ncore = res.core.filter(Boolean).length, nnoise = res.lab.filter(l => l < 0).length;
+    $("db-nc").textContent = "Klynger: " + res.nc; $("db-ncore").textContent = "Kjerne: " + ncore;
+    $("db-nborder").textContent = "Kant: " + (pts.length - ncore - nnoise); $("db-nnoise").textContent = "Støy: " + nnoise;
+  }
+  function load() { pts = K.gen($("db-data").value, 31); hover = -1; recompute(); draw(); }
+  $("db-data").onchange = load;
+  $("db-eps").oninput = $("db-ms").oninput = () => { recompute(); draw(); };
+  $("db-circles").onchange = draw;
+  cv.addEventListener("pointermove", e => {
+    const m = P.mouse(e); let bi = -1, bd = 14 * 14;
+    pts.forEach((q, j) => { const dx = P.X(q.x) - m.px, dy = P.Y(q.y) - m.py, d = dx * dx + dy * dy; if (d < bd) { bd = d; bi = j; } });
+    if (bi !== hover) { hover = bi; draw(); }
+  });
+  cv.addEventListener("pointerleave", () => { hover = -1; draw(); });
+  load(); CK.onTheme(draw);
+});
+</script>
+
+<script>
+/* ---------- Widget: avstandsfordeling i d dimensjoner ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const $ = id => document.getElementById(id);
+  const DIMS = [2, 3, 5, 10, 30, 100, 300, 1000, 3000, 10000];
+  const P = CK.plot($("dd-canvas"), { xmin: 0, xmax: 1, ymin: 0, ymax: 1, pad: { l: 48, r: 16, t: 14, b: 40 } });
+  const cache = {}; let gen = 0;
+  function sample(d) {
+    const key = d + ":" + gen; if (cache[key]) return cache[key];
+    const r = CK.rng(9000 + d * 7 + gen * 101), out = new Float64Array(1000);
+    for (let t = 0; t < 1000; t++) { let s = 0; for (let j = 0; j < d; j++) { const u = r() - r(); s += u * u; } out[t] = Math.sqrt(s); }
+    return (cache[key] = out);
+  }
+  function draw() {
+    const d = DIMS[+$("dd-d").value]; $("dd-do").textContent = d;
+    const rel = $("dd-rel").checked, xs = sample(d);
+    let mean = 0, mn = Infinity, mx = 0; xs.forEach(v => { mean += v / xs.length; mn = Math.min(mn, v); mx = Math.max(mx, v); });
+    let sd = 0; xs.forEach(v => sd += (v - mean) * (v - mean) / xs.length); sd = Math.sqrt(sd);
+    const vals = rel ? Array.from(xs, v => v / mean) : Array.from(xs);
+    const xmax = rel ? 2 : Math.max(mx * 1.05, 0.1);
+    const bins = 40, w = xmax / bins, h = new Array(bins).fill(0);
+    vals.forEach(v => { const b = Math.min(bins - 1, Math.floor(v / w)); h[b]++; });
+    P.setView({ xmin: 0, xmax, ymin: 0, ymax: Math.max(...h) * 1.12 });
+    P.clear().grid(); P.axes({ frame: true, xlabel: rel ? "avstand / middelavstand" : "euklidsk avstand", ylabel: "antall" });
+    h.forEach((c, i) => { if (c) P.rect(i * w, 0, (i + 1) * w, c, { fill: P.col("c1"), alpha: .8, color: P.col("surface"), width: .5 }); });
+    P.line(rel ? 1 : mean, 0, rel ? 1 : mean, P.ymax, { color: P.col("c2"), width: 1.5, dash: [5, 4] });
+    P.text(`d = ${d}`, P.W - 24, 28, { px: true, align: "right", bold: true, size: 15 });
+    $("dd-mean").textContent = `snitt: ${mean.toFixed(3)}  (√(d/6) = ${Math.sqrt(d / 6).toFixed(3)})`;
+    $("dd-sd").textContent = `std: ${sd.toFixed(3)}`;
+    $("dd-cv").textContent = `std / snitt: ${(sd / mean).toFixed(3)}`;
+    $("dd-mm").textContent = `maks / min: ${(mx / mn).toFixed(2)}`;
+  }
+  $("dd-d").oninput = draw; $("dd-rel").onchange = draw; $("dd-new").onclick = () => { gen++; draw(); };
+  CK.live(draw);
+});
+</script>
+
+</body>
+</html>

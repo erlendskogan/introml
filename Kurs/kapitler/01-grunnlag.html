@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 · Hva er maskinlæring? – TDT4172</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css">
+<script defer src="../assets/course.js"></script>
+<style>
+  /* figurramme (egen klasse, fordi .card brukes av flashcards i course.js) */
+  figure.fig { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  figure.fig svg { display: block; width: 100%; height: auto; max-width: 680px; margin: 0 auto; }
+  .fig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fig-grid img { width: 100%; height: auto; }
+  @media (max-width: 560px) { .fig-grid { grid-template-columns: 1fr; } }
+
+  /* datasett-anatomi */
+  table.anat td, table.anat th { text-align: center; white-space: nowrap; }
+  table.anat .row-hl td { background: color-mix(in srgb, var(--c3) 16%, transparent); }
+  table.anat .col-hl { background: color-mix(in srgb, var(--c1) 14%, transparent); }
+  table.anat .tgt { background: color-mix(in srgb, var(--c2) 16%, transparent); font-weight: 650; }
+  table.anat .miss { color: var(--bad); font-weight: 700; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; color: var(--text-soft); margin: -8px 0 18px; }
+  .legend-row span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .legend-row .l-row::before { background: color-mix(in srgb, var(--c3) 35%, transparent); }
+  .legend-row .l-col::before { background: color-mix(in srgb, var(--c1) 35%, transparent); }
+  .legend-row .l-tgt::before { background: color-mix(in srgb, var(--c2) 35%, transparent); }
+
+  /* kart over maskinlæring */
+  .mlmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 18px 0 22px; }
+  .mlmap > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); }
+  .mlmap h4 { margin: 0 0 4px; font-size: 16px; }
+  .mlmap .sub { font-size: 13.5px; color: var(--muted); margin: 0 0 8px; }
+  .mlmap .grp { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-soft); margin: 10px 0 4px; }
+  .mlmap ul { margin: 0; padding-left: 18px; font-size: 14.5px; }
+  .mlmap li { margin: 2px 0; }
+  .mlmap .sup { border-top: 4px solid var(--c1); }
+  .mlmap .uns { border-top: 4px solid var(--c3); }
+  .mlmap .rl  { border-top: 4px solid var(--c4); }
+  @media (max-width: 640px) { .mlmap { grid-template-columns: 1fr; } }
+
+  /* sorteringsøvelse */
+  .sorter { display: grid; gap: 8px; }
+  .sorter .item { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+  .sorter .item .nm { font-weight: 600; }
+  .sorter .item .nm small { font-weight: 400; color: var(--muted); }
+  .sorter select { font: inherit; font-size: 14.5px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .sorter .item.ok { border-color: var(--ok); background: var(--ok-bg); }
+  .sorter .item.no { border-color: var(--bad); background: var(--bad-bg); }
+  .sorter .fb { grid-column: 1 / -1; font-size: 14px; color: var(--text-soft); display: none; }
+  .sorter .item.ok .fb, .sorter .item.no .fb { display: block; }
+  @media (max-width: 520px) { .sorter .item { grid-template-columns: 1fr; } }
+  .scale-strip { margin-top: 6px; }
+  .scale-strip .cap { font-size: 13.5px; color: var(--text-soft); margin: 8px 0 2px; font-weight: 600; }
+</style>
+</head>
+<body data-chapter="01">
+<main>
+
+<header class="chapter-head">
+  <div class="kicker">Kapittel 01 · Del I · Veiledet læring</div>
+  <h1>Hva er maskinlæring?</h1>
+  <p class="lead">Før vi bygger én eneste modell trenger vi et felles språk: hva det vil si at et program «lærer», hvordan data ser ut, hvordan vi gjør dem klare for en modell, og hvordan hele arbeidsflyten henger sammen. Alt i resten av kurset står på dette fundamentet.</p>
+</header>
+
+<div class="goals">
+  <h4>Etter dette kapittelet skal du kunne</h4>
+  <ul>
+    <li>gjengi definisjonene til Samuel og Mitchell og finne <em>T</em>, <em>E</em> og <em>P</em> i et konkret problem</li>
+    <li>skille mellom datapunkter, features og target, og mellom kategoriske, binære, diskrete og kontinuerlige variabler</li>
+    <li>lese og skrive notasjonen $x^{(i)}_j$, $\mathbf{x}^{(i)}$, $y$ og $f(\mathbf{x}) = y_{pred}$</li>
+    <li>plassere en oppgave som veiledet, uveiledet eller forsterkningslæring, og som klassifisering eller regresjon</li>
+    <li>forklare dropna, label encoding, one-hot, MinMaxScaler og StandardScaler, og <strong>hvorfor vi bare fitter på treningsdata</strong></li>
+    <li>velge mellom bar-plott og histogram, og vurdere antall bins</li>
+    <li>skille parametre fra hyperparametre, forklare induktiv bias, parametrisk vs. ikke-parametrisk modellering, og trening vs. inferens</li>
+    <li>tegne hele maskinlæringsarbeidsflyten fra rådata til inferens</li>
+  </ul>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="definisjon"><span class="sec">1.1</span>Hva betyr det at et program lærer?</h2>
+
+<p>I vanlig programmering skriver vi reglene selv. Vil du lage et spamfilter, kan du skrive «hvis e-posten inneholder <em>GRATIS!!!</em>, merk den som spam». Det fungerer helt til spammerne skriver <em>GR4TIS</em>. Da må du skrive en ny regel, og en til, og en til.</p>
+
+<p>Maskinlæring snur dette på hodet. I stedet for å gi datamaskinen reglene, gir vi den <em>eksempler</em>: tusenvis av e-poster der vi vet svaret. Programmet finner selv mønstrene som skiller spam fra vanlig e-post.</p>
+
+<figure class="fig">
+<svg viewBox="0 0 680 230" role="img" aria-label="Tradisjonell programmering sammenlignet med maskinlæring">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+  </defs>
+  <g style="color: var(--muted)">
+    <text x="10" y="22" font-size="14" font-weight="700" style="fill: var(--text-soft)">Tradisjonell programmering</text>
+    <rect x="10" y="36" width="120" height="34" rx="8" fill="none" stroke="currentColor"/>
+    <text x="70" y="58" font-size="14" text-anchor="middle">Regler</text>
+    <rect x="10" y="80" width="120" height="34" rx="8" fill="none" stroke="currentColor"/>
+    <text x="70" y="102" font-size="14" text-anchor="middle">Data</text>
+    <path d="M132 53 L238 70" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar1)" fill="none"/>
+    <path d="M132 97 L238 80" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar1)" fill="none"/>
+    <rect x="242" y="52" width="150" height="46" rx="10" style="fill: var(--surface-2)" stroke="currentColor"/>
+    <text x="317" y="80" font-size="14" text-anchor="middle" font-weight="600">Program</text>
+    <path d="M394 75 L480 75" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar1)"/>
+    <rect x="484" y="58" width="130" height="34" rx="8" fill="none" stroke="currentColor"/>
+    <text x="549" y="80" font-size="14" text-anchor="middle">Svar</text>
+  </g>
+  <g style="color: var(--c1)">
+    <text x="10" y="142" font-size="14" font-weight="700" style="fill: var(--c1)">Maskinlæring</text>
+    <rect x="10" y="156" width="120" height="34" rx="8" fill="none" stroke="currentColor"/>
+    <text x="70" y="178" font-size="14" text-anchor="middle">Data (x)</text>
+    <rect x="10" y="196" width="120" height="30" rx="8" fill="none" stroke="currentColor"/>
+    <text x="70" y="216" font-size="14" text-anchor="middle">Svar (y)</text>
+    <path d="M132 173 L238 186" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar1)" fill="none"/>
+    <path d="M132 211 L238 196" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar1)" fill="none"/>
+    <rect x="242" y="168" width="150" height="46" rx="10" stroke="currentColor" style="fill: var(--accent-soft)"/>
+    <text x="317" y="196" font-size="14" text-anchor="middle" font-weight="600">Læringsalgoritme</text>
+    <path d="M394 191 L480 191" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar1)"/>
+    <rect x="484" y="170" width="186" height="42" rx="8" fill="none" stroke="currentColor"/>
+    <text x="577" y="190" font-size="14" text-anchor="middle">«Regler» = modell f</text>
+    <text x="577" y="206" font-size="12" text-anchor="middle" style="fill: var(--muted)">brukes så på nye data</text>
+  </g>
+</svg>
+<figcaption><b>Figur 1.1</b> I tradisjonell programmering går regler og data inn, og svar kommer ut. I maskinlæring går data <em>og</em> svar inn, og ut kommer en modell som fungerer som reglene.</figcaption>
+</figure>
+
+<p>To definisjoner går igjen i faget. <strong>Arthur Samuel (1959)</strong>, som laget et dameprogram som ble bedre ved å spille mot seg selv, sa:</p>
+<div class="callout def"><span class="label">Samuel (1959)</span><p>«Machine learning is the field of study that gives computers the ability to learn without being explicitly programmed.»</p></div>
+
+<p><strong>Tom Mitchell (1997)</strong> ga en mer presis, nesten ingeniørmessig definisjon:</p>
+<div class="callout def"><span class="label">Mitchell (1997)</span><p>«A computer program is said to learn from <strong>experience E</strong> with respect to some <strong>task T</strong> and some <strong>performance measure P</strong>, if its performance on T, as measured by P, improves with experience E.»</p></div>
+
+<p>Mitchells definisjon er nyttig fordi den tvinger oss til å svare på tre konkrete spørsmål: <em>Hva</em> skal programmet gjøre (T)? <em>Hva</em> lærer det fra (E, nesten alltid data)? <em>Hvordan</em> måler vi om det blir bedre (P)? Hvis du ikke kan svare på P, kan du ikke vite om programmet har lært noe som helst.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>T-E-P = «Til Eksamen Pugger»</strong> man ikke. Man spør: <em>Task</em> = verbet (klassifisere, predikere, spille), <em>Experience</em> = dataene (eksemplene), <em>Performance</em> = tallet vi måler (andel riktige, gevinst, feil).</p></div>
+
+<table>
+  <thead><tr><th>Problem</th><th>T (oppgave)</th><th>E (erfaring)</th><th>P (ytelsesmål)</th></tr></thead>
+  <tbody>
+    <tr><td>Spamfilter</td><td>Klassifisere e-post som spam / ikke spam</td><td>E-poster brukere har merket som spam eller ikke</td><td>Andel e-poster klassifisert riktig</td></tr>
+    <tr><td>Samuels dameprogram</td><td>Spille dam</td><td>Partier spilt mot seg selv</td><td>Andel partier vunnet</td></tr>
+    <tr><td>Titanic</td><td>Predikere om en passasjer overlevde</td><td>Passasjerlister med kjent utfall</td><td>Treffsikkerhet (accuracy) på nye passasjerer</td></tr>
+    <tr><td>Boligpris</td><td>Estimere salgspris</td><td>Tidligere salg med areal, beliggenhet, pris</td><td>Gjennomsnittlig kvadratfeil (MSE)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout why"><span class="label">Hvorfor bry seg om definisjonen?</span><p>Fordi den sier hva du må ha på plass før du kan gjøre maskinlæring: data (E), en klart avgrenset oppgave (T) og et mål (P). Mye av resten av kurset handler om P: tapsfunksjoner (<a href="02-logistisk.html">kapittel 2</a>) og evalueringsmetrikker (<a href="03-evaluering.html">kapittel 3</a>).</p></div>
+
+<div class="quiz" data-id="01-tep-spam">
+  <p class="q">Et spamfilter trenes på 50 000 e-poster som brukere har merket som «spam» eller «ikke spam». Hva er <em>E</em> i Mitchells definisjon?</p>
+  <ul>
+    <li>Å avgjøre om en ny e-post er spam</li>
+    <li>Andelen e-poster som blir riktig klassifisert</li>
+    <li data-correct>De 50 000 merkede e-postene</li>
+    <li>Algoritmen som oppdaterer filteret</li>
+  </ul>
+  <div class="explain"><em>E</em> (experience) er det programmet lærer fra, altså de merkede e-postene. Å avgjøre om e-post er spam er oppgaven <em>T</em>, og andel riktige er ytelsesmålet <em>P</em>. Algoritmen er verken T, E eller P; den er verktøyet som gjør læringen mulig.</div>
+</div>
+
+<div class="quiz" data-multi data-id="01-tep-chess">
+  <p class="q">Et sjakkprogram spiller 10 millioner partier mot seg selv og blir stadig bedre. Hvilke koblinger er riktige? (Flere kan være riktige.)</p>
+  <ul>
+    <li data-correct>T = å spille sjakk</li>
+    <li>P = de 10 millioner partiene</li>
+    <li data-correct>E = partiene programmet har spilt mot seg selv</li>
+    <li data-correct>P = andel partier vunnet mot en fast motstander</li>
+    <li>E = andel partier vunnet</li>
+  </ul>
+  <div class="explain">Partiene er erfaringen <em>E</em>, ikke ytelsesmålet. Andel vunne partier er et tall vi kan måle, altså <em>P</em>. Det er en vanlig felle å blande E og P: E er det som går <em>inn</em> i læringen, P er det vi måler <em>etterpå</em>.</div>
+</div>
+
+<div class="quiz" data-id="01-samuel-mitchell">
+  <p class="q">Hva er den viktigste forskjellen mellom Samuels og Mitchells definisjon?</p>
+  <ul>
+    <li data-correct>Mitchell gjør læring målbar: ytelsen på en oppgave, målt med et konkret mål, må bli bedre med erfaring</li>
+    <li>Samuel krever at programmet bruker nevrale nettverk, Mitchell ikke</li>
+    <li>Mitchell handler bare om veiledet læring, Samuel om alle typer</li>
+    <li>Samuels definisjon krever et ytelsesmål, Mitchells ikke</li>
+  </ul>
+  <div class="explain">Samuel sier hva maskinlæring <em>er</em> (læring uten eksplisitt programmering), men ikke hvordan vi sjekker at læring har skjedd. Mitchell legger til T, E og P, og dermed et kriterium: P må forbedres med E. Ingen av definisjonene nevner nevrale nettverk, og Mitchells definisjon passer også for uveiledet og forsterkningslæring.</div>
+</div>
+
+<div class="reflect" data-id="01-r-tep">
+  <p class="q">Finn på ditt eget maskinlæringsproblem fra hverdagen (f.eks. Spotify, Vipps, Ruter). Hva er T, E og P? Er P lett å måle?</p>
+  <div class="answer">Eksempel: Spotify-anbefalinger. <em>T</em> = foreslå låter du vil like. <em>E</em> = lyttehistorikken din og millioner av andre brukere (hva de hoppet over, hva de spilte ferdig). <em>P</em> = for eksempel andel foreslåtte låter som spilles ferdig. Legg merke til at P ofte er vanskeligere enn det ser ut: «å like» en låt kan ikke måles direkte, så vi må bruke et stedfortredende mål (proxy). Det er et tilbakevendende tema: modellen blir god på det vi <em>måler</em>, ikke nødvendigvis på det vi <em>mener</em>.</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="data"><span class="sec">1.2</span>Data: datapunkter, features og target</h2>
+
+<p>Erfaringen <em>E</em> kommer nesten alltid som et <strong>datasett</strong>: en tabell. Det er to regler å huske:</p>
+<ul>
+  <li><strong>Radene</strong> er <strong>datapunkter</strong> (observasjoner, eksempler): én passasjer, én e-post, ett hus.</li>
+  <li><strong>Kolonnene</strong> er <strong>features</strong> (variabler, egenskaper): alder, kjønn, areal. Statistikere sier «variabler», maskinlærere sier «features». Begge betyr det samme.</li>
+</ul>
+<p>Hvis én av kolonnene inneholder svaret vi vil at modellen skal lære å estimere, kaller vi den <strong>target</strong> (målvariabel). Når vi har en target for hvert datapunkt, kan vi gjøre <strong>veiledet læring</strong> (supervised learning): dataene «veileder» modellen med fasit.</p>
+
+<p>Her er et utvalg fra Titanic-datasettet fra Kaggle, som går igjen i forelesningene:</p>
+
+<table class="anat">
+  <thead><tr><th>PassengerId</th><th>Pclass</th><th>Name</th><th class="col-hl">Sex</th><th>Age</th><th class="tgt">Survived</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>3</td><td>Braund, Mr. Owen Harris</td><td class="col-hl">male</td><td>22</td><td class="tgt">0</td></tr>
+    <tr class="row-hl"><td>2</td><td>1</td><td>Cumings, Mrs. John Bradley</td><td class="col-hl">female</td><td>38</td><td class="tgt">1</td></tr>
+    <tr><td>3</td><td>3</td><td>Heikkinen, Miss. Laina</td><td class="col-hl">female</td><td>26</td><td class="tgt">1</td></tr>
+    <tr><td>4</td><td>1</td><td>Futrelle, Mrs. Jacques Heath</td><td class="col-hl">female</td><td>35</td><td class="tgt">1</td></tr>
+    <tr><td>5</td><td>3</td><td>Allen, Mr. William Henry</td><td class="col-hl">male</td><td>35</td><td class="tgt">0</td></tr>
+    <tr><td>6</td><td>3</td><td>Moran, Mr. James</td><td class="col-hl">male</td><td class="miss">?</td><td class="tgt">0</td></tr>
+    <tr><td>7</td><td>1</td><td>McCarthy, Mr. Timothy J</td><td class="col-hl">male</td><td>54</td><td class="tgt">0</td></tr>
+    <tr><td>8</td><td>3</td><td>Palsson, Master. Gosta Leonard</td><td class="col-hl">male</td><td>2</td><td class="tgt">0</td></tr>
+    <tr><td>9</td><td>2</td><td>Montvila, Rev. Juozas</td><td class="col-hl">male</td><td>27</td><td class="tgt">1</td></tr>
+  </tbody>
+</table>
+<div class="legend-row"><span class="l-row">én rad = ett datapunkt</span><span class="l-col">én kolonne = én feature</span><span class="l-tgt">target $y$</span></div>
+
+<p>PassengerId, Pclass, Name, Sex og Age er features, og Survived er target, hvis målet er å lage en modell som beregner sjansen for at en passasjer overlever.</p>
+
+<h3>Typer variabler</h3>
+<p>Ikke alle kolonner er like. Typen avgjør hva vi må gjøre med dem før en modell kan bruke dem.</p>
+
+<table>
+  <thead><tr><th></th><th>Kvalitative (kategoriske)</th><th>Kvantitative (numeriske)</th></tr></thead>
+  <tbody>
+    <tr><td><b>Representerer</b></td><td>Kategorier, et endelig antall verdier</td><td>Målbare tall som kan sorteres og regnes med</td></tr>
+    <tr><td><b>Eksempler</b></td><td>Sjanger {action, komedie, …}, aldersgruppe {ung, …, gammel}, frukt {eple, banan, …}</td><td>Inntekt, alder, antall lyttere, areal, nedbørsmengde, temperatur</td></tr>
+    <tr><td><b>Undertyper</b></td><td><em>Binær</em>: nøyaktig to verdier (male/female, 0/1).<br><em>Ordinal</em>: har en naturlig rekkefølge (liten &lt; middels &lt; stor).<br><em>Nominal</em>: ingen rekkefølge (eple, banan).</td><td><em>Diskret</em>: tellbare verdier (antall søsken: 0, 1, 2, …).<br><em>Kontinuerlig</em>: kan ta alle verdier i et intervall (alder 22.5, temperatur).</td></tr>
+    <tr><td><b>Før modellen</b></td><td>Må ofte <strong>enkodes</strong> til tall</td><td>Kan brukes direkte, men bør ofte <strong>skaleres</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn"><span class="label">Vanlig feil</span><p>«Den er et tall, altså er den kvantitativ.» Nei! Pclass er lagret som 1, 2, 3, men det er <em>kategorier</em> (første, andre, tredje klasse). Det gir ikke mening å si at «andre klasse er gjennomsnittet av første og tredje». Spør deg selv: gir det mening å legge sammen eller ta gjennomsnitt? Hvis nei, er variabelen kategorisk. Postnumre og PassengerId er andre klassiske eksempler.</p></div>
+
+<p>Forelesningsnotatene har en oppgave til dette. Tenk deg om før du svarer!</p>
+
+<div class="quiz" data-multi data-id="01-titanic-cat">
+  <p class="q">Se på Titanic-tabellen. Hvilke variabler er <strong>kategoriske</strong>? (Velg alle som passer, men la være å ta med tvilstilfeller.)</p>
+  <ul>
+    <li data-correct>Pclass</li>
+    <li>Age</li>
+    <li data-correct>Sex</li>
+    <li data-correct>Survived</li>
+    <li data-correct>Name</li>
+  </ul>
+  <div class="explain">Pclass, Name, Sex og Survived beskriver kategorier. Pclass er lagret som tall, men verdiene er klasser, ikke mengder. Name er en (ekstremt finmasket) kategori, nesten unik per person. Age er kvantitativ og kontinuerlig. Notatene nevner også PassengerId som kategorisk «om vi anser de ulike Id-ene som hver sin kategori», men den er et tvilstilfelle og derfor ikke med her.</div>
+</div>
+
+<div class="quiz" data-id="01-titanic-binary">
+  <p class="q">Hvilke variabler i Titanic-tabellen er <strong>binære</strong>?</p>
+  <ul>
+    <li>Sex og Pclass</li>
+    <li>Bare Survived</li>
+    <li>Survived og Age</li>
+    <li data-correct>Sex og Survived</li>
+  </ul>
+  <div class="explain">Binær betyr nøyaktig to mulige verdier. Sex har {male, female} og Survived har {0, 1}. Pclass har tre verdier, så den er kategorisk, men ikke binær. Age er kontinuerlig. Survived er altså både target <em>og</em> en binær variabel; de to egenskapene utelukker ikke hverandre.</div>
+</div>
+
+<div class="quiz" data-id="01-titanic-drop">
+  <p class="q">Hvilke variabler bør vi <strong>ikke</strong> bruke som features i en enkel modell for overlevelse, og hvorfor?</p>
+  <ul>
+    <li data-correct>PassengerId og Name, fordi de ikke inneholder informasjon om egenskapene til passasjeren som en enkel modell kan bruke</li>
+    <li>Age og Pclass, fordi de er på helt ulik skala</li>
+    <li>Sex, fordi den er en streng og ikke kan brukes</li>
+    <li>Age, fordi den har en manglende verdi</li>
+  </ul>
+  <div class="explain">PassengerId er et løpenummer som sannsynligvis er tilfeldig tildelt, og sier ingenting om passasjeren. Name ville bare vært nyttig for en modell som forstår språk godt nok til å finne en sammenheng mellom navn og utfall. Ulik skala løses med <em>skalering</em>, strenger løses med <em>enkoding</em>, og manglende verdier løses med f.eks. <em>dropna</em>. Det er altså problemer vi fikser, ikke grunner til å kaste en nyttig feature.</div>
+</div>
+
+<div class="callout warn"><span class="label">Feller med «nyttig» informasjon</span><p>En Id kan i verste fall være <em>skadelig</em>: hvis datasettet er sortert slik at overlevende kom først, kan modellen lære «lav Id = overlevde». Det fungerer på dette datasettet og ingen andre steder. Modellen har da lært en tilfeldighet i måten data ble samlet på, ikke noe om virkeligheten.</p></div>
+
+<div class="reflect" data-id="01-r-name">
+  <p class="q">Notatene sier at Name ikke inneholder relevant informasjon for modellene våre. Finnes det likevel noe i navnefeltet som kunne vært nyttig, hvis du trakk det ut som en egen feature?</p>
+  <div class="answer">Ja: tittelen. «Mr.», «Mrs.», «Miss.», «Master.» og «Rev.» koder kjønn, omtrentlig alder (Master = gutt) og sivilstand, og kan være nyttig, spesielt der alderen mangler. Å lage en ny feature «Title» fra Name er et eksempel på <strong>feature engineering</strong>: vi bruker domenekunnskap til å lage features modellen kan bruke. Selve navnet som helhet er derimot nesten unikt per person og vil bare få modellen til å pugge enkeltpersoner.</div>
+</div>
+
+<div class="widget" id="w-sorter">
+  <h4>Øvelse: sorter feature-typene</h4>
+  <p class="small muted" style="margin:0 0 10px">Velg riktig type for hver variabel (fra et utvidet Titanic-datasett og andre eksempler), og trykk «Sjekk». Det finnes én beste kategori per variabel.</p>
+  <div class="sorter" id="sorter"></div>
+  <div class="controls">
+    <button class="btn" type="button" id="sort-check">Sjekk</button>
+    <button class="btn ghost" type="button" id="sort-reset">Nullstill</button>
+    <span class="readout" id="sort-score">0 / 0</span>
+  </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const TYPES = ["Velg …", "Kategorisk (flere verdier)", "Binær", "Kvantitativ, diskret", "Kvantitativ, kontinuerlig", "Bør ikke brukes"];
+  const ITEMS = [
+    ["Age", "alder i år, f.eks. 22.5", 4, "Alder kan ta alle verdier i et intervall (også 0.42 for spedbarn i Titanic-dataene), så den er kontinuerlig."],
+    ["SibSp", "antall søsken/ektefeller om bord", 3, "Et antall er tellbart: 0, 1, 2, … Ingen kan ha 1.5 søsken. Altså kvantitativ og diskret."],
+    ["Pclass", "1, 2 eller 3", 1, "Tre kategorier (billettklasser). Lagret som tall, men de er klasser, ikke mengder. (De har en rekkefølge, så de er ordinale.)"],
+    ["Sex", "male / female", 2, "Nøyaktig to verdier, altså binær (og kategorisk)."],
+    ["Fare", "billettpris i pund", 4, "En pris kan i praksis ta alle verdier i et intervall, så vi behandler den som kontinuerlig."],
+    ["Embarked", "havn: C, Q eller S", 1, "Tre havner uten naturlig rekkefølge: nominal kategorisk variabel."],
+    ["PassengerId", "løpenummer 1, 2, 3, …", 5, "Et tilfeldig tildelt løpenummer sier ingenting om passasjeren. Ta den ut."],
+    ["Name", "«Braund, Mr. Owen Harris»", 5, "Nesten unik per person. Bør ikke brukes som den er (men en avledet «tittel»-feature kan være nyttig)."],
+    ["Survived", "0 eller 1 (target)", 2, "To verdier, altså binær. Den er target, ikke feature, men typen er binær."],
+    ["Temperatur", "målt i °C", 4, "Kan ta alle verdier i et intervall: kontinuerlig."]
+  ];
+  const host = document.getElementById("sorter"), score = document.getElementById("sort-score");
+  const rows = ITEMS.map(([nm, desc, ans, fb]) => {
+    const d = document.createElement("div"); d.className = "item";
+    const sel = document.createElement("select"); sel.setAttribute("aria-label", "Type for " + nm);
+    TYPES.forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t; sel.appendChild(o); });
+    d.innerHTML = `<div class="nm">${nm} <small>(${desc})</small></div>`;
+    d.appendChild(sel);
+    const f = document.createElement("div"); f.className = "fb"; d.appendChild(f);
+    host.appendChild(d);
+    sel.onchange = () => d.classList.remove("ok", "no");
+    return { d, sel, ans, fb, f };
+  });
+  score.textContent = "0 / " + rows.length;
+  document.getElementById("sort-check").onclick = () => {
+    let n = 0;
+    rows.forEach(r => {
+      const v = +r.sel.value; r.d.classList.remove("ok", "no");
+      if (!v) return;
+      const ok = v === r.ans; if (ok) n++;
+      r.d.classList.add(ok ? "ok" : "no");
+      r.f.textContent = (ok ? "Riktig. " : "Ikke helt: riktig er «" + TYPES[r.ans] + "». ") + r.fb;
+    });
+    score.textContent = n + " / " + rows.length;
+  };
+  document.getElementById("sort-reset").onclick = () => { rows.forEach(r => { r.sel.value = 0; r.d.classList.remove("ok", "no"); }); score.textContent = "0 / " + rows.length; };
+});
+</script>
+
+<!-- ====================================================================== -->
+<h2 id="notasjon"><span class="sec">1.3</span>Notasjon og hva modellen skal gjøre</h2>
+
+<p>Når vi har tatt ut variablene vi ikke vil bruke, gir vi resten korte navn. Dette er notasjonen fra forelesningsnotatene, og den brukes på eksamen:</p>
+
+<table class="anat">
+  <thead><tr><th></th><th>$x_1$ (Pclass)</th><th class="col-hl">$x_2$ (Sex)</th><th>$x_3$ (Age)</th><th class="tgt">$y$ (Survived)</th></tr></thead>
+  <tbody>
+    <tr><td>$\mathbf{x}^{(1)}$</td><td>3</td><td class="col-hl">male</td><td>22</td><td class="tgt">0</td></tr>
+    <tr class="row-hl"><td>$\mathbf{x}^{(2)}$</td><td>1</td><td class="col-hl">female</td><td>38</td><td class="tgt">1</td></tr>
+    <tr><td>$\mathbf{x}^{(3)}$</td><td>3</td><td class="col-hl">female</td><td>26</td><td class="tgt">1</td></tr>
+    <tr><td>$\mathbf{x}^{(4)}$</td><td>1</td><td class="col-hl">female</td><td>35</td><td class="tgt">1</td></tr>
+    <tr><td>$\mathbf{x}^{(5)}$</td><td>3</td><td class="col-hl">male</td><td>35</td><td class="tgt">0</td></tr>
+    <tr><td>$\mathbf{x}^{(6)}$</td><td>3</td><td class="col-hl">male</td><td class="miss">?</td><td class="tgt">0</td></tr>
+    <tr><td>$\mathbf{x}^{(7)}$</td><td>1</td><td class="col-hl">male</td><td>54</td><td class="tgt">0</td></tr>
+    <tr><td>$\mathbf{x}^{(8)}$</td><td>3</td><td class="col-hl">male</td><td>2</td><td class="tgt">0</td></tr>
+    <tr><td>$\mathbf{x}^{(9)}$</td><td>2</td><td class="col-hl">male</td><td>27</td><td class="tgt">1</td></tr>
+  </tbody>
+</table>
+
+<ul>
+  <li><strong>Indeks oppe, i parentes</strong>: hvilket datapunkt (rad). $\mathbf{x}^{(2)}$ er passasjer nummer 2. Parentesen er der for at vi ikke skal tro det er en eksponent: $x^{(2)}$ er ikke $x^2$.</li>
+  <li><strong>Indeks nede</strong>: hvilken feature (kolonne). $x_3$ er Age.</li>
+  <li><strong>Begge</strong>: én celle. $x^{(2)}_3 = 38$ er alderen til passasjer 2.</li>
+  <li><strong>Fet x</strong> er en vektor, altså en hel rad: $\mathbf{x}^{(1)} = (x^{(1)}_1, x^{(1)}_2, x^{(1)}_3) = (3, \text{male}, 22)$.</li>
+  <li><strong>$y^{(i)}$</strong> er target for datapunkt $i$. Her er $y^{(2)} = 1$.</li>
+</ul>
+
+<div class="eq">
+  <p class="eq-note">Oppgaven vi vil løse for Titanic (likning 1 i notatene)</p>
+  $$\underbrace{(\text{Pclass}, \text{Sex}, \text{Age})}_{\text{features } \mathbf{x}^{(i)} = (x^{(i)}_1,\, x^{(i)}_2,\, x^{(i)}_3)} \;\longrightarrow\; \underbrace{\text{Survived}}_{\text{target } y^{(i)}}$$
+</div>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>«Oppe = person, nede = egenskap.»</strong> Hodet (oppe) sier <em>hvem</em>, føttene (nede) sier <em>hva</em>. $x^{(i)}_j$ = «person $i$ sin egenskap $j$».</p></div>
+
+<div class="calc" data-id="01-calc-notation" data-answer="2" data-tol="0">
+  <p class="q">Bruk tabellen over. Hva er $x^{(8)}_3$?</p>
+  <div class="solution">Indeks oppe er raden: datapunkt 8 (Palsson, Master. Gosta Leonard). Indeks nede er kolonnen: feature 3 = Age. Altså $x^{(8)}_3 = 2$.</div>
+</div>
+
+<div class="quiz" data-id="01-notation-q">
+  <p class="q">Hva er $x^{(4)}_2$ i tabellen over?</p>
+  <ul>
+    <li>35</li>
+    <li data-correct>female</li>
+    <li>1</li>
+    <li>$\mathbf{x}^{(4)}$ opphøyd i andre</li>
+  </ul>
+  <div class="explain">Rad 4, kolonne 2 (Sex): <em>female</em>. 35 er $x^{(4)}_3$ (alder), og 1 er både $x^{(4)}_1$ (Pclass) og $y^{(4)}$. Parentesen rundt 4 betyr nettopp at dette <em>ikke</em> er en eksponent.</div>
+</div>
+
+<h3>Hva skal modellen gjøre?</h3>
+<p>Vi har features $\mathbf{x}$ og targets $y$, og vi vil <strong>estimere $y$ for nye $\mathbf{x}$</strong> basert på sammenhengene mellom kjente $\mathbf{x}$ og $y$. For Titanic vil vi lage en modell $f$ som estimerer sannsynligheten for å overleve gitt verdiene i $\mathbf{x}$:</p>
+<div class="eq">
+  <p class="eq-note">Modellens prediksjon</p>
+  $$f(\mathbf{x}) = y_{pred} \approx p(y = 1 \mid \mathbf{x})$$
+</div>
+<p>Streken $\mid$ leses «gitt». $p(y=1 \mid \mathbf{x})$ er en <em>betinget sannsynlighet</em>: sannsynligheten for å overleve <em>gitt</em> at du er en 38 år gammel kvinne på første klasse. Det er ikke det samme som den totale andelen overlevende. Notatene skriver kort $p(y \mid \mathbf{x})$.</p>
+<p>Du vil også se $\hat{y}$ («y-hatt») brukt om prediksjonen. Det betyr det samme som $y_{pred}$.</p>
+
+<div class="quiz" data-id="01-f-estimates">
+  <p class="q">For Titanic-modellen gir $f(\mathbf{x}^{(2)}) = 0.93$. Hva er den beste tolkningen?</p>
+  <ul>
+    <li>93 % av alle passasjerer overlevde</li>
+    <li>Passasjer 2 overlevde med 93 % sikkerhet, fordi $y^{(2)} = 1$</li>
+    <li data-correct>Modellen estimerer at sannsynligheten for å overleve, gitt features til passasjer 2, er 0.93</li>
+    <li>Modellen har 93 % treffsikkerhet</li>
+  </ul>
+  <div class="explain">$f(\mathbf{x})$ estimerer den betingede sannsynligheten $p(y=1 \mid \mathbf{x})$ for akkurat denne kombinasjonen av features. Det sier ingenting om andelen overlevende totalt, og ingenting om hvor ofte modellen har rett (det er accuracy, et evalueringsmål). Fasiten $y^{(2)}=1$ er et faktum, ikke noe modellen er «sikker på».</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="kart"><span class="sec">1.4</span>Kartet: typer maskinlæring</h2>
+
+<p>Maskinlæring deles grovt inn i tre familier, avhengig av hva slags erfaring <em>E</em> vi har:</p>
+
+<ul>
+  <li><strong>Veiledet læring (supervised)</strong>: Vi har target $y$ for hvert datapunkt. Modellen lærer en avbildning $\mathbf{x} \to y$.</li>
+  <li><strong>Uveiledet læring (unsupervised)</strong>: Vi har bare $\mathbf{x}$, ingen fasit. Modellen leter etter struktur: grupper, retninger, avvik.</li>
+  <li><strong>Forsterkningslæring (reinforcement learning)</strong>: En agent handler i et miljø og får belønning (reward). Ingen fasit per handling, bare en tilbakemelding om hvor godt det gikk.</li>
+</ul>
+
+<p>Innen veiledet læring skiller vi mellom to typer oppgaver, basert på hva target er:</p>
+<ul>
+  <li><strong>Klassifisering</strong>: target er en <em>kategori</em> (overlevde ja/nei, spam/ikke spam, siffer 0–9).</li>
+  <li><strong>Regresjon</strong>: target er et <em>kontinuerlig tall</em> (pris, temperatur, strømforbruk).</li>
+</ul>
+
+<div class="mlmap">
+  <div class="sup">
+    <h4>Veiledet læring</h4>
+    <p class="sub">Data med fasit: $(\mathbf{x}, y)$</p>
+    <div class="grp">Klassifisering</div>
+    <ul>
+      <li><a href="02-logistisk.html">Logistisk regresjon</a> (kap. 2)</li>
+      <li><a href="04-sannsynlighet.html">Naiv Bayes</a> (kap. 4)</li>
+      <li><a href="05-traer.html">Beslutningstrær</a> (kap. 5)</li>
+      <li><a href="09-nevrale-nett.html">Nevrale nettverk</a> (kap. 9–10)</li>
+    </ul>
+    <div class="grp">Regresjon</div>
+    <ul>
+      <li><a href="06-regresjon.html">Lineær/polynomisk regresjon</a> (kap. 6)</li>
+      <li><a href="07-generalisering.html">Regresjonstrær</a> (kap. 7)</li>
+    </ul>
+    <div class="grp">Begge</div>
+    <ul>
+      <li><a href="08-ensemble.html">Ensembler: random forest, boosting</a> (kap. 8)</li>
+      <li><a href="03-evaluering.html">Evaluering</a> og <a href="07-generalisering.html">generalisering</a> (kap. 3, 7)</li>
+    </ul>
+  </div>
+  <div class="uns">
+    <h4>Uveiledet læring</h4>
+    <p class="sub">Bare $\mathbf{x}$, ingen fasit</p>
+    <ul>
+      <li><a href="11-clustering.html">Clustering: k-means, DBSCAN</a> (kap. 11)</li>
+      <li><a href="12-dimensjonsreduksjon.html">Dimensjonsreduksjon: PCA, t-SNE</a> (kap. 12)</li>
+      <li><a href="13-anomali.html">Anomalideteksjon</a> (kap. 13)</li>
+    </ul>
+  </div>
+  <div class="rl">
+    <h4>Forsterkningslæring</h4>
+    <p class="sub">Agent, miljø, belønning</p>
+    <ul>
+      <li><a href="14-forsterkning.html">Q-learning, Bellman, DQN</a> (kap. 14)</li>
+    </ul>
+    <div class="grp">På tvers</div>
+    <ul>
+      <li><a href="15-xai-etikk.html">Forklarbar KI og etikk</a> (kap. 15)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout warn"><span class="label">Navnefelle</span><p><strong>Logistisk regresjon er en klassifiseringsmodell</strong>, til tross for navnet. Den gir en sannsynlighet (et tall mellom 0 og 1), men brukes til å velge en klasse. «Regresjon» i navnet er historisk: modellen er en lineær regresjon sendt gjennom sigmoid-funksjonen (se <a href="02-logistisk.html">kapittel 2</a>).</p></div>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Veiledet</strong> = lærer med fasit i boka. <strong>Uveiledet</strong> = sorterer en haug bilder uten at noen har fortalt hva som er på dem. <strong>Forsterkning</strong> = hunden som får godbit når den gjør noe riktig, uten at noen viser den hva «riktig» er. Og: <strong>klassifisering svarer på «hvilken?», regresjon på «hvor mye?»</strong></p></div>
+
+<div class="quiz" data-multi data-id="01-class-reg">
+  <p class="q">Hvilke av disse er <strong>regresjonsoppgaver</strong>?</p>
+  <ul>
+    <li data-correct>Estimere strømforbruket i et datasenter ut fra nettverkstrafikk</li>
+    <li>Avgjøre om en svulst er godartet eller ondartet</li>
+    <li data-correct>Predikere morgendagens maksimumstemperatur</li>
+    <li>Gjenkjenne håndskrevne sifre 0–9</li>
+    <li>Predikere om en kunde konverterer (0/1) med logistisk regresjon</li>
+  </ul>
+  <div class="explain">Regresjon = kontinuerlig target (strømforbruk, temperatur). Godartet/ondartet og 0/1-konvertering er binær klassifisering, og sifre 0–9 er klassifisering med ti klasser. Selv om sifrene er tall, er de kategorier: å predikere 4.5 gir ingen mening. Og logistisk regresjon er, tross navnet, en klassifiseringsmodell.</div>
+</div>
+
+<div class="quiz" data-id="01-sup-unsup">
+  <p class="q">En nettbutikk har kjøpshistorikken til 200 000 kunder, men ingen informasjon om hvilke «typer» kunder som finnes. De vil finne naturlige kundegrupper. Hva slags læring er dette?</p>
+  <ul>
+    <li>Veiledet læring, klassifisering</li>
+    <li>Forsterkningslæring</li>
+    <li>Veiledet læring, regresjon</li>
+    <li data-correct>Uveiledet læring (clustering)</li>
+  </ul>
+  <div class="explain">Det finnes ingen target (ingen fasit om hvilken gruppe en kunde tilhører), så dette er uveiledet. Å finne grupper er clustering (<a href="11-clustering.html">kapittel 11</a>). Klassifisering krever kjente klasser i treningsdataene. Forsterkningslæring krever en agent som handler og får belønning.</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="preprosessering"><span class="sec">1.5</span>Preprosessering: gjør dataene klare</h2>
+
+<p>Notatene stiller et godt spørsmål: <em>Se på Titanic-tabellen igjen. Hva bør vi gjøre før vi plotter (eller modellerer) disse dataene?</em> Prøv selv før du leser videre.</p>
+
+<details class="steps"><summary>Svaret fra notatene</summary><div>
+<ol>
+  <li><strong>Rad 6 mangler en verdi for feature 3</strong> (Age). Det gir feilmelding når vi prøver å plotte eller trene.</li>
+  <li><strong>Feature 2 (Sex) er strenger</strong>, altså ikke-numeriske verdier som en datamaskin ikke kan plotte eller regne med uten videre.</li>
+  <li><strong>Feature 3 er av en helt annen størrelsesorden</strong> enn feature 1 og 2, og kan i verste fall gi misvisende plott (og treg eller skjev trening).</li>
+</ol>
+<p>Tre problemer, tre verktøy: <strong>fjerne</strong> rader (dropna), <strong>enkode</strong> (LabelEncoder) og <strong>skalere</strong> (MinMaxScaler). Til sammen kalles dette <strong>preprosessering</strong>.</p>
+</div></details>
+
+<div class="chain">
+  <div><b>Manglende verdier</b>NaN krasjer plott og modeller</div><div class="arrow">→</div>
+  <div><b>Strenger</b>modeller regner bare med tall</div><div class="arrow">→</div>
+  <div><b>Ulik skala</b>store tall dominerer</div>
+</div>
+
+<h3 id="manglende">Manglende verdier: dropna</h3>
+<p>Den enkleste løsningen er pandas-metoden <code>dropna()</code>, som fjerner alle rader der minst én verdi mangler.</p>
+<pre><code>df = df.dropna()                    <span class="c"># fjerner rad 6 (Age mangler)</span></code></pre>
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>Vi mister data. I det fulle Kaggle-datasettet mangler alder for 177 av 891 passasjerer, så dropna kaster rundt 20 % av dataene. Hvis det i tillegg er et <em>mønster</em> i hvem som mangler alder (for eksempel at det oftere gjelder tredjeklassepassasjerer), blir de gjenværende dataene skjeve. Et alternativ er <strong>imputering</strong>: fyll inn f.eks. gjennomsnittet eller medianen. Da må det gjennomsnittet regnes ut på treningsdataene, av samme grunn som for skalering nedenfor.</p></div>
+
+<h3 id="enkoding">Enkoding: fra kategorier til tall</h3>
+<p>En <strong>LabelEncoder</strong> (sklearn) gir hver kategori et unikt heltall. For Sex kan «female» bli 0 og «male» 1 (LabelEncoder sorterer alfabetisk, så det blir akkurat slik). For en binær variabel er dette helt greit.</p>
+<pre><code><span class="k">from</span> sklearn.preprocessing <span class="k">import</span> LabelEncoder
+le = LabelEncoder()
+df[<span class="s">"Sex"</span>] = le.fit_transform(df[<span class="s">"Sex"</span>])   <span class="c"># female → 0, male → 1</span></code></pre>
+
+<p>Men tenk på en variabel som Embarked {C, Q, S} eller Region med fem verdier. Label encoding gir C=0, Q=1, S=2. Plutselig «tror» modellen at Q ligger mellom C og S, og at avstanden fra C til S er dobbelt så stor som fra C til Q. For en lineær modell betyr det at effekten av å gå fra C til Q <em>må</em> være halvparten av effekten fra C til S. Det er en kunstig rekkefølge vi har funnet på.</p>
+
+<p><strong>One-hot-enkoding</strong> løser dette: hver kategori får sin egen 0/1-kolonne.</p>
+<table class="center">
+  <thead><tr><th>Embarked</th><th>Label encoding</th><th>is_C</th><th>is_Q</th><th>is_S</th></tr></thead>
+  <tbody>
+    <tr><td>C</td><td>0</td><td>1</td><td>0</td><td>0</td></tr>
+    <tr><td>Q</td><td>1</td><td>0</td><td>1</td><td>0</td></tr>
+    <tr><td>S</td><td>2</td><td>0</td><td>0</td><td>1</td></tr>
+  </tbody>
+</table>
+<p>Nå har alle havnene samme avstand fra hverandre, og en lineær modell kan gi hver havn sin egen vekt. Prisen er flere kolonner: en variabel med $k$ kategorier blir $k$ kolonner (eller $k-1$ hvis vi dropper én, siden den siste er gitt av de andre).</p>
+
+<div class="callout why"><span class="label">Hvorfor velge den ene eller den andre?</span><p><strong>Label encoding</strong> er greit for binære variabler, for <em>ordinale</em> variabler der rekkefølgen er ekte (liten &lt; middels &lt; stor), og for beslutningstrær, som bare splitter på terskler og ikke regner med verdiene. <strong>One-hot</strong> er tryggest for nominale variabler i modeller som regner med tallene (lineære modeller, nevrale nett, avstandsbaserte metoder).</p></div>
+
+<div class="quiz" data-id="01-label-order">
+  <p class="q">Du bruker label encoding på variabelen Region med verdiene {Nord, Sør, Øst, Vest, Midt} og trener en logistisk regresjon. Hva er hovedproblemet?</p>
+  <ul>
+    <li>Logistisk regresjon kan ikke bruke heltall som input</li>
+    <li data-correct>Modellen tolker tallene som om regionene har en rekkefølge og jevne avstander, selv om de ikke har det</li>
+    <li>Label encoding gir for mange kolonner</li>
+    <li>Label encoding fjerner informasjon om hvilken region det er</li>
+  </ul>
+  <div class="explain">Med én tallkolonne (f.eks. Midt=0, Nord=1, Sør=2, Vest=3, Øst=4) må en lineær modell behandle effekten som proporsjonal med tallet, altså en kunstig rekkefølge. Ingen informasjon går tapt (hver region har sitt unike tall), og det blir bare én kolonne. Det er one-hot som gir flere kolonner. Heltall er helt greit som input i seg selv.</div>
+</div>
+
+<div class="quiz" data-id="01-onehot-cols">
+  <p class="q">Region har 5 mulige verdier. Hvor mange kolonner får du med vanlig one-hot-enkoding (uten å droppe noen)?</p>
+  <ul>
+    <li>1</li>
+    <li>3, fordi $2^3 \geq 5$</li>
+    <li data-correct>5</li>
+    <li>4, alltid</li>
+  </ul>
+  <div class="explain">One-hot gir én 0/1-kolonne per kategori: 5 kolonner. Du <em>kan</em> droppe én og få 4 (den siste er bestemt av de andre), men det er et valg, ikke standard. Tre kolonner med binærkode ($2^3=8 \geq 5$) er en annen og mindre brukt enkoding som igjen innfører kunstige sammenhenger.</div>
+</div>
+
+<h3 id="skalering">Skalering: samme størrelsesorden</h3>
+<p>Pclass går fra 1 til 3, kjønn fra 0 til 1, alder fra 0 til 80, og billettpris fra 0 til over 500. Hvorfor er det et problem?</p>
+<div class="callout why"><span class="label">Hvorfor skalere?</span>
+<ul style="margin:0">
+  <li><strong>Gradient descent</strong> (<a href="02-logistisk.html#gd">kapittel 2</a>): gradienten for en vekt er proporsjonal med verdien til featuren. Store features gir store gradientsteg, små features gir små. Med én læringsrate for alle blir treningen ustabil for den ene og treg for den andre.</li>
+  <li><strong>Avstandsbaserte metoder</strong> (k-means, kNN, <a href="11-clustering.html">kapittel 11</a>): avstanden domineres helt av featuren med størst tall. 10 år i alder ville betydd mer enn å bytte kjønn.</li>
+  <li><strong>Plott</strong>: features med små verdier blir usynlige ved siden av store.</li>
+</ul></div>
+<p>To vanlige skalerere fra sklearn:</p>
+
+<div class="two-col">
+<div class="eq">
+  <p class="eq-note">MinMaxScaler: til intervallet $[0,1]$</p>
+  $$x' = \frac{x - x_{min}}{x_{max} - x_{min}}$$
+</div>
+<div class="eq">
+  <p class="eq-note">StandardScaler: gjennomsnitt 0, standardavvik 1</p>
+  $$x' = \frac{x - \mu}{\sigma}$$
+</div>
+</div>
+
+<p>MinMax gir garantert verdier i $[0,1]$ <em>på dataene den ble fittet på</em>. StandardScaler gir ingen fast grense, men verdiene sier «hvor mange standardavvik fra snittet». Begge regnes ut per feature (per kolonne).</p>
+
+<div class="calc" data-id="01-calc-minmax" data-answer="0.5" data-tol="0.001">
+  <p class="q">En feature har verdiene $2, 4, 10, 6$. Hva blir verdien $6$ etter MinMax-skalering?</p>
+  <div class="solution">$x_{min} = 2$, $x_{max} = 10$. $x' = \dfrac{6-2}{10-2} = \dfrac{4}{8} = 0.5$.</div>
+</div>
+
+<div class="calc" data-id="01-calc-std" data-answer="2" data-tol="0.01">
+  <p class="q">En feature har verdiene $2, 4, 4, 4, 5, 5, 7, 9$. Gjennomsnittet er $\mu = 5$ og standardavviket er $\sigma = 2$. Hva blir verdien $9$ etter standardisering?</p>
+  <div class="solution">$x' = \dfrac{9 - 5}{2} = 2$. Verdien ligger to standardavvik over gjennomsnittet. (Sjekk av $\sigma$: kvadrerte avvik $9+1+1+1+0+0+4+16 = 32$, delt på $8$ gir varians $4$, og $\sqrt{4} = 2$. StandardScaler deler på $N$, ikke $N-1$.)</div>
+</div>
+
+<div class="widget" id="w-scale">
+  <h4>Utforsk: MinMax vs. Standard med en outlier</h4>
+  <p class="small muted" style="margin:0 0 6px">Åtte «vanlige» verdier (blå) og én outlier (oransje). Dra outlieren lenger ut og se hva som skjer med de vanlige punktene etter hver skalering.</p>
+  <div class="scale-strip">
+    <div class="cap">Rådata</div><canvas id="sc-raw" width="640" height="70"></canvas>
+    <div class="cap">MinMaxScaler → $[0,1]$</div><canvas id="sc-mm" width="640" height="70"></canvas>
+    <div class="cap">StandardScaler → gjennomsnitt 0, std 1</div><canvas id="sc-std" width="640" height="70"></canvas>
+  </div>
+  <div class="controls">
+    <label>Outlier-verdi <input type="range" id="sc-out" min="32" max="300" step="1" value="40"><output id="sc-outo">40</output></label>
+  </div>
+  <div class="readouts">
+    <span class="readout" id="sc-r1"></span><span class="readout" id="sc-r2"></span>
+  </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const base = [12, 15, 18, 20, 22, 25, 28, 30];
+  const sl = document.getElementById("sc-out");
+  const mk = (id, v) => CK.plot(document.getElementById(id), Object.assign({ ymin: -1, ymax: 1, pad: { l: 20, r: 20, t: 6, b: 24 } }, v));
+  const Praw = mk("sc-raw", {}), Pmm = mk("sc-mm", { xmin: -0.05, xmax: 1.05 }), Pst = mk("sc-std", { xmin: -1.5, xmax: 3 });
+  function strip(P, vals) {
+    P.clear(); P.grid({ yticks: [] }); P.axes({ yticks: false, frame: true });
+    P.line(P.xmin, 0, P.xmax, 0, { color: P.col("axis"), width: 1 });
+    P.points(vals.slice(0, 8).map(x => ({ x, y: 0 })), { color: P.col("c1"), r: 6 });
+    P.points([{ x: vals[8], y: 0 }], { color: P.col("c2"), r: 7 });
+  }
+  function draw() {
+    const o = +sl.value; document.getElementById("sc-outo").textContent = o;
+    const all = base.concat([o]);
+    const mn = Math.min(...all), mx = Math.max(...all);
+    const mu = all.reduce((a, b) => a + b, 0) / all.length;
+    const sd = Math.sqrt(all.reduce((a, b) => a + (b - mu) ** 2, 0) / all.length);
+    const mm = all.map(x => (x - mn) / (mx - mn)), st = all.map(x => (x - mu) / sd);
+    Praw.setView({ xmin: 0, xmax: Math.max(60, o * 1.08) });
+    Pst.setView({ xmin: Math.min(-1.6, Math.min(...st) - 0.2), xmax: Math.max(3, Math.max(...st) + 0.2) });
+    strip(Praw, all); strip(Pmm, mm); strip(Pst, st);
+    const r = a => Math.max(...a.slice(0, 8)) - Math.min(...a.slice(0, 8));
+    document.getElementById("sc-r1").textContent = "MinMax: de 8 vanlige spenner " + r(mm).toFixed(2) + " av 1";
+    document.getElementById("sc-r2").textContent = "Standard: μ = " + mu.toFixed(1) + ", σ = " + sd.toFixed(1) + ", de 8 spenner " + r(st).toFixed(2);
+  }
+  sl.oninput = draw;
+  CK.live(draw);
+});
+</script>
+<p>Legg merke til to ting. <strong>(1)</strong> Med MinMax blir de åtte vanlige punktene presset sammen i et stadig smalere område nær 0 jo lenger ut outlieren er, fordi én ekstrem verdi bestemmer $x_{max}$. <strong>(2)</strong> StandardScaler påvirkes også (både $\mu$ og $\sigma$ drar med seg outlieren), men ingen enkeltverdi låses til en fast grense. Ingen av dem «fjerner» outliers; det er en egen vurdering.</p>
+
+<div class="quiz" data-id="01-minmax-outlier">
+  <p class="q">En feature har verdier mellom 10 og 50, pluss én feilregistrert verdi på 10 000. Hva skjer med de vanlige verdiene etter MinMax-skalering?</p>
+  <ul>
+    <li data-correct>De havner nesten alle svært nær 0, fordi outlieren bestemmer maksimum</li>
+    <li>De fordeles jevnt over $[0,1]$, fordi MinMax alltid gir jevn fordeling</li>
+    <li>Outlieren fjernes automatisk av MinMaxScaler</li>
+    <li>De får gjennomsnitt 0 og standardavvik 1</li>
+  </ul>
+  <div class="explain">Med $x_{max} = 10\,000$ blir f.eks. $50$ til $\frac{50-10}{9990} \approx 0.004$. Alle de vanlige verdiene klemmes inn mellom 0 og 0.004. MinMax endrer ikke formen på fordelingen og fjerner ingenting. Gjennomsnitt 0 og standardavvik 1 er hva StandardScaler gir.</div>
+</div>
+
+<h3 id="leakage">Den viktigste regelen: fit på trening, transform på test</h3>
+
+<p>En scaler har to steg. <code>fit</code> <em>lærer</em> noe fra dataene (min og maks, eller $\mu$ og $\sigma$). <code>transform</code> <em>bruker</em> det den lærte til å endre dataene. <code>fit_transform</code> gjør begge deler på én gang.</p>
+
+<pre><code><span class="k">from</span> sklearn.preprocessing <span class="k">import</span> StandardScaler
+<span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=<span class="s">0.2</span>)   <span class="c"># 1) splitt FØRST</span>
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)   <span class="c"># 2) lær μ og σ KUN fra treningsdata</span>
+X_test_scaled  = scaler.transform(X_test)        <span class="c"># 3) bruk SAMME μ og σ på testdata</span></code></pre>
+
+<div class="callout why"><span class="label">Hvorfor?</span><p>Testdataene skal simulere <strong>helt nye data</strong> modellen aldri har sett, slik som en ny pasient eller en ny kunde etter at modellen er satt i drift. Den nye pasienten finnes ikke da du trente, så du kan ikke ha brukt hennes verdier til å regne ut $\mu$ og $\sigma$. Hvis du fitter scaleren på hele datasettet, lekker informasjon om testdataene inn i treningen. Dette kalles <strong>datalekkasje (data leakage)</strong>.</p></div>
+
+<div class="chain">
+  <div><b>Feil</b>fit på hele datasettet før split</div><div class="arrow">→</div>
+  <div><b>Lekkasje</b>testdataenes min/maks eller μ/σ påvirker treningen</div><div class="arrow">→</div>
+  <div><b>Konsekvens</b>for optimistisk testresultat, som ikke holder i virkeligheten</div>
+</div>
+
+<p>Den andre feilen er like vanlig: å fitte en <em>ny</em> scaler på testdataene. Da får samme råverdi ulik skalert verdi i trening og test. Modellen lærte at «0.8» betyr 60 år, men i testsettet kan «0.8» bety 45 år. Og i drift, med ett enkelt nytt datapunkt, går det ikke engang an å fitte: min og maks av ett tall er det samme tallet.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Testsettet er eksamen, treningssettet er pensum.</strong> Du får ikke se eksamensoppgavene mens du lager formelarket ditt (fit). Formelarket lager du av pensum, og så bruker du <em>det samme arket</em> på eksamen (transform). Å lage nytt formelark på eksamen (fit på test) er like galt som å se oppgavene på forhånd (fit på alt).</p></div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p>Dette er det mest spurte preprosesseringstemaet: <strong>eksamen 2024 oppg. 4</strong> (hvilken funksjon brukes på testdata), <strong>2025 del 1.4</strong> (riktig rekkefølge for min–maks-skalering), <strong>2025 del 10.1</strong> (hvilken kodelinje bruker samme skalering på X_test) og <strong>2025 del 1.1</strong> (hvilket preprosesseringssteg er korrekt og nødvendig). Svaret er alltid en variant av: <em>splitt først, fit på trening, transform på test, enkod kategoriske features</em>.</p></div>
+
+<div class="quiz" data-id="01-leak-code">
+  <p class="q">Du har kjørt <code>scaler = MinMaxScaler(); X_tr = scaler.fit_transform(X_train)</code> og trent modellen. Hvilken linje skal du bruke på testdataene?</p>
+  <ul>
+    <li><code>X_te = MinMaxScaler().fit_transform(X_test)</code>, så testdataene også havner i $[0,1]$</li>
+    <li><code>X_te = scaler.fit(X_test)</code>, så scaleren gjenbrukes</li>
+    <li><code>X_te = scaler.fit_transform(X_test)</code>, så testdataene tilpasses</li>
+    <li data-correct><code>X_te = scaler.transform(X_test)</code></li>
+  </ul>
+  <div class="explain">Bare <code>transform</code> bruker min og maks lært fra treningsdataene. <code>MinMaxScaler().fit_transform(X_test)</code> og <code>scaler.fit_transform(X_test)</code> lærer nye verdier fra testdataene, slik at samme råverdi får ulik skalert verdi i trening og test. <code>scaler.fit(X_test)</code> returnerer selve scaler-objektet (ikke transformerte data), og overskriver dessuten det den lærte fra treningsdataene.</div>
+</div>
+
+<div class="quiz" data-id="01-leak-order">
+  <p class="q">Hva er riktig rekkefølge når du bruker StandardScaler og vil evaluere modellen ærlig?</p>
+  <ul>
+    <li>Fit scaleren på hele datasettet, splitt i trening og test, tren</li>
+    <li>Splitt, fit én scaler på trening og en annen på test, tren</li>
+    <li data-correct>Splitt, fit scaleren på trening, transformer både trening og test med den, tren</li>
+    <li>Splitt, fit scaleren på test, transformer trening med den, tren</li>
+  </ul>
+  <div class="explain">Splitt først, så testdataene forblir «usette». Scaleren lærer bare fra treningsdata, og den samme transformasjonen brukes på begge. Å fitte på alt gir lekkasje. To separate scalere gir inkonsistente verdier. Å fitte på testdata er lekkasje i sin reneste form.</div>
+</div>
+
+<div class="calc" data-id="01-calc-leak" data-answer="1.25" data-tol="0.001">
+  <p class="q">En MinMaxScaler er fittet på treningsdata der alder gikk fra 10 til 50. I testsettet dukker det opp en passasjer på 60 år. Hva blir den skalerte verdien?</p>
+  <div class="solution">$x' = \dfrac{60 - 10}{50 - 10} = \dfrac{50}{40} = 1.25$. Det er <strong>helt i orden</strong> at verdien havner utenfor $[0,1]$. Garantien om $[0,1]$ gjelder bare dataene scaleren ble fittet på. Å «fikse» dette ved å fitte på nytt på testdataene ville vært feil.</div>
+</div>
+
+<div class="quiz" data-id="01-preproc-necessary">
+  <p class="q">Et datasett har features Fylke (kategorisk, 11 verdier), Månedlig_bruk (kontinuerlig) og Premium (yes/no), og target Sagt_opp (0/1). Du skal trene logistisk regresjon. Hvilket steg er både korrekt og nødvendig?</p>
+  <ul>
+    <li>Fjerne Fylke og Premium, fordi logistisk regresjon bare støtter numeriske features</li>
+    <li>Standardisere Sagt_opp slik at den får gjennomsnitt 0</li>
+    <li data-correct>Gjøre om Fylke og Premium til numeriske verdier (enkode dem) før trening</li>
+    <li>Fitte skaleringen av Månedlig_bruk på hele datasettet for å få konsistent skala</li>
+  </ul>
+  <div class="explain">Modellen regner med tall, så kategoriske features må enkodes, ikke kastes (de kan inneholde mye informasjon). Target skal ikke skaleres: logistisk regresjon trenger nettopp 0/1 i tapsfunksjonen. Å fitte skaleringen på hele datasettet er datalekkasje. (Dette ligner eksamen 2025 del 1.1.)</div>
+</div>
+
+<div class="reflect" data-id="01-r-leak">
+  <p class="q">Forklar med egne ord hvorfor det å fitte scaleren på hele datasettet gir et for optimistisk testresultat, selv om lekkasjen «bare» gjelder to tall (min og maks).</p>
+  <div class="answer">Testresultatet skal estimere hvordan modellen gjør det på data den aldri har sett. Når min og maks (eller $\mu$ og $\sigma$) regnes ut med testdataene inkludert, er treningen tilpasset en verden der testdataene allerede er kjent: testpunktene havner garantert innenfor $[0,1]$, og den skalerte representasjonen er formet av dem. I virkeligheten får vi nye data som kan ligge utenfor det treningsdataene dekket. Effekten kan være liten for en scaler, men prinsippet er det samme som for større lekkasjer (f.eks. å velge features eller hyperparametre basert på testdata), der effekten kan bli stor. Testsettet er bare et ærlig mål hvis det ikke har påvirket <em>noen</em> beslutning.</div>
+</div>
+
+<div class="callout warn"><span class="label">Vanlig feil</span><p>Å skalere <strong>target</strong> i en klassifiseringsoppgave. Target $y \in \{0, 1\}$ skal være 0 og 1, fordi tapsfunksjonen for logistisk regresjon bruker nettopp de verdiene. Skalering gjelder features.</p></div>
+
+<!-- ====================================================================== -->
+<h2 id="plotting"><span class="sec">1.6</span>Se på dataene: bar-plott og histogram</h2>
+
+<p>Etter (og ofte mens) vi preprosesserer, bør vi plotte dataene for å se hvordan features fordeler seg og henger sammen med target. Plotting kan gi idéer til hvordan dataene bør behandles, så plotting og preprosessering skjer gjerne om hverandre.</p>
+
+<figure class="fig">
+  <div class="fig-grid">
+    <img src="../assets/fig/notater/s06_1.png" alt="Bar-plott av andel overlevende per Pclass">
+    <img src="../assets/fig/notater/s06_2.png" alt="Bar-plott av andel overlevende per kjønn">
+    <img src="../assets/fig/notater/s06_3.png" alt="Histogram over kjønn, fargekodet etter Survived">
+    <img src="../assets/fig/notater/s06_4.png" alt="Histogram over alder, fargekodet etter Survived">
+  </div>
+  <figcaption><b>Figur 1.2</b> Fra notatene: bar-plott (øverst) og histogrammer (nederst) for Titanic. Features er MinMax-skalert, så Pclass 0 = første klasse, 0.5 = andre og 1 = tredje, og Sex 0 = female, 1 = male. (Notatene skriver «Pclass=0» om førsteklassepassasjerer av denne grunn.)</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Bar-plott</strong> viser <em>gjennomsnittet per kategori</em>. Her: gjennomsnittet av Survived (altså andelen som overlevde) for hver klasse og hvert kjønn. Streken på toppen er usikkerheten. Brukes for å sammenligne en størrelse på tvers av kategorier.</li>
+  <li><strong>Histogram</strong> viser <em>fordelingen</em> av én variabel: hvor mange datapunkter som havner i hvert intervall. Intervallene kalles <strong>bins</strong>. Her vises én fordeling for Survived=0 og én for Survived=1 oppå hverandre.</li>
+</ul>
+
+<p>Bare fra disse plottene ser vi at førsteklassepassasjerer, kvinner og barn oftere overlevde. «Kvinner og barn først» stemmer med det vi vet fra historien (og fra filmen).</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Bar = «hvem gjør det best?»</strong> (snitt per gruppe). <strong>Histogram = «hvordan ser formen ut?»</strong> (fordelingen av én variabel).</p></div>
+
+<h3>Hvor mange bins?</h3>
+<p>Det finnes ingen allmenngyldig regel, fordi det avhenger av den underliggende fordelingen. Men det finnes to tydelige symptomer:</p>
+<ul>
+  <li><strong>Hakkete histogram</strong>: for mange bins. Hver bin inneholder for få punkter, og vi ser støy i stedet for form.</li>
+  <li><strong>Formløst histogram</strong>: for få bins. Hver bin inneholder for mange punkter, og detaljer (som en topp for barn) forsvinner.</li>
+</ul>
+
+<div class="widget" id="w-hist">
+  <h4>Utforsk: antall bins i et histogram</h4>
+  <canvas id="hist" width="640" height="300"></canvas>
+  <div class="controls">
+    <label>Antall bins <input type="range" id="h-bins" min="2" max="120" step="1" value="20"><output id="h-binso">20</output></label>
+    <span class="readout" id="h-info"></span>
+  </div>
+  <p class="small muted" style="margin:10px 0 0">700 simulerte aldre: mange voksne rundt 30 år og en mindre gruppe barn. Med 2–4 bins forsvinner barnetoppen helt. Rundt 15–30 bins ser du begge toppene. Med over 80 bins blir det hakkete, og mange bins har nesten ingen punkter.</p>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const r = CK.rng(7), ages = [];
+  for (let i = 0; i < 700; i++) {
+    let a = r() < 0.12 ? r.normal(5, 3.5) : r.normal(30, 11);
+    ages.push(Math.min(79.5, Math.max(0.4, a)));
+  }
+  const P = CK.plot(document.getElementById("hist"), { xmin: 0, xmax: 80, ymin: 0, ymax: 10 });
+  const sl = document.getElementById("h-bins");
+  function draw() {
+    const k = +sl.value; document.getElementById("h-binso").textContent = k;
+    const w = 80 / k, cnt = new Array(k).fill(0);
+    ages.forEach(a => cnt[Math.min(k - 1, Math.floor(a / w))]++);
+    const mx = Math.max(...cnt);
+    P.setView({ ymax: mx * 1.12 });
+    P.clear().grid().axes({ xlabel: "alder", ylabel: "antall", frame: true });
+    cnt.forEach((c, i) => P.rect(i * w, 0, (i + 1) * w, c, { fill: P.col("c1"), alpha: 0.75, color: P.col("surface"), width: 1 }));
+    const empty = cnt.filter(c => c <= 2).length;
+    document.getElementById("h-info").textContent = "bin-bredde " + w.toFixed(1) + " år · " + empty + " bins med ≤ 2 punkter";
+  }
+  sl.oninput = draw;
+  CK.live(draw);
+});
+</script>
+
+<div class="quiz" data-id="01-bins">
+  <p class="q">Histogrammet ditt over husstandsinntekt ser veldig hakkete ut, med mange tomme eller nesten tomme stolper mellom høye stolper. Hva er den mest sannsynlige årsaken?</p>
+  <ul>
+    <li>For få bins, så hver bin inneholder for mange datapunkter</li>
+    <li>Dataene må skaleres før de kan plottes</li>
+    <li data-correct>For mange bins, så hver bin inneholder for få datapunkter</li>
+    <li>Du burde brukt bar-plott, fordi inntekt er kategorisk</li>
+  </ul>
+  <div class="explain">Hakkete = for mange bins med for få punkter i hver, så tilfeldig variasjon dominerer. For få bins gir motsatt problem: et glatt, formløst histogram. Skalering endrer bare tallene på x-aksen, ikke formen. Inntekt er kontinuerlig, så histogram er riktig plottype.</div>
+</div>
+
+<div class="quiz" data-id="01-bar-vs-hist">
+  <p class="q">Du vil sammenligne <em>andelen</em> som overlevde i hver av de tre billettklassene. Hvilket plott passer best?</p>
+  <ul>
+    <li data-correct>Bar-plott med Pclass på x-aksen og gjennomsnittet av Survived på y-aksen</li>
+    <li>Histogram av Pclass med mange bins</li>
+    <li>Histogram av Survived</li>
+    <li>Et histogram av alder for hver klasse</li>
+  </ul>
+  <div class="explain">Gjennomsnittet av en 0/1-variabel er andelen 1-ere, og et bar-plott viser nettopp gjennomsnitt per kategori. Et histogram av Pclass viser bare hvor mange som reiste i hver klasse, ikke hvor mange som overlevde. Et histogram av Survived viser totalt antall overlevende, uten å skille på klasse. Aldershistogrammer svarer på et annet spørsmål.</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="modeller"><span class="sec">1.7</span>Modeller: parametre, hyperparametre og antakelser</h2>
+
+<p>Nå har vi rene data. Neste steg er å velge og trene en modell. Før vi gjør det i <a href="02-logistisk.html">kapittel 2</a>, trenger vi noen begreper som går igjen gjennom hele kurset.</p>
+
+<h3 id="hyper">Parametre vs. hyperparametre</h3>
+<div class="two-col">
+  <div class="callout def" style="margin:0"><span class="label">Modellparametre</span><p>Verdier modellen <strong>lærer fra dataene</strong> under trening, og som <strong>definerer modellen</strong>. Eksempel: vektene $w$ og bias $b$ i logistisk regresjon, samlet i $\theta = (w, b)$. Splittene i et beslutningstre.</p></div>
+  <div class="callout def" style="margin:0"><span class="label">Hyperparametre</span><p>Verdier <strong>vi velger</strong> før trening, og som <strong>styrer læringsprosessen</strong>, men ikke er en del av den ferdige modellen. Eksempel: læringsrate $\eta$, antall epoker, maks dybde i et tre, $k$ i k-means.</p></div>
+</div>
+<p style="margin-top:16px">Den ferdige modellen er bare $w$ og $b$. Ingen kan se på $w$ og $b$ og si hvilken læringsrate du brukte. Læringsraten påvirket <em>veien</em> dit, ikke hvordan modellen ser ut.</p>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Parametre er det kaken består av, hyperparametre er ovnstemperaturen.</strong> Ovnen er ikke en del av kaka, men den avgjør hvordan kaka blir. Spør: «Er dette en del av den ferdige modellen?» Ja = parameter. Nei, men det påvirker treningen = hyperparameter.</p></div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2024 oppg. 12</strong>: «Hvilken type parameter er læringsraten?» Svaret er <em>hyperparameter</em>. Distraktorene var «testparameter», «modellparameter» og «treningsparameter».</p></div>
+
+<div class="quiz" data-multi data-id="01-hyper">
+  <p class="q">Hvilke av disse er <strong>hyperparametre</strong>?</p>
+  <ul>
+    <li data-correct>Læringsraten $\eta$ i gradient descent</li>
+    <li>Vekten $w_2$ for feature Sex i logistisk regresjon</li>
+    <li data-correct>Antall epoker</li>
+    <li data-correct>Maksimal dybde i et beslutningstre</li>
+    <li>Bias $b$ i logistisk regresjon</li>
+  </ul>
+  <div class="explain">$\eta$, antall epoker og maks dybde velges av oss og styrer treningen. $w_2$ og $b$ læres fra dataene og utgjør den ferdige modellen, så de er modellparametre. Legg merke til at «bias» her er en modellparameter (konstantleddet), ikke det samme som «bias» i bias–varians eller induktiv bias.</div>
+</div>
+
+<h3 id="induktiv">Induktiv bias</h3>
+<p>Tenk deg at du har sett fem punkter. Hvordan skal du gjette verdien mellom dem? Det finnes uendelig mange kurver som går gjennom alle fem. For å velge én <em>må</em> du anta noe: at sammenhengen er en rett linje, at den er glatt, at like punkter har like svar. Disse antakelsene kalles <strong>induktiv bias</strong>.</p>
+
+<div class="callout def"><span class="label">Definisjon</span><p><strong>Induktiv bias</strong> er antakelsene en modell gjør for å generalisere fra treningsdata til usette data.</p></div>
+
+<table>
+  <thead><tr><th>Modell</th><th>Induktiv bias (antakelse)</th></tr></thead>
+  <tbody>
+    <tr><td>Lineær/logistisk regresjon</td><td>Sammenhengen er lineær i features; klassene kan skilles av en rett linje (hyperplan). Ingen vekselvirkninger mellom features.</td></tr>
+    <tr><td>Beslutningstre</td><td>Dataene kan deles opp med akseparallelle terskler («alder &lt; 10»).</td></tr>
+    <tr><td>k-nærmeste naboer, k-means</td><td>Punkter som ligger nær hverandre ligner hverandre (avstand gir mening).</td></tr>
+    <tr><td>Naiv Bayes</td><td>Features er betinget uavhengige gitt klassen.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout why"><span class="label">Hvorfor er det viktig?</span><p>Uten antakelser kan ingen modell si noe om data den ikke har sett, bare pugge det den har sett. Induktiv bias er altså ikke en feil, men en forutsetning for å lære. Men <strong>feil</strong> antakelse gir en modell som ikke kan passe dataene uansett hvor lenge vi trener: en rett linje kan aldri skille klasser som ligger i et XOR-mønster.</p></div>
+
+<div class="callout proj"><span class="label">Prosjekt 1</span><p>❓ «What is the model's inductive bias? Why is it important?» (problem 2, logistisk regresjon). Svaret: logistisk regresjon antar en <em>lineær beslutningsgrense</em>. Dataene i problem 2 er ikke lineært separerbare, så modellen på rå features gjør det omtrent som tilfeldig gjetting. Løsningen er feature engineering som lar en lineær modell uttrykke en krum grense. Se <a href="02-logistisk.html#grense">kapittel 2</a>.</p></div>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2024 oppg. 3</strong>: «Hva er induktivt bias?» Riktig: «Antakelsene en modell gjør for å generalisere fra treningsdata til usette data.»</p></div>
+
+<div class="quiz" data-id="01-inductive">
+  <p class="q">Hva er induktiv bias?</p>
+  <ul>
+    <li>En systematisk skjevhet i treningsdataene, f.eks. at én gruppe er underrepresentert</li>
+    <li>Fellesbetegnelsen for overtilpasning og undertilpasning</li>
+    <li>Konstantleddet $b$ i en lineær modell</li>
+    <li data-correct>Antakelsene en modell gjør for å kunne generalisere fra treningsdata til usette data</li>
+  </ul>
+  <div class="explain">Induktiv bias handler om modellens antakelser, ikke om dataene. Skjeve data er et dataproblem (utvalgsskjevhet), og over-/undertilpasning er konsekvenser (se bias–varians i <a href="07-generalisering.html">kapittel 7</a>). Konstantleddet $b$ kalles også «bias», men er bare en modellparameter. Ordet «bias» betyr tre ulike ting i dette faget, så les nøye!</div>
+</div>
+
+<div class="callout warn"><span class="label">Tre ulike «bias»</span><p><strong>(1)</strong> Bias $b$ = konstantleddet i $z = w\mathbf{x} + b$ (en modellparameter). <strong>(2)</strong> Induktiv bias = modellens antakelser. <strong>(3)</strong> Bias i bias–varians = systematisk feil fordi modellen er for enkel (<a href="07-generalisering.html">kapittel 7</a>). (2) og (3) henger sammen: en sterk og feil antakelse gir høy bias i betydning (3).</p></div>
+
+<div class="reflect" data-id="01-r-bias">
+  <p class="q">Hvorfor kan ingen modell lære uten induktiv bias? Tenk på fem treningspunkter og et nytt punkt midt mellom to av dem.</p>
+  <div class="answer">Treningsdataene sier bare noe om punktene vi har sett. Mellom og utenfor dem er alle kurver som går gjennom de fem punktene like «riktige» ut fra dataene alene. Skal modellen gi ett svar for det nye punktet, må den foretrekke noen kurver fremfor andre: rette linjer, glatte kurver, eller «lik naboen». Den preferansen er induktiv bias. En modell uten bias kunne bare slått opp svar på punkter den allerede hadde sett, altså pugget, og det er ikke læring i Mitchells forstand fordi ytelsen på nye data ikke ville blitt bedre.</div>
+</div>
+
+<h3 id="parametrisk">Parametrisk vs. ikke-parametrisk modellering</h3>
+<ul>
+  <li><strong>Parametrisk</strong>: <em>formen</em> på $f$ er gitt på forhånd, og treningen går ut på å tilpasse parametrene. Lineær og logistisk regresjon: formen er $\sigma(w\mathbf{x}+b)$, og vi finner $w$ og $b$. Antall parametre er fast, uansett hvor mye data vi har.</li>
+  <li><strong>Ikke-parametrisk</strong>: formen på $f$ er <em>ikke</em> gitt, men bygges fra dataene. Beslutningstrær: treningen går ut på å bygge treet og velge splittkriterier som deler opp datarommet. Treet kan vokse seg større jo mer data vi har.</li>
+</ul>
+<p>Notatene peker også på en annen forskjell: i en regresjonsmodell multipliseres dataene med parametre og legges sammen. I et beslutningstre flyter dataene gjennom modellen uten å transformeres: hver node splitter dataene, men endrer dem ikke.</p>
+<div class="callout warn"><span class="label">Vanlig misforståelse</span><p>«Ikke-parametrisk» betyr <strong>ikke</strong> «har ingen parametre». Et tre har masse tall (terskler, hvilke features det splitter på). Poenget er at <em>antall</em> og <em>struktur</em> ikke er låst på forhånd, men bestemmes av dataene. Noen ikke-parametriske metoder, som t-SNE og DBSCAN (<a href="12-dimensjonsreduksjon.html">kapittel 12</a>, <a href="11-clustering.html">11</a>), lager ikke engang en modell som kan brukes på nye datapunkter.</p></div>
+
+<div class="quiz" data-id="01-parametric">
+  <p class="q">Hvilket utsagn om parametrisk og ikke-parametrisk modellering er riktig?</p>
+  <ul>
+    <li>Et beslutningstre er parametrisk, fordi det har terskelverdier i hver node</li>
+    <li data-correct>Logistisk regresjon er parametrisk: funksjonsformen er gitt, og treningen tilpasser $w$ og $b$</li>
+    <li>Ikke-parametriske modeller har ingen tall som læres fra data</li>
+    <li>Parametriske modeller får flere parametre jo mer data de trenes på</li>
+  </ul>
+  <div class="explain">I logistisk regresjon er formen $\sigma(w\mathbf{x}+b)$ bestemt på forhånd, og antall parametre er fast (én vekt per feature pluss $b$). Et tre har terskler, men formen (hvor mange noder, hvilke splitt) bygges fra dataene, så det er ikke-parametrisk. Ikke-parametriske modeller lærer mange tall, men antallet er ikke låst. Det er ikke-parametriske modeller som kan vokse med datamengden.</div>
+</div>
+
+<h3 id="inferens">Trening vs. inferens, og fit/predict</h3>
+<ul>
+  <li><strong>Trening</strong> (training, fitting): parametrene tilpasses treningsdataene. Kan være tregt og regnekrevende, og gjøres én gang (eller av og til).</li>
+  <li><strong>Inferens</strong> (inference): den ferdige modellen, med låste parametre, brukes til å gi prediksjoner på nye data. Skal ofte være raskt, for eksempel når en app svarer en bruker.</li>
+</ul>
+<p>I kode heter dette nesten alltid <code>fit</code> og <code>predict</code>. Navnene er så standard i biblioteker som scikit-learn at notatene anbefaler å bruke dem også når du skriver modellen selv fra bunnen:</p>
+<pre><code>model = LogisticRegression(learning_rate=<span class="s">0.01</span>, epochs=<span class="s">30</span>)   <span class="c"># hyperparametre velges her</span>
+model.fit(X_train, y_train)                                  <span class="c"># trening: lærer w og b</span>
+predictions = model.predict(X_test)                          <span class="c"># inferens: bruker w og b</span></code></pre>
+<p>Samme mønster gjelder scalere: <code>fit</code> lærer, <code>transform</code> bruker. Ser du <code>fit</code>, skal du spørre: «Hvilke data lærer vi fra her, og er det lov?»</p>
+
+<div class="quiz" data-id="01-inference">
+  <p class="q">Et sykehus har en ferdig trent modell som vurderer røntgenbilder. Et nytt bilde kommer inn og modellen gir en vurdering. Hva kalles dette steget?</p>
+  <ul>
+    <li data-correct>Inferens: modellen bruker parametrene den allerede har til å predikere</li>
+    <li>Trening, fordi modellen får nye data</li>
+    <li>Validering, fordi vi sjekker et nytt bilde</li>
+    <li>Fitting, fordi bildet tilpasses modellen</li>
+  </ul>
+  <div class="explain">Parametrene endres ikke når modellen vurderer et nytt bilde, så dette er inferens (<code>predict</code>). Trening og fitting betyr at parametrene oppdateres fra data. Validering er å måle ytelse på et eget datasett med kjent fasit for å velge hyperparametre; her finnes ingen fasit.</div>
+</div>
+
+<!-- ====================================================================== -->
+<h2 id="arbeidsflyt"><span class="sec">1.8</span>Generalisering og arbeidsflyten</h2>
+
+<p>Et sentralt mål i maskinlæring er å lage modeller som <strong>generaliserer</strong>, altså gjør det godt på nye data. Å gjøre det bra på treningsdataene er lett: en modell kan bare pugge dem. Derfor deler vi alltid datasettet i minst to deler:</p>
+<ul>
+  <li><strong>Treningsdata</strong> (den største delen, ofte 70–80 %): brukes til å tilpasse parametrene.</li>
+  <li><strong>Testdata</strong> (den minste delen): <em>røres ikke</em> før modellen er ferdig, og brukes én gang til å evaluere den før den tas i bruk.</li>
+</ul>
+<pre><code><span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=<span class="s">0.2</span>, random_state=<span class="s">42</span>)</code></pre>
+<p>I praksis vil vi også prøve ulike hyperparametre. Da trenger vi en tredje del, <strong>valideringsdata</strong>, slik at vi kan sammenligne valg uten å bruke testdataene. Det kommer vi tilbake til i <a href="07-generalisering.html">kapittel 7</a>.</p>
+
+<div class="callout exam"><span class="label">Eksamen</span><p><strong>Eksamen 2025 del 10.3</strong>: hvilken funksjon splitter datasettet i trening og test? <code>sklearn.model_selection.train_test_split(X, y)</code>. Distraktorene var oppdiktede funksjoner som <code>numpy.random.separate</code> og <code>pandas.Series.split_dataset</code>.</p></div>
+
+<figure class="fig">
+<svg viewBox="0 0 680 300" role="img" aria-label="Maskinlæringsarbeidsflyten fra data til inferens">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"/></marker>
+  </defs>
+  <g font-size="13" text-anchor="middle">
+    <!-- rad 1 -->
+    <rect x="8" y="20" width="140" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--border)"/>
+    <text x="78" y="45" font-weight="700">1 · Data</text>
+    <text x="78" y="64" style="fill: var(--muted)" font-size="12">samle, se på, velge</text>
+    <rect x="178" y="20" width="140" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--border)"/>
+    <text x="248" y="45" font-weight="700">2 · Rydding</text>
+    <text x="248" y="64" style="fill: var(--muted)" font-size="12">dropna, fjerne Id/Name</text>
+    <rect x="348" y="20" width="140" height="62" rx="10" style="fill: var(--accent-soft); stroke: var(--c1)"/>
+    <text x="418" y="45" font-weight="700">3 · Split</text>
+    <text x="418" y="64" style="fill: var(--muted)" font-size="12">trening / val. / test</text>
+    <rect x="518" y="20" width="154" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--border)"/>
+    <text x="595" y="40" font-weight="700">4 · Preprosessering</text>
+    <text x="595" y="57" style="fill: var(--muted)" font-size="12">fit på trening,</text>
+    <text x="595" y="72" style="fill: var(--muted)" font-size="12">transform på alle</text>
+    <path d="M150 51 L174 51" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <path d="M320 51 L344 51" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <path d="M490 51 L514 51" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <path d="M595 84 L595 120 L78 120 L78 150" fill="none" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <!-- rad 2 -->
+    <rect x="8" y="154" width="140" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--c3)"/>
+    <text x="78" y="179" font-weight="700">5 · Trening</text>
+    <text x="78" y="198" style="fill: var(--muted)" font-size="12">fit(X_train, y_train)</text>
+    <rect x="178" y="154" width="140" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--c5)"/>
+    <text x="248" y="179" font-weight="700">6 · Validering</text>
+    <text x="248" y="198" style="fill: var(--muted)" font-size="12">sammenlign valg</text>
+    <rect x="348" y="154" width="140" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--c2)"/>
+    <text x="418" y="179" font-weight="700">7 · Test</text>
+    <text x="418" y="198" style="fill: var(--muted)" font-size="12">én gang, til slutt</text>
+    <rect x="518" y="154" width="154" height="62" rx="10" style="fill: var(--surface-2); stroke: var(--c4)"/>
+    <text x="595" y="179" font-weight="700">8 · Inferens</text>
+    <text x="595" y="198" style="fill: var(--muted)" font-size="12">predict(nye data)</text>
+    <path d="M150 185 L174 185" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <path d="M320 185 L344 185" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <path d="M490 185 L514 185" stroke-width="1.6" marker-end="url(#ar2)" style="stroke: var(--muted)"/>
+    <!-- løkke -->
+    <path d="M248 218 C248 262, 78 262, 78 220" fill="none" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar2)" style="stroke: var(--c5)"/>
+    <text x="163" y="276" font-size="12" style="fill: var(--text-soft)">juster hyperparametre, tren på nytt</text>
+    <text x="595" y="240" font-size="12" style="fill: var(--muted)">samme scaler, samme</text>
+    <text x="595" y="256" font-size="12" style="fill: var(--muted)">enkoding som i trening</text>
+  </g>
+</svg>
+<figcaption><b>Figur 1.3</b> Arbeidsflyten. Legg merke til at splitten skjer <em>før</em> alt som lærer statistikk fra dataene (skalering, imputering). Ren rydding som ikke lærer noe fra dataene (fjerne Id, dropna) kan gjøres før. Løkken mellom trening og validering kan gå mange ganger; testen kjøres én gang.</figcaption>
+</figure>
+
+<div class="callout cons"><span class="label">Hva fører det til?</span><p>Hvis du kikker på testresultatet, justerer modellen, og kikker igjen, har du i praksis trent på testdataene. Testresultatet slutter å være et ærlig estimat av ytelsen på nye data. Det er derfor valideringsdata finnes: de tar støyten for all prøving og feiling, så testsettet forblir urørt.</p></div>
+
+<div class="callout hook"><span class="label">Knagg</span><p><strong>Trening = øvingsoppgaver. Validering = prøveeksamen (kan tas mange ganger). Test = den ekte eksamenen (én gang). Inferens = jobben etterpå.</strong></p></div>
+
+<div class="quiz" data-id="01-test-use">
+  <p class="q">Du prøver 20 ulike læringsrater og velger den som gir best resultat på <em>testsettet</em>. Hva er problemet?</p>
+  <ul>
+    <li>Ingen problem; det er dette testsettet er til for</li>
+    <li data-correct>Testsettet har påvirket et modellvalg, så testresultatet blir et for optimistisk estimat av ytelsen på nye data</li>
+    <li>Læringsraten er en modellparameter og skal ikke velges</li>
+    <li>Det er for mange læringsrater; man bør prøve maks 5</li>
+  </ul>
+  <div class="explain">Når du velger hyperparametre basert på testsettet, har informasjon fra testdataene lekket inn i modellvalget. Det beste av 20 forsøk på det samme settet vil se bedre ut enn det egentlig er. Løsningen er et eget valideringssett (eller kryssvalidering, <a href="07-generalisering.html">kapittel 7</a>) for valg, og testsettet én gang til slutt. Læringsraten er en hyperparameter og <em>skal</em> velges, men på valideringsdata.</div>
+</div>
+
+<div class="calc" data-id="01-calc-split" data-answer="160" data-tol="0">
+  <p class="q">Du har 1000 datapunkter. Du setter av 20 % til test, og deretter 20 % av det som er igjen til validering. Hvor mange datapunkter er i valideringssettet?</p>
+  <div class="solution">Test: $0.2 \cdot 1000 = 200$. Igjen: $800$. Validering: $0.2 \cdot 800 = 160$. Trening: $640$.</div>
+</div>
+
+<div class="reflect" data-id="01-r-dropna">
+  <p class="q">Du skal fylle inn manglende alder med gjennomsnittsalderen (imputering) i stedet for å bruke dropna. Hvor i arbeidsflyten (figur 1.3) skal gjennomsnittet regnes ut, og hvorfor?</p>
+  <div class="answer">Etter splitten, og kun på treningsdataene. Gjennomsnittet er en statistikk som læres fra data, akkurat som min/maks i MinMaxScaler. Regner du det ut på hele datasettet, lekker informasjon fra testdataene inn. Det samme gjennomsnittet (fra treningsdataene) brukes så til å fylle inn hull i validerings-, test- og nye data. Tommelfingerregel: <em>alt som har en <code>fit</code>, skal fittes på treningsdata</em>.</div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="summary">
+  <h3>Oppsummering</h3>
+  <ul>
+    <li><strong>Mitchell</strong>: et program lærer fra erfaring <em>E</em> på oppgave <em>T</em> målt med <em>P</em>, hvis P blir bedre med E. Samuel: læring uten eksplisitt programmering.</li>
+    <li><strong>Rader = datapunkter, kolonner = features</strong>, og kolonnen med fasit er <strong>target</strong> $y$. Med target kan vi gjøre veiledet læring.</li>
+    <li>Variabler er <strong>kategoriske</strong> (nominale, ordinale, binære) eller <strong>kvantitative</strong> (diskrete, kontinuerlige). Tall betyr ikke automatisk kvantitativ (Pclass, Id).</li>
+    <li>Notasjon: $x^{(i)}_j$ = datapunkt $i$, feature $j$. Modellen $f(\mathbf{x}) = y_{pred}$ estimerer $p(y \mid \mathbf{x})$.</li>
+    <li><strong>Veiledet</strong> (klassifisering = kategori, regresjon = tall), <strong>uveiledet</strong> (struktur uten fasit), <strong>forsterkning</strong> (belønning).</li>
+    <li>Preprosessering: <strong>dropna</strong> (mister data), <strong>LabelEncoder</strong> (gir kunstig rekkefølge for nominale kategorier; <strong>one-hot</strong> unngår det), <strong>MinMaxScaler</strong> ($[0,1]$, følsom for outliers) og <strong>StandardScaler</strong> (snitt 0, std 1).</li>
+    <li><strong>Splitt først, fit på trening, transform på test.</strong> Ellers får du datalekkasje og et for optimistisk testresultat.</li>
+    <li><strong>Bar-plott</strong> = snitt per kategori; <strong>histogram</strong> = fordeling. Hakkete histogram = for mange bins.</li>
+    <li><strong>Parametre</strong> læres og utgjør modellen; <strong>hyperparametre</strong> (læringsrate, epoker) velges og styrer treningen.</li>
+    <li><strong>Induktiv bias</strong> = antakelsene som lar modellen generalisere. Logistisk regresjon antar lineær beslutningsgrense.</li>
+    <li><strong>Parametrisk</strong> (formen gitt, tilpass parametre) vs. <strong>ikke-parametrisk</strong> (formen bygges fra data, f.eks. trær).</li>
+    <li>Arbeidsflyt: data → rydding → split → preprosessering (fit på trening) → trening → validering → test (én gang) → inferens.</li>
+  </ul>
+</div>
+
+<h3>Flashcards</h3>
+<div class="cards">
+  <div class="card"><div class="front">Mitchells definisjon (T, E, P)</div><div class="back">Et program lærer fra erfaring E på oppgave T, målt med P, hvis ytelsen på T målt med P blir bedre med E.</div></div>
+  <div class="card"><div class="front">Feature vs. target</div><div class="back">Features = kolonnene vi bruker som input $\mathbf{x}$. Target = kolonnen med svaret $y$ vi vil estimere.</div></div>
+  <div class="card"><div class="front">$x^{(i)}_j$</div><div class="back">Verdien av feature $j$ for datapunkt $i$. Oppe = hvem (rad), nede = hva (kolonne).</div></div>
+  <div class="card"><div class="front">Kategorisk vs. kvantitativ</div><div class="back">Kategorisk: endelig antall kategorier (binær, ordinal, nominal). Kvantitativ: tall man kan regne med (diskret eller kontinuerlig).</div></div>
+  <div class="card"><div class="front">Klassifisering vs. regresjon</div><div class="back">Klassifisering: target er en kategori («hvilken?»). Regresjon: target er et kontinuerlig tall («hvor mye?»).</div></div>
+  <div class="card"><div class="front">Label encoding vs. one-hot</div><div class="back">Label: hver kategori → ett heltall (kunstig rekkefølge). One-hot: én 0/1-kolonne per kategori (ingen rekkefølge, flere kolonner).</div></div>
+  <div class="card"><div class="front">MinMaxScaler</div><div class="back">$x' = (x - x_{min}) / (x_{max} - x_{min})$. Gir $[0,1]$ på treningsdata. Følsom for outliers.</div></div>
+  <div class="card"><div class="front">StandardScaler</div><div class="back">$x' = (x - \mu)/\sigma$. Gjennomsnitt 0, standardavvik 1. Ingen fast grense.</div></div>
+  <div class="card"><div class="front">Datalekkasje</div><div class="back">Informasjon fra test- (eller validerings-)data påvirker treningen, f.eks. scaler fittet på alt. Gir for optimistisk testresultat.</div></div>
+  <div class="card"><div class="front">Hyperparameter</div><div class="back">Velges før trening og styrer læringsprosessen, men er ikke en del av modellen. F.eks. læringsrate, epoker.</div></div>
+  <div class="card"><div class="front">Induktiv bias</div><div class="back">Antakelsene en modell gjør for å generalisere fra treningsdata til usette data.</div></div>
+  <div class="card"><div class="front">Parametrisk modell</div><div class="back">Funksjonsformen er gitt på forhånd, treningen tilpasser et fast antall parametre (lineær/logistisk regresjon).</div></div>
+  <div class="card"><div class="front">Trening vs. inferens</div><div class="back">Trening (fit): parametrene tilpasses data. Inferens (predict): ferdig modell brukes på nye data.</div></div>
+  <div class="card"><div class="front">Bar-plott vs. histogram</div><div class="back">Bar: snitt per kategori. Histogram: fordelingen av én variabel i bins. Hakkete = for mange bins.</div></div>
+</div>
+
+<div class="score-panel"></div>
+
+</main>
+</body>
+</html>
