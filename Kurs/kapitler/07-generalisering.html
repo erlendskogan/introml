@@ -388,7 +388,7 @@ n_epochs = 100
 
 <p>Vi bryr oss om feilen på et <strong>nytt</strong> punkt, i forventning over trekningene av treningsdata. Det viser seg at uansett hvilken modelltype $f$ vi velger, kan den deles opp slik:</p>
 <div class="eq">
-  <p class="eq-note">Bias–varians-dekomposisjonen (likning 63 / 88 i notatene)</p>
+  <p class="eq-note">Bias–varians-dekomposisjonen (likning 62 / 87 i notatene)</p>
   $$\mathbb E_D\Big[\big(y-f(x;D)\big)^2\Big]=\Big(\text{Bias}_D\big[f(x;D)\big]\Big)^2+\text{Var}_D\big[f(x;D)\big]+\sigma^2$$
 </div>
 
@@ -475,7 +475,7 @@ $$\mathbb E\big[(F-f)^2\big]=\mathbb E\Big[\big((F-\bar f)+(\bar f-f)\big)^2\Big
 <p><strong>Steg 5: Første ledd er Bias².</strong> $F-\bar f$ er en konstant, og $\mathbb E[c]=c$:</p>
 $$\mathbb E\big[(F-\bar f)^2\big]=(F-\bar f)^2=(\bar f-F)^2=\text{Bias}^2 .$$
 
-<p><strong>Steg 6: Andre ledd er variansen,</strong> rett fra definisjonen (likning 66): $\mathbb E\big[(\bar f-f)^2\big]=\text{Var}[f]$.</p>
+<p><strong>Steg 6: Andre ledd er variansen,</strong> rett fra definisjonen (likning 65): $\mathbb E\big[(\bar f-f)^2\big]=\text{Var}[f]$.</p>
 
 <p><strong>Steg 7: Tredje ledd er null.</strong> $(F-\bar f)$ er konstant og kan tas ut ($\mathbb E[cX]=c\,\mathbb E[X]$):</p>
 $$2(F-\bar f)\,\mathbb E\big[\bar f-f\big]=2(F-\bar f)\big(\bar f-\mathbb E[f]\big)=2(F-\bar f)(\bar f-\bar f)=0 .$$
@@ -483,7 +483,7 @@ $$2(F-\bar f)\,\mathbb E\big[\bar f-f\big]=2(F-\bar f)\big(\bar f-\mathbb E[f]\b
 
 <p><strong>Steg 8: Sett sammen.</strong></p>
 $$\boxed{\mathbb E\big[(y-f(x;D))^2\big]=\underbrace{\big(\mathbb E[f]-F\big)^2}_{\text{Bias}^2}+\underbrace{\mathbb E\big[(\mathbb E[f]-f)^2\big]}_{\text{Var}}+\underbrace{\sigma^2}_{\text{støy}}}$$
-<p>(Notatene gjør steg 5 og 7 ved å gange ut parentesene helt, likning 78–86. Det blir samme resultat.)</p>
+<p>(Notatene gjør steg 5 og 7 ved å gange ut parentesene helt, likning 77–85. Det blir samme resultat.)</p>
 </div></details>
 
 <p><strong>Tolkning:</strong> Feilen en læringsalgoritme ikke klarer å minimere bort, har tre kilder:</p>

@@ -343,3 +343,7 @@ details.more > summary .tag { font-size: 12px; font-weight: 600; color: var(--mu
   .topbar, .drawer, .scrim, .pager { display: none; }
   .quiz .explain, .reflect .answer, .calc .solution { display: block; }
 }
+
+/* ---------- innebygd i alt.html ---------- */
+html.embedded { scroll-behavior: auto; scroll-padding-top: 0; }
+html.embedded main { padding-bottom: 24px; }

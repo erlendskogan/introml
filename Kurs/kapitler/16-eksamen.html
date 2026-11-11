@@ -140,7 +140,7 @@
 <main>
 
 <header class="chapter-head">
-  <div class="kicker">Kapittel 16 · Del V · Eksamen</div>
+  <div class="kicker">Kapittel 16 · Del VI · Eksamen</div>
   <h1>Eksamenstrening</h1>
   <p class="lead">Begge de tidligere eksamenene som interaktive prøver med forklaring på hvert eneste alternativ, en helt ny prøveeksamen for 2026, og en strategi for poengreglene som faktisk lønner seg.</p>
 </header>
@@ -256,7 +256,7 @@ $$E = \tfrac14\cdot 2.5 \;-\; \tfrac34\cdot 0.83 \;=\; 0.625 - 0.6225 \;\approx\
 <ul>
 <li><b>Evaluering og ubalanse</b> (kap. 3) var det største temaet i 2024, med confusion matrix, ROC, precision/recall og resampling. Regn med regneoppgaver her.</li>
 <li><b>Forsterkningslæring</b> (kap. 14) gikk fra 3 delspørsmål i 2024 til 9 i 2025: to hele grupper om Q-learning og DQN (replay buffer, target network) pluss et kodespørsmål.</li>
-<li><b>XAI og etikk</b> (kap. 15) var stort i 2024 (SHAP, LIME, Shapley-regning, AI Act), men fraværende i 2025. Det kan komme tilbake.</li>
+<li><b>XAI og etikk</b> (kap. 15) var stort i 2024 (SHAP, LIME, Shapley-regning, AI Act), men fraværende i 2025. Det kommer trolig tilbake i 2026: Forklarbar KI har fått et eget kapittel i forelesningsnotatene (versjon 10.11.2026) med Shapley-verdier og taxieksempelet, SHAP, LIME og konseptdeteksjon (CAV og TCAV). Regn Shapley-verdier for tre spillere til det sitter, og øv på TCAV-skåren i <a href="18-regneoppgaver.html#r-tcav">kapittel 18</a>.</li>
 <li><b>Preprosessering</b> (skalering fit på trening, transform på test) har kommet <i>hvert år</i>, i flere varianter. Det er gratispoeng.</li>
 <li>2025 hadde én gruppe med <b>kodeforståelse</b> (sklearn, numpy, Python). Kjenn igjen <code>fit</code>, <code>transform</code>, <code>predict</code>, <code>train_test_split</code> og shapes.</li>
 </ul></div>
@@ -1305,7 +1305,7 @@ y_pred = 1 / (1 + np.exp(-z))</code></pre>
 <!-- ======================================================= -->
 <h2 id="proveeksamen-2026"><span class="sec">16.6</span>Prøveeksamen 2026</h2>
 <p>En helt ny eksamen i 2025-formatet: ti grupper à fire spørsmål, én gruppe per hovedtema i pensum. Omtrent en tredjedel er regneoppgaver som kan løses med enkel kalkulator (Gini, entropi, precision/recall, oppdateringer per epoke, parametertelling, bootstrap, k-means, kovarians, Q-oppdatering, Shapley). Fem er kodeforståelse. Ta den i eksamensmodus med nedtelling, og les forklaringene etterpå.</p>
-<div class="callout exam"><span class="label">Om spørsmålene</span><p>Spørsmålene er laget fra forelesningsnotatene 2026, prosjektene og mønsteret i tidligere eksamener. Forsterkningslæring og XAI er tatt med fordi de var på eksamen i 2024 og 2025, selv om de ikke står i notatene ennå (se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>).</p></div>
+<div class="callout exam"><span class="label">Om spørsmålene</span><p>Spørsmålene er laget fra forelesningsnotatene 2026, prosjektene og mønsteret i tidligere eksamener. Forsterkningslæring og SHAP står nå i notatene (kapittel 4 og 5, se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>). AI Act er tatt med fordi det var på eksamen i 2024, selv om det ikke står i notatene ennå.</p></div>
 <div class="exam-app" data-exam="2026"></div>
 
 <template id="exam-2026" data-rules="2025" data-title="Prøveeksamen 2026">
@@ -1903,7 +1903,7 @@ outliers  = distances &gt; threshold</code></pre>
 <li><label><input type="checkbox" data-k="pca"><span>Kovarians med $N-1$, egenverdier som varians og forklart varians $\lambda_1/\sum\lambda$. PCA kan gjenbrukes, t-SNE ikke.</span></label></li>
 <li><label><input type="checkbox" data-k="anom"><span>Anomali: k-means-avstand og persentil, DBSCAN label −1, Isolation Forest (kort sti betyr anomali).</span></label></li>
 <li><label><input type="checkbox" data-k="rl"><span>Q-oppdateringen med tall, rollene til $\alpha$, $\gamma$ og $\varepsilon$, Markov, policy, replay buffer og target network.</span></label></li>
-<li><label><input type="checkbox" data-k="xai"><span>LIME er lokal. For SHAP: summen er prediksjon minus base value, og les beeswarm-plott. Shapley-formelen med vektene 1/3, 1/6, 1/3 for $N = 3$. AI Act-nivåene.</span></label></li>
+<li><label><input type="checkbox" data-k="xai"><span>LIME er lokal (surrogatmodell). For SHAP: summen er prediksjon minus base value, bakgrunnsdatasett og uavhengighetsantakelsen, Tree- vs. KernelExplainer, les force plot og beeswarm. Shapley-formelen med vektene 1/3, 1/6, 1/6, 1/3 for $N = 3$ (taxi: 1, 3, 6). Tolkbarhet vs. forklarbarhet. AI Act-nivåene.</span></label></li>
 <li><label><input type="checkbox" data-k="prakt"><span>Praktisk: godkjent kalkulator, legitimasjon, mat og drikke. Sov. Les hvert spørsmål to ganger. Ikke klikk før du har bestemt deg.</span></label></li>
 </ul>
 

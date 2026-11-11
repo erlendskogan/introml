@@ -35,20 +35,25 @@
 <main>
 
 <header class="chapter-head">
-  <div class="kicker">Kapittel 15 · Forventet pensum</div>
+  <div class="kicker">Kapittel 15 · Del V · Forklarbar KI og etikk</div>
   <h1>Forklarbar KI og etikk</h1>
-  <p class="lead">En modell som er treffsikker, men som ingen forstår, er vanskelig å stole på, feilsøke og regulere. Her lærer du å åpne den svarte boksen med LIME, Shapley-verdier og SHAP, og hvilke etiske prinsipper og regler (AI Act) som gjelder når modellene tar beslutninger om mennesker.</p>
+  <p class="lead">En modell som er treffsikker, men som ingen forstår, er vanskelig å stole på, feilsøke og regulere. Her lærer du å åpne den svarte boksen med SHAP og Shapley-verdier (dytt på boksen), LIME (finn noe du forstår) og konseptdeteksjon (knus boksen), og hvilke etiske prinsipper og regler (AI Act) som gjelder når modellene tar beslutninger om mennesker.</p>
 </header>
 
-<div class="banner"><b>Forventet pensum.</b> Forelesningsnotatene for dette temaet var ikke kommet per 14.10.2026. Kapittelet bygger på eksamen 2024 (oppg. 34–39) og standard lærebokstoff (bl.a. Molnar, <i>Interpretable Machine Learning</i>, og EUs KI-forordning). <b>Sjekk notasjon og vektlegging mot forelesningsnotatene når de kommer.</b></div>
+<div class="banner"><b>Oppdatert mot forelesningsnotatene (versjon 10.11.2026).</b> XAI-delen (15.1–15.7) følger nå hele kapittel 5 i notatene (s. 69–79): symbolsk og subsymbolsk KI, tolkbarhet og forklarbarhet (15.1), de tre tilnærmingene i tabell 10 og begrepene i 5.5 (15.2), LIME som lokal surrogatmodell med likning 122 (15.3), Shapley-verdier og taxieksempelet (15.4), SHAP med bakgrunnsdatasett, explainers og plott (15.5), SHAP for bilder og tekst (15.6) og konseptdeteksjon med data processing inequality, CAV og TCAV (15.7). <b>Fortsatt forventet pensum:</b> etikk, skjevhet og AI Act (15.8–15.10) står ikke i notatene og bygger på eksamen 2024.</div>
 
 <div class="goals">
   <h4>Etter dette kapittelet skal du kunne</h4>
   <ul>
     <li>forklare hvorfor forklarbarhet er viktig, og skille mellom tolkbare modeller og svarte bokser, global og lokal forklaring, og modellagnostiske og modellspesifikke metoder</li>
-    <li>beskrive hvordan LIME lager en lokal forklaring, og hva begrensningene er</li>
-    <li>regne ut Shapley-verdier for tre spillere for hånd og kjenne egenskapene effektivitet, symmetri, dummy og additivitet</li>
-    <li>lese et SHAP-plott (beeswarm/summary): hvilken feature betyr mest, og i hvilken retning den trekker</li>
+    <li>forklare forskjellen på symbolsk og subsymbolsk KI, på transparent og tolkbar, og på tolkbarhet (passiv) og forklarbarhet (aktiv)</li>
+    <li>kjenne de tre tilnærmingene i notatene: følsomhet for input (SHAP), surrogatmodeller (LIME) og modellspesifikke forklaringer (konseptdeteksjon)</li>
+    <li>beskrive de fem stegene i LIME, forklare de to leddene i likning 122 (etterligning $\mathcal{L}$ og kompleksitet $\Omega$) og kjenne forbeholdene</li>
+    <li>regne ut Shapley-verdier for tre spillere for hånd (taxieksempelet og eksamen 2024 oppg. 36) og kjenne egenskapene effektivitet, symmetri, dummy og additivitet</li>
+    <li>forklare hva $v(S)$ er for en modell, hvorfor vi trenger et bakgrunnsdatasett, og hvilken antakelse det skjuler</li>
+    <li>velge riktig explainer (Kernel, Tree, Deep, Gradient) og lese et force plot og et beeswarm-plott: hvilken feature betyr mest, og i hvilken retning den trekker</li>
+    <li>forklare på et overordnet nivå hva SHAP-verdier betyr for bilder (superpiksler) og tekst</li>
+    <li>forklare data processing inequality, forskjellen på konsepter og features, hvordan en CAV lages med en lineær probe, og regne ut og tolke en TCAV-skår</li>
     <li>kjenne de etiske prinsippene velgjørenhet, ikke-skade, autonomi, rettferdighet og forklarbarhet</li>
     <li>forklare den risikobaserte inndelingen i AI Act og gi eksempler på skjevhet og diskriminering i data</li>
   </ul>
@@ -82,6 +87,81 @@
   <div class="explain">Feilsøking, begrunnelse og rettferdighet er alle hovedmotiver for XAI. En forklaringsmetode endrer ikke selve modellen og øker derfor ikke accuracy av seg selv. Den kan riktignok hjelpe deg å finne feil som du så retter, men det er ikke det metoden gjør.</div>
 </div>
 
+<h3>Fra symbolsk til subsymbolsk KI</h3>
+<p>Notatene setter problemet i historisk kontekst. Fra KI-feltet ble grunnlagt gjennom Dartmouth-prosjektet i 1956 til omtrent 1990 dominerte <b>symbolske metoder</b>: mennesker koder kunnskap inn i maskinen som eksplisitte regler, planer og søkeprosedyrer, med symboler som betyr noe for oss (for eksempel i ekspertsystemer). Fordi både stegene og relasjonene er skrevet av mennesker, gir de intuitivt mening.</p>
+<p><b>Subsymbolsk KI</b> vokste fram fordi symbolske systemer har notorisk vanskelig for å takle usikkerheten i den virkelige verden: varierende kontekster og persepsjon av bilder, lyd og tekst. I stedet for å skrive reglene selv lærer vi dem fra data, ved å oppdage og modellere korrelasjoner. Det er det hele dette kurset har handlet om. Det ekstreme tilfellet er nevrale nettverk, der sammenhengene ligger i parametre og aktiveringsfunksjoner og ingen struktur er tolkbar for mennesker. Kunnskapen ligger <i>under</i> symbolene, derav navnet.</p>
+
+<table>
+<tr><th></th><th>Symbolsk KI (ca. 1956–1990)</th><th>Subsymbolsk KI (maskinlæring)</th></tr>
+<tr><td><b>Hvor kommer reglene fra?</b></td><td>skrevet av mennesker</td><td>lært fra data (korrelasjoner)</td></tr>
+<tr><td><b>Eksempel</b></td><td>ekspertsystemer, søk og planlegging</td><td>nevrale nettverk, ensembler</td></tr>
+<tr><td><b>Styrke</b></td><td>gir mening for mennesker</td><td>håndterer usikkerhet og rå persepsjon, fungerer spektakulært godt</td></tr>
+<tr><td><b>Svakhet</b></td><td>takler ikke den rotete virkeligheten</td><td>representasjonen er ikke tolkbar</td></tr>
+</table>
+
+<p>Subsymbolsk KI fungerer spektakulært godt. AlphaFold, som forutsier proteiners tredimensjonale struktur, var grunnlaget for halvparten av nobelprisen i kjemi i 2024. Teoretisk vet vi at nevrale nettverk er <b>universelle funksjonsapproksimatorer</b>: med nok nevroner kan de tilnærme enhver kontinuerlig funksjon så nøyaktig vi ønsker. Det er en formell garanti for at de <i>kan</i> representere en hvilken som helst sammenheng i data.</p>
+
+<h3>Vi vet ikke hvorfor de generaliserer</h3>
+<p>Det vi derimot ikke vet, er hvorfor store nettverk generaliserer så godt. Zhang et al. viste at vanlige nettverk kan memorere <b>tilfeldige labels</b> perfekt. De har altså kapasitet til ren memorering av treningsdataene (jf. overtilpasning i <a href="07-generalisering.html">kapittel 7</a>). Likevel lærer de generaliserbare mønstre, og empiriske studier tyder på at de lærer mønstre <i>før</i> de memorerer støy. Hvor denne evnen kommer fra, vet vi ikke.</p>
+<p>Ali Rahimi brukte Test-of-Time-prisen på NIPS 2017 til å sammenligne maskinlæring med <b>alkymi</b>: systemer som styrer helsetjenester og offentlig debatt bør bygge på verifiserbar kunnskap, ikke på riktig gjetning. Yann LeCun var uenig og pekte på at vi bruker mange systemer uten en teoretisk forståelse av hvorfor de virker. Debatten lever fortsatt: hva skal vi gjøre med at vi ikke forstår våre mest avanserte KI-systemer, og trenger vi i det hele tatt å gjøre noe?</p>
+
+<h3>Transparent, tolkbar og forklarbar</h3>
+<p>Forklaringsproblemet er dette: et nevralt nettverk er <b>fullstendig transparent og sporbart</b>, siden vi kan printe hver eneste parameter og aktivering. Men det er <b>ikke tolkbart</b>, fordi ingen av tallene gir mening for oss eller lar oss forstå hvorfor det predikerer som det gjør.</p>
+
+<div class="callout def"><span class="label">To begreper som ofte blandes</span>
+<ul>
+<li><b>Tolkbarhet</b> (interpretability) er en <b>passiv</b> egenskap: et system er tolkbart hvis det gir direkte mening for mennesker, slik en lineær regresjonsmodell kan gjøre.</li>
+<li><b>Forklarbarhet</b> (explainability) er en <b>aktiv</b> egenskap: vi <i>legger til</i> ekstra funksjonalitet for å forklare et system som ikke er tolkbart i seg selv.</li>
+</ul>
+<p><b>XAI</b> er samlingen av verktøy, metoder og rammeverk som skal hjelpe mennesker å forstå prediksjonene fra KI-systemer, særlig nevrale nettverk, gjennom forklaringsmetoder.</p>
+</div>
+
+<div class="callout def"><span class="label">En forklaring er et grensesnitt mellom menneske og modell</span>
+<p>Den må oppfylle <b>to krav</b>:</p>
+<ol>
+<li>Den må være en <b>treffsikker</b> representasjon av modellen.</li>
+<li>Den må være <b>forståelig</b> for mennesker.</li>
+</ol>
+<p>En forklaring som er lett å forstå, men ikke speiler modellen, er verdiløs. En forklaring som speiler modellen perfekt, er bare selve modellen, og dermed ikke mer forståelig enn modellen.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg: boka på et fremmed språk</span>
+<p>Et nevralt nett er som en bok på et språk du ikke kan. Hver bokstav er synlig (transparent), men du forstår ingenting (ikke tolkbar). En forklaring er en oversettelse: den må være riktig (treffsikker) og på et språk du kan (forståelig). Å gi deg originalen igjen er ingen oversettelse.</p>
+</div>
+
+<div class="quiz" data-id="15-transparent">
+  <p class="q">Hvorfor regnes et nevralt nettverk som en svart boks, selv om vi kan skrive ut alle vektene?</p>
+  <ul>
+    <li>Fordi vektene er hemmelige og ikke kan leses ut av modellen.</li>
+    <li data-correct>Fordi nettet er transparent og sporbart, men ikke tolkbart: tallene gir ikke mening for mennesker.</li>
+    <li>Fordi nevrale nettverk ikke er deterministiske.</li>
+    <li>Fordi nettet er forklarbart, men ikke transparent.</li>
+  </ul>
+  <div class="explain">Notatene skiller nettopp på dette: vi kan printe hver parameter og aktivering (transparent og sporbart), men tallene lar oss ikke forstå representasjonen eller hvorfor nettet predikerer som det gjør (ikke tolkbart). Et ferdigtrent nett er deterministisk ved prediksjon. Forklarbarhet er noe vi må legge til, ikke noe nettet har av seg selv.</div>
+</div>
+
+<div class="quiz" data-id="15-interp-expl">
+  <p class="q">Hva er forskjellen på tolkbarhet og forklarbarhet slik notatene definerer dem?</p>
+  <ul>
+    <li>De betyr det samme, bare på norsk og engelsk.</li>
+    <li>Tolkbarhet gjelder globale forklaringer, forklarbarhet gjelder lokale.</li>
+    <li data-correct>Tolkbarhet er en passiv egenskap (modellen gir mening i seg selv), forklarbarhet er aktiv (vi legger til en metode som forklarer en modell som ikke er tolkbar).</li>
+    <li>Forklarbarhet er en passiv egenskap ved lineære modeller, tolkbarhet er noe vi legger til med SHAP.</li>
+  </ul>
+  <div class="explain">En lineær regresjon er tolkbar: koeffisientene gir mening direkte. Et nevralt nett er ikke tolkbart, men kan gjøres forklarbart ved å legge til SHAP, LIME eller lignende. Global/lokal er en annen akse. Det siste alternativet har byttet om begrepene.</div>
+</div>
+
+<div class="quiz" data-id="15-two-req">
+  <p class="q">Hvorfor er ikke «modellen selv, med alle parametrene» en god forklaring?</p>
+  <ul>
+    <li>Fordi den ikke er treffsikker.</li>
+    <li data-correct>Fordi den er perfekt treffsikker, men ikke mer forståelig enn modellen, så kravet om forståelighet er ikke oppfylt.</li>
+    <li>Fordi forklaringer alltid må være lokale.</li>
+    <li>Fordi den bryter effektivitetsaksiomet.</li>
+  </ul>
+  <div class="explain">En forklaring må være både treffsikker og forståelig. Modellen selv er det mest treffsikre som finnes, men den er nettopp det vi ikke forstår. Motsatt er en enkel historie som ikke speiler modellen verdiløs. Gode forklaringer ligger mellom disse ytterpunktene.</div>
+</div>
+
 <!-- ============================================================ -->
 <h2 id="typer"><span class="sec">15.2</span>Tolkbare modeller og typer forklaringer</h2>
 
@@ -102,11 +182,56 @@
 <tr><td><b>Global</b></td><td>forklarer modellens oppførsel totalt sett: hvilke features betyr mest generelt?</td><td>koeffisientene i lineær regresjon, Gini-viktighet i random forest, gjennomsnittlig |SHAP|</td></tr>
 <tr><td><b>Lokal</b></td><td>forklarer <i>én</i> prediksjon: hvorfor fikk akkurat denne personen dette svaret?</td><td>LIME, SHAP-verdier for ett datapunkt</td></tr>
 <tr><td><b>Modellagnostisk</b></td><td>virker på hvilken som helst modell, fordi den bare trenger å kalle <code>predict</code></td><td>LIME, KernelSHAP, permutasjonsviktighet</td></tr>
-<tr><td><b>Modellspesifikk</b></td><td>utnytter modellens indre struktur</td><td>Gini-viktighet i trær, TreeSHAP, vekter i lineære modeller</td></tr>
+<tr><td><b>Modellspesifikk</b></td><td>utnytter modellens indre struktur</td><td>Gini-viktighet i trær, vekter i lineære modeller. (<code>TreeExplainer</code> er en modellspesifikk <i>implementasjon</i>, men SHAP som metode regnes som modellagnostisk, se 15.5.)</td></tr>
 </table>
 
 <div class="callout hook"><span class="label">Knagg: kart og veibeskrivelse</span>
 <p>En global forklaring er et kart over hele byen: hvilke veier er viktigst? En lokal forklaring er veibeskrivelsen for akkurat din tur: sving til venstre her, fordi du skal dit. Modellagnostisk er en GPS som virker i alle biler. Modellspesifikk er et instrument bygget inn i én bilmodell.</p>
+</div>
+
+<h3 id="tre-tilnarminger">Tre måter å undersøke en modell på (tabell 10 i notatene)</h3>
+<p>Det finnes hundrevis av XAI-metoder og mange konkurrerende taksonomier (Arrieta et al., 2020, er en mye sitert oversikt). Noen sorterer etter <b>når</b> forklarbarheten innføres (under modelleringen, eller <b>post hoc</b> etter at modellen er trent), andre etter <b>hvem</b> forklaringen er for (ML-utvikler, beslutningstaker, sluttbruker), og andre etter <b>hvordan</b> den lages (tilpasset én modelltype, eller modellagnostisk).</p>
+<p>Kurset bruker en enklere inndeling. Vi ser på modellen som en funksjon $f(x, \theta)$, der $x$ er input og $\theta$ er parametrene. Da er det tre ting vi kan undersøke:</p>
+
+<table>
+<tr><th>Tilnærming</th><th>Kategori</th><th>Intuitivt (en svart boks faller ned fra himmelen)</th><th>Metode i kurset</th></tr>
+<tr><td>Hvor <b>følsom</b> er $f$ for endringer i $x$?</td><td>Modellagnostiske forklaringer</td><td>Dytt på boksen og se hva som skjer</td><td><b>SHAP</b> (15.4–15.6)</td></tr>
+<tr><td><b>Erstatt</b> $f$ med en tolkbar funksjon</td><td>Surrogatmodeller</td><td>Finn et tilsvarende fenomen du forstår</td><td><b>LIME</b> (15.3)</td></tr>
+<tr><td>Hva betyr verdiene og strukturen til $\theta$?</td><td>Modellspesifikke forklaringer</td><td>Knus boksen og se inni</td><td><b>Konseptdeteksjon</b> (15.7)</td></tr>
+</table>
+
+<div class="callout hook"><span class="label">Knagg: dytt, finn, knus</span>
+<p>En svart boks lander foran deg. Du kan <b>dytte</b> på den (endre input og se hva som skjer: SHAP), <b>finne</b> noe du forstår som oppfører seg likt (en surrogatmodell: LIME), eller <b>knuse</b> den og se inni (parametrene og aktiveringene: konseptdeteksjon). Input, erstatning, innmat: $x$, $f$, $\theta$.</p>
+</div>
+
+<div class="callout def"><span class="label">Begrepene du skal være komfortabel med (notatene)</span>
+<ul>
+<li><b>Post hoc:</b> forklaringen genereres på en ferdigtrent modell.</li>
+<li><b>Lokal og global:</b> om forklaringen gjelder ett enkelt datapunkt eller hele modellen.</li>
+<li><b>Modellspesifikk og modellagnostisk:</b> om forklaringen gjelder spesifikke modelltyper eller -arkitekturer, eller genereres uavhengig av modelltypen.</li>
+</ul></div>
+
+<h3 id="begreper">Begrepene oppsummert (avsnitt 5.5 i notatene)</h3>
+<p>Notatene avslutter XAI-kapittelet med denne tabellen. Lær den. Mange flervalgsspørsmål handler om å plassere en metode riktig.</p>
+<table>
+<tr><th>Begrep</th><th>Betydning (notatene)</th><th>Eksempel i kurset</th></tr>
+<tr><td><b>Surrogatmodell</b></td><td>Modellen erstattes av en tolkbar modell som etterligner den, ofte bare lokalt.</td><td>LIME (15.3)</td></tr>
+<tr><td><b>Modellagnostisk</b></td><td>Forklaringen trenger bare å kunne gi modellen input og lese output, og kan derfor brukes på enhver modell. Typisk resultat: en rangering av hvor viktige input-featurene er.</td><td>SHAP (15.5), LIME</td></tr>
+<tr><td><b>Modellspesifikk</b></td><td>Forklaringen bruker informasjon om modellens parametre, arkitektur eller gradienter.</td><td>konseptdeteksjon og TCAV (15.7)</td></tr>
+<tr><td><b>Post hoc</b></td><td>Forklaringen lages etter at modellen er trent. Det gjelder alle metodene i kurset.</td><td>SHAP, LIME, TCAV</td></tr>
+<tr><td><b>Lokal</b></td><td>Forklaringen gjelder én prediksjon, eller modellen i et lite område av inputrommet.</td><td>LIME, force plot</td></tr>
+<tr><td><b>Global</b></td><td>Forklaringen gjelder hele modellen.</td><td>beeswarm (satt sammen av lokale SHAP-verdier)</td></tr>
+</table>
+
+<div class="quiz" data-id="15-three-approaches">
+  <p class="q">Notatene deler forklaringsmetoder inn etter hva ved $f(x,\theta)$ vi undersøker. Hvilken kobling er riktig?</p>
+  <ul>
+    <li>Følsomhet for $x$: konseptdeteksjon. Erstatt $f$: SHAP. Undersøk $\theta$: LIME.</li>
+    <li data-correct>Følsomhet for $x$: SHAP. Erstatt $f$: LIME. Undersøk $\theta$: konseptdeteksjon.</li>
+    <li>Følsomhet for $x$: LIME. Erstatt $f$: konseptdeteksjon. Undersøk $\theta$: SHAP.</li>
+    <li>Alle tre er modellspesifikke forklaringer av $\theta$.</li>
+  </ul>
+  <div class="explain">SHAP varierer input systematisk og måler effekten (dytt på boksen). LIME tilpasser en tolkbar surrogatmodell som ligner $f$ lokalt (finn noe du forstår). Konseptdeteksjon ser inn i parametrene og aktiveringene (knus boksen). Bare den siste er modellspesifikk.</div>
 </div>
 
 <div class="quiz" data-id="15-global-local">
@@ -132,24 +257,45 @@
 </div>
 
 <!-- ============================================================ -->
-<h2 id="lime"><span class="sec">15.3</span>LIME: lokal lineær tilnærming</h2>
+<h2 id="lime"><span class="sec">15.3</span>LIME: lokale surrogatmodeller</h2>
 
-<p>LIME står for <i>Local Interpretable Model-agnostic Explanations</i>. Ideen er at selv om modellen $f$ er komplisert globalt, ser den nesten lineær ut hvis vi zoomer inn nok rundt ett punkt, akkurat som jorda ser flat ut når du står på den.</p>
+<p class="small muted">Etter notatene, avsnitt 5.3 (likning 122). Eksamen 2024 oppg. 34 spurte om LIME.</p>
 
-<div class="callout def"><span class="label">LIME-algoritmen for ett punkt $x$</span>
+<p>En <b>surrogatmodell</b> er i videste forstand en modell som erstatter en annen. I XAI lager vi en <b>tolkbar</b> modell $g$ som etterligner den fulle modellen $f$ vi vil forklare. Det vanligste er <b>lokale surrogatmodeller</b>, som bare etterligner $f$ i et nabolag rundt punktet vi vil forklare. Tanken er at $f$ kan være komplisert og vanskelig både å etterligne og å forklare, men at den oppfører seg enklere, kanskje lineært, i et lite nok nabolag.</p>
+
+<div class="callout hook"><span class="label">Knagg: jorda er rund, men bakken er flat</span>
+<p>Vi vet at jorda er rund, så en modell som beskriver hele jordoverflaten må være krum. Likevel behandler vi bakken som flat og bruker plangeometri i små nok områder. LIME gjør det samme: den fulle modellen $f$ er krum, men surrogatmodellen $g$ kan være en rett linje nær ett punkt.</p>
+</div>
+
+<p><b>LIME</b> står for <i>Local Interpretable Model-agnostic Explanations</i> og ble utviklet i 2016. Den er en av klassikerne innen XAI. LIME tilpasser en surrogatmodell $g$ til <i>prediksjonene fra $f$</i> i et nabolag:</p>
+
+<div class="callout def"><span class="label">LIME i fem steg (notatene)</span>
 <ol>
-<li><b>Perturber:</b> lag mange nye punkter $z$ i nærheten av $x$ (for tabelldata: trekk verdier, for tekst: fjern ord, for bilder: skjul områder).</li>
-<li><b>Spør den svarte boksen:</b> regn ut $f(z)$ for hvert nytt punkt.</li>
-<li><b>Vekt etter nærhet:</b> punkter nær $x$ teller mest, for eksempel med $\pi_x(z) = \exp\!\big(-\lVert z - x\rVert^2/\sigma^2\big)$.</li>
-<li><b>Tilpass en enkel modell:</b> en vektet lineær regresjon (eller et lite tre) $g$ på parene $(z, f(z))$.</li>
-<li><b>Les av:</b> koeffisientene til $g$ er den lokale forklaringen.</li>
+<li><b>Velg punktet $x$</b> som skal forklares, og definer et nabolag rundt det gjennom en vektfunksjon $\pi_x$ som gir punkter nær $x$ høy vekt.</li>
+<li><b>Generer $n$ tilfeldige punkter $x_i$</b> rundt $x$. For tabelldata trekkes de typisk fra en normalfordeling basert på treningsdataenes statistikk.</li>
+<li><b>Lag labels med $f$:</b> prediker hvert nytt punkt med den fulle modellen, altså $f(x_i)$. Dette er <i>ikke</i> targets fra data, fordi hele poenget er at $g$ skal etterligne $f$.</li>
+<li><b>Tilpass $g$:</b> velg en klasse $G$ av tolkbare modeller (for eksempel lineære modeller eller små beslutningstrær), og tilpass $g$ til de vektede datapunktene.</li>
+<li><b>Bruk $g$ som forklaring.</b> Er $g$ en lineær modell, tolker vi koeffisientene.</li>
 </ol>
 </div>
 
 <div class="eq">
-  <p class="eq-note">LIME som optimeringsproblem: lokal troverdighet pluss enkelhet</p>
-  $$\xi(x) = \arg\min_{g \in G}\; \underbrace{\sum_{z} \pi_x(z)\,\big(f(z) - g(z)\big)^2}_{\text{lokal feil}} \;+\; \underbrace{\Omega(g)}_{\text{kompleksitet}}$$
+  <p class="eq-note">LIME som optimeringsproblem (likning 122 i notatene)</p>
+  $$\underset{g \in G}{\operatorname{argmin}}\; \mathcal{L}(f, g, \pi_x) + \Omega(g)$$
 </div>
+
+<p>Uttrykket har to ledd:</p>
+<ul>
+<li>$\mathcal{L}(f, g, \pi_x)$ er et <b>tap</b> som måler hvor dårlig $g$ etterligner $f$ i nabolaget, vektet med $\pi_x$. Å minimere det betyr å finne en $g$ som oppfører seg likt $f$ rundt $x$.</li>
+<li>$\Omega(g)$ måler <b>kompleksiteten</b> til $g$. For en lineær modell kan det være antall features med koeffisient forskjellig fra null, og for et beslutningstre kan det være dybden. Å holde $\Omega$ lav sikrer at $g$ forblir tolkbar.</li>
+</ul>
+<p>Avveiningen mellom de to leddene er en avveining mellom <b>hvor godt $g$ etterligner $f$</b> og <b>hvor tolkbar $g$ er</b>. Det er de to kravene til en forklaring fra 15.1 (treffsikker og forståelig) skrevet som matematikk.</p>
+
+<details class="more"><summary>Et vanlig konkret valg av $\mathcal{L}$ og $\pi_x$ <span class="tag">utover notatene</span></summary><div>
+<p>Notatene lar $\mathcal{L}$ og $\pi_x$ være generelle. I praksis (og i widgeten under) brukes ofte et vektet kvadratisk tap og en gaussisk kjerne:</p>
+$$\mathcal{L}(f, g, \pi_x) = \sum_{i} \pi_x(x_i)\,\big(f(x_i) - g(x_i)\big)^2, \qquad \pi_x(z) = \exp\!\big(-\lVert z - x\rVert^2/\sigma^2\big)$$
+<p>Kjernebredden $\sigma$ bestemmer hvor stort «lokalt» er.</p>
+</div></details>
 
 <div class="chain">
   <div><b>Problem</b>$f$ er for komplisert til å lese</div><div class="arrow">→</div>
@@ -169,13 +315,62 @@
   <p class="small muted"><b>Klikk et punkt</b> i planet. Bakgrunnen er den svarte boksens sannsynlighet for klasse 1 (blå) mot klasse 0 (oransje), og den tykke kurven er den sanne beslutningsgrensen $f = 0.5$. Prikkene er perturbasjoner, med størrelse etter vekt. Den stiplede linjen er grensen til den lokale lineære modellen $g = 0.5$, og pila er retningen der $g$ øker. <b>Legg merke til:</b> (1) Grensen til $g$ følger den sanne kurven nær punktet, men ikke langt unna. (2) Klikk andre steder på bølgen, og den lokale forklaringen endrer seg helt: der kurven stiger er $x_1$ viktig, på toppen nesten bare $x_2$. (3) Med stor σ blir «lokal» til «global», og en rett linje passer dårlig til bølgen (lav vektet $R^2$). (4) Trykk «Nye perturbasjoner» med liten σ: forklaringen vingler litt. Det er LIMEs ustabilitet.</p>
 </div>
 
-<div class="callout warn"><span class="label">Begrensninger ved LIME</span>
+<div class="callout warn"><span class="label">Forbehold ved LIME (notatene)</span>
 <ul>
-<li><b>Valg av nabolag:</b> kjernebredden σ avgjør hva «lokalt» betyr, og forklaringen kan endre seg mye med den. Det finnes ingen fasit.</li>
-<li><b>Ustabilitet:</b> perturbasjonene er tilfeldige, så to kjøringer kan gi ulike forklaringer for samme punkt.</li>
-<li><b>Urealistiske punkter:</b> perturbasjoner kan lage kombinasjoner som aldri forekommer (for eksempel en 5-åring med 40 års arbeidserfaring), og modellens svar der er meningsløse.</li>
-<li><b>Bare lokal:</b> forklaringen sier ingenting om modellen andre steder, og kan ikke settes sammen til en global forklaring uten videre.</li>
-</ul></div>
+<li><b>Nabolaget avgjør svaret:</b> den genererte forklaringen, altså tolkningen av $g$, avhenger av hvordan nabolaget $\pi_x$ defineres. Det finnes ingen fasit.</li>
+<li><b>Ingen garanti:</b> LIME gir ingen formell garanti for at $g$ er en god surrogat for $f$, så kvaliteten må sjekkes empirisk. I widgeten over er den vektede $R^2$ et slikt mål.</li>
+<li><b>Ustabil:</b> fordi punktene i nabolaget ($x_i$) trekkes tilfeldig, kan to kjøringer på samme datapunkt gi ulike forklaringer.</li>
+</ul>
+<p>I tillegg nevnes det ofte at tilfeldige punkter kan bli urealistiske (for eksempel en 5-åring med 40 års arbeidserfaring), og at forklaringen bare gjelder lokalt og ikke kan settes sammen til en global forklaring uten videre.</p>
+</div>
+
+<h3 id="lime-kode">LIME i Python (koden fra notatene)</h3>
+<p>I forelesningen ser vi på LIME for en klassifiserings- og en regresjonsmodell trent på Titanic-dataene. Koden lager én explainer per modelltype og forklarer to passasjerer, Jack og Rose:</p>
+<pre><code><span class="k">from</span> lime.lime_tabular <span class="k">import</span> LimeTabularExplainer   <span class="c"># (importen står ikke i notatene)</span>
+
+<span class="c"># Instantiate explainer objects</span>
+lime_regressor = LimeTabularExplainer(X_train, feature_names=features,
+                                      verbose=<span class="k">True</span>, mode=<span class="s">'regression'</span>)
+lime_classifier = LimeTabularExplainer(X_train, feature_names=features,
+                                       verbose=<span class="k">True</span>, mode=<span class="s">'classification'</span>)
+X_jack = np.array([<span class="s">3</span>, <span class="s">1</span>, <span class="s">21</span>])
+X_rose = np.array([<span class="s">1</span>, <span class="s">0</span>, <span class="s">17</span>])
+
+<span class="c"># Ulike explainers for de ulike modellene og datapunktene</span>
+exp_lime = lime_classifier.explain_instance(X_jack, classifier.predict_proba, num_features=<span class="s">3</span>)
+exp_lime = lime_regressor.explain_instance(X_jack, regressor.predict, num_features=<span class="s">3</span>)
+exp_lime = lime_classifier.explain_instance(X_rose, classifier.predict_proba, num_features=<span class="s">3</span>)
+exp_lime = lime_regressor.explain_instance(X_rose, regressor.predict, num_features=<span class="s">3</span>)</code></pre>
+
+<p>Koble koden til de fem stegene:</p>
+<ul>
+<li><code>X_train</code> gis til explaineren fordi LIME trenger treningsdataenes statistikk for å trekke punkter rundt $x$ (steg 2).</li>
+<li><code>explain_instance</code> tar punktet som skal forklares (steg 1) og <b>en funksjon</b> som predikerer med $f$ (steg 3). Klassifisering får <code>predict_proba</code>, fordi LIME trenger sannsynligheter å etterligne, ikke bare 0 og 1. Regresjon får <code>predict</code>.</li>
+<li><code>num_features=3</code> begrenser hvor mange features forklaringen får bruke. Det er en enkel måte å holde kompleksiteten $\Omega(g)$ lav på (steg 4).</li>
+<li>Jack og Rose er tre features lange. Verdiene passer med klasse, kjønn og alder (Jack: 3. klasse, mann, 21 år; Rose: 1. klasse, kvinne, 17 år), men notatene oppgir ikke rekkefølgen på kolonnene.</li>
+</ul>
+
+<div class="quiz" data-id="15-lime-labels">
+  <p class="q">I steg 3 i LIME lager vi labels for de nye punktene $x_i$. Hvor kommer de fra?</p>
+  <ul>
+    <li>Fra de sanne targetene i treningsdataene, for de nærmeste punktene.</li>
+    <li data-correct>Fra den fulle modellen: $f(x_i)$.</li>
+    <li>Fra surrogatmodellen $g$.</li>
+    <li>De trekkes tilfeldig fra en normalfordeling.</li>
+  </ul>
+  <div class="explain">Målet er at $g$ skal etterligne <i>modellen</i> $f$, ikke dataene. Derfor er labels prediksjonene $f(x_i)$. Bruker vi sanne targets, forklarer vi dataene og ikke modellen. Det er punktene $x_i$ (ikke labels) som trekkes tilfeldig, typisk fra en normalfordeling basert på treningsdataenes statistikk.</div>
+</div>
+
+<div class="quiz" data-id="15-lime-omega">
+  <p class="q">Hva er rollen til leddet $\Omega(g)$ i LIME (likning 122)?</p>
+  <ul>
+    <li>Det måler hvor godt $g$ etterligner $f$ i nabolaget.</li>
+    <li>Det vekter punktene etter avstand til $x$.</li>
+    <li data-correct>Det straffer kompleksiteten til $g$, for eksempel antall features med koeffisient ulik null, slik at $g$ forblir tolkbar.</li>
+    <li>Det er regulariseringen som hindrer at den fulle modellen $f$ overtilpasser.</li>
+  </ul>
+  <div class="explain">$\mathcal{L}(f,g,\pi_x)$ måler etterligningen (vektet med $\pi_x$), og $\Omega(g)$ måler kompleksiteten. Summen balanserer treffsikker mot forståelig. LIME endrer aldri $f$, så $\Omega$ har ingenting med å trene den fulle modellen å gjøre.</div>
+</div>
 
 <div class="callout exam"><span class="label">Eksamen 2024 oppg. 34</span>
 <p>«Hvilket utsagn er korrekt om LIME?» Fasit: <b>LIME tilpasser en tolkbar modell i nabolaget rundt et enkelt datapunkt.</b> Distraktorene: «produserer globale feature importances» (nei, lokal), «minimerer kompleksiteten til modellen slik at den kan tolkes direkte» (nei, LIME endrer ikke modellen), og «erstatter nevrale nett med beslutningstrær» (nei, surrogaten forklarer bare, den erstatter ingenting).</p>
@@ -209,7 +404,36 @@
 <p>Shapley-verdier kommer fra <b>samarbeidende spillteori</b> (Lloyd Shapley, 1953, som senere fikk Nobelprisen i økonomi). Spørsmålet er: tre personer samarbeider og tjener til sammen en sum. Hvordan fordeler vi gevinsten rettferdig, når noen bidrar mer enn andre og noen jobber bedre sammen?</p>
 
 <div class="callout def"><span class="label">Spill og karakteristisk funksjon</span>
-<p>Vi har $N$ spillere. For hver koalisjon (delmengde) $S$ av spillerne angir den <b>karakteristiske funksjonen</b> $v(S)$ hvor mye koalisjonen klarer å oppnå alene, med $v(\varnothing) = 0$. Shapley-verdien $\phi_i$ er spiller $i$ sin rettferdige andel av $v(\text{alle})$.</p>
+<p>Vi har $N$ spillere. For hver koalisjon (delmengde) $S$ av spillerne angir den <b>karakteristiske funksjonen</b> $v(S)$ hvor mye koalisjonen klarer å oppnå alene, med $v(\varnothing) = 0$. Shapley-verdien $\phi_i$ er spiller $i$ sin rettferdige andel av $v(\text{alle})$. Koalisjonen der alle er med, kalles <b>storkoalisjonen</b>.</p>
+</div>
+
+<p>I én setning, som i notatene: Shapley-dekomposisjonen sier hvordan gevinsten (eller kostnaden) i et spill der spillerne kan samarbeide, bør fordeles mellom dem. Den regnes som en av spillteoriens kronjuveler, og er grunnlaget for SHAP, en av verdens mest brukte XAI-metoder.</p>
+
+<h3 id="taxi">Notatenes eksempel: taxituren</h3>
+<p>Tre venner deler taxi fra samme sted, langs samme rute. Passasjer 1 skal 3 km, passasjer 2 skal 7 km og passasjer 3 skal 10 km. Hvor mye bør hver betale? Spillet beskrives av kostnaden for hver mulige koalisjon. Taxien må alltid kjøre så langt som den som skal lengst:</p>
+
+<table class="center">
+<tr><th>Koalisjon $S$</th><td>$\varnothing$</td><td>$\{1\}$</td><td>$\{2\}$</td><td>$\{3\}$</td><td>$\{1,2\}$</td><td>$\{1,3\}$</td><td>$\{2,3\}$</td><td>$\{1,2,3\}$</td></tr>
+<tr><th>$v(S)$, km</th><td>0</td><td>3</td><td>7</td><td>10</td><td>7</td><td>10</td><td>10</td><td>10</td></tr>
+</table>
+
+<p>Se på passasjer 1. Koalisjonene som ikke inneholder 1 er $\varnothing$, $\{2\}$, $\{3\}$ og $\{2,3\}$. Med $|N| = 3$ er vektene $\tfrac13, \tfrac16, \tfrac16, \tfrac13$ (se formelen under):</p>
+<div class="eq">$$\phi_1 = \tfrac13(3-0) + \tfrac16(7-7) + \tfrac16(10-10) + \tfrac13(10-10) = 1$$</div>
+
+<details class="steps"><summary>Oppgave fra notatene: verifiser at $\phi_2 = 3$ og $\phi_3 = 6$</summary><div>
+<p><b>Passasjer 2</b> (koalisjoner uten 2: $\varnothing, \{1\}, \{3\}, \{1,3\}$):</p>
+<p>$\phi_2 = \tfrac13(7-0) + \tfrac16(7-3) + \tfrac16(10-10) + \tfrac13(10-10) = \tfrac{14}{6} + \tfrac46 = 3$.</p>
+<p><b>Passasjer 3</b> (koalisjoner uten 3: $\varnothing, \{1\}, \{2\}, \{1,2\}$):</p>
+<p>$\phi_3 = \tfrac13(10-0) + \tfrac16(10-3) + \tfrac16(10-7) + \tfrac13(10-7) = \tfrac{20 + 7 + 3 + 6}{6} = 6$.</p>
+<p>Kontroll: $1 + 3 + 6 = 10 = v(\{1,2,3\})$. ✓</p>
+</div></details>
+
+<div class="callout why"><span class="label">Hva betyr svaret? (oppgave fra notatene)</span>
+<p>Den rettferdige fordelingen er at passasjer 1 betaler for 1 km, passasjer 2 for 3 km og passasjer 3 for 6 km. Se på strekningene: de <b>første 3 km</b> sitter alle tre i bilen og deler likt (1 km hver). De <b>neste 4 km</b> sitter passasjer 2 og 3 igjen og deler (2 km hver). De <b>siste 3 km</b> sitter passasjer 3 alene. Det gir $1$, $1 + 2 = 3$ og $1 + 2 + 3 = 6$. Hver betaler sin del av de strekningene de faktisk bruker.</p>
+</div>
+
+<div class="callout hook"><span class="label">Knagg: del etappene</span>
+<p>Taxiregningen er Shapley i hodet: del hver etappe likt på dem som sitter i bilen. Den som går av først, betaler minst. Den som sitter igjen alene, betaler resten selv.</p>
 </div>
 
 <h3>Metoden som er lettest uten hjelpemidler: rekkefølger</h3>
@@ -220,7 +444,7 @@
 </div>
 
 <h3>Regneeksempel: eksamen 2024 oppg. 36</h3>
-<p>Tre spillere med</p>
+<p>Eksamen 2024 oppg. 36 ga verdiene til alle koalisjonene i et spill med tre spillere og ba om Shapley-verdiene. (En tidligere versjon av notatene hadde en oppgave med tre katter som fanger mus, med nøyaktig de samme tallene. Den er tatt ut av versjonen fra 10.11.2026.) Spillet er</p>
 <div class="eq">$$v(1)=2,\quad v(2)=4,\quad v(3)=5,\quad v(\{1,2\})=3,\quad v(\{1,3\})=3,\quad v(\{2,3\})=2,\quad v(\{1,2,3\})=3$$</div>
 <p>Lag en tabell med én rad per rekkefølge. I hver rad: hvor mye økte verdien da hver spiller kom inn?</p>
 
@@ -247,10 +471,56 @@
 
 <h3>Formelen, og hvorfor den er den samme</h3>
 <div class="eq">
-  <p class="eq-note">Shapley-verdien til spiller $i$ (slik den sto på eksamen 2024)</p>
-  $$\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|!\,(N-|S|-1)!}{N!}\,\Big(v(S\cup\{i\}) - v(S)\Big)$$
+  <p class="eq-note">Shapley-verdien til spiller $i$ (likning 116 i notatene, og slik den sto på eksamen 2024)</p>
+  $$\phi_i(v) = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|!\,(|N|-|S|-1)!}{|N|!}\,\Big(v(S\cup\{i\}) - v(S)\Big)$$
 </div>
-<p>Vekten er nettopp <b>andelen rekkefølger der akkurat $S$ står foran $i$</b>: spillerne i $S$ kan stå i $|S|!$ rekkefølger foran, de resterende $N-|S|-1$ kan stå i $(N-|S|-1)!$ rekkefølger bak, og det er $N!$ rekkefølger totalt. Formelen og rekkefølgemetoden er altså samme utregning, bare gruppert ulikt.</p>
+<p>Notatene bruker $N$ om <i>mengden</i> av spillere og $|N|$ om antallet. Summen går over alle koalisjoner $S$ som <b>ikke</b> inneholder spiller $i$. Leddet i parentes er $i$ sitt <b>marginale bidrag</b> til $S$: hvor mye verdien endres bare av at $i$ blir med. Vektfaktoren foran gjør summen til et gjennomsnitt.</p>
+<p>Vekten er nettopp <b>andelen rekkefølger der akkurat $S$ står foran $i$</b>: spillerne i $S$ kan stå i $|S|!$ rekkefølger foran, de resterende $|N|-|S|-1$ kan stå i $(|N|-|S|-1)!$ rekkefølger bak, og det er $|N|!$ rekkefølger totalt. Formelen og rekkefølgemetoden er altså samme utregning, bare gruppert ulikt.</p>
+
+<h3>Vektfaktoren delt i to (likning 117–119)</h3>
+<p>Notatene skriver om vekten ved å trekke ut $\frac{1}{|N|}$:</p>
+<div class="eq">
+  $$\phi_i(v) = \frac{1}{|N|}\sum_{S \subseteq N \setminus \{i\}} \frac{|S|!\,\big((|N|-1)-|S|\big)!}{(|N|-1)!}\Big(v(S\cup\{i\}) - v(S)\Big) = \frac{1}{|N|}\sum_{S \subseteq N \setminus \{i\}} \frac{1}{\binom{|N|-1}{|S|}}\Big(v(S\cup\{i\}) - v(S)\Big)$$
+</div>
+<ul>
+<li>$\frac{1}{|N|}$ er en <b>skaleringsfaktor</b> som ikke avhenger av $S$. Det finnes $|N|$ mulige koalisjonsstørrelser ($0, 1, \dots, |N|-1$), og hver størrelse får like stor andel.</li>
+<li>$\binom{|N|-1}{|S|}$ <b>teller hvor mange koalisjoner av størrelse $|S|$</b> vi kan lage av de $|N|-1$ andre spillerne. Innenfor hver størrelse deles andelen likt på alle koalisjonene av den størrelsen.</li>
+</ul>
+<p>Shapley-verdien er altså <b>et gjennomsnitt over koalisjonsstørrelser av gjennomsnittet over koalisjoner av den størrelsen</b>. Det gir en U-form: det finnes bare én tom koalisjon og én koalisjon med alle de andre, så de får hver høy vekt, mens de mellomstore deler vekten på mange.</p>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 640 262" role="img" aria-label="Søylediagram av 1 delt på binomialkoeffisienten 9 over S for S fra 0 til 9. Søylene er 1 i begge ender og nesten null i midten.">
+  <g font-size="12" fill="currentColor">
+    <line x1="60" y1="210" x2="600" y2="210" style="stroke:var(--axis)"/>
+    <line x1="60" y1="20" x2="60" y2="210" style="stroke:var(--axis)"/>
+    <line x1="60" y1="172" x2="600" y2="172" style="stroke:var(--grid);stroke-dasharray:2 3"/>
+    <line x1="60" y1="134" x2="600" y2="134" style="stroke:var(--grid);stroke-dasharray:2 3"/>
+    <line x1="60" y1="96" x2="600" y2="96" style="stroke:var(--grid);stroke-dasharray:2 3"/>
+    <line x1="60" y1="58" x2="600" y2="58" style="stroke:var(--grid);stroke-dasharray:2 3"/>
+    <line x1="60" y1="20" x2="600" y2="20" style="stroke:var(--grid);stroke-dasharray:2 3"/>
+    <text x="52" y="214" text-anchor="end">0</text><text x="52" y="176" text-anchor="end">0.2</text><text x="52" y="138" text-anchor="end">0.4</text><text x="52" y="100" text-anchor="end">0.6</text><text x="52" y="62" text-anchor="end">0.8</text><text x="52" y="24" text-anchor="end">1.0</text>
+    <rect x="69" y="20" width="36" height="190" style="fill:var(--accent)"/>
+    <rect x="123" y="188.9" width="36" height="21.1" style="fill:var(--accent)"/>
+    <rect x="177" y="204.7" width="36" height="5.3" style="fill:var(--accent)"/>
+    <rect x="231" y="207.7" width="36" height="2.3" style="fill:var(--accent)"/>
+    <rect x="285" y="208.5" width="36" height="1.5" style="fill:var(--accent)"/>
+    <rect x="339" y="208.5" width="36" height="1.5" style="fill:var(--accent)"/>
+    <rect x="393" y="207.7" width="36" height="2.3" style="fill:var(--accent)"/>
+    <rect x="447" y="204.7" width="36" height="5.3" style="fill:var(--accent)"/>
+    <rect x="501" y="188.9" width="36" height="21.1" style="fill:var(--accent)"/>
+    <rect x="555" y="20" width="36" height="190" style="fill:var(--accent)"/>
+    <text x="141" y="182" text-anchor="middle">1/9</text><text x="195" y="198" text-anchor="middle">1/36</text><text x="249" y="201" text-anchor="middle">1/84</text><text x="303" y="202" text-anchor="middle">1/126</text><text x="357" y="202" text-anchor="middle">1/126</text><text x="411" y="201" text-anchor="middle">1/84</text><text x="465" y="198" text-anchor="middle">1/36</text><text x="519" y="182" text-anchor="middle">1/9</text>
+    <text x="87" y="228" text-anchor="middle">0</text><text x="141" y="228" text-anchor="middle">1</text><text x="195" y="228" text-anchor="middle">2</text><text x="249" y="228" text-anchor="middle">3</text><text x="303" y="228" text-anchor="middle">4</text><text x="357" y="228" text-anchor="middle">5</text><text x="411" y="228" text-anchor="middle">6</text><text x="465" y="228" text-anchor="middle">7</text><text x="519" y="228" text-anchor="middle">8</text><text x="573" y="228" text-anchor="middle">9</text>
+    <text x="330" y="252" text-anchor="middle" font-size="13">|S| (størrelsen på koalisjonen uten i)</text>
+  </g>
+</svg>
+<figcaption><b>Figur 15.1</b> Del to av vektfaktoren, $1/\binom{|N|-1}{|S|}$, for $|N| = 10$ (gjengitt etter figur 33 i notatene). Én bestemt koalisjon med 0 eller 9 andre spillere får vekt 1 (før skaleringen med $\frac{1}{10}$), mens én bestemt koalisjon med 4 eller 5 andre får bare $\frac{1}{126}$, fordi det finnes 126 slike koalisjoner som deler på samme andel.</figcaption>
+</figure>
+
+<div class="calc" data-id="15-shapley-weight10" data-answer="0.0111" data-tol="0.0005">
+  <p class="q">Med $|N| = 10$ spillere: hva er den totale vekten $\frac{1}{|N|}\cdot\frac{1}{\binom{|N|-1}{|S|}}$ for én bestemt koalisjon med $|S| = 1$? (Desimaltall.)</p>
+  <div class="solution">$\binom{9}{1} = 9$, så vekten er $\frac{1}{10}\cdot\frac19 = \frac{1}{90} \approx 0.0111$. Sjekk med originalformen: $\frac{1!\,8!}{10!} = \frac{1}{10\cdot 9} = \frac{1}{90}$. ✓</div>
+</div>
 
 <details class="steps"><summary>Kontroll med formelen for spiller 1</summary><div>
 <p>Med $N = 3$ er delmengdene av $\{2,3\}$: $\varnothing$, $\{2\}$, $\{3\}$, $\{2,3\}$.</p>
@@ -272,6 +542,16 @@
 <tr><td><b>Dummy</b> (nullspiller)</td><td>en spiller som aldri endrer verdien, får $\phi_i = 0$</td><td>en feature modellen ikke bruker, får SHAP-verdi 0</td></tr>
 <tr><td><b>Additivitet</b></td><td>for to spill $v$ og $w$ er $\phi_i(v + w) = \phi_i(v) + \phi_i(w)$</td><td>i et ensemble som summerer modeller, er SHAP-verdien summen av SHAP-verdiene til delmodellene</td></tr>
 </table>
+<p>Som en kuriositet nevner notatene at Young (1985) viste en alternativ karakterisering der nullspiller og additivitet byttes ut med ett aksiom, <b>monotonitet</b> (monotonicity). Det teoretiske fundamentet, at Shapley er den <i>eneste</i> fordelingen med disse egenskapene, er grunnen til at metoden er så populær i XAI.</p>
+
+<details class="steps"><summary>Oppgave fra notatene: hvilke aksiomer ser du direkte i taxiproblemet?</summary><div>
+<ul>
+<li><b>Effektivitet:</b> $1 + 3 + 6 = 10$, som er kostnaden for storkoalisjonen. Hele regningen blir betalt, verken mer eller mindre.</li>
+<li><b>Dummy:</b> en passasjer som skal 0 km, ville aldri endret kostnaden for noen koalisjon og ville betalt 0. Ingen av de tre er dummyer, så alle betaler noe.</li>
+<li><b>Symmetri:</b> ingen to passasjerer skal like langt, så aksiomet slår ikke inn her. Hadde to skullet like langt, ville de betalt det samme.</li>
+<li><b>Additivitet</b> ser du ikke direkte fra ett spill. Men tenk på turen som tre etapper (0–3, 3–7 og 7–10 km). Hver etappe er et eget lite spill der de som sitter i bilen deler likt, og summen av de tre spillene gir nøyaktig $1, 3, 6$.</li>
+</ul>
+</div></details>
 
 <h3>Eget eksempel: tre studenter på et prosjekt</h3>
 <p>Ada, Bo og Cyrus kan levere prosjekter verdt (i poeng): $v(A)=12$, $v(B)=6$, $v(C)=0$, $v(AB)=24$, $v(AC)=18$, $v(BC)=12$, $v(ABC)=36$.</p>
@@ -299,6 +579,7 @@
       <option value="proj">Ada, Bo og Cyrus</option>
       <option value="dummy">Dummy og symmetri</option>
       <option value="add">Ren sum (ingen samspill)</option>
+      <option value="taxi">Taxituren (notatene)</option>
     </select></label>
   </div>
   <div class="vgrid" id="shInputs"></div>
@@ -344,23 +625,59 @@
   <div class="explain">Dummy-egenskapen gir $\phi_3 = 0$. Symmetri gir $\phi_1 = \phi_2$, og effektivitet gir $\phi_1 + \phi_2 = 30$, så begge er 15. Lik fordeling (10 hver) bryter dummy-egenskapen. Den tredje bryter symmetri. Den siste summerer seg til 60 og bryter effektivitet.</div>
 </div>
 
+<div class="callout warn" id="shapley-kostnad"><span class="label">Beregningskostnaden (notatene)</span>
+<p>For hver spiller må vi summere over alle $2^{|N|-1}$ koalisjonene som ikke inneholder spilleren, og hvert ledd krever to verdier av $v$. Totalt trenger vi $v$ for alle $2^{|N|}$ koalisjonene. Med 3 spillere er det 8. Med 30 features er det over en milliard ($2^{30} \approx 1.07\cdot 10^9$). Eksakte Shapley-verdier er derfor bare mulig for små problemer (forelesers tommelfingerregel: <b>maks rundt 20 features</b>), og i praksis må vi ofte bruke metoder som <b>approksimerer</b>. Dette er den første av to hovedbegrensninger ved Shapley i XAI. Den andre kommer i 15.5: antakelsen om uavhengige features.</p>
+</div>
+
+<div class="calc" data-id="15-shapley-coalitions" data-answer="1024" data-tol="0">
+  <p class="q">En modell har 10 features. Hvor mange koalisjoner (verdier av $v$) trengs for å regne ut eksakte Shapley-verdier for alle featurene?</p>
+  <div class="solution">$2^{10} = 1024$. Hver feature trenger $2^{9} = 512$ koalisjoner uten seg selv, og hvert ledd bruker både $v(S)$ og $v(S\cup\{i\})$, så til sammen dekker vi alle $2^{10}$ delmengder.</div>
+</div>
+
+<div class="calc" data-id="15-shapley-taxi" data-answer="2.83" data-tol="0.02">
+  <p class="q">Taxituren igjen, men nå med en fjerde passasjer som skal 10 km, akkurat som passasjer 3. Passasjerene 1 og 2 skal fortsatt 3 og 7 km. Hvor mye skal passasjer 1 og 2 betale <i>til sammen</i>? (Tips: del etappene.)</p>
+  <div class="solution">Etappe 0–3 km: fire i bilen, $3/4$ km hver. Etappe 3–7 km: tre i bilen (2, 3 og 4), $4/3$ km hver. Etappe 7–10 km: to i bilen (3 og 4), $1.5$ km hver. Passasjer 1 betaler $0.75$, passasjer 2 betaler $0.75 + 1.333 = 2.083$, og passasjer 3 og 4 betaler $0.75 + 1.333 + 1.5 = 3.583$ hver (symmetri). Kontroll: $0.75 + 2.083 + 2\cdot 3.583 = 10$ ✓. Til sammen betaler 1 og 2 $0.75 + 2.083 \approx 2.83$ km. (Med formelen må du summere over 8 koalisjoner per passasjer. Etappetrikset virker fordi taxispillet er en sum av etappespill, jf. additivitet.)</div>
+</div>
+
 <!-- ============================================================ -->
 <h2 id="shap"><span class="sec">15.5</span>SHAP: Shapley-verdier for features</h2>
 
-<p>SHAP (SHapley Additive exPlanations, Lundberg og Lee, 2017) bruker Shapley-verdier til å forklare én prediksjon $f(x)$:</p>
-<ul>
-<li><b>Spillerne</b> er featurene (alder, kjønn, klasse …).</li>
-<li><b>Gevinsten</b> er prediksjonen for dette punktet.</li>
-<li><b>$v(S)$</b> er den forventede prediksjonen når vi bare kjenner featurene i $S$ og tar gjennomsnittet over de andre: $v(S) = \mathbb{E}[f(X) \mid X_S = x_S]$.</li>
-<li><b>Baseline</b> $\phi_0 = v(\varnothing) = \mathbb{E}[f(X)]$ er gjennomsnittsprediksjonen over datasettet.</li>
-</ul>
+<p>SHAP (SHapley Additive exPlanations, Lundberg og Lee, 2017) bruker Shapley-verdier til å forklare én prediksjon. Den mest direkte måten er å tolke <b>modellen som spillet</b> og <b>hver input-feature som en spiller</b>:</p>
+
+<table>
+<tr><th>Spillteori</th><th>Maskinlæring</th></tr>
+<tr><td>spiller $i$</td><td>feature $i$</td></tr>
+<tr><td>koalisjon $S$</td><td>delmengde av features</td></tr>
+<tr><td>alle spillere $N$</td><td>alle features</td></tr>
+<tr><td>spillet $v$</td><td>modellen, evaluert på en delmengde features</td></tr>
+<tr><td>$\phi_i$: spillerens andel av utfallet</td><td>featurens bidrag til prediksjonen</td></tr>
+</table>
+
+<h3 id="vS">Hovedutfordringen: hva er $v(S)$ for en modell?</h3>
+<p>Oversettelsen er rett fram, men skjuler et problem. De aller fleste modeller forventer en <b>fast input-shape</b>. Tenk på nevrale nettverk (<a href="09-nevrale-nett.html">kapittel 9</a>): du velger fritt hvor mange noder de skjulte lagene har, men input-laget må ha like mange noder som det er features. Sender du inn tre av fem features, får du en shape error. Vi må derfor bestemme hva det betyr at en feature er <b>«fraværende»</b>.</p>
 
 <div class="eq">
-  <p class="eq-note">Lokal nøyaktighet (effektivitet): bidragene summerer seg til prediksjonen</p>
-  $$f(x) = \phi_0 + \sum_{j=1}^{p} \phi_j, \qquad \phi_0 = \mathbb{E}[f(X)]$$
+  <p class="eq-note">Den karakteristiske funksjonen i SHAP-biblioteket (likning 120 i notatene)</p>
+  $$v(S) = \mathbb{E}\big[f(x) \mid x_S = x^*_S\big]$$
+</div>
+<p>Her er $x^*$ datapunktet vi vil forklare. $v(S)$ er forventningsverdien av modellens prediksjon når vi bare kjenner verdiene til featurene i $S$, og ikke de andre. Denne forventningen må <b>approksimeres</b>. De mest avanserte implementasjonene tilpasser en sannsynlighetsfordeling over featurene og estimerer de fraværende verdiene betinget på de kjente. I kurset bruker vi en enklere approksimasjon:</p>
+
+<div class="callout def"><span class="label">Bakgrunnsdatasett (background dataset)</span>
+<p>Erstatt de fraværende featurene med verdier trukket fra et <b>bakgrunnsdatasett</b>, kjør modellen, og ta <b>gjennomsnittet av prediksjonene</b>. Featurene i $S$ beholder verdiene fra $x^*$, de andre hentes fra bakgrunnsdataene.</p>
 </div>
 
-<p>En SHAP-verdi $\phi_j$ er altså <b>hvor mye feature $j$ dytter prediksjonen bort fra gjennomsnittet</b> for akkurat dette punktet. Positiv: opp. Negativ: ned. Det er ikke det samme som «høy» eller «lav» prediksjon i absolutt forstand.</p>
+<div class="callout warn"><span class="label">Den skjulte antakelsen: uavhengige features</span>
+<p>Når vi henter de manglende verdiene fra bakgrunnsdatasettet, kan de komme fra datapunkter som ikke ligner det minste på $x^*$. Det er en <b>antakelse om uavhengige features</b>. For <b>korrelerte</b> features kan det gi featurekombinasjoner modellen aldri har sett (for eksempel et hus med 1 rom og 8 soverom). Forklaringer basert på prediksjoner <b>utenfor modellens gyldighetsområde</b> er ikke nødvendigvis til å stole på. Dette er den andre hovedbegrensningen ved Shapley i XAI (den første er beregningskostnaden).</p>
+<p>Som så ofte i kurset er <b>valget av bakgrunnsdatasett et modelleringsvalg</b> som påvirker resultatet.</p>
+</div>
+
+<div class="eq">
+  <p class="eq-note">Additive forklaringer (likning 121 i notatene): bidragene summerer seg til prediksjonen</p>
+  $$f(x^*) = \phi_0 + \sum_{j=1}^{M} \phi^*_j, \qquad \phi_0 = \mathbb{E}[f(x)]$$
+</div>
+<p>Dette er «additive» i navnet: takket være <b>effektivitetsaksiomet</b> fordeles én modellprediksjon mellom alle input-featurene. $M$ er antall features, og $\phi^*_j$ er SHAP-verdien til feature $j$ for punktet $x^*$. Det første leddet, $\phi_0 = \mathbb{E}[f(x)]$, er en slags <b>tom prediksjon</b>: det vi kan forvente at modellen predikerer uten informasjon fra noen features. Med bakgrunnsdatasett beregnes den som <b>modellens gjennomsnittsprediksjon over bakgrunnsdatasettet</b>. (SHAP-biblioteket kaller den <code>expected_value</code> eller base value.)</p>
+
+<p>En SHAP-verdi $\phi_j$ er altså <b>hvor mye feature $j$ dytter prediksjonen bort fra gjennomsnittet</b> for akkurat dette punktet. Positiv: opp. Negativ: ned. Det er ikke det samme som «høy» eller «lav» prediksjon i absolutt forstand. SHAP-verdiene er en <b>lokal forklaring</b>: de forklarer én prediksjon.</p>
 
 <div class="callout hook"><span class="label">Knagg: dragkamp fra gjennomsnittet</span>
 <p>Alle starter på gjennomsnittet $\phi_0$. Så drar hver feature i tauet, noen opp og noen ned, og der tauet ender er prediksjonen. SHAP-verdien er hvor hardt og i hvilken retning hver feature drar.</p>
@@ -374,8 +691,88 @@
   <div class="solution">$\phi_1 = 3\cdot(3 - 1) = 6$. Tilsvarende $\phi_2 = -2\cdot(1 - 2) = +2$ (lav $x_2$ og negativ vekt dytter <i>opp</i>). Kontroll: $\phi_0 = 2 + 3\cdot 1 - 2\cdot 2 = 1$ og $f(x) = 2 + 9 - 2 = 9 = 1 + 6 + 2$. ✓</div>
 </div>
 
-<div class="callout warn"><span class="label">Beregningskostnad</span>
-<p>Eksakte Shapley-verdier krever alle $2^p$ koalisjoner. Med 30 features er det over en milliard. Derfor bruker SHAP-biblioteket tilnærminger: KernelSHAP (modellagnostisk, beslektet med LIME) og TreeSHAP (rask og eksakt for trebaserte modeller, altså modellspesifikk).</p>
+<h3 id="explainers">Explainers i SHAP-biblioteket</h3>
+<p>Eksakte Shapley-verdier krever alle $2^M$ koalisjoner (se <a href="#shapley-kostnad">beregningskostnaden</a> i 15.4). Biblioteket (<code>pip install shap</code>) har derfor ulike <b>explainers</b> som beregner eller approksimerer verdiene på ulike måter:</p>
+<table>
+<tr><th>Explainer</th><th>Virker på</th><th>Hvordan</th></tr>
+<tr><td><code>KernelExplainer</code></td><td>alle modeller (helt modellagnostisk)</td><td>approksimerer ved å <b>trekke koalisjoner og tilpasse en lineær modell</b> (beslektet med LIME)</td></tr>
+<tr><td><code>TreeExplainer</code></td><td>trær og skoger (random forest, XGBoost …)</td><td>utnytter trestrukturen og beregner <b>eksakte</b> SHAP-verdier i <b>polynomisk tid</b></td></tr>
+<tr><td><code>DeepExplainer</code></td><td>nevrale nettverk</td><td>bruker <b>backpropagation</b> for å approksimere effektivt</td></tr>
+<tr><td><code>GradientExplainer</code></td><td>nevrale nettverk</td><td>bruker <b>gradientene</b> fra nettverket direkte</td></tr>
+</table>
+
+<div class="callout hook"><span class="label">Knagg: nøkkelknippet</span>
+<p>Kernel er hovednøkkelen som passer i alle dører, men er treg. Tree, Deep og Gradient er spesialnøkler: raske, men bare for én type lås. Tree er den eneste som gir <i>eksakt</i> svar, fordi trær er så enkle å «åpne».</p>
+</div>
+
+<div class="quiz" data-id="15-explainer">
+  <p class="q">Du har trent en XGBoost-modell og vil ha eksakte SHAP-verdier raskt. Hvilken explainer bør du bruke?</p>
+  <ul>
+    <li><code>KernelExplainer</code>, fordi den er modellagnostisk.</li>
+    <li data-correct><code>TreeExplainer</code>, fordi den utnytter trestrukturen og beregner eksakte verdier i polynomisk tid.</li>
+    <li><code>DeepExplainer</code>, fordi XGBoost bruker gradienter.</li>
+    <li>Ingen, eksakte SHAP-verdier kan bare regnes ut for under 20 features.</li>
+  </ul>
+  <div class="explain">XGBoost er en trebasert modell, og TreeExplainer er laget nettopp for det. KernelExplainer virker også, men approksimerer og er treg. DeepExplainer er for nevrale nettverk («gradient» i gradient boosting betyr noe annet enn gradientene i et nett). Tommelfingerregelen om 20 features gjelder naiv eksakt beregning, ikke TreeExplainer.</div>
+</div>
+
+<div class="quiz" data-id="15-background">
+  <p class="q">Hvorfor kan SHAP-verdier bli upålitelige når featurene er sterkt korrelerte?</p>
+  <ul>
+    <li>Fordi effektivitetsaksiomet ikke gjelder for korrelerte features.</li>
+    <li>Fordi SHAP bare virker på lineære modeller.</li>
+    <li data-correct>Fordi fraværende features erstattes med verdier fra bakgrunnsdatasettet som om featurene var uavhengige, og det kan gi urealistiske kombinasjoner modellen aldri har sett.</li>
+    <li>Fordi bakgrunnsdatasettet alltid må være testsettet.</li>
+  </ul>
+  <div class="explain">Bakgrunnsapproksimasjonen antar uavhengige features. Med korrelerte features lager vi input utenfor modellens gyldighetsområde, og prediksjonene der, som forklaringen bygger på, er ikke til å stole på. Verdiene summerer seg fortsatt til prediksjonen (effektivitet gjelder), og SHAP virker for alle modeller. Valget av bakgrunnsdatasett er et modelleringsvalg, ikke låst til testsettet.</div>
+</div>
+
+<h3 id="forceplot">Force plot: én prediksjon</h3>
+<p>Når du har beregnet SHAP-verdiene, bør du særlig studere to plott: <b>force plot</b> og <b>beeswarm</b>. Et force plot lages for ett datapunkt og er en direkte visualisering av likning 121. Det viser den forventede prediksjonen $\phi_0$ (gjennomsnittsprediksjonen på bakgrunnsdatasettet) og hvordan hver feature drar modellen til den faktiske prediksjonen $f(x^*)$. Features som trekker prediksjonen <b>opp er røde</b>, og features som trekker den <b>ned er blå</b>.</p>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 640 192" role="img" aria-label="Force plot: røde segmenter fra venstre presser prediksjonen opp fra base value 2.07 til 3.10, blå segmenter fra høyre presser den ned.">
+  <g font-size="12" fill="currentColor">
+    <line x1="40" y1="40" x2="600" y2="40" style="stroke:var(--axis)"/>
+    <line x1="40" y1="36" x2="40" y2="44" style="stroke:var(--axis)"/><text x="40" y="30" text-anchor="middle">1.5</text>
+    <line x1="161.8" y1="36" x2="161.8" y2="44" style="stroke:var(--axis)"/><text x="161.8" y="30" text-anchor="middle">2.0</text>
+    <line x1="283.5" y1="36" x2="283.5" y2="44" style="stroke:var(--axis)"/><text x="283.5" y="30" text-anchor="middle">2.5</text>
+    <line x1="405.3" y1="36" x2="405.3" y2="44" style="stroke:var(--axis)"/><text x="405.3" y="30" text-anchor="middle">3.0</text>
+    <line x1="527" y1="36" x2="527" y2="44" style="stroke:var(--axis)"/><text x="527" y="30" text-anchor="middle">3.5</text>
+    <line x1="178.8" y1="44" x2="178.8" y2="122" style="stroke:var(--text-soft);stroke-dasharray:3 3"/>
+    <text x="178.8" y="14" text-anchor="middle" class="sm">base value φ₀ = 2.07</text>
+    <line x1="178.8" y1="17" x2="178.8" y2="24" style="stroke:var(--text-soft)"/>
+    <rect x="88.7" y="70" width="24.3" height="26" fill="#ff0d57" opacity=".55"/>
+    <rect x="113" y="70" width="85.3" height="26" fill="#ff0d57" opacity=".7"/>
+    <rect x="198.3" y="70" width="231.3" height="26" fill="#ff0d57" opacity=".85"/>
+    <rect x="429.6" y="70" width="48.7" height="26" fill="#1e88e5" opacity=".85"/>
+    <rect x="478.3" y="70" width="29.2" height="26" fill="#1e88e5" opacity=".7"/>
+    <rect x="507.5" y="70" width="12.2" height="26" fill="#1e88e5" opacity=".55"/>
+    <polygon points="198.3,70 206,83 198.3,96" fill="#fff" opacity=".6"/><polygon points="113,70 120.7,83 113,96" fill="#fff" opacity=".6"/>
+    <polygon points="478.3,70 470.6,83 478.3,96" fill="#fff" opacity=".6"/><polygon points="507.5,70 499.8,83 507.5,96" fill="#fff" opacity=".6"/>
+    <line x1="429.6" y1="60" x2="429.6" y2="116" style="stroke:var(--text);stroke-width:2"/>
+    <text x="429.6" y="58" text-anchor="start" font-weight="700" dx="6">f(x*) = 3.10</text>
+    <text x="314" y="118" text-anchor="middle" fill="#ff0d57">MedInc = 6.8 (+0.95)</text>
+    <line x1="155.7" y1="96" x2="155.7" y2="128" style="stroke:#ff0d57"/><text x="155.7" y="140" text-anchor="middle" fill="#ff0d57">AveOccup = 2.1 (+0.35)</text>
+    <line x1="100.9" y1="96" x2="100.9" y2="152" style="stroke:#ff0d57"/><text x="96" y="164" text-anchor="middle" fill="#ff0d57">HouseAge = 40 (+0.10)</text>
+    <line x1="454" y1="96" x2="454" y2="128" style="stroke:#1e88e5"/><text x="454" y="140" text-anchor="middle" fill="#1e88e5">AveBedrms = 1.3 (−0.20)</text>
+    <line x1="492.9" y1="96" x2="492.9" y2="152" style="stroke:#1e88e5"/><text x="510" y="164" text-anchor="middle" fill="#1e88e5">AveRooms = 4.9 (−0.12)</text>
+    <line x1="513.6" y1="96" x2="580" y2="118" style="stroke:#1e88e5"/><text x="588" y="122" text-anchor="middle" fill="#1e88e5">Population (−0.05)</text>
+    <text x="260" y="184" text-anchor="middle" class="sm">→ røde drar opp</text><text x="440" y="184" text-anchor="middle" class="sm">← blå drar ned</text>
+  </g>
+</svg>
+<figcaption><b>Figur 15.2</b> Force plot for ett hus i California housing (illustrasjon laget for kurset, i samme stil som <code>shap.force_plot</code>; enhet: 100 000 dollar). Modellen starter på gjennomsnittsprediksjonen $\phi_0 = 2.07$. Røde features (høy inntekt i området, få beboere per bolig, gammelt hus) dytter opp, blå dytter ned, og de møtes i prediksjonen: $2.07 + 0.95 + 0.35 + 0.10 - 0.20 - 0.12 - 0.05 = 3.10$. Bredden på hvert segment er $|\phi_j|$.</figcaption>
+</figure>
+
+<div class="quiz" data-id="15-forceplot">
+  <p class="q">I et force plot er segmentet for <code>MedInc</code> rødt og bredt. Hva betyr det?</p>
+  <ul>
+    <li>At <code>MedInc</code> har en høy verdi for dette huset.</li>
+    <li data-correct>At <code>MedInc</code> trekker prediksjonen for dette huset kraftig opp sammenlignet med gjennomsnittsprediksjonen.</li>
+    <li>At <code>MedInc</code> er den viktigste featuren for hele modellen.</li>
+    <li>At modellen predikerer en høy pris i absolutt forstand.</li>
+  </ul>
+  <div class="explain">I force plot (og waterfall) betyr fargen <b>retningen</b> på bidraget: rød opp, blå ned. Bredden er størrelsen $|\phi_j|$. I beeswarm betyr fargen derimot <b>feature-verdien</b>. Force plot gjelder ett punkt, så det sier ikke noe om modellen globalt. Bidraget er relativt til $\phi_0$, ikke en absolutt prisvurdering.</div>
 </div>
 
 <h3 id="beeswarm">Slik leser du et SHAP beeswarm-plott</h3>
@@ -1812,7 +2209,7 @@
 <text x="605" y="26" font-size="11">Høy</text><text x="605" y="284" font-size="11">Lav</text>
 <text x="622" y="156.0" font-size="11" text-anchor="middle" transform="rotate(-90 622 156.0)">feature-verdi</text>
 </svg>
-<figcaption><b>Figur 15.1</b> SHAP beeswarm (summary plot) for en modell som predikerer overlevelse på Titanic (illustrasjon laget for kurset). <b>Hver prikk er én passasjer.</b> Plasseringen langs x-aksen er SHAP-verdien til featuren for den passasjeren. Fargen er feature-verdien (rød = høy, blå = lav). Radene er sortert etter gjennomsnittlig |SHAP|, med den viktigste øverst. Merk at kjønn her er kodet som <code>Sex_male</code> (1 = mann).</figcaption>
+<figcaption><b>Figur 15.3</b> SHAP beeswarm (summary plot) for en modell som predikerer overlevelse på Titanic (illustrasjon laget for kurset). <b>Hver prikk er én passasjer.</b> Plasseringen langs x-aksen er SHAP-verdien til featuren for den passasjeren. Fargen er feature-verdien (rød = høy, blå = lav). Radene er sortert etter gjennomsnittlig |SHAP|, med den viktigste øverst. Merk at kjønn her er kodet som <code>Sex_male</code> (1 = mann).</figcaption>
 </figure>
 
 <ol>
@@ -1855,11 +2252,11 @@
   <text x="168" y="232" class="sm">−0.47 + 1.60 + 0.90 + 0.25 + 0.05 − 0.15 = 2.18 log-odds → σ(2.18) ≈ 0.90</text>
   </g>
 </svg>
-<figcaption><b>Figur 15.2</b> Lokal SHAP-forklaring (waterfall) for én passasjer: en kvinne i 1. klasse. Hver søyle er en SHAP-verdi (rød dytter opp, blå dytter ned, slik SHAP-biblioteket fargelegger waterfall-plott, og <i>ikke</i> feature-verdien som i beeswarm), og de summerer seg fra baseline til modellens output. Tallene er i log-odds, som er vanlig for klassifikatorer. $\sigma$ omregner til sannsynlighet (se <a href="02-logistisk.html">kapittel 2</a>). Beeswarm-plottet er tusen slike forklaringer stablet oppå hverandre.</figcaption>
+<figcaption><b>Figur 15.4</b> Lokal SHAP-forklaring (waterfall) for én passasjer: en kvinne i 1. klasse. Hver søyle er en SHAP-verdi (rød dytter opp, blå dytter ned, slik SHAP-biblioteket fargelegger waterfall-plott, og <i>ikke</i> feature-verdien som i beeswarm), og de summerer seg fra baseline til modellens output. Tallene er i log-odds, som er vanlig for klassifikatorer. $\sigma$ omregner til sannsynlighet (se <a href="02-logistisk.html">kapittel 2</a>). Beeswarm-plottet er tusen slike forklaringer stablet oppå hverandre.</figcaption>
 </figure>
 
 <div class="quiz" data-id="15-shap-top">
-  <p class="q">Se på figur 15.1. Hvilken feature påvirker modellens prediksjon minst?</p>
+  <p class="q">Se på figur 15.3. Hvilken feature påvirker modellens prediksjon minst?</p>
   <ul>
     <li>Sex_male</li>
     <li>SibSp</li>
@@ -1870,7 +2267,7 @@
 </div>
 
 <div class="quiz" data-id="15-shap-dir">
-  <p class="q">I figur 15.1 ligger røde prikker i <code>Pclass</code>-raden til venstre for 0. Hva betyr det?</p>
+  <p class="q">I figur 15.3 ligger røde prikker i <code>Pclass</code>-raden til venstre for 0. Hva betyr det?</p>
   <ul>
     <li>Passasjerer i 3. klasse får alltid predikert under 50 % overlevelse.</li>
     <li data-correct>For passasjerer med høy Pclass (3. klasse) trekker denne featuren prediksjonen ned sammenlignet med gjennomsnittsprediksjonen.</li>
@@ -1891,13 +2288,679 @@
   <div class="explain">Lokal nøyaktighet: $f(x) = \phi_0 + \sum\phi_j = 0.38 + 0.30 - 0.12 + 0.04 = 0.60$. Svaret 0.22 er bare summen av SHAP-verdiene, uten baseline. Svaret 0.84 får du hvis du glemmer minustegnet på Pclass. Vi trenger ikke modellen, fordi SHAP-verdiene alltid summerer seg til prediksjonen.</div>
 </div>
 
+<h3 id="shap-kode">Prøv selv: SHAP på California housing (koden fra notatene)</h3>
+<p>Notatene oppfordrer deg til å finne et datasett du er komfortabel med, trene ulike modeller og generere SHAP-verdier for dem. Koden under laster California housing fra sklearn, trener en XGBoost-modell og plotter SHAP-verdier. Latitude og Longitude er droppet fordi de ellers dominerer modellen og ikke er så tolkbare. Poenget er ikke en god modell, men å beregne og plotte SHAP-verdier.</p>
+<pre><code><span class="k">import</span> shap, xgboost
+<span class="k">from</span> sklearn.datasets <span class="k">import</span> fetch_california_housing
+<span class="k">from</span> sklearn.model_selection <span class="k">import</span> train_test_split
+
+data = fetch_california_housing(as_frame=<span class="k">True</span>)
+X = data.data.drop(columns=[<span class="s">"Latitude"</span>, <span class="s">"Longitude"</span>])
+y = data.target
+features = X.columns
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=<span class="s">0.90</span>, random_state=<span class="s">50</span>)
+
+regressor = xgboost.XGBRegressor(random_state=<span class="s">50</span>)      <span class="c"># velg selv modell</span>
+regressor.fit(X_train, y_train)
+print(<span class="s">"R2 på testsettet ="</span>, regressor.score(X_test, y_test))
+
+explainer = shap.TreeExplainer(regressor, data=X_train)     <span class="c"># bakgrunnsdatasett = X_train</span>
+shap_values = explainer.shap_values(X_test)                <span class="c"># shape (n_test, M): én verdi per feature per punkt</span>
+
+i = <span class="s">6</span>                                                      <span class="c"># ett datapunkt: lokal forklaring</span>
+shap.force_plot(explainer.expected_value, shap_values[i, :], X_test.iloc[i],
+                feature_names=features, matplotlib=<span class="k">True</span>)    <span class="c"># expected_value = φ₀</span>
+
+shap.plots.beeswarm(explainer(X_test))                     <span class="c"># alle testpunktene: globalt bilde</span></code></pre>
+<p class="small muted">Etter notatene, s. 74. Notatene printer også gjennomsnittet av hver feature i treningsdataene, slik at du kan se om punktets verdier er over eller under snittet.</p>
+
+<div class="callout cons"><span class="label">To detaljer når du har kontroll (notatene)</span>
+<ol>
+<li><b>Lokalt til globalt:</b> når vi beregner SHAP-verdier for mange punkter og plotter dem sammen (beeswarm, gjennomsnittlig |SHAP|), kombinerer vi lokale forklaringer til et globalt bilde. Men bildet er en sammensetning av enkeltpunkter og beskriver modellen <b>bare i de aktuelle punktene</b>.</li>
+<li><b>Er SHAP modellagnostisk?</b> TreeExplainer, DeepExplainer og GradientExplainer er laget for bestemte modelltyper og er strengt tatt ikke modellagnostiske. Men de er bare ulike måter å beregne eller approksimere de samme bidragene, definert via $v$, som er definert uavhengig av modellens indre. Derfor regnes <b>SHAP som en modellagnostisk metode</b>.</li>
+</ol></div>
+
+<div class="quiz" data-id="15-shap-agnostic">
+  <p class="q">Hvilket utsagn om SHAP stemmer med notatene?</p>
+  <ul>
+    <li>SHAP er modellspesifikk, fordi TreeExplainer bare virker på trær.</li>
+    <li data-correct>SHAP regnes som modellagnostisk, fordi alle explainerne beregner eller approksimerer de samme bidragene, definert via $v$ uavhengig av modellens indre.</li>
+    <li>SHAP gir bare globale forklaringer.</li>
+    <li>Et beeswarm-plott beskriver modellen i hele input-rommet, også der det ikke finnes data.</li>
+  </ul>
+  <div class="explain">Implementasjonene kan være modellspesifikke, men størrelsen de beregner er den samme og avhenger ikke av modellens innmat. SHAP-verdier er lokale (én per feature per punkt). De kan samles til et globalt bilde, men det bildet gjelder bare punktene du har forklart.</div>
+</div>
+
 <div class="reflect" data-id="15-r-lime-shap">
   <p class="q">Både LIME og SHAP gir lokale forklaringer som tall per feature. Hva er den viktigste forskjellen, og når ville du foretrukket SHAP?</p>
   <div class="answer">LIME tilpasser en lokal surrogatmodell på tilfeldige perturbasjoner, og resultatet avhenger av valg som kjernebredde og sampling. Det kan vingle mellom kjøringer, og bidragene trenger ikke summere seg til noe bestemt. SHAP bygger på Shapley-verdier med et teoretisk fundament: bidragene oppfyller effektivitet, symmetri, dummy og additivitet, og summerer seg nøyaktig til prediksjon minus baseline. SHAP-verdier for mange punkter kan også samles til en global oversikt (beeswarm, gjennomsnittlig |SHAP|). Jeg ville foretrukket SHAP når forklaringen må være konsistent og etterprøvbar, for eksempel overfor en tilsynsmyndighet, og særlig for trebaserte modeller der TreeSHAP er raskt og eksakt. LIME er enkelt og intuitivt og virker godt på tekst og bilder.</div>
 </div>
 
 <!-- ============================================================ -->
-<h2 id="prinsipper"><span class="sec">15.6</span>Etiske prinsipper for KI</h2>
+<h2 id="bilder-tekst"><span class="sec">15.6</span>SHAP for bilder og tekst</h2>
+
+<p>I prinsippet kan SHAP brukes på alle datatyper og alle modeller. Notatene viser SHAP for en bildemodell og en språkmodell. Ingen av modelltypene (konvolusjonsnett og transformere) er pensum, og <b>alt som forventes er en overordnet forståelse av hva SHAP-verdiene representerer</b>.</p>
+
+<h3>Image SHAP: MNIST</h3>
+<p>MNIST er lavoppløselige svart-hvitt-bilder av håndskrevne sifre, der hvert datapunkt er en $28\times 28$-matrise (784 features, én per piksel). Med en enkel konvolusjonsmodell i PyTorch er SHAP-koden nesten lik den for tabulære data:</p>
+<pre><code>explainer = shap.DeepExplainer(model, background)      <span class="c"># nevralt nett → DeepExplainer</span>
+shap_values = explainer.shap_values(test_samples)
+shap.image_plot(shap_values)</code></pre>
+<p>Resultatet er ett panel per klasse for hvert testbilde. <b>Røde piksler øker</b> modellens output for den klassen, <b>blå piksler reduserer</b> den. Pikslene som er røde for riktig klasse, er dem modellen bruker som bevis. Det samme pikselet kan være rødt for én klasse og blått for en annen.</p>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 640 190" role="img" aria-label="Tre paneler: et håndskrevet sjutall, SHAP-verdier for klassen 7 der den vannrette streken er rød, og SHAP-verdier for klassen 1 der den vannrette streken er blå.">
+  <g font-size="13" fill="currentColor">
+    <text x="105" y="16" text-anchor="middle">input</text>
+    <text x="320" y="16" text-anchor="middle">forklaring for klassen «7»</text>
+    <text x="535" y="16" text-anchor="middle">forklaring for klassen «1»</text>
+    <rect x="40" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="37" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="79" y="37" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="92" y="37" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="105" y="37" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="118" y="37" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="131" y="37" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="144" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="50" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="144" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="63" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="131" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="76" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="131" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="89" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="118" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="102" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="118" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="115" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="105" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="128" width="13" height="13" style="fill:var(--text)"/>
+    <rect x="105" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="53" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="66" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="79" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="92" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="105" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="118" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="131" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="144" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="157" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="40" y="24" width="130" height="130" style="fill:none;stroke:var(--border)"/>
+    <rect x="255" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="281" y="37" width="13" height="13" fill="#ff0d57" opacity="0.85"/>
+    <rect x="294" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="294" y="37" width="13" height="13" fill="#ff0d57" opacity="0.85"/>
+    <rect x="307" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="307" y="37" width="13" height="13" fill="#ff0d57" opacity="0.85"/>
+    <rect x="320" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="320" y="37" width="13" height="13" fill="#ff0d57" opacity="0.85"/>
+    <rect x="333" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="333" y="37" width="13" height="13" fill="#ff0d57" opacity="0.85"/>
+    <rect x="346" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="346" y="37" width="13" height="13" fill="#ff0d57" opacity="0.85"/>
+    <rect x="359" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="50" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="346" y="50" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="359" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="63" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="333" y="63" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="346" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="76" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="333" y="76" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="346" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="89" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="320" y="89" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="333" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="102" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="320" y="102" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="333" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="115" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="307" y="115" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="320" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="128" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="307" y="128" width="13" height="13" fill="#ff0d57" opacity="0.35"/>
+    <rect x="320" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="268" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="281" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="294" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="307" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="320" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="333" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="346" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="359" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="372" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="255" y="24" width="130" height="130" style="fill:none;stroke:var(--border)"/>
+    <rect x="470" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="24" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="496" y="37" width="13" height="13" fill="#1e88e5" opacity="0.85"/>
+    <rect x="509" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="509" y="37" width="13" height="13" fill="#1e88e5" opacity="0.85"/>
+    <rect x="522" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="522" y="37" width="13" height="13" fill="#1e88e5" opacity="0.85"/>
+    <rect x="535" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="535" y="37" width="13" height="13" fill="#1e88e5" opacity="0.85"/>
+    <rect x="548" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="548" y="37" width="13" height="13" fill="#1e88e5" opacity="0.85"/>
+    <rect x="561" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="37" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="561" y="37" width="13" height="13" fill="#1e88e5" opacity="0.85"/>
+    <rect x="574" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="37" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="50" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="561" y="50" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="574" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="50" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="63" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="548" y="63" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="561" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="63" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="76" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="548" y="76" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="561" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="76" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="89" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="535" y="89" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="548" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="89" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="102" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="535" y="102" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="548" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="102" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="115" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="522" y="115" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="535" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="115" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="128" width="13" height="13" style="fill:var(--text)" opacity=".18"/>
+    <rect x="522" y="128" width="13" height="13" fill="#ff0d57" opacity="0.45"/>
+    <rect x="535" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="128" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="483" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="496" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="509" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="522" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="535" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="548" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="561" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="574" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="587" y="141" width="13" height="13" style="fill:var(--surface-2)"/>
+    <rect x="470" y="24" width="130" height="130" style="fill:none;stroke:var(--border)"/>
+    <rect x="200" y="172" width="12" height="10" fill="#ff0d57" opacity=".85"/><text x="218" y="181" class="sm">øker sannsynligheten for klassen</text>
+    <rect x="420" y="172" width="12" height="10" fill="#1e88e5" opacity=".85"/><text x="438" y="181" class="sm">reduserer den</text>
+  </g>
+</svg>
+<figcaption><b>Figur 15.5</b> Skisse av et <code>shap.image_plot</code> for en MNIST-klassifikator (laget for kurset, i samme stil som figur 34 i notatene). Det finnes ett forklaringspanel per klasse. Den vannrette streken øverst er sterkt rød for «7»: den er det som skiller et sjutall fra et ettall. For «1» er den samme streken blå, fordi den taler <i>mot</i> at dette er et ettall, mens den skrå streken (som ligner et ettall) er svakt rød.</figcaption>
+</figure>
+
+<div class="reflect" data-id="15-r-mnist">
+  <p class="q">Oppgave fra notatene: si med ord hva et SHAP-bildeplott for MNIST forteller oss, og hvordan vi tolker SHAP-verdiene.</p>
+  <div class="answer">For hvert testbilde og hver av de ti klassene viser plottet hvor mye hver piksel dytter modellens output for den klassen opp (rød) eller ned (blå) sammenlignet med gjennomsnittet over bakgrunnsbildene. Klassen modellen velger, har typisk mange røde piksler langs strekene i sifferet, og de rødeste delene er de som skiller dette sifferet fra lignende sifre (for eksempel den vannrette streken i et sjutall, eller hullet i et null). For de andre klassene er mange av de samme pikslene blå, fordi de taler imot. Summen av alle SHAP-verdiene i et panel pluss gjennomsnittsoutputen er modellens output for den klassen (effektivitet). Forklaringen er lokal: den gjelder bare dette bildet.</div>
+</div>
+
+<h3>Superpiksler: grupper av features</h3>
+<p>Et ekte bilde har tusenvis til millioner av piksler. Beregningskostnaden skalerer eksponentielt med antall features, og det er heller ikke sikkert at viktigheten til <i>enkeltpiksler</i> er en nyttig forklaring. Image SHAP deler derfor bildet inn i <b>superpiksler</b> (sammenhengende pikselgrupper) og behandler hver gruppe som én feature. Resultatet er en SHAP-verdi per område, for eksempel «hodet» eller «bakgrunnen».</p>
+
+<div class="callout def"><span class="label">Intuisjon: spillere i lag</span>
+<p>Har du spillerne $[1,2,3,4,5,6,7,8,9]$, kan du i stedet beregne Shapley-verdien til de tre gruppene $[1,2,3]$, $[4,5,6]$ og $[7,8,9]$. Da får du tre Shapley-verdier totalt, og hver gruppe er én «spiller». Superpiksler fungerer på samme måte.</p>
+</div>
+
+<div class="calc" data-id="15-superpixel" data-answer="8" data-tol="0">
+  <p class="q">Ni spillere grupperes i tre lag som over. Hvor mange koalisjoner (verdier av $v$) trengs for eksakte Shapley-verdier for lagene? (Uten gruppering hadde det vært $2^9 = 512$.)</p>
+  <div class="solution">Med tre «spillere» trengs $2^3 = 8$ koalisjoner. Gruppering reduserer kostnaden eksponentielt, på bekostning av at vi ikke lenger kan si noe om enkeltspillerne (enkeltpikslene) inni gruppene.</div>
+</div>
+
+<h3>SHAP for språkmodeller</h3>
+<p>Notatene bruker en ferdigtrent <b>transformer</b> (BERT) for <b>sentimentanalyse</b>: den klassifiserer setninger etter hvilken emosjon de uttrykker (datasettet <code>dair-ai/emotion</code>). Modellparametrene lastes ned, så vi slipper å trene. Featurene er nå <b>ordene (tokenene)</b> i setningen.</p>
+<pre><code>model = transformers.AutoModelForSequenceClassification.from_pretrained(<span class="s">"nateraw/bert-base-uncased-emotion"</span>)
+explainer = shap.Explainer(model)                  <span class="c"># generell explainer, velger metode selv</span>
+shap_values = explainer(data[<span class="s">"text"</span>][<span class="s">0</span>:<span class="s">3</span>])          <span class="c"># tre setninger</span>
+shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span class="c"># forklar klassen «anger»</span></code></pre>
+<p class="small muted">Koden er ikke komplett (den mangler noe preprosessering). Se SHAP-dokumentasjonen om du vil kjøre den.</p>
+
+<figure class="fig-card">
+  <p style="margin:0 0 10px;line-height:2.1;font-size:16px">
+    <span>i</span> <span>feel</span> <span style="background:rgba(255,13,87,.25);padding:2px 4px;border-radius:4px">so</span> <span style="background:rgba(255,13,87,.75);color:#fff;padding:2px 4px;border-radius:4px">furious</span> <span>that</span> <span>they</span> <span style="background:rgba(255,13,87,.4);padding:2px 4px;border-radius:4px">cancelled</span> <span>my</span> <span>flight</span> <span style="background:rgba(255,13,87,.3);padding:2px 4px;border-radius:4px">again</span>
+  </p>
+  <p style="margin:0 0 10px;line-height:2.1;font-size:16px">
+    <span>i</span> <span>was</span> <span style="background:rgba(255,13,87,.6);color:#fff;padding:2px 4px;border-radius:4px">angry</span> <span>at</span> <span>first</span> <span style="background:rgba(30,136,229,.3);padding:2px 4px;border-radius:4px">but</span> <span>now</span> <span>i</span> <span>feel</span> <span style="background:rgba(30,136,229,.7);color:#fff;padding:2px 4px;border-radius:4px">calm</span>
+  </p>
+  <figcaption><b>Figur 15.6</b> Skisse av <code>shap.plots.text</code> for klassen «anger» (laget for kurset, i samme stil som figur 36 i notatene). Røde ord dytter modellen mot «anger», blå ord dytter bort fra den. Ord uten farge betyr lite for akkurat denne klassen.</figcaption>
+</figure>
+
+<div class="quiz" data-id="15-text-shap">
+  <p class="q">I et SHAP-tekstplott for klassen «anger» er ordet «calm» sterkt blått. Hva betyr det?</p>
+  <ul>
+    <li>At modellen har klassifisert setningen som «calm».</li>
+    <li data-correct>At ordet «calm» trekker modellens output for klassen «anger» ned for denne setningen.</li>
+    <li>At «calm» er det viktigste ordet i hele datasettet.</li>
+    <li>At ordet ble fjernet fra input før prediksjonen.</li>
+  </ul>
+  <div class="explain">Featurene er ordene, og fargen er retningen på bidraget til den klassen vi forklarer: blå ned, rød opp. Det sier ikke hvilken klasse modellen endte på (det kan vi bare se ved å sammenligne output for alle klassene), og forklaringen er lokal, ikke global.</div>
+</div>
+
+<div class="quiz" data-id="15-superpixel-why">
+  <p class="q">Hvorfor bruker Image SHAP superpiksler i stedet for enkeltpiksler på ekte bilder?</p>
+  <ul>
+    <li>Fordi Shapley-verdier bare er definert for under 100 spillere.</li>
+    <li>Fordi superpiksler gjør modellen mer treffsikker.</li>
+    <li data-correct>Fordi kostnaden vokser eksponentielt med antall features, og viktigheten til enkeltpiksler sjelden er en nyttig forklaring for mennesker.</li>
+    <li>Fordi DeepExplainer ikke støtter fargebilder.</li>
+  </ul>
+  <div class="explain">Begge grunnene står i notatene: millioner av piksler gir en umulig beregning ($2^M$), og mennesker forstår «øret» bedre enn «piksel (412, 87)». Superpikslene behandles som grupperte spillere. Modellen endres ikke av forklaringen.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="konsepter"><span class="sec">15.7</span>Konseptdeteksjon: knus boksen</h2>
+
+<p class="small muted">Etter notatene, avsnitt 5.4 (likning 123–125).</p>
+
+<p>SHAP dytter på input, og LIME bygger en surrogatmodell. Den tredje tilnærmingen i tabell 10 er <b>modellspesifikk</b>: vi åpner nettverket og undersøker hva som skjer i de indre lagene. Spørsmålet er om nettverket har laget representasjoner for begreper som gir mening for mennesker, såkalte <b>konsepter</b>. Først må vi forstå hva et lag i det hele tatt <i>kan</i> vite om input.</p>
+
+<h3 id="dpi">Hva kan vi forvente at modellen vet?</h3>
+<p>Et nevralt nettverk behandler input lag for lag (<a href="09-nevrale-nett.html">kapittel 9</a>). Kaller vi input $X$ og aktiveringene i to påfølgende lag $Z_1$ og $Z_2$, danner de en <b>Markov-kjede</b> $X \to Z_1 \to Z_2$: hvert lag avhenger bare av laget før. For slike kjeder gjelder et teorem fra informasjonsteorien, <b>data processing inequality</b>:</p>
+
+<div class="eq">
+  <p class="eq-note">Data processing inequality (likning 123 i notatene)</p>
+  $$I(X; Z_2) \le I(X; Z_1)$$
+</div>
+
+<p>$I$ er <b>gjensidig informasjon</b> (mutual information): et mål på hvor mye den ene variabelen forteller om den andre. Teoremet sier at ingen etterbehandling kan <i>øke</i> informasjonen om input. $Z_2$ kan ikke vite mer om $X$ enn $Z_1$ gjør, fordi alt $Z_2$ vet, har det fått gjennom $Z_1$. For nevrale nettverk betyr det at <b>et lag aldri kan inneholde mer informasjon om input enn lagene før det</b>.</p>
+
+<div class="callout hook"><span class="label">Knagg: hviskeleken</span>
+<p>I hviskeleken kan hver person bare sende videre det hen selv hørte. Beskjeden kan bli kortere eller mer forvrengt, men den kan aldri bli mer presis enn den var hos personen før. Lagene i et nettverk er deltakerne i leken: informasjon om input kan gå tapt underveis, men den kan aldri komme tilbake.</p>
+</div>
+
+<div class="callout warn"><span class="label">To ting å merke seg (notatene)</span>
+<ul>
+<li><b>Teoremet sier bare at informasjonen ikke øker.</b> Det garanterer ikke at den avtar. Empirisk ser vi at nettverk faktisk komprimerer informasjon lag for lag under trening, men den observasjonen har unntak og avhenger av tapsfunksjon, arkitektur og aktiveringsfunksjoner.</li>
+<li><b>Teoremet gjelder informasjonen fra <i>ett</i> input.</b> Det modellen har lært i vektene sine, kommer fra treningsdataene og fra arkitekturens innebygde antakelser (induktiv bias, <a href="01-grunnlag.html">kapittel 1</a>), ikke fra det enkelte input.</li>
+</ul></div>
+
+<p><b>Minimum Description Length</b> (MDL) er et beslektet prinsipp: den beste modellen for et datasett er den som gir den korteste samlede beskrivelsen. Å «forstå» noe er da å finne mønstre og regulariteter som lar oss beskrive helheten mer kompakt, ofte oppsummert som <i>«comprehension is compression»</i>. I XAI betyr det at vi bytter ut det upresise spørsmålet «hva vet modellen?» med det mer presise <b>«hvilken del av informasjonen i dataene bruker modellen?»</b>.</p>
+
+<div class="quiz" data-id="15-dpi">
+  <p class="q">Et nettverk har lagene $X \to Z_1 \to Z_2 \to Z_3$. Hva sier data processing inequality?</p>
+  <ul>
+    <li>$Z_3$ inneholder alltid mindre informasjon om $X$ enn $Z_1$.</li>
+    <li data-correct>$Z_3$ kan ikke inneholde mer informasjon om $X$ enn $Z_1$ eller $Z_2$.</li>
+    <li>Siste lag inneholder mest informasjon om input, fordi det har sett alle de andre lagene.</li>
+    <li>Gjensidig informasjon mellom to lag er alltid null etter trening.</li>
+  </ul>
+  <div class="explain">Teoremet gir en øvre grense: $I(X;Z_3) \le I(X;Z_2) \le I(X;Z_1)$. Det sier ikke at informasjonen <i>må</i> avta (likhet er tillatt), så «alltid mindre» er for sterkt. At nettverk ofte komprimerer lag for lag, er en empirisk observasjon med unntak, ikke en del av teoremet.</div>
+</div>
+
+<h3>Konsepter og features</h3>
+<p>SHAP og LIME forklarer prediksjoner via <b>input-features</b>: «Pclass» og «Age» for Titanic-dataene, tokens for språkmodeller og piksler eller pikselgrupper for bildemodeller. For data med struktur, og bilder er det mest intuitive eksemplet, er det ikke gitt at forklaringer på feature-nivå gir mening. Mennesker tenker ikke i piksler, men i <b>konsepter</b>: abstrakte begreper på et høyere nivå, som ofte er satt sammen av input-features på en ikke-triviell måte.</p>
+
+<table>
+<tr><th></th><th>Feature</th><th>Konsept</th></tr>
+<tr><td><b>Hva er det?</b></td><td>en kolonne, et token eller en piksel i input</td><td>et begrep på høyere nivå, satt sammen av mange features</td></tr>
+<tr><td><b>I dataene?</b></td><td><b>eksplisitt</b>: står direkte i dataene</td><td><b>implisitt</b>: står ikke i noen kolonne</td></tr>
+<tr><td><b>Bilder</b></td><td>piksel (412, 87)</td><td>«stripete», «skygge», et helt objekt</td></tr>
+<tr><td><b>Tekst</b></td><td>ordet «furious»</td><td>stemning, sinne</td></tr>
+<tr><td><b>Tabelldata</b></td><td>saldo på hver bankkonto</td><td>«formue»</td></tr>
+</table>
+
+<p>Nesten hva som helst kan være et konsept, så lenge det kan representeres av data. Det kan også være sammensatte egenskaper som etnisitet eller stemning. Det viktigste å huske er at <b>et konsept ikke er det samme som en feature</b>.</p>
+
+<div class="quiz" data-id="15-concept-feature">
+  <p class="q">Hvilket av disse er et <i>konsept</i> og ikke en feature for en bildeklassifikator?</p>
+  <ul>
+    <li>Rødverdien til piksel (10, 20)</li>
+    <li>En superpiksel øverst til venstre i bildet</li>
+    <li data-correct>«Har prikker»</li>
+    <li>Bildets bredde i piksler</li>
+  </ul>
+  <div class="explain">Piksler, superpiksler og bildestørrelse står eksplisitt i dataene og er features (superpiksler er grupper av features, som i Image SHAP). «Har prikker» står ikke i noen enkelt piksel. Det er et abstrakt begrep som er satt sammen av mange piksler på en ikke-triviell måte, altså et konsept.</div>
+</div>
+
+<h3 id="cav">Konseptaktiveringsvektorer (CAV)</h3>
+<p>Vi kan finne ut om et nevralt nettverk har laget en representasjon for et konsept ved hjelp av <b>konseptaktiveringsvektorer</b> (concept activation vectors, CAV). La $f_l : \mathbb{R}^n \to \mathbb{R}^m$ være den delen av nettverket som tar input med dimensjon $n$ til aktiveringene i lag $l$, som har dimensjon $m$. Det er disse aktiveringene i et av nettverkets indre lag vi bruker:</p>
+
+<div class="callout def"><span class="label">Slik lager du en CAV for konsept $C$ i lag $l$</span>
+<ol>
+<li><b>Samle probing-data:</b> ett datasett som inneholder konseptet (for eksempel bilder av prikker) og ett som ikke gjør det (for eksempel tilfeldige bilder). Tenk på det som et klassifiseringsdatasett med binære targets.</li>
+<li><b>Hent aktiveringene:</b> send datapunktene $x$ fra begge datasettene gjennom nettverket og hent ut aktiveringene $f_l(x)$ i lag $l$.</li>
+<li><b>Tren en lineær klassifikator</b> som skiller konseptaktiveringene fra de tilfeldige aktiveringene, for det spesifikke laget. Er du ute etter flere lag, gjør du dette separat for hvert lag.</li>
+<li><b>Les av CAV-en:</b> vektoren som står vinkelrett (ortogonalt) på beslutningsflaten, peker i retning av konseptdataene i aktiveringsrommet. Det er konseptaktiveringsvektoren $v^l_C$.</li>
+</ol>
+</div>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 520 300" role="img" aria-label="Aktiveringsrommet i lag l: konseptpunkter og tilfeldige punkter skilles av en rett linje, og CAV-en står vinkelrett på linjen og peker mot konseptpunktene">
+  <rect x="1" y="1" width="518" height="298" rx="10" style="fill:var(--surface);stroke:var(--border)"/>
+  <text x="16" y="24" class="sm">aktiveringsrommet i lag l (her bare 2 av m dimensjoner)</text>
+  <line x1="120" y1="285" x2="420" y2="40" style="stroke:var(--text-soft);stroke-width:2;stroke-dasharray:7 5"/>
+  <text x="372" y="62" class="sm">beslutningsflate</text>
+  <g style="fill:var(--c2)">
+    <circle cx="350" cy="200" r="7"/><circle cx="390" cy="170" r="7"/><circle cx="420" cy="230" r="7"/><circle cx="460" cy="190" r="7"/>
+    <circle cx="370" cy="250" r="7"/><circle cx="440" cy="140" r="7"/><circle cx="400" cy="210" r="7"/><circle cx="470" cy="250" r="7"/>
+  </g>
+  <g style="fill:var(--c1)">
+    <circle cx="90" cy="90" r="7"/><circle cx="140" cy="130" r="7"/><circle cx="70" cy="170" r="7"/><circle cx="180" cy="80" r="7"/>
+    <circle cx="120" cy="200" r="7"/><circle cx="200" cy="150" r="7"/><circle cx="60" cy="240" r="7"/><circle cx="230" cy="100" r="7"/>
+  </g>
+  <line x1="270" y1="162" x2="340" y2="248" style="stroke:var(--accent);stroke-width:3.5"/>
+  <polygon points="348,258 330,250 342,238" style="fill:var(--accent)"/>
+  <text x="300" y="282" style="fill:var(--accent);font-weight:700;font-size:15px">CAV v<tspan baseline-shift="super" font-size="10">l</tspan><tspan baseline-shift="sub" font-size="10">C</tspan></text>
+  <text x="380" y="292" class="sm" style="fill:var(--c2)">● konsept («prikker»)</text>
+  <text x="40" y="292" class="sm" style="fill:var(--c1)">● tilfeldige bilder</text>
+</svg>
+<figcaption><b>Figur 15.7</b> En lineær probe skiller aktiveringene for konseptbilder (oransje) fra aktiveringene for tilfeldige bilder (blå). CAV-en er normalvektoren til beslutningsflaten og peker mot konseptet. Laget for kurset.</figcaption>
+</figure>
+
+<p>En slik lineær modell som klassifiserer konseptaktiveringer i et lag, kalles en (lineær) <b>probe</b>. Har proben høy treffsikkerhet, er konseptet <b>(lineært) representert</b> i laget. Ved å gjenta dette lag for lag kan vi se hvor i nettverket konseptet oppstår. CAV-er brukes til å forstå mer om nevrale nettverk, slik som i artikkelen <i>Acquisition of chess knowledge in AlphaZero</i>, der forskerne undersøkte om sjakkonsepter var representert i AlphaZeros nettverk. CAV-er brukes derimot sjelden som forklaringer i seg selv.</p>
+
+<div class="callout cons"><span class="label">Hva fører det til? Metoden krever innmaten</span>
+<p>For å hente ut $f_l(x)$ må vi ha tilgang til nettverkets indre aktiveringer, og for TCAV under trenger vi i tillegg gradientene. Derfor er konseptdeteksjon <b>modellspesifikk</b>. Den virker ikke på en ren svart boks der vi bare kan kalle <code>predict</code>. Det er prisen for å «knuse boksen» i stedet for å dytte på den.</p>
+</div>
+
+<div class="quiz" data-id="15-probe">
+  <p class="q">En lineær probe som skal skille «stripete» fra tilfeldige bilder, får 98 % treffsikkerhet på aktiveringene i lag 5, men bare 55 % i lag 1. Hva er den rimeligste tolkningen?</p>
+  <ul>
+    <li>Nettverket klassifiserer sebraer med 98 % treffsikkerhet.</li>
+    <li data-correct>Konseptet «stripete» er lineært representert i lag 5, men knapt i lag 1.</li>
+    <li>Lag 1 inneholder mindre informasjon om input enn lag 5.</li>
+    <li>Proben har overtilpasset, fordi treffsikkerheten er for høy.</li>
+  </ul>
+  <div class="explain">Proben måler om konseptet kan leses ut lineært fra aktiveringene i laget. 98 % betyr at «stripete» er tydelig representert i lag 5. Det sier ingenting om hvor godt nettverket løser sin egen oppgave. Det tredje alternativet strider mot data processing inequality: lag 5 kan ikke ha <i>mer</i> informasjon om input enn lag 1, men informasjonen kan være organisert slik at konseptet blir lineært tilgjengelig.</div>
+</div>
+
+<h3 id="tcav">TCAV: hvor mye påvirker et konsept prediksjonen?</h3>
+<p>For å lage forklaringer bruker metoden <b>TCAV</b> (Testing with Concept Activation Vectors) CAV-ene til å regne ut en TCAV-skår per konsept. Kort fortalt måler TCAV <i>hvor mye et konsept påvirker modellens prediksjoner</i>.</p>
+<p>La $h_{l,k}$ være funksjonen fra aktiveringene i lag $l$ til aktiveringen i siste lag (modellens prediksjon) for klasse $k$. <b>Konseptsensitiviteten</b> er den deriverte av modellens prediksjon med hensyn på CAV-en, altså $\partial f(x)/\partial v^l_C$. Den er vanskelig å regne ut direkte for et faktisk nevralt nettverk. Men siden vi har tilgang til gradientene, kan vi skrive den som den <b>retningsderiverte</b> av aktiveringen i siste lag i retning av konseptvektoren, altså gradienten projisert på CAV-en gjennom prikkproduktet:</p>
+
+<div class="eq">
+  <p class="eq-note">Konseptsensitivitet (likning 124 i notatene)</p>
+  $$S_{C,k,l}(\mathbf{x}) = \nabla h_{l,k}\big(f_l(\mathbf{x})\big) \cdot v^l_C$$
+</div>
+
+<p>$S_{C,k,l}(\mathbf{x})$ forteller oss om prediksjonen for klasse $k$ <b>øker eller minker</b> hvis vi flytter aktiveringene i lag $l$ litt i retning av konseptet $C$. Til slutt får vi TCAV-skåren for konsept $C$, klasse $k$ og lag $l$ ved å telle andelen av inputene der sensitiviteten er positiv:</p>
+
+<div class="eq">
+  <p class="eq-note">TCAV-skåren (likning 125 i notatene). $X_k$ er et datasett med target-verdi klasse $k$.</p>
+  $$\text{TCAV}_{Q_{C,k,l}} = \frac{\big|\{\mathbf{x} \in X_k : S_{C,k,l}(\mathbf{x}) > 0\}\big|}{|X_k|}$$
+</div>
+
+<div class="chain">
+  <div><b>CAV</b>$v^l_C$: retningen mot konseptet i lag $l$</div><div class="arrow">→</div>
+  <div><b>Sensitivitet</b>prikkprodukt mellom gradienten og $v^l_C$, ett tall per bilde</div><div class="arrow">→</div>
+  <div><b>Fortegn</b>positivt betyr at konseptet drar prediksjonen for $k$ opp</div><div class="arrow">→</div>
+  <div><b>TCAV-skår</b>andelen bilder i klasse $k$ med positivt fortegn</div>
+</div>
+
+<div class="callout def"><span class="label">Regneeksempel: «stripete» og klassen «sebra»</span>
+<p>Et toy-nett har tre aktiveringer i lag $l$, og CAV-en for «stripete» er $v^l_C = (0.6,\ 0.8,\ 0)$. Vi har fire sebrabilder, og gradientene $\nabla h_{l,\text{sebra}}(f_l(\mathbf{x}))$ er:</p>
+<table class="center">
+<tr><th>Bilde</th><th>Gradient</th><th>$S = \nabla h \cdot v^l_C$</th><th>Positiv?</th></tr>
+<tr><td>1</td><td>$(1,\ 0.5,\ 2)$</td><td>$0.6 + 0.4 + 0 = 1.0$</td><td>ja</td></tr>
+<tr><td>2</td><td>$(-0.5,\ 1,\ 1)$</td><td>$-0.3 + 0.8 + 0 = 0.5$</td><td>ja</td></tr>
+<tr><td>3</td><td>$(0.2,\ -0.4,\ 3)$</td><td>$0.12 - 0.32 + 0 = -0.2$</td><td>nei</td></tr>
+<tr><td>4</td><td>$(2,\ 1,\ -1)$</td><td>$1.2 + 0.8 + 0 = 2.0$</td><td>ja</td></tr>
+</table>
+<p>Tre av fire sensitiviteter er positive, så $\text{TCAV} = 3/4 = 0.75$. For 75 % av sebrabildene ville prediksjonen «sebra» økt om aktiveringene ble flyttet litt i retning av «stripete». Legg merke til at bare <b>fortegnet</b> teller. Bilde 4 har den største sensitiviteten, men teller like mye som bilde 2.</p>
+</div>
+
+<div class="calc" data-id="15-calc-tcav" data-answer="0.6" data-tol="0.001">
+  <p class="q">CAV-en er $v^l_C = (0,\ 0.6,\ 0.8)$. Fem bilder fra klasse $k$ har gradientene $(1, 1, 1)$, $(2, -1, 0.5)$, $(0, -2, 1)$, $(3, 0.5, 0.5)$ og $(-1, 1, -0.2)$. Hva er TCAV-skåren?</p>
+  <div class="solution">Sensitivitetene er $0.6 + 0.8 = 1.4$, $-0.6 + 0.4 = -0.2$, $-1.2 + 0.8 = -0.4$, $0.3 + 0.4 = 0.7$ og $0.6 - 0.16 = 0.44$. Tre av fem er positive, så TCAV $= 3/5 = 0.6$. Første komponent i gradienten spiller ingen rolle her, fordi CAV-en har 0 i den retningen.</div>
+</div>
+
+<div class="quiz" data-id="15-tcav">
+  <p class="q">TCAV-skåren for konseptet «prikker», klassen «leopard» og lag $l$ er 0.9. Hva betyr det?</p>
+  <ul>
+    <li>Modellen klassifiserer 90 % av leopardbildene riktig.</li>
+    <li>90 % av leopardbildene inneholder prikker.</li>
+    <li data-correct>For 90 % av leopardbildene øker prediksjonen «leopard» hvis aktiveringene i lag $l$ flyttes litt i retning av konseptet «prikker».</li>
+    <li>Konseptet «prikker» forklarer 90 % av variansen i aktiveringene.</li>
+  </ul>
+  <div class="explain">TCAV-skåren er andelen inputs fra klasse $k$ der konseptsensitiviteten $S_{C,k,l}(\mathbf{x})$ er positiv (likning 125). Den sier ingenting om treffsikkerhet eller om bildene faktisk har prikker. Den måler retningen konseptet drar prediksjonen.</div>
+</div>
+
+<div class="quiz" data-id="15-tcav-category">
+  <p class="q">Hvorfor regnes TCAV som en <i>modellspesifikk</i> forklaringsmetode?</p>
+  <ul>
+    <li>Fordi den bare fungerer for beslutningstrær.</li>
+    <li data-correct>Fordi den trenger tilgang til aktiveringene i indre lag og til gradientene, ikke bare til input og output.</li>
+    <li>Fordi den gir lokale forklaringer.</li>
+    <li>Fordi konseptene må være features i datasettet.</li>
+  </ul>
+  <div class="explain">Modellagnostiske metoder (SHAP, LIME) trenger bare å kunne gi modellen input og lese output. TCAV henter ut $f_l(\mathbf{x})$ og $\nabla h_{l,k}$, som krever at vi kan se inn i nettverket. Konsepter er nettopp <i>ikke</i> features (de er implisitte).</div>
+</div>
+
+<div class="callout exam"><span class="label">Hva kan komme på eksamen?</span>
+<p>Konseptdeteksjon er nytt i notatene (10.11.2026), så det finnes ingen eksamensoppgaver ennå. Typiske flervalgsspørsmål vil trolig handle om: hvilken kategori metoden tilhører (modellspesifikk, «knus boksen»), forskjellen på konsept og feature, hva data processing inequality sier (informasjonen kan ikke <i>øke</i>), hva en probe og en CAV er, og hvordan TCAV-skåren tolkes eller regnes ut. Regneoppgaven er prikkprodukt pluss telling, se også <a href="18-regneoppgaver.html#r-tcav">kapittel 18</a>.</p>
+</div>
+
+
+<!-- ============================================================ -->
+<h2 id="prinsipper"><span class="sec">15.8</span>Etiske prinsipper for KI</h2>
+
+<div class="banner"><b>Forventet pensum (15.8–15.10).</b> Etikk, skjevhet i data og AI Act står ikke i forelesningsnotatene per 10.11.2026. Seksjonene bygger på eksamen 2024 (oppg. 37–39), Floridi og Cowls (2019) og EUs KI-forordning.</div>
 
 <p>Mange rammeverk for KI-etikk koker ned til fem prinsipper. Fire av dem er hentet fra medisinsk etikk, og det femte er lagt til for KI (Floridi og Cowls, 2019):</p>
 
@@ -1958,7 +3021,7 @@
 </div>
 
 <!-- ============================================================ -->
-<h2 id="skjevhet"><span class="sec">15.7</span>Skjevhet og diskriminering i data</h2>
+<h2 id="skjevhet"><span class="sec">15.9</span>Skjevhet og diskriminering i data</h2>
 
 <p>En modell lærer mønstrene i treningsdataene, også de urettferdige. Hvis historikken er skjev, blir modellen skjev. Det kalles <b>skjevhet</b> (bias), men det er ikke det samme som bias i lineær modell eller bias i bias–varians (<a href="07-generalisering.html">kapittel 7</a>).</p>
 
@@ -2001,7 +3064,7 @@
 </div>
 
 <!-- ============================================================ -->
-<h2 id="aiact"><span class="sec">15.8</span>AI Act: EUs risikobaserte regulering</h2>
+<h2 id="aiact"><span class="sec">15.10</span>AI Act: EUs risikobaserte regulering</h2>
 
 <p>AI Act (KI-forordningen, forordning (EU) 2024/1689) ble vedtatt i 2024 og trådte i kraft 1. august 2024. Den omtales som <b>verdens første omfattende, KI-spesifikke regulering</b>. Reglene fases inn gradvis: forbudene gjelder fra februar 2025, reglene for generelle KI-modeller (som store språkmodeller) fra august 2025, og de fleste kravene til høyrisikosystemer fra 2026–2027. EU har foreslått å utsette deler av høyrisikoreglene. Norge er med via EØS, og det er planlagt en norsk KI-lov som gjennomfører forordningen.</p>
 
@@ -2070,11 +3133,16 @@
 <div class="summary">
   <h3>Oppsummering</h3>
   <ul>
-    <li><b>Hvorfor XAI:</b> tillit, feilsøking (ulv og snø), regulering og rettferdighet.</li>
+    <li><b>Hvorfor XAI:</b> tillit, feilsøking (ulv og snø), regulering og rettferdighet. Subsymbolsk KI (nevrale nett) fungerer spektakulært, men vi vet ikke hvorfor de generaliserer.</li>
+    <li><b>Transparent ≠ tolkbar:</b> vi kan printe alle vektene, men de gir ikke mening. Tolkbarhet er passiv, forklarbarhet er aktiv (lagt til i etterkant). En forklaring må være treffsikker <i>og</i> forståelig.</li>
+    <li><b>Tre tilnærminger til $f(x,\theta)$:</b> følsomhet for $x$ (SHAP, «dytt på boksen»), erstatt $f$ (surrogatmodell, LIME, «finn noe du forstår»), undersøk $\theta$ (konseptdeteksjon, «knus boksen»).</li>
     <li><b>Tolkbare modeller</b> (lineære, grunne trær) vs. <b>svarte bokser</b> (nevrale nett, ensembler). <b>Global</b> (hele modellen) vs. <b>lokal</b> (én prediksjon). <b>Modellagnostisk</b> (bare <code>predict</code>) vs. <b>modellspesifikk</b>.</li>
-    <li><b>LIME:</b> perturber rundt ett punkt, vekt etter nærhet, tilpass en enkel modell lokalt. Begrensninger: valg av kjernebredde, ustabilitet, urealistiske perturbasjoner, bare lokal.</li>
-    <li><b>Shapley:</b> $\phi_i$ = gjennomsnittlig marginalt bidrag over alle $N!$ rekkefølger. Effektivitet ($\sum\phi_i = v(N)$), symmetri, dummy ($\phi = 0$) og additivitet. Kontroller alltid at summen blir $v(N)$.</li>
-    <li><b>SHAP:</b> features er spillerne. $f(x) = \phi_0 + \sum\phi_j$, der baseline $\phi_0 = \mathbb{E}[f(X)]$. Beeswarm: øverste rad betyr mest, x = bidrag, farge = feature-verdi. Bidraget er relativt til gjennomsnittet, ikke absolutt.</li>
+    <li><b>LIME (likning 122):</b> lokal surrogatmodell. Velg $x$ og nabolag $\pi_x$, trekk punkter rundt $x$, gi dem labels med $f$ (ikke targets), tilpass en tolkbar $g$ og tolk den. $\operatorname{argmin}_g \mathcal{L}(f,g,\pi_x) + \Omega(g)$ balanserer etterligning mot tolkbarhet. Forbehold: nabolaget avgjør svaret, ingen garanti for at $g$ er en god surrogat, og tilfeldig sampling gir ustabile forklaringer.</li>
+    <li><b>Shapley:</b> $\phi_i$ = gjennomsnittlig marginalt bidrag over alle $|N|!$ rekkefølger. Taxien: 3, 7 og 10 km gir 1, 3 og 6 (del etappene). Effektivitet ($\sum\phi_i = v(N)$), symmetri, dummy ($\phi = 0$) og additivitet. Kontroller alltid at summen blir $v(N)$. Krever $2^{|N|}$ koalisjoner: maks rundt 20 features eksakt.</li>
+    <li><b>SHAP:</b> features er spillerne, $v(S) = \mathbb{E}[f(x)\mid x_S = x^*_S]$. Fraværende features hentes fra et <b>bakgrunnsdatasett</b>, som antar uavhengige features (farlig ved korrelasjon). $f(x^*) = \phi_0 + \sum\phi^*_j$, der $\phi_0$ er gjennomsnittsprediksjonen på bakgrunnsdataene. Explainers: Kernel (agnostisk, approksimerer), Tree (eksakt, polynomisk), Deep og Gradient (nevrale nett). SHAP regnes som modellagnostisk.</li>
+    <li><b>Plott:</b> force plot = ett punkt, rød drar opp, blå drar ned. Beeswarm = mange punkter, øverste rad betyr mest, x = bidrag, farge = feature-verdi. Bidraget er relativt til gjennomsnittet, ikke absolutt, og det globale bildet gjelder bare punktene du forklarte.</li>
+    <li><b>Bilder og tekst:</b> én SHAP-verdi per piksel, superpiksel (grupperte spillere) eller ord, per klasse. Bare overordnet forståelse kreves.</li>
+    <li><b>Konseptdeteksjon:</b> data processing inequality, $I(X;Z_2) \le I(X;Z_1)$: et lag kan aldri vite mer om input enn lagene før. Konsepter er implisitte og abstrakte, features er eksplisitte. En CAV $v^l_C$ er normalvektoren til en lineær probe som skiller konseptaktiveringer fra tilfeldige. TCAV = andelen inputs i klasse $k$ der $\nabla h_{l,k}(f_l(\mathbf{x}))\cdot v^l_C &gt; 0$. Metoden er modellspesifikk.</li>
     <li><b>Etikk:</b> velgjørenhet (gjøre godt), ikke-skade, autonomi (mennesket har kontroll, ingen manipulasjon), rettferdighet og forklarbarhet.</li>
     <li><b>Skjevhet:</b> historisk, representasjon, proxy og tilbakekobling. Å fjerne en sensitiv kolonne er ikke nok.</li>
     <li><b>AI Act:</b> risikobasert. Uakseptabel = forbudt, høy = regulert (ikke forbudt), begrenset = åpenhet, minimal = ingen krav. Kategoriene er risikonivåer, ikke sektorer.</li>
@@ -2091,6 +3159,23 @@
   <div class="card"><div class="front">Dummy og symmetri</div><div class="back">Dummy: bidrar aldri, så φ = 0. Symmetri: like bidrag gir lik φ.</div></div>
   <div class="card"><div class="front">SHAP-baseline</div><div class="back">$\phi_0 = \mathbb{E}[f(X)]$, gjennomsnittsprediksjonen. SHAP-verdier måler avvik fra den.</div></div>
   <div class="card"><div class="front">Lese beeswarm</div><div class="back">Øverst = viktigst. x = SHAP-verdi (opp/ned fra snittet). Farge = feature-verdi (rød høy, blå lav).</div></div>
+  <div class="card"><div class="front">Symbolsk vs subsymbolsk KI</div><div class="back">Symbolsk: regler skrevet av mennesker (ekspertsystemer, ca. 1956–1990). Subsymbolsk: lært fra data, kunnskapen ligger «under symbolene» i parametrene.</div></div>
+  <div class="card"><div class="front">Tolkbarhet vs forklarbarhet</div><div class="back">Tolkbarhet: passiv, modellen gir mening i seg selv. Forklarbarhet: aktiv, vi legger til en metode som forklarer.</div></div>
+  <div class="card"><div class="front">To krav til en forklaring</div><div class="back">Treffsikker (speiler modellen) og forståelig (for mennesker).</div></div>
+  <div class="card"><div class="front">Dytt, finn, knus</div><div class="back">SHAP: følsomhet for x. LIME: surrogatmodell for f. Konseptdeteksjon: se inn i θ.</div></div>
+  <div class="card"><div class="front">Taxi 3, 7, 10 km</div><div class="back">Shapley: 1, 3, 6 km. Første 3 km deles på tre, neste 4 på to, siste 3 betales alene.</div></div>
+  <div class="card"><div class="front">Bakgrunnsdatasett</div><div class="back">Fraværende features erstattes med verdier herfra og prediksjonene snittes. Antar uavhengige features. Valget er et modelleringsvalg.</div></div>
+  <div class="card"><div class="front">TreeExplainer</div><div class="back">For trær og skoger. Eksakte SHAP-verdier i polynomisk tid.</div></div>
+  <div class="card"><div class="front">Force plot</div><div class="back">Ett datapunkt. Fra φ₀ til f(x*). Rød = drar opp, blå = drar ned.</div></div>
+  <div class="card"><div class="front">Superpiksler</div><div class="back">Pikselgrupper som behandles som én feature i Image SHAP. Færre spillere, mer forståelig forklaring.</div></div>
+  <div class="card"><div class="front">Surrogatmodell</div><div class="back">En tolkbar modell $g$ som etterligner den fulle modellen $f$, ofte bare lokalt. LIME er kursets eksempel.</div></div>
+  <div class="card"><div class="front">LIME, likning 122</div><div class="back">$\operatorname{argmin}_{g\in G}\, \mathcal{L}(f,g,\pi_x) + \Omega(g)$: etterlign $f$ i nabolaget $\pi_x$, men hold kompleksiteten $\Omega(g)$ lav.</div></div>
+  <div class="card"><div class="front">LIME: hvor kommer labels fra?</div><div class="back">Fra den fulle modellen, $f(x_i)$. Ikke fra targets i dataene, for $g$ skal etterligne modellen.</div></div>
+  <div class="card"><div class="front">Data processing inequality</div><div class="back">$X \to Z_1 \to Z_2$ gir $I(X;Z_2) \le I(X;Z_1)$. Et lag kan aldri inneholde mer informasjon om input enn lagene før. Det kan være like mye.</div></div>
+  <div class="card"><div class="front">MDL</div><div class="back">Minimum Description Length: den beste modellen gir den korteste samlede beskrivelsen. «Comprehension is compression.»</div></div>
+  <div class="card"><div class="front">Konsept vs feature</div><div class="back">Feature: eksplisitt i dataene (piksel, kolonne). Konsept: implisitt, abstrakt begrep satt sammen av mange features («stripete», «formue»).</div></div>
+  <div class="card"><div class="front">CAV og probe</div><div class="back">Tren en lineær klassifikator (probe) som skiller aktiveringer for konseptdata fra tilfeldige i lag $l$. Normalvektoren mot konseptet er CAV-en $v^l_C$.</div></div>
+  <div class="card"><div class="front">TCAV-skår</div><div class="back">Andelen inputs i klasse $k$ med positiv konseptsensitivitet $S_{C,k,l} = \nabla h_{l,k}(f_l(\mathbf{x}))\cdot v^l_C$. Bare fortegnet teller.</div></div>
   <div class="card"><div class="front">Velgjørenhet</div><div class="back">KI skal fremme menneskelig velferd og gjøre godt.</div></div>
   <div class="card"><div class="front">Autonomi</div><div class="back">Mennesker skal ha kontroll. Brytes ved manipulasjon og beslutninger uten samtykke.</div></div>
   <div class="card"><div class="front">AI Act: fire nivåer</div><div class="back">Uakseptabel (forbudt), høy (regulert), begrenset (åpenhet), minimal (ingen krav).</div></div>
@@ -2185,7 +3270,8 @@ document.addEventListener("DOMContentLoaded", () => {
     exam: [2, 4, 5, 3, 3, 2, 3],
     proj: [12, 6, 0, 24, 18, 12, 36],
     dummy: [10, 10, 0, 30, 10, 10, 30],
-    add: [3, 5, 2, 8, 5, 7, 10]
+    add: [3, 5, 2, 8, 5, 7, 10],
+    taxi: [3, 7, 10, 7, 10, 10, 10]
   };
   const host = document.getElementById("shInputs");
   host.innerHTML = keys.map(k => `<label>${label[k]} <input type="text" inputmode="decimal" id="sh_${k}"></label>`).join("");

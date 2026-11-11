@@ -1,0 +1,546 @@
+%%% Øvingssett 3 – TDT4172 H26
+%%% ============================================================ PART 1
+@@PART
+@@Q
+En \textbf{logistisk regresjonsmodell} med to features predikerer
+\[ \hat y = \sigma(w_1 x_1 + w_2 x_2 + b), \]
+og klassifiserer et punkt som positivt når $\hat y > 0.5$.
+
+Hvilket utsagn om \textbf{beslutningsgrensen} til denne modellen er korrekt?
+@+ Den er linjen $w_1x_1 + w_2x_2 + b = 0$, fordi $\sigma(z) = 0.5$ nøyaktig når $z = 0$
+@- Den er S-formet i $(x_1, x_2)$-planet, fordi sigmoid-funksjonen er ikke-lineær
+@- Den er linjen $w_1x_1 + w_2x_2 + b = 0.5$, fordi terskelen for klassifisering er 0.5
+@- Den kan bli krum dersom modellen trenes lenge nok med gradient descent
+@@Q
+En modell gir prediksjonene under for to datapunkter. Tapet er gjennomsnittlig
+\textbf{binary cross-entropy} med naturlig logaritme,
+$L = -\frac{1}{N}\sum_i \big[\,y_i \ln \hat y_i + (1-y_i)\ln(1-\hat y_i)\,\big]$.
+Punkt 1 har $y = 1$ og $\hat y = 0.8$, og punkt 2 har $y = 0$ og $\hat y = 0.6$.
+
+Hva blir tapet $L$?
+%%% (-ln0.8 - ln0.4)/2 = 0.570 ; feil: ln0.6 i stedet for ln0.4 -> 0.367 ; bare y-leddet (glemt (1-y)-leddet) -> -ln0.8/2 = 0.112 ; log10 -> 0.247
+@+ $0.57$
+@- $0.37$
+@- $0.11$
+@- $0.25$
+@@Q
+I logistisk regresjon er $\hat y = \sigma(z)$ med $z = \mathbf{w}^T\mathbf{x} + b$. For et bestemt datapunkt
+gir modellen $\hat y = 0.8$.
+
+Hva er verdien av $z$ for dette punktet?
+%%% z = ln(p/(1-p)) = ln 4 = 1.386 ; sigma(0.8) = 0.690 (brukt sigmoid i stedet for invers) ; log10(4)=0.602 ; ln(0.8)=-0.223
+@+ $z \approx 1.39$
+@- $z \approx 0.69$
+@- $z \approx 0.60$
+@- $z \approx -0.22$
+@@Q
+%%% NY: gradient descent beveger seg i parameterrommet (dimensjon = antall parametre)
+En logistisk regresjonsmodell med tre features, $\hat y = \sigma(w_1x_1 + w_2x_2 + w_3x_3 + b)$, trenes med
+gradient descent på 500 treningspunkter.
+
+I hvilket rom tar gradient descent stegene sine, og hvor mange dimensjoner har det?
+@+ I parameterrommet spent ut av $(w_1, w_2, w_3, b)$, som har fire dimensjoner
+@- I feature-rommet spent ut av $(x_1, x_2, x_3)$, som har tre dimensjoner
+@- I rommet av treningspunkter, med én dimensjon per punkt, altså 500 dimensjoner
+@- I prediksjonsrommet til $\hat y$, som har én dimensjon siden $\hat y \in (0,1)$
+%%% ============================================================ PART 2
+@@PART
+@@Q
+En binær klassifikator gir en score $\hat y \in (0,1)$, og et punkt klassifiseres som positivt når
+$\hat y > t$. \textbf{ROC-kurven} lages ved å variere terskelen $t$ fra 1 til 0.
+
+Hvilket utsagn om ROC-kurven er korrekt?
+@+ Med $t = 0$ havner modellen alltid i punktet $(\mathrm{FPR}, \mathrm{TPR}) = (1, 1)$
+@- Et punkt over diagonalen betyr at modellen har flere falske positive enn sanne positive
+@- En modell som gjetter tilfeldig gir kurven $\mathrm{TPR} = 1 - \mathrm{FPR}$
+@- Med $t = 1$ havner modellen i punktet $(\mathrm{FPR}, \mathrm{TPR}) = (0, 1)$
+@@Q
+%%% NY2: ROC AUC avhenger bare av rangeringen av skårene (uendret ved monoton transformasjon)
+En klassifikator gir skår $s \in (0,1)$, og et punkt klassifiseres som positivt når skåren er over 0.5.
+Uten å trene noe på nytt erstatter en kollega alle skårene med $s^2$ før evalueringen på testsettet.
+Terskelen holdes på 0.5.
+
+Hva skjer med metrikkene sammenlignet med de opprinnelige skårene?
+%%% s^2 er strengt voksende på (0,1): rekkefølgen bevares -> samme ROC/AUC. Punkter med 0.5 < s < 0.707 går fra positiv til negativ.
+@+ ROC AUC er uendret fordi rekkefølgen av skårene bevares, mens accuracy ved terskel 0.5 kan endres
+@- ROC AUC og accuracy ved terskel 0.5 er begge uendret, siden modellen ikke er trent på nytt
+@- ROC AUC synker fordi alle skårene blir lavere, mens accuracy ved terskel 0.5 er uendret
+@- ROC AUC og accuracy ved terskel 0.5 kan begge endres, siden skårene har fått nye verdier
+@@Q
+Tabellen viser score og sann klasse for ti testpunkter. Et punkt klassifiseres som positivt når
+score $> 0.6$.
+
+\begin{center}
+\begin{tabular}{l*{10}{c}}
+\toprule
+Score & 0.95 & 0.85 & 0.80 & 0.70 & 0.65 & 0.55 & 0.45 & 0.40 & 0.30 & 0.10 \\
+Sann klasse & 1 & 0 & 1 & 1 & 0 & 0 & 1 & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Hvilket punkt $(\mathrm{FPR}, \mathrm{TPR})$ på ROC-kurven svarer denne terskelen til?
+%%% P=4, N=6. Pos: .95(1) .85(0) .80(1) .70(1) .65(0): TP=3, FP=2. FPR=2/6=0.33, TPR=3/4=0.75
+%%% feil: (TNR, FNR) = (4/6, 1/4) = (0.67,0.25); delt på predikert positive (0.40,0.60); delt på alle 10 (0.20,0.30)
+@+ $(0.33,\ 0.75)$
+@- $(0.67,\ 0.25)$
+@- $(0.40,\ 0.60)$
+@- $(0.20,\ 0.30)$
+@@Q
+For en binær klassifikator ved en gitt terskel er antall \textbf{true positives} $\mathrm{TP} > 0$.
+
+Hvilken betingelse gjør at \textbf{precision} og \textbf{recall} blir like store?
+%%% P = TP/(TP+FP), R = TP/(TP+FN) -> like når FP = FN
+@+ Antall falske positive er lik antall falske negative
+@- Antallet sanne positive er lik antallet sanne negative
+@- Antall falske positive er lik antall sanne negative
+@- Antall sanne negative er lik antall falske negative
+%%% ============================================================ PART 3
+@@PART
+@@Q
+Et Naive Bayes-filter for søppelpost estimerer $p(x_i \mid C_k)$ som relative frekvenser i treningsdataene.
+Ordet «kryptogevinst» finnes i flere søppel-e-poster, men aldri i en vanlig e-post i treningsdataene.
+En ny jobb-e-post inneholder dette ordet én gang; alle de andre ordene i den finnes i begge klassene.
+
+Hva skjer når filteret klassifiserer den nye e-posten?
+@+ Produktet for klassen «vanlig» blir 0, så e-posten blir alltid klassifisert som søppel
+@- Ordet ignoreres, siden det bare finnes i én av klassene og derfor ikke kan brukes til å skille dem
+@- Prioren $p(\text{vanlig})$ settes til 0, men de andre ordene i e-posten kan likevel gi klassen «vanlig»
+@- E-posten havner i klassen med høyest prior, siden én av likelihoodene er udefinert
+@@Q
+%%% NY: Gini-urenhet med tre klasser (kan overstige 0.5)
+%%% 1-(0.25+0.09+0.04) = 0.62 ; sum p^2 = 0.38 ; antatt maks for binær 0.50 ; klasse B mot resten 1-0.09-0.49 = 0.42
+En løvnode i et klassifiseringstre med \textbf{tre klasser} inneholder 10 punkter: 5 fra klasse A, 3 fra
+klasse B og 2 fra klasse C.
+
+Hva er Gini-urenheten $1 - \sum_i p_i^2$ i noden?
+@+ $0.62$
+@- $0.38$
+@- $0.50$
+@- $0.42$
+@@Q
+%%% NY2: lese et beslutningstre (Palmer Penguins) og oversette det til områder i datarommet
+Figuren viser et beslutningstre som predikerer kjønnet til pingviner i Palmer Penguins-dataene fra
+kroppsmasse $m$ (gram) og flipperlengde $f$ (mm). I hver beslutningsnode går punkter som oppfyller
+betingelsen til venstre (ja), og de andre til høyre (nei).
+\begin{center}
+\begin{tikzpicture}[
+  every node/.style={font=\small},
+  beslut/.style={draw, rounded corners, fill=gray!10, inner sep=4pt},
+  lov/.style={draw, inner sep=4pt},
+  edge/.style={-{Stealth}}]
+\node[beslut] (r) at (0,0) {$m \le 3700$};
+\node[lov] (l1) at (-3,-1.4) {hunn};
+\node[beslut] (n2) at (2,-1.4) {$f \le 205$};
+\node[lov] (l2) at (0.2,-2.8) {hann};
+\node[beslut] (n3) at (3.8,-2.8) {$m \le 5000$};
+\node[lov] (l3) at (2.6,-4.2) {hunn};
+\node[lov] (l4) at (5.0,-4.2) {hann};
+\draw[edge] (r) -- node[above left, font=\scriptsize] {ja} (l1);
+\draw[edge] (r) -- node[above right, font=\scriptsize] {nei} (n2);
+\draw[edge] (n2) -- node[above left, font=\scriptsize] {ja} (l2);
+\draw[edge] (n2) -- node[above right, font=\scriptsize] {nei} (n3);
+\draw[edge] (n3) -- node[above left, font=\scriptsize] {ja} (l3);
+\draw[edge] (n3) -- node[above right, font=\scriptsize] {nei} (l4);
+\end{tikzpicture}
+\end{center}
+Hvilken beskrivelse gir nøyaktig de pingvinene som treet predikerer som hann?
+%%% Hann: (m > 3700 og f <= 205) eller (m > 3700, f > 205, m > 5000) = (m > 3700 og f <= 205) eller (m > 5000 og f > 205).
+@+ $m > 3700$ og $f \le 205$, eller $m > 5000$ og $f > 205$
+@- $m > 3700$ og $f > 205$, eller $m > 5000$ og $f \le 205$
+@- $m > 3700$ og $f \le 205$, eller $m \le 5000$ og $f > 205$
+@- $f \le 205$ uansett masse, eller $m > 5000$ og $f > 205$
+@@Q
+%%% NY2: ett barn kan få høyere entropi enn foreldrenoden selv om informasjonsgevinsten er positiv
+En node i et beslutningstre har 8 positive og 2 negative datapunkter. En kandidatsplitt gir venstre barn
+med 2 positive og 2 negative, og høyre barn med 6 positive og 0 negative. Entropien er
+$I = -\sum_i p_i \log_2 p_i$, og informasjonsgevinsten er $\Delta I = I_{\text{før}} - E[I_{\text{etter}}]$,
+der $E[I_{\text{etter}}]$ vekter hvert barn med andelen av punktene.
+
+Hvilket utsagn om denne splitten er riktig?
+%%% I_før = I(0.8,0.2) = 0.722. Venstre I = 1.0 (> 0.722), høyre 0. Vektet: 0.4*1 + 0.6*0 = 0.40.
+%%% Delta I = 0.32 > 0. Uvektet snitt av barna: 0.5.
+@+ Venstre barn har høyere entropi enn foreldrenoden, men informasjonsgevinsten er likevel positiv
+@- Venstre barn har høyere entropi enn foreldrenoden, så informasjonsgevinsten blir negativ
+@- Begge barna har lavere entropi enn foreldrenoden, slik det alltid blir etter en binær splitt
+@- Entropien etter splitten er 0.5, snittet av barnas entropi, og dermed lavere enn før splitten
+%%% ============================================================ PART 4
+@@PART
+@@Q
+Regresjonstrær med ulik maksimal dybde trenes på samme data. Tabellen viser MSE på trenings- og
+valideringsdata.
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Maks dybde & Trenings-MSE & Validerings-MSE \\
+\midrule
+1 & 41.0 & 43.0 \\
+3 & 12.0 & 15.0 \\
+8 & 4.0 & 13.0 \\
+20 & 0.0 & 38.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Hvilket utsagn er korrekt?
+@+ Treet med dybde 1 undertilpasser, siden feilen er høy både på trening og validering
+@- Treet med dybde 20 undertilpasser, siden treningsfeilen ikke kan bli lavere enn 0.0
+@- Treet med dybde 1 overtilpasser, siden trenings- og valideringsfeilen er nesten like store
+@- Treet med dybde 20 er best, siden det har lært sammenhengen i treningsdataene perfekt
+@@Q
+Figuren viser trenings- og valideringstap for et nevralt nettverk over 100 epoker.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=9cm,height=5cm,xlabel={Epoke},ylabel={Loss},xmin=0,xmax=100,ymin=0,ymax=1.15,
+  legend style={font=\small,at={(0.97,0.97)},anchor=north east},tick label style={font=\small}]
+\addplot[blue,thick,domain=0:100,samples=60] {0.05+0.95*exp(-x/18)};
+\addlegendentry{Treningstap}
+\addplot[red,thick,dashed,domain=0:100,samples=60] {0.30+0.75*exp(-x/10)+0.00012*max(0,x-20)^2};
+\addlegendentry{Valideringstap}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Hva er den mest rimelige tolkningen og det beste tiltaket?
+@+ Modellen overtilpasser fra ca.\ epoke 30; early stopping på valideringstapet stanser treningen der
+@- Modellen undertilpasser, siden valideringstapet er høyere enn treningstapet; tren i flere epoker
+@- Læringsraten er for høy, siden valideringstapet øker; senk læringsraten og tren i 100 epoker til
+@- Valideringssettet er for lite; slå det sammen med testsettet og velg epoke ut fra testtapet
+@@Q
+Data genereres som $y = F(x) + \varepsilon$, der $\varepsilon$ har forventning 0 og varians $\sigma^2 = 4$.
+En modell evalueres med forventet kvadratfeil $E\big[(y - f(x;D))^2\big]$ på nye datapunkter.
+
+Hvilket utsagn er korrekt?
+@+ Forventet kvadratfeil kan aldri bli lavere enn 4, uansett modell og datamengde
+@- Forventet kvadratfeil kan bli vilkårlig lav dersom vi samler inn nok treningsdata
+@- Forventet kvadratfeil kan ikke bli lavere enn 2, som er standardavviket til støyen
+@- Forventet kvadratfeil kan bli 0 med en modell som har høy nok kompleksitet
+@@Q
+%%% NY2: avtagende læringsrate under trening (notatene: «vanlig å minke læringsraten i løpet av treningen»)
+Du trener en lineær regresjonsmodell med \textbf{stochastic gradient descent} (ett datapunkt per
+oppdatering) og konstant læringsrate $\eta = 0.05$. Treningstapet synker raskt de første epokene,
+men blir deretter liggende og hoppe opp og ned rundt omtrent samme nivå. En kollega foreslår å la
+$\eta$ avta gradvis i løpet av treningen.
+
+Hva er den beste begrunnelsen for forslaget?
+@+ Store steg gir rask fremgang tidlig i treningen, mens små steg senere lar parametrene slå seg til ro nær minimum
+@- Svingningene skyldes overtilpasning, og en avtagende læringsrate virker som early stopping som hindrer tilpasning til støyen
+@- Mindre steg mot slutten gjør tapsflaten konveks, slik at gradient descent ikke kan bli sittende fast i et lokalt minimum
+@- Gradienten vokser når parametrene nærmer seg minimum, så læringsraten må ned for at tapet ikke skal begynne å divergere igjen
+%%% ============================================================ PART 5
+@@PART
+@@Q
+Boosting-algoritmer som AdaBoost bruker ofte \textbf{trestumper} som enkeltmodeller.
+
+Hvorfor fungerer dette godt?
+@+ Hver stump har høy bias, og boosting reduserer bias ved å kombinere mange stumper sekvensielt
+@- Hver stump har høy varians, og boosting reduserer varians ved å ta gjennomsnitt av uavhengige stumper
+@- Stumpene trenes parallelt og uavhengig av hverandre, slik at ensemblet blir raskt å trene
+@- Stumpene trenes på ulike bootstrap-utvalg, slik at de blir mindre korrelerte med hverandre
+@@Q
+I første runde av \textbf{AdaBoost} har alle de 10 treningspunktene vekt $0.1$. Den første stumpen
+klassifiserer punkt 3 og punkt 7 feil, og resten riktig.
+
+Hva skjer før neste stump trenes?
+@+ Punkt 3 og 7 får høyere vekt, så neste stump legger mer vekt på å få dem riktig
+@- Punkt 3 og 7 får lavere vekt, siden feilklassifiserte punkter trolig er støy
+@- Alle punktene beholder vekt 0.1, men stumpens stemmevekt justeres etter feilraten
+@- Neste stump trenes på residualene fra første stump, med lik vekt på alle punktene
+@@Q
+%%% NY2: antall trær i random forest – feilen flater ut, ingen overtilpasning av flere trær (kontrast til boosting-runder)
+Du trener en \textbf{random forest} med ulikt antall trær på de samme dataene og måler feilraten på
+valideringsdata:
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Antall trær & 10 & 100 & 1000 & 5000 \\
+\midrule
+Valideringsfeil & 0.240 & 0.205 & 0.201 & 0.201 \\
+\bottomrule
+\end{tabular}
+\end{center}
+En kollega er bekymret for at 5000 trær vil overtilpasse, slik som når gradient boosting får for mange runder.
+
+Hvilket utsagn er riktig?
+@+ Flere trær gjør bare snittet over trærne mer stabilt, så feilen flater ut i stedet for å øke; prisen er regnetid
+@- Med svært mange trær kan skogen gradvis overtilpasse, så 5000 trær bør unngås selv om feilen ennå ikke har økt
+@- Hvert nytt tre retter feilene til de forrige trærne, så etter mange trær begynner skogen å tilpasse seg støy
+@- Feilen flater ut fordi bootstrap-utvalgene etter hvert blir identiske, så de siste trærne er kopier av de første
+@@Q
+%%% NY2: flertallsavstemning når feilene er korrelerte – ensemblet kan bli dårligere enn beste enkeltmodell
+Tabellen viser om hver av tre klassifikatorer predikerer riktig (1) eller feil (0) på seks testpunkter i
+en binær klassifiseringsoppgave. De tre kombineres med flertallsavstemning.
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+Punkt & 1 & 2 & 3 & 4 & 5 & 6 \\
+\midrule
+Modell 1 & 1 & 1 & 1 & 1 & 1 & 0 \\
+Modell 2 & 1 & 1 & 1 & 1 & 0 & 0 \\
+Modell 3 & 1 & 1 & 1 & 0 & 0 & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva blir accuracy for ensemblet på disse seks punktene?
+%%% flertall riktig på 1-4, feil på 5 (1,0,0) og 6 (0,0,1) -> 4/6 = 0.67.
+%%% 0.83 = beste enkeltmodell, 0.50 = krever at alle tre er riktige (punkt 1-3), 1.00 = tror ensemblet velger den modellen som har rett (minst én riktig på alle punktene)
+@+ $0.67$
+@- $0.83$
+@- $0.50$
+@- $1.00$
+%%% ============================================================ PART 6
+@@PART
+@@Q
+Et fullt koblet nettverk har tre skjulte lag, men \textbf{ingen aktiveringsfunksjon} (identitet) i noen
+av lagene.
+
+Hvilke sammenhenger mellom input og output kan nettverket representere?
+@+ Kun lineære (affine) sammenhenger, siden flere lineære lag etter hverandre er lineært
+@- Ikke-lineære sammenhenger, så lenge nettverket har minst to skjulte lag med flere noder
+@- Polynomiske sammenhenger, siden hvert lag multipliserer inn en ny potens av input
+@- Kun konstante funksjoner, siden alle gradientene blir null uten en aktiveringsfunksjon
+@@Q
+Et fullt koblet nettverk har 8 input-features, to skjulte lag med henholdsvis 16 og 8 noder, og et
+output-lag med 3 noder. Alle lag etter input-laget har bias.
+
+Hvor mange trenbare parametre har nettverket?
+%%% 8*16+16 + 16*8+8 + 8*3+3 = 144+136+27 = 307 ; uten bias 280 ; bias bare i output-laget 283 ; glemt bias i output 304
+@+ $307$
+@- $280$
+@- $283$
+@- $304$
+@@Q
+Et nettverk med \textbf{sigmoid}-aktivering i det skjulte laget initialiseres med alle vekter og bias lik 0.
+
+Hva skjer når nettverket trenes med gradient descent?
+@+ Nodene i det skjulte laget får like oppdateringer og forblir identiske, så laget virker som én node
+@- Alle gradienter blir null i hele nettverket, så ingen av parametrene endres under treningen
+@- Treningen konvergerer raskere, fordi alle noder starter i samme punkt og deler gradienten
+@- Symmetrien brytes etter første steg, fordi hver skjult node får ulike input-verdier fra dataene
+@@Q
+Output-laget i et klassifiseringsnettverk har tre noder med \textbf{softmax}-aktivering. Før aktivering er
+verdiene $z = (1.5,\ 0.5,\ -1.0)$.
+
+Hva blir den predikerte sannsynligheten for \emph{klasse 2} (den med $z_2 = 0.5$)?
+%%% e^.5/(e^1.5+e^.5+e^-1) = 0.254 ; sigmoid(0.5)=0.62 ; klasse 1 = 0.69 ; z2/sum(z) = 0.5/1.0 = 0.50
+@+ $0.25$
+@- $0.50$
+@- $0.62$
+@- $0.69$
+%%% ============================================================ PART 7
+@@PART
+@@Q
+Du sammenligner to klyngeinndelinger av samme datasett. Inndeling A har \textbf{Calinski--Harabasz-score}
+850, mens inndeling B har 120.
+
+Hvilket utsagn er korrekt?
+@+ A har klynger som er bedre separert relativt til spredningen innad i klyngene
+@- B er best, siden lav score betyr liten avstand mellom punktene innad i klyngene
+@- A har mest spredte klynger, siden scoren er summen av kvadrerte avstander til sentroidene
+@- Scoren ligger alltid i $[-1, 1]$, så verdiene tyder på en feil i beregningen
+@@Q
+%%% NY2: k-means konvergerer til et lokalt minimum fra en uheldig start (regne gjennom iterasjonene)
+k-means med $k = 3$ brukes på de endimensjonale punktene $0,\ 2,\ 10,\ 12,\ 20,\ 22$.
+Startsentroidene er $0$, $2$ og $16$, og algoritmen kjøres til tilordningen ikke endrer seg.
+
+Hvilken inndeling ender k-means i, og hva er inertia (sum av kvadrerte avstander til sentroiden)?
+%%% Tilordning: 0->0, 2->2, 10 (8 vs 6) -> 16, 12/20/22 -> 16. Oppdatering: 0, 2, mean(10,12,20,22)=16 -> uendret.
+%%% Inertia = 36+16+16+36 = 104. Absolutte avstander: 20. Optimum {0,2},{10,12},{20,22}: 1+1 per par = 6; 12 = kvadrert avstand mellom punktene i hvert par
+@+ $\{0\},\ \{2\},\ \{10, 12, 20, 22\}$, med inertia $104$
+@- $\{0\},\ \{2\},\ \{10, 12, 20, 22\}$, med inertia $20$
+@- $\{0, 2\},\ \{10, 12\},\ \{20, 22\}$, med inertia $6$
+@- $\{0, 2\},\ \{10, 12\},\ \{20, 22\}$, med inertia $12$
+@@Q
+%%% NY: MiniBatchKMeans – sentroideoppdatering fra små tilfeldige utvalg
+Du skal klynge 20 millioner datapunkter og vurderer \texttt{MiniBatchKMeans} i stedet for vanlig k-means.
+
+Hva er forskjellen mellom de to?
+@+ Hver iterasjon oppdaterer sentroidene ut fra et lite tilfeldig utvalg av punktene, ikke alle
+@- Dataene deles i faste mini-batcher som klynges hver for seg, og klyngene slås sammen til slutt
+@- Den bruker Manhattan-avstand i stedet for euklidsk, siden den er raskere å beregne for mange punkter
+@- Den bruker tetthet i stedet for avstand, slik at hver mini-batch kan få sitt eget antall klynger
+@@Q
+%%% NY2: k-means ved felles omskalering av alle features: samme inndeling, inertia skaleres med faktoren i andre
+Du har klynget objekter med k-means ($k = 4$), der alle featurene er lengder målt i meter, og fått
+inertia $3.2$. En kollega bruker de samme objektene, men måler alle lengdene i centimeter, slik at hver
+feature ganges med 100. Kollegaen kjører k-means med de samme startsentroidene, også regnet om til cm.
+
+Hva får kollegaen?
+%%% Alle avstander x100 -> samme nærmeste sentroide og samme gjennomsnitt (x100) -> samme inndeling.
+%%% Inertia er sum av kvadrerte avstander: 3.2 * 100^2 = 32000. 320 = glemt kvadrat, 3.2 = tror inertia er enhetsløs.
+@+ Samme klyngeinndeling, og inertia blir $32\,000$
+@- Samme klyngeinndeling, og inertia blir $320$
+@- Samme klyngeinndeling, og inertia blir $3.2$
+@- En annen klyngeinndeling, og inertia blir $32\,000$
+%%% ============================================================ PART 8
+@@PART
+@@Q
+Et boligdatasett har to features: \emph{Pris} i kroner (standardavvik ca.\ 900\,000) og \emph{Antall\_rom}
+(standardavvik ca.\ 1.2). Du kjører \textbf{PCA} på de rå dataene uten skalering.
+
+Hva er mest sannsynlig?
+@+ Første hovedkomponent peker nesten langs \emph{Pris}, siden den har størst varians i sine enheter
+@- Resultatet blir det samme som med standardisering, siden hovedkomponentene alltid er ortogonale
+@- Begge features får omtrent like stor vekt i første hovedkomponent, siden PCA ser på korrelasjoner
+@- Standardisering er unødvendig, siden PCA trekker fra gjennomsnittet før kovariansen beregnes
+@@Q
+En PCA-projeksjon av MNIST (784 dimensjoner) ned til to hovedkomponenter gir sterkt overlappende
+sifferklasser, mens en t-SNE-embedding av de samme dataene gir tydelig adskilte grupper.
+
+Hva er den beste forklaringen?
+@+ PCA er en lineær projeksjon som bevarer global varians; t-SNE bevarer lokale nabolag
+@- PCA trenger labels for å skille klassene, mens t-SNE er uveiledet og finner klassene selv
+@- PCA fungerer bare når det er færre features enn datapunkter, og det er ikke tilfellet for MNIST
+@- t-SNE beholder flere hovedkomponenter enn PCA internt, og projiserer deretter ned til to dimensjoner
+@@Q
+Et betalingsselskap vil oppdage nye typer svindel i transaksjonsdata.
+
+Hvorfor behandles slik anomalideteksjon vanligvis som et \textbf{uveiledet} problem?
+@+ Merkede anomalier er få eller mangler, og nye svindeltyper ligner ikke nødvendigvis de kjente
+@- Transaksjonsdata har typisk for mange features til at en veiledet modell kan trenes på dem
+@- Med så ubalanserte data får en veiledet modell ofte lav accuracy, selv med vektet tapsfunksjon
+@- Uveiledede metoder gir som regel høyere recall, siden de ikke kan overtilpasse labels
+@@Q
+Koden under trener en isolation forest og finner anomalier i testdataene.
+
+\begin{lstlisting}[language=Python]
+iso = IsolationForest(n_estimators=100, contamination=0.02)
+iso.fit(X_train)
+outliers = iso.predict(X_test) == -1
+\end{lstlisting}
+
+Hva styrer parameteren \texttt{contamination}?
+@+ Den antatte andelen anomalier, som bestemmer terskelen for når et punkt regnes som anomali
+@- Andelen av treningsdataene som trekkes til hvert isolasjonstre, som gjør skogen mer robust
+@- Den maksimale dybden til hvert isolasjonstre, angitt som en andel av antall datapunkter
+@- Andelen features som trekkes tilfeldig ved hver splitt, slik som i en random forest
+%%% ============================================================ PART 9
+@@PART
+@@Q
+I Q-læring skiller vi mellom \textbf{reward} $R_{t+1}$ og \textbf{Q-verdien} $Q(S_t, A_t)$.
+
+Hvilket utsagn beskriver forskjellen riktig?
+@+ Reward gis av miljøet, mens Q-verdien må læres og estimerer forventet kumulativ fremtidig reward
+@- Reward og Q-verdi er det samme når $\gamma = 1$, siden Q da bare summerer belønningene i episoden
+@- Q-verdien er lik den umiddelbare rewarden for handlingen, summert over alle tidligere episoder
+@- Reward avhenger bare av tilstanden, mens Q-verdien bare avhenger av handlingen som ble valgt
+@@Q
+%%% NY: Q-verdier forplanter seg bakover over flere episoder
+%%% ep1: Q(S0,a) = 0, Q(S1,b) = 0.5 ; ep2: Q(S0,a) = 0.5*0 + 0.5*(0 + 0.9*0.5) = 0.225, Q(S1,b) = 0.75
+%%% feil: glemt alpha 0.45 ; brukt oppdatert Q(S1,b) = 0.75 -> 0.3375 ; Q(S1,b) etter ep1 0.50
+En Q-tabell er initialisert med nuller. Hver episode består av de samme to stegene: fra $S_0$ med handling $a$
+til $S_1$ (reward 0), og fra $S_1$ med handling $b$ til målet (reward 1; episoden slutter, så fremtidig verdi
+er 0). $b$ er eneste handling i $S_1$. Agenten oppdaterer etter hvert steg med
+\[ Q_{new}(S_t,A_t) \leftarrow (1-\alpha)\,Q(S_t,A_t) + \alpha\big(R_{t+1} + \gamma \max_A Q(S_{t+1},A)\big), \quad \alpha = 0.5,\ \gamma = 0.9. \]
+
+Hva er $Q(S_0, a)$ etter \emph{to} episoder?
+@+ $0.23$
+@- $0.45$
+@- $0.34$
+@- $0.50$
+@@Q
+%%% NY2: i et DQN endrer ett gradientsteg delte vekter og dermed Q-estimater for andre tilstander
+I Q-læring med tabell endrer én oppdatering bare verdien $Q(S_t, A_t)$. Et DQN for FrozenLake har
+one-hot-enkodet tilstand som input, flere skjulte lag og én output-node per handling. Det tar ett
+gradientsteg på tapet for ett enkelt par $(S_t, A_t)$.
+
+Hva skjer med nettverkets Q-estimater?
+%%% Alle lag etter input deles av alle tilstander -> estimatene for andre tilstander (også S_{t+1}, som inngår i målet) endres.
+%%% One-hot begrenser bare gradienten i første lag; target-nettverket påvirker ikke om Q-nettet endres.
+@+ Delte vekter endres, så estimatene for andre tilstander endres også, blant annet $S_{t+1}$
+@- Bare estimatene for $S_t$ endres, siden de andre tilstandene har input 0 i one-hot-vektoren
+@- Bare utgangsnoden for $A_t$ endres, siden tapet kun beregnes for den utførte handlingen
+@- Ingen av estimatene endres før vektene kopieres over til target-nettverket ved neste oppdatering
+@@Q
+%%% NY: environment-API: reset() og step(action)
+Du skriver en RL-løkke mot et miljø som følger Gym-APIet.
+
+Hvilket utsagn om \texttt{env.reset()} og \texttt{env.step(action)} er riktig?
+@+ \texttt{reset} gir starttilstanden (og info), og \texttt{step} gir ny tilstand, reward, \texttt{done} og info
+@- \texttt{reset} starter en ny episode og nullstiller Q-tabellen, og \texttt{step} gir ny tilstand, reward og \texttt{done}
+@- \texttt{reset} gir starttilstanden, og \texttt{step} gir ny tilstand, den diskonterte returen $G_t$ og \texttt{done}
+@- \texttt{reset} gir gjeldende tilstand og kalles før hvert steg, og \texttt{step} gir reward, \texttt{done} og info
+%%% ============================================================ PART 10
+@@PART
+@@Q
+Et spill med tre spillere har karakteristisk funksjon $v$ gitt i tabellen. Shapley-verdien er
+\[ \phi_i = \sum_{S \subseteq N\setminus\{i\}} \frac{|S|!\,(|N|-|S|-1)!}{|N|!}\big(v(S\cup\{i\}) - v(S)\big). \]
+
+\begin{center}
+\begin{tabular}{l*{8}{c}}
+\toprule
+$S$ & $\{\}$ & $\{1\}$ & $\{2\}$ & $\{3\}$ & $\{1,2\}$ & $\{1,3\}$ & $\{2,3\}$ & $\{1,2,3\}$ \\
+$v(S)$ & 0 & 2 & 4 & 0 & 6 & 18 & 6 & 30 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Hva er Shapley-verdien $\phi_2$ til spiller 2?
+%%% phi = (12, 7, 11). Spiller 2: 1/3*4 + 1/6*4 + 1/6*6 + 1/3*12 = 7. Uvektet snitt 6.5, alene 4, delt på |N|! uten tellerfaktor: 26/6 = 4.3
+@+ $7.0$
+@- $6.5$
+@- $4.0$
+@- $4.3$
+@@Q
+Figuren viser et stilisert \textbf{beeswarm-plott} av SHAP-verdier for en modell som predikerer boligpris.
+Hvert punkt er ett datapunkt; fargen angir featureverdien (rød = høy, blå = lav).
+
+\begin{center}
+\begin{tikzpicture}[x=1.6cm,y=0.75cm]
+\pgfmathsetseed{7}
+\draw[->] (-2.2,-0.6) -- (2.4,-0.6) node[right,font=\small] {SHAP-verdi};
+\foreach \t in {-2,-1,0,1,2} \draw (\t,-0.55) -- (\t,-0.65) node[below,font=\scriptsize] {\t};
+\draw[gray,dashed] (0,-0.5) -- (0,2.5);
+\node[left,font=\small] at (-2.2,2) {\emph{Inntekt}};
+\node[left,font=\small] at (-2.2,1) {\emph{Rom}};
+\node[left,font=\small] at (-2.2,0) {\emph{Alder}};
+\foreach \x in {-1.7,-1.4,-1.2,-1.0,-0.8} \fill[blue] (\x,2+0.12*rand) circle (2.2pt);
+\foreach \x in {-0.4,-0.1,0.2} \fill[violet] (\x,2+0.12*rand) circle (2.2pt);
+\foreach \x in {0.7,1.1,1.5,1.8,2.1} \fill[red] (\x,2+0.12*rand) circle (2.2pt);
+\foreach \x in {-0.6,-0.4,-0.3} \fill[blue] (\x,1+0.12*rand) circle (2.2pt);
+\foreach \x in {-0.1,0.0,0.1} \fill[violet] (\x,1+0.12*rand) circle (2.2pt);
+\foreach \x in {0.3,0.5,0.6} \fill[red] (\x,1+0.12*rand) circle (2.2pt);
+\foreach \x in {-0.3,-0.2,-0.1} \fill[red] (\x,0+0.12*rand) circle (2.2pt);
+\foreach \x in {0.0,0.05} \fill[violet] (\x,0+0.12*rand) circle (2.2pt);
+\foreach \x in {0.1,0.2,0.25} \fill[blue] (\x,0+0.12*rand) circle (2.2pt);
+\end{tikzpicture}
+\end{center}
+
+Hvilket utsagn er en riktig tolkning av plottet?
+@+ Høy \emph{Inntekt} øker prediksjonen, og \emph{Inntekt} er den viktigste featuren i plottet
+@- Høy \emph{Alder} senker prediksjonen, og \emph{Alder} er den nest viktigste featuren i plottet
+@- \emph{Alder} er viktigst, siden featurene sorteres med den viktigste nederst i et beeswarm-plott
+@- Rød farge betyr at SHAP-verdien er positiv, så alle røde punkter i plottet øker prediksjonen
+@@Q
+%%% NY2: treningsaccuracy for et ubegrenset tre når identiske feature-vektorer har ulike labels
+Et beslutningstre trenes uten noen begrensning på dybden, og evalueres på de samme dataene:
+\begin{lstlisting}[language=Python]
+from sklearn.tree import DecisionTreeClassifier
+X = [[1, 0], [1, 0], [2, 1], [3, 1], [3, 1], [4, 0]]
+y = [0, 1, 1, 0, 0, 1]
+tree = DecisionTreeClassifier(random_state=0).fit(X, y)
+print(f"{tree.score(X, y):.2f}")
+\end{lstlisting}
+Hva skrives ut?
+%%% (1,0) forekommer to ganger med label 0 og 1 -> samme løvnode, ett av dem blir feil. (3,1) to ganger med 0,0 -> ok.
+%%% 5/6 = 0.83 (verifisert med sklearn 1.9). 1.00 = «ubegrenset tre er alltid perfekt», 0.67 = teller begge duplikatparene som feil, 0.50 = majoritetsmodell (3 av hver)
+@+ \texttt{0.83}
+@- \texttt{1.00}
+@- \texttt{0.67}
+@- \texttt{0.50}
+@@Q
+Anta at \texttt{X} har shape \texttt{(200, 5)}, \texttt{w} har shape \texttt{(5,)} og \texttt{b} er et tall.
+
+\begin{lstlisting}[language=Python]
+z = np.matmul(X, w) + b
+y_prob = 1 / (1 + np.exp(-z))
+y_pred = [1 if p > 0.3 else 0 for p in y_prob]
+\end{lstlisting}
+
+Hvilket utsagn om koden er korrekt?
+@+ \texttt{z} har shape \texttt{(200,)}, og verdiene kan være vilkårlige reelle tall, også negative
+@- \texttt{z} har shape \texttt{(200, 5)}, siden hver feature får sin egen score for hvert datapunkt
+@- \texttt{y\_pred} inneholder sannsynligheter i intervallet $(0, 1)$ for hvert av de 200 punktene
+@- Med terskel 0.3 i stedet for 0.5 kan recall bli lavere, siden færre punkter predikeres positive

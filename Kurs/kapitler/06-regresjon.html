@@ -84,7 +84,7 @@
 
 <p>Den enkleste regresjonsmodellen er en lineær modell:</p>
 <div class="eq">
-  <p class="eq-note">Lineær regresjonsmodell (likning 51 i notatene)</p>
+  <p class="eq-note">Lineær regresjonsmodell (likning 50 i notatene)</p>
   $$f(x)=\beta_0+\beta_1x_1+\beta_2x_2+\dots+\beta_nx_n = \beta_0 + \sum_{i=1}^{n}\beta_i x_i$$
 </div>
 <p>Modellen har én parameter $\beta_i$ per feature $x_i$ (én per kolonne i datasettet) og i tillegg $\beta_0$, som kalles <strong>bias</strong> eller skjæringspunkt (intercept). Med $n$ features får vi altså $n+1$ parametre. Formen er den samme som $z=w^\top x+b$ i logistisk regresjon. Notatene bytter bare navn til $\beta$ for å skille de to tilfellene.</p>
@@ -174,7 +174,7 @@
 
 <p>Den vanligste tapsfunksjonen (loss function) for regresjon er <strong>mean squared error</strong>:</p>
 <div class="eq">
-  <p class="eq-note">MSE (likning 52 i notatene)</p>
+  <p class="eq-note">MSE (likning 51 i notatene)</p>
   $$L = \text{MSE}=\frac{1}{2N}\sum_{i=1}^{N}\Big(y^{(i)}-f\big(x^{(i)}\big)\Big)^2$$
 </div>
 <p>Summen går over alle $N$ datapunktene (radene). For hvert punkt regner vi avviket mellom fasit og prediksjon, kvadrerer det og tar gjennomsnittet. MSE er liten når prediksjonene ligger nær fasit og stor når de bommer.</p>
@@ -293,7 +293,7 @@ $$\boxed{\frac{\partial L}{\partial\beta_1}=\frac1N\sum_{i=1}^{N}x^{(i)}\big(\be
 
 <p>Gradient descent går et steg med lengde $\eta$ (læringsraten) mot gradienten:</p>
 <div class="eq">
-  <p class="eq-note">Oppdateringsregler (likning 57 i notatene)</p>
+  <p class="eq-note">Oppdateringsregler (likning 56 i notatene)</p>
   $$\beta_0\leftarrow\beta_0-\eta\,\frac1N\sum_{i=1}^{N}\big(f(x^{(i)})-y^{(i)}\big)\qquad
     \beta_1\leftarrow\beta_1-\eta\,\frac1N\sum_{i=1}^{N}x^{(i)}\big(f(x^{(i)})-y^{(i)}\big)$$
 </div>

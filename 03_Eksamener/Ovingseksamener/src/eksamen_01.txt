@@ -1,0 +1,501 @@
+%%% Øvingssett 1 – TDT4172 H26
+%%% ================================================================ PART 1
+@@PART
+@@Q
+%%% NY: tolkning av bar-plott (middelverdi per kategori)
+Du lager et bar-plott (søylediagram) av Titanic-dataene med \emph{Pclass} på x-aksen og \emph{Survived}
+(0/1) som verdi. Søylene for klasse 1, 2 og 3 har høyde 0.63, 0.47 og 0.24.
+
+Hva angir høyden på hver søyle?
+@+ Andelen av passasjerene i klassen som overlevde, altså gjennomsnittet av Survived i klassen
+@- Andelen av alle de overlevende som reiste i klassen, altså fordelingen av Pclass blant overlevende
+@- Andelen av alle passasjerene som reiste i klassen, altså hvor stor klassen er i datasettet
+@- Sannsynligheten en trent modell predikerer for overlevelse, gjennomsnittlig over klassen
+@@Q
+Et datasett med boliger inneholder blant annet følgende features, som alle er lagret som tall:
+\begin{itemize}
+\item \emph{Postnummer} (f.eks.\ 7030, 7491, 0150)
+\item \emph{Antall\_soverom} (0, 1, 2, \ldots)
+\item \emph{Byggeår} (f.eks.\ 1962, 2004)
+\item \emph{Boligareal} (i m$^2$, med desimaler)
+\end{itemize}
+
+Hvilken av disse bør behandles som en \textbf{kvalitativ (kategorisk)} variabel?
+@+ Postnummer, fordi tallene bare er koder, og differansen mellom to koder har ingen mening
+@- Antall soverom, fordi den kun kan ta heltallsverdier og derfor er diskret, ikke kontinuerlig
+@- Byggeår, fordi den har et begrenset antall ulike verdier i datasettet
+@- Boligareal, fordi kontinuerlige verdier må deles inn i intervaller før de kan brukes
+@@Q
+%%% NY: label encoding av nominell kategori brukt direkte i logistisk regresjon
+Featuren \emph{Region} har fem verdier (Nord, Midt, Vest, Øst, Sør) uten noen naturlig rekkefølge. Du koder
+den med \texttt{LabelEncoder} til tallene 0--4 og bruker den som én input-feature i en logistisk
+regresjonsmodell.
+
+Hvilket utsagn om denne kodingen er riktig?
+@+ Modellen får bare én vekt for Region og tolker dermed avstanden mellom kodene som meningsfull
+@- Kodingen er uproblematisk så lenge kodene 0--4 skaleres til $[0,1]$ med \texttt{MinMaxScaler} først
+@- Kodingen gjør tapsfunksjonen ikke-konveks, siden Region bare kan ta et fåtall heltallsverdier
+@- Kodingen er tilstrekkelig, siden logistisk regresjon bare krever at alle features er numeriske
+@@Q
+%%% NY: feature engineering med produktfeature (fortegnsmønster)
+Et datasett har features $x_1$ og $x_2$, som begge kan være positive eller negative. Klasse 1 består av
+punktene der $x_1$ og $x_2$ har \textbf{samme fortegn}, og klasse 0 av punktene der de har ulikt fortegn.
+En logistisk regresjonsmodell trent på $(x_1, x_2)$ får en accuracy rundt 50\,\%.
+
+Hvilken ekstra feature gjør det mulig for logistisk regresjon å skille klassene godt?
+@+ $x_1 x_2$, siden klassen er bestemt av fortegnet til produktet
+@- $x_1^2 + x_2^2$, siden klassen er bestemt av avstanden fra origo
+@- $x_1 + x_2$, siden klassen er bestemt av fortegnet til summen
+@- $|x_1|$, siden klassen er bestemt av avstanden fra $x_2$-aksen
+%%% ================================================================ PART 2
+@@PART
+@@Q
+En binær klassifiseringsmodell gir følgende \textbf{confusion matrix} på testdata:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & Predikert positiv & Predikert negativ\\
+\midrule
+Faktisk positiv & 40 & 10\\
+Faktisk negativ & 20 & 130\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva er modellens \textbf{precision} og \textbf{recall}?
+%%% P = 40/60 = 0.667, R = 40/50 = 0.80; byttet; acc 0.85 / spes 0.867; FDR 0.33 / FNR 0.20
+@+ Precision $= 0.67$ og recall $= 0.80$
+@- Precision $= 0.80$ og recall $= 0.67$
+@- Precision $= 0.85$ og recall $= 0.87$
+@- Precision $= 0.33$ og recall $= 0.20$
+@@Q
+Et spamfilter testes på 1000 e-poster, hvorav 100 er spam (positiv klasse). Filteret flagger
+95 e-poster som spam, og 80 av disse er faktisk spam.
+
+Hva er filterets \textbf{spesifisitet} (TNR) og \textbf{false positive rate} (FPR)?
+%%% TP=80, FP=15, FN=20, TN=885. TNR = 885/900 = 0.983, FPR = 15/900 = 0.017
+%%% alle par summerer til 1, så det kan ikke elimineres uten regning:
+%%% NPV/(1-NPV): 885/905 = 0.978 / 0.022;  precision/FDR: 80/95 = 0.842 / 0.158;  TPR/FNR: 0.80/0.20
+@+ TNR $= 0.983$ og FPR $= 0.017$
+@- TNR $= 0.978$ og FPR $= 0.022$
+@- TNR $= 0.842$ og FPR $= 0.158$
+@- TNR $= 0.800$ og FPR $= 0.200$
+@@Q
+Et treningssett har 95\,\% datapunkter med label $y=0$ og 5\,\% med $y=1$. Du bruker den vektede tapsfunksjonen
+\[ L(y_{pred}, y) = -w_1\, y \ln y_{pred} - w_0\,(1-y)\ln(1-y_{pred}) \]
+og ønsker at de to klassene skal bidra omtrent like mye til det totale tapet.
+
+Hvilket valg av vekter oppnår dette?
+%%% vekter omvendt proporsjonale med klassefrekvens: w1/w0 = 0.95/0.05 = 19
+@+ $w_0 = 1$ og $w_1 = 19$, slik at feil på klasse 1 straffes 19 ganger så hardt
+@- $w_0 = 19$ og $w_1 = 1$, slik at klassen med flest eksempler straffes hardest
+@- $w_0 = 0.95$ og $w_1 = 0.05$, slik at vektene speiler klassefordelingen i dataene
+@- $w_0 = 0.5$ og $w_1 = 0.5$, slik at begge klassene vektes likt i tapsfunksjonen
+@@Q
+Du har 1000 datapunkter, hvorav 2\,\% tilhører den positive klassen, og skal dele dataene i 80\,\% trening og
+20\,\% test. En kollega foreslår å bruke \textbf{stratifisert splitting} i stedet for en helt tilfeldig splitt.
+
+Hva oppnår stratifisert splitting her?
+@+ Begge settene får samme klassefordeling som hele datasettet, altså 2\,\% positive
+@- Trenings- og testsettet får like mange positive som negative eksempler
+@- Den positive klassen oversamples i treningssettet, slik at modellen ser flere positive
+@- Splitten blir deterministisk, slik at de samme punktene havner i testsettet hver gang
+%%% ================================================================ PART 3
+@@PART
+@@Q
+%%% NY2: bytte logaritmebase i entropikriteriet endrer ikke splittvalget
+Et beslutningstre bruker \textbf{entropi} som splittkriterium og velger i hver node splitten med størst
+informasjonsgevinst $\Delta I = I_{\text{før}} - E[I_{\text{etter}}]$. En kollega bytter fra $\log_2$ til
+naturlig logaritme $\ln$ i entropiformelen $I = -\sum_i p_i \log p_i$ og trener på nytt med de samme dataene.
+
+Hva skjer med treet?
+%%% ln p = ln2 * log2 p -> alle entropier og gevinster skaleres med ln 2 ~ 0.693, argmax uendret.
+%%% Maks entropi for to klasser blir ln 2 = 0.69 (ikke 1). Entropi er aldri negativ.
+@+ Alle entropier og gevinster ganges med samme faktor $\ln 2$, så treet velger nøyaktig de samme splittene
+@- Entropien blir høyere for urene noder, så treet foretrekker splitter som gir helt rene barnenoder
+@- Maksimal entropi for to klasser er fortsatt 1, men gevinstene bytter rekkefølge for noder med skjev fordeling
+@- Entropien kan bli negativ for nesten rene noder, så enkelte splitter kan få negativ gevinst
+@@Q
+%%% NY: oversampling endrer prioren i Naive Bayes
+En Naive Bayes-klassifikator er trent på 900 punkter fra klasse 0 og 100 fra klasse 1. Du oversampler
+klasse 1 slik at hvert av de 100 punktene forekommer nøyaktig ni ganger (originalen pluss åtte kopier).
+Begge klassene har da 900 punkter, og du trener på nytt.
+
+Hvilke ledd i $p(C_k)\prod_i p(x_i \mid C_k)$ får nye verdier?
+%%% likelihood = relative frekvenser innen klassen, uendret når alle punkter kopieres like mange ganger
+@+ Bare prioren $p(C_k)$, som går fra 0.1 til 0.5 for klasse 1; likelihoodene er uendret
+@- Bare likelihoodene $p(x_i \mid C_1)$, som nå estimeres fra ni ganger så mange punkter
+@- Både prioren og likelihoodene, siden alle sannsynlighetene estimeres på nytt fra de nye dataene
+@- Ingen av leddene, siden kopier ikke tilfører noen ny informasjon om klassene
+@@Q
+%%% NY: akseparallelle splitter mot diagonal beslutningsgrense
+Et datasett har features $x_1, x_2 \in [0, 10]$, og klassen er 1 hvis $x_2 > x_1$ og 0 ellers. Du trener et
+beslutningstre (\texttt{DecisionTreeClassifier}) på mange slike punkter, med originale features.
+
+Hvordan ser beslutningsgrensen til treet ut?
+@+ En trapp av kun vertikale og horisontale segmenter rundt diagonalen, finere jo dypere treet er
+@- En rett diagonal linje allerede etter én splitt, siden treet kan splitte direkte på $x_2 - x_1$
+@- En glatt kurve rundt diagonalen, siden Gini-urenheten minimeres kontinuerlig under treningen
+@- Ingen nyttig grense, siden et tre bare kan skille klasser som er separerbare langs én enkelt akse
+@@Q
+%%% NY: tolkning av Gini-urenhet
+En node i et beslutningstre har 30\,\% av punktene i klasse 1 og 70\,\% i klasse 0, og Gini-urenheten
+er $1 - 0.3^2 - 0.7^2 = 0.42$.
+
+Hvilken tolkning av tallet 0.42 er riktig?
+%%% 0.42 = P(feil) ved tilfeldig label etter fordelingen; 0.58 = P(samme klasse); 0.30 = feil ved majoritet
+@+ Sannsynligheten for feil når et tilfeldig punkt i noden får et label trukket etter nodens klassefordeling
+@- Sannsynligheten for at to tilfeldig trukne punkter fra noden tilhører samme klasse
+@- Andelen av punktene i noden som blir feilklassifisert når noden predikerer majoritetsklassen
+@- Hvor mye entropien i noden vil reduseres hvis noden splittes videre på den beste featuren
+%%% ================================================================ PART 4
+@@PART
+@@Q
+En lineær regresjonsmodell $f(x) = 2x + 1$ evalueres på fire datapunkter:
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+$x$ & 0 & 1 & 2 & 3\\
+\midrule
+$y$ & 1.5 & 2 & 6 & 6\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva blir $\text{MSE} = \frac{1}{N}\sum_{i=1}^{N}\big(y^{(i)} - f(x^{(i)})\big)^2$ (uten faktoren $\tfrac12$)?
+%%% prediksjoner 1,3,5,7; residualer 0.5,-1,1,-1; kvadrater 0.25,1,1,1 -> 3.25/4 = 0.8125
+%%% halv sum uten N (3.25/2): 1.63; MAE: 0.875; sum: 3.25
+@+ $0.81$
+@- $1.63$
+@- $0.88$
+@- $3.25$
+@@Q
+En lineær regresjonsmodell $f(x) = \beta_0 + \beta_1 x$ trenes med gradient descent på MSE, med
+\[ \frac{\partial L}{\partial \beta_0} = \frac{1}{N}\sum_{i=1}^{N}\big(f(x^{(i)}) - y^{(i)}\big),
+\qquad \beta_0 \leftarrow \beta_0 - \eta\,\frac{\partial L}{\partial \beta_0}. \]
+Den nåværende modellen \textbf{overestimerer} target for alle treningspunktene.
+
+Hva gjelder for neste oppdatering av $\beta_0$?
+@+ $\partial L/\partial\beta_0 > 0$, og oppdateringen gjør $\beta_0$ mindre
+@- $\partial L/\partial\beta_0 > 0$, og oppdateringen gjør $\beta_0$ større
+@- $\partial L/\partial\beta_0 < 0$, og oppdateringen gjør $\beta_0$ større
+@- $\partial L/\partial\beta_0 < 0$, og oppdateringen gjør $\beta_0$ mindre
+@@Q
+Du trener en modell med \textbf{early stopping} og tålmodighet (patience) på 5 epoker.
+
+Hvilken beskrivelse av early stopping er riktig?
+@+ Treningen stanses når valideringstapet ikke har blitt bedre de siste 5 epokene
+@- Treningen stanses når treningstapet ikke har blitt bedre de siste 5 epokene
+@- Treningen stanses når testtapet ikke har blitt bedre de siste 5 epokene
+@- Treningen stanses alltid etter 5 epoker, slik at modellen ikke rekker å overtilpasse
+@@Q
+Et \textbf{regresjonstre} skal predikere boligpriser.
+
+Hva predikerer treet for et nytt punkt, og hvordan velges splittene?
+@+ Gjennomsnittet av target i løvnoden; splittene velges for å minimere MSE i barnenodene
+@- Gjennomsnittet av target i løvnoden; splittene velges for å minimere Gini-urenheten
+@- Medianen av target i løvnoden; splittene velges for å minimere MSE i barnenodene
+@- Medianen av target i løvnoden; splittene velges for å minimere Gini-urenheten
+%%% ================================================================ PART 5
+@@PART
+@@Q
+%%% NY2: klasser er nominelle – aggregering av klassifikatorer kan ikke ta snitt av klassekodene
+Et parallelt ensemble av fem klassifiseringstrær skal bestemme arten til en pingvin i Palmer Penguins-dataene.
+Artene er kodet som Adelie $=0$, Chinstrap $=1$ og Gentoo $=2$. For én pingvin predikerer de fem trærne
+\[ 0,\quad 0,\quad 0,\quad 2,\quad 2 . \]
+En kollega aggregerer med \texttt{np.round(np.mean(preds))} i stedet for flertallsavstemning.
+
+Hvilket utsagn om kollegaens aggregering er riktig?
+%%% snitt 0.8 -> rundes til 1 = Chinstrap, som ingen trær stemte på. Flertall gir Adelie.
+@+ Den gir Chinstrap, en art ingen av trærne stemte på, fordi kodene 0--2 ikke har noen meningsfull rekkefølge
+@- Den gir Adelie, fordi snittet av kodene alltid havner nærmest arten som flest av trærne har stemt på
+@- Den gir Chinstrap, og det er rimelig, siden snittet tar hensyn til at to av trærne stemte på Gentoo
+@- Den gir samme resultat som flertallsavstemning, men regnes som vektet avstemning der trærne teller likt
+@@Q
+%%% NY: sannsynlighet for at et bootstrap-utvalg ikke har duplikater
+Fra tre datapunkter $\{a,\ b,\ c\}$ trekker du ett bootstrap-utvalg av størrelse 3, altså tre trekk med
+tilbakelegging.
+
+Hva er sannsynligheten for at utvalget inneholder alle tre punktene (ingen duplikater)?
+%%% 3!/3^3 = 6/27 = 0.22; (2/3)^3 = 0.30 (et bestemt punkt mangler); 1*2/3 = 0.67 (glemt siste trekk);
+%%% 1-(2/3)^3 = 0.70 (et bestemt punkt er med)
+@+ $0.22$
+@- $0.30$
+@- $0.67$
+@- $0.70$
+@@Q
+%%% NY: læringsrate (shrinkage) i gradient boosting
+Du trener gradient boosting for regresjon og halverer læringsraten (shrinkage) fra 0.2 til 0.1, men lar
+alt annet være som før.
+
+Hva er den mest sannsynlige effekten?
+@+ Hvert tre bidrar mindre, så det trengs flere trær for å nå samme treningsfeil
+@- Hvert tre bidrar mindre, så det trengs færre trær, siden ensemblet overskyter mindre
+@- Hvert tre trenes på halvparten av dataene, så treningen går raskere, men blir mer støyete
+@- Pseudo-residualene halveres, så ensemblet undertilpasser uansett hvor mange trær som brukes
+@@Q
+%%% NY: ensemble av nevrale nett med ulike random seeds
+Du trener ti nevrale nettverk med samme arkitektur på de samme treningsdataene, men med ulike tilfeldige
+startverdier (random seeds), og bruker gjennomsnittet av de ti prediksjonene.
+
+Hvilket utsagn om dette ensemblet er riktig?
+@+ Det er et parallelt ensemble, siden nettverkene trenes uavhengig og ender med ulike vekter og feil
+@- Det er bagging, siden ulike startverdier gjør at hvert nettverk i praksis lærer av et eget utvalg av dataene
+@- Det er et sekvensielt ensemble, siden hvert nettverk starter fra vektene til det forrige og retter feilene
+@- Det kan gi en viss gevinst, men bare hvis nettverkene i tillegg trenes på ulike features eller ulike data
+%%% ================================================================ PART 6
+@@PART
+@@Q
+Et perceptron har vekter $\mathbf{w} = (0.5,\,-1.0,\,2.0)$, bias $b = -0.5$ og aktiveringsfunksjonen
+\[ H(z) = \begin{cases} 1 & \text{hvis } z \geq 0\\ 0 & \text{ellers} \end{cases}, \qquad z = \mathbf{w}^T\mathbf{x} + b. \]
+Hva blir $z$ og output for input $\mathbf{x} = (2,\,1,\,0.25)$?
+%%% z = 1 - 1 + 0.5 - 0.5 = 0 -> H(0) = 1. Uten bias: 0.5. Uten siste ledd: -0.5.
+@+ $z = 0.0$ og output $1$
+@- $z = 0.0$ og output $0$
+@- $z = 0.5$ og output $1$
+@- $z = -0.5$ og output $0$
+@@Q
+Et perceptron med to inputs har $w_1 = 0.2$, $w_2 = -0.4$ og bias $b = 0.1$, og bruker
+$\hat y = 1$ hvis $w_1x_1 + w_2x_2 + b \geq 0$, ellers $\hat y = 0$. Læringsregelen er
+\[ w_i \leftarrow w_i + \eta\,(y - \hat y)\,x_i, \qquad b \leftarrow b + \eta\,(y - \hat y), \]
+med $\eta = 0.5$. Perceptronet får treningspunktet $\mathbf{x} = (1,\,2)$ med $y = 1$.
+
+Hva blir parametrene etter én oppdatering?
+%%% z = 0.2 - 0.8 + 0.1 = -0.5 -> yhat = 0, y - yhat = 1
+%%% w1 = 0.2 + 0.5 = 0.7, w2 = -0.4 + 1.0 = 0.6, b = 0.6
+@+ $w_1 = 0.7$, $w_2 = 0.6$ og $b = 0.6$
+@- $w_1 = 0.7$, $w_2 = 0.1$ og $b = 0.6$
+@- $w_1 = -0.3$, $w_2 = -1.4$ og $b = -0.4$
+@- $w_1 = 0.2$, $w_2 = -0.4$ og $b = 0.1$
+@@Q
+Et dypt nevralt nettverk med \textbf{sigmoid} som aktiveringsfunksjon i alle ti skjulte lag trenes med
+backpropagation. Vektene i de første lagene endrer seg nesten ikke, mens de siste lagene lærer normalt.
+
+Hva er den mest sannsynlige forklaringen?
+@+ Den deriverte $\sigma(z)(1-\sigma(z))$ er aldri over 0.25, så gradienten krymper for hvert lag bakover
+@- Sigmoid er ikke deriverbar i $z = 0$, så gradienten blir udefinert for noder i de første lagene
+@- Den deriverte $\sigma(z)(1-\sigma(z))$ er størst når $|z|$ er stor, så gradienten eksploderer bakover
+@- Sigmoid gir output i $(0,1)$, så aktiveringene i de første lagene blir for små til å oppdateres
+@@Q
+Du bygger en modell i Keras slik:
+\begin{lstlisting}[language=Python]
+model = Sequential()
+model.add(Dense(8, activation="relu"))
+model.add(Dense(1, activation="sigmoid"))
+print(model.weights)
+\end{lstlisting}
+Hva skriver den siste linjen ut?
+@+ En tom liste, fordi modellen ikke kjenner input-dimensjonen og ikke har opprettet vektene
+@- Tilfeldig initialiserte vekter, fordi \texttt{Dense} oppretter vektene når laget legges til
+@- Vekter som er null, fordi modellen ennå ikke er trent med \texttt{model.fit}
+@- En feilmelding, fordi modellen må kompileres med \texttt{model.compile} før vektene finnes
+%%% ================================================================ PART 7
+@@PART
+@@Q
+%%% NY: beregne inertia for en gitt k-means-løsning
+k-means med $k = 2$ har konvergert på de endimensjonale punktene $1,\ 2,\ 6,\ 9,\ 13$, med klyngene
+$\{1, 2, 6\}$ og $\{9, 13\}$.
+
+Hva er inertia for denne løsningen?
+%%% sentroider 3 og 11; (4+1+9) + (4+4) = 22; absolutt: 10; delt på N: 4.4; sum av klyngevarianser (N-1): 7+8 = 15
+@+ $22.0$
+@- $10.0$
+@- $4.4$
+@- $15.0$
+@@Q
+I oppdateringssteget i \textbf{k-means} flyttes hver sentroide til gjennomsnittet av punktene som er
+tilordnet klyngen.
+
+Hvorfor er nettopp gjennomsnittet det riktige valget, gitt hva k-means minimerer?
+@+ Gjennomsnittet er alltid punktet som minimerer summen av kvadrerte avstander innad i klyngen
+@- Gjennomsnittet er punktet som minimerer summen av absolutte avstander til punktene i klyngen
+@- Gjennomsnittet er punktet som maksimerer avstanden til sentroidene i de andre klyngene
+@- Gjennomsnittet er alltid et av datapunktene, slik at sentroiden havner i et tett område
+@@Q
+%%% NY: DBSCAN med et kantpunkt mellom to klynger
+DBSCAN brukes på punktene under, med $\varepsilon = 1.5$ og \texttt{min\_samples} $= 4$. Et punkt er et
+kjernepunkt hvis minst 4 punkter (punktet selv medregnet) ligger innenfor avstand $\leq \varepsilon$.
+Punktet $M$ ligger i $x = 3.5$.
+\begin{center}
+\begin{tikzpicture}[x=1.15cm]
+\draw[->] (-0.3,0) -- (7.6,0);
+\foreach \t in {0,...,7} \draw (\t,0.08) -- (\t,-0.08) node[below,font=\small] {\t};
+\foreach \p in {0,0.5,1,1.5,2,5,5.5,6,6.5,7} \fill (\p,0) circle (2.4pt);
+\fill (3.5,0) circle (2.4pt) node[above=2pt,font=\small] {$M$};
+\end{tikzpicture}
+\end{center}
+Hva blir resultatet?
+%%% nabotall: 0 og 7: 4; 0.5-2 og 5-6.5: 5 (kjerne); M: {2, 3.5, 5} = 3 -> kantpunkt, utvider ikke
+@+ To klynger; $M$ blir kantpunkt i én av dem, men slår ikke klyngene sammen
+@- Én klynge; $M$ ligger innenfor $\varepsilon$ av kjernepunkter på begge sider og binder dem sammen
+@- Tre klynger; $M$ danner sin egen lille klynge mellom de to gruppene
+@- To klynger; $M$ blir støy, siden den har færre enn 4 punkter innenfor $\varepsilon$
+@@Q
+Du bruker DBSCAN på et datasett med tre tydelige, godt separerte klynger, men velger en
+\textbf{altfor stor} verdi for $\varepsilon$ (og en fornuftig \texttt{min\_samples}).
+
+Hva er det mest sannsynlige resultatet?
+@+ Svært mange punkter får nok naboer til å bli kjernepunkter, og gruppene slås sammen til én
+@- Nesten alle punkter blir støy, fordi få punkter har nok naboer innenfor $\varepsilon$
+@- Antall klynger øker, fordi hvert tett område deles opp i flere mindre klynger
+@- Klyngene blir de samme, men flere punkter blir kantpunkter i stedet for kjernepunkter
+%%% ================================================================ PART 8
+@@PART
+@@Q
+I PCA finner vi egenverdier og egenvektorer for dataenes kovariansmatrise.
+
+Hvilket utsagn er riktig?
+@+ Hovedkomponentene er egenvektorene, og hver egenverdi er variansen til dataene langs sin komponent
+@- Hovedkomponentene er egenvektorene, og hver egenverdi er antallet opprinnelige features i sin komponent
+@- Hovedkomponentene er kolonnene i kovariansmatrisen, og egenverdiene er korrelasjonene mellom features
+@- Hovedkomponentene er de opprinnelige featurene sortert etter varians, og egenverdiene er disse variansene
+@@Q
+PCA på et datasett med fire features gir egenverdiene
+\[ \lambda_1 = 4.2,\quad \lambda_2 = 2.1,\quad \lambda_3 = 1.2,\quad \lambda_4 = 0.5. \]
+Hvor stor andel av den totale variansen bevares om vi beholder de to første hovedkomponentene?
+%%% (4.2+2.1)/8.0 = 0.7875; bare PC1: 0.525; 2 av 4: 50 %; med sqrt(lambda): 0.66
+@+ $79\,\%$
+@- $53\,\%$
+@- $66\,\%$
+@- $50\,\%$
+@@Q
+Du har tilpasset PCA med \texttt{pca.fit(X\_train)} og kjører deretter \texttt{pca.transform(X\_test)}.
+
+Hva gjør det siste kallet?
+@+ Sentrerer med gjennomsnittet fra treningsdata og projiserer på hovedkomponentene som ble funnet der
+@- Beregner nye hovedkomponenter fra testdataene og projiserer testpunktene på disse komponentene
+@- Projiserer testpunktene på komponentene fra treningsdata, men trekker fra testsettets eget gjennomsnitt
+@- Velger ut de opprinnelige featurene i testdataene som hadde høyest varians i treningsdataene
+@@Q
+%%% NY2: regne ut KL-divergens (t-SNE sin tapsfunksjon) for to små fordelinger
+SNE og t-SNE flytter punktene i embeddingen slik at KL-divergensen
+\[ D_{KL}(P\,\|\,Q) = \sum_x P(x)\ln\frac{P(x)}{Q(x)} \]
+blir minst mulig. For ett punkt $\mathbf{x}_i$ med to naboer er naboskapsfordelingen i originalrommet
+$P = (0.5,\ 0.5)$, mens den i embeddingen er $Q = (0.8,\ 0.2)$.
+
+Hva er $D_{KL}(P\,\|\,Q)$?
+%%% 0.5 ln(0.5/0.8) + 0.5 ln(0.5/0.2) = -0.235 + 0.458 = 0.223.
+%%% D(Q||P) = 0.8 ln 1.6 + 0.2 ln 0.4 = 0.193. log2: 0.322. Uten vekting P(x): ln(0.625) + ln(2.5) = 0.446.
+@+ $0.22$
+@- $0.19$
+@- $0.32$
+@- $0.45$
+%%% ================================================================ PART 9
+@@PART
+@@Q
+%%% NY: tolkning av returverdiene fra env.step i Frozen Lake
+En agent trenes i Frozen Lake (\texttt{is\_slippery=False}), der reward er 1 når målet nås og ellers 0.
+Etter én handling returnerer
+\begin{lstlisting}[language=Python]
+next_state, reward, done, truncated, info = env.step(action)
+\end{lstlisting}
+verdiene \texttt{reward = 0}, \texttt{done = True} og \texttt{truncated = False}.
+
+Hva har skjedd?
+@+ Agenten falt i et hull, siden episoden er over uten at målet er nådd
+@- Agenten nådde målet, siden \texttt{done = True} betyr at oppgaven er løst
+@- Agenten nådde målet, men rewarden for målet gis først i neste kall til \texttt{env.step}
+@- Agenten gikk mot kanten av brettet og ble stående, så handlingen hadde ingen effekt
+@@Q
+%%% NY: tilgjengelige handlinger i tre-på-rad-agenten fra forelesningen
+I tre-på-rad-agenten fra forelesningen er tilstanden en streng der ledige ruter har sitt indekstall og
+opptatte ruter har \texttt{X} eller \texttt{O}. Agenten finner lovlige handlinger slik:
+\begin{lstlisting}[language=Python]
+state = "X1O3X5OX8"
+available_actions = [i for i, s in enumerate(state) if s.isnumeric()]
+\end{lstlisting}
+Hva blir \texttt{available\_actions}?
+%%% ledige ruter: indeks 1, 3, 5, 8
+@+ \texttt{[1, 3, 5, 8]}
+@- \texttt{[0, 2, 4, 6, 7]}
+@- \texttt{['1', '3', '5', '8']}
+@- \texttt{[2, 4, 6, 9]}
+@@Q
+%%% NY: hvorfor det ikke finnes en universell løsning på exploration/exploitation
+Ifølge notatene finnes det ingen universell løsning som gir en god avveining mellom \textbf{exploration} og
+\textbf{exploitation}, selv om $\varepsilon$-greedy med epsilon decay ofte fungerer godt.
+
+Hva er begrunnelsen notatene gir for dette?
+@+ Den optimale balansen avhenger av utfallet til actions agenten ikke har prøvd, og som den dermed ikke kjenner
+@- Q-verdiene konvergerer bare når $\varepsilon$ holdes fast, så balansen kan ikke justeres underveis i treningen
+@- Exploitation forutsetter at alle Q-verdiene er lært, så den kan først brukes når utforskingen er ferdig
+@- Rewarden kommer ofte først ved slutten av episoden, så agenten vet typisk ikke hvilke actions som ga den
+@@Q
+%%% NY: telle læringssteg og target-oppdateringer i DQN-loopen
+En DQN-agent kjører løkken under i 100 steg. Replay-bufferen starter tom og får ett nytt element per steg
+(den har plass til 1000), og \texttt{batch\_size} er 32.
+\begin{lstlisting}[language=Python]
+total_steps = 0
+for step in range(100):
+    total_steps += 1
+    agent.replay_buffer.add(state, action, reward, next_state, done)
+    if agent.replay_buffer.size > agent.batch_size:
+        agent.learn()
+        if total_steps % 10 == 0:
+            agent.update_target_network()
+\end{lstlisting}
+Hvor mange ganger kalles \texttt{learn} og \texttt{update\_target\_network}?
+%%% learn for t = 33..100 -> 68; target for t i {40, 50, ..., 100} -> 7 (verifisert ved simulering)
+%%% 100/10: ignorerer betingelsen; 69: bruker >=; 68/10: target uavhengig av bufferbetingelsen
+@+ \texttt{learn} 68 ganger og \texttt{update\_target\_network} 7 ganger
+@- \texttt{learn} 100 ganger og \texttt{update\_target\_network} 10 ganger
+@- \texttt{learn} 69 ganger og \texttt{update\_target\_network} 7 ganger
+@- \texttt{learn} 68 ganger og \texttt{update\_target\_network} 10 ganger
+%%% ================================================================ PART 10
+@@PART
+@@Q
+For et trent nevralt nettverk kan vi skrive ut hver eneste vekt og aktivering.
+
+Hvilket utsagn er riktig etter kursets definisjoner?
+@+ Nettverket er transparent, men ikke tolkbart; for å forstå det trengs et eget verktøy som SHAP
+@- Nettverket er både transparent og tolkbart, siden alle vekter og aktiveringer kan inspiseres
+@- Nettverket er forklarbart i seg selv, mens en lineær modell må forklares med en metode som SHAP
+@- Nettverket er verken transparent eller tolkbart, siden parametrene ligger skjult i de indre lagene
+@@Q
+I SHAP erstattes features som er «fraværende» i en koalisjon med verdier fra et
+\textbf{bakgrunnsdatasett}. Modellen din bruker blant annet featurene \emph{Høyde} og \emph{Vekt},
+som er sterkt korrelerte.
+
+Hva er en mulig konsekvens av dette?
+@+ Bakgrunnsverdier trekkes uten hensyn til korrelasjonen, så Høyde og Vekt kan få urealistiske kombinasjoner
+@- SHAP-verdiene til Høyde og Vekt kan bli tilnærmet like store, på grunn av symmetriaksiomet
+@- SHAP-verdiene summerer ikke lenger til $f(x) - \phi_0$, siden effektivitet krever uavhengige features
+@- Bakgrunnsdatasettet påvirker kun $\phi_0$ og ikke selve SHAP-verdiene, så korrelasjonen spiller ingen rolle
+@@Q
+%%% NY2: NumPy-broadcasting når prediksjonene har shape (n, 1) og targets shape (n,)
+Et nevralt nettverk for regresjon gir prediksjoner med \texttt{model.predict}, som returnerer en array med
+shape $(n, 1)$. Se på koden under, der prediksjonene er skrevet inn direkte:
+\begin{lstlisting}[language=Python]
+import numpy as np
+y_test = np.array([3.0, 5.0, 4.0])          # shape (3,)
+y_pred = np.array([[3.0], [5.0], [4.0]])    # shape (3, 1)
+mse = np.mean((y_test - y_pred) ** 2)
+print(f"{mse:.2f}")
+\end{lstlisting}
+Hva skrives ut?
+%%% (3,) - (3,1) -> (3,3) med alle par: kvadrater 0,4,1,4,0,1,1,1,0 -> sum 12 / 9 = 1.33.
+%%% 0.00 = forventet uten broadcasting, 4.00 = sum/3, 12.00 = summen
+@+ \texttt{1.33}
+@- \texttt{0.00}
+@- \texttt{4.00}
+@- \texttt{12.00}
+@@Q
+En agent bruker følgende kode for epsilon decay. Funksjonen \texttt{update\_epsilon} kalles én gang
+etter hver episode.
+\begin{lstlisting}[language=Python]
+epsilon, epsilon_min, epsilon_decay = 1.0, 0.05, 0.5
+
+def update_epsilon():
+    global epsilon
+    if epsilon > epsilon_min:
+        epsilon *= epsilon_decay
+
+for episode in range(6):
+    run_episode()
+    update_epsilon()
+\end{lstlisting}
+Hva er verdien av \texttt{epsilon} etter løkken?
+%%% 1 -> .5 -> .25 -> .125 -> .0625 -> .03125 (0.0625 > 0.05) -> 6. kall: .03125 > .05 usant -> .03125
+%%% 0.05 (antar klemming), 0.5^6 = 0.016 (ignorerer if), 0.0625 (stopper ett steg for tidlig)
+@+ $0.031$
+@- $0.050$
+@- $0.016$
+@- $0.063$

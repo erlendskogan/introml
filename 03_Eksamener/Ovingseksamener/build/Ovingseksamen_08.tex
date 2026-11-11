@@ -1,0 +1,707 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[norsk]{babel}
+\usepackage{tgtermes}
+\usepackage{tgheros}
+\renewcommand{\ttdefault}{txtt}
+\usepackage{amsmath,amssymb}
+\usepackage[a4paper,left=2.45cm,right=2.6cm,top=2.3cm,bottom=2.2cm,headsep=0.9cm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{needspace}
+\usepackage{multirow}
+\usetikzlibrary{positioning,arrows.meta,calc}
+\definecolor{insgrey}{gray}{0.42}
+\definecolor{radiogrey}{gray}{0.70}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45em}
+\setlist[itemize]{itemsep=0pt,topsep=2pt,label=\textbullet,font=\sffamily}
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,keepspaces=true,
+  showstringspaces=false,upquote=true,aboveskip=0.6em,belowskip=0.6em,
+  literate={æ}{{\ae}}1 {ø}{{\o}}1 {å}{{\aa}}1 {Æ}{{\AE}}1 {Ø}{{\O}}1 {Å}{{\AA}}1}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[R]{\fontsize{7.5}{9}\selectfont\sffamily\color{insgrey}TDT4172 - Introduksjon til maskinlæring - Øvingssett 8}
+\fancyfoot[R]{\fontsize{7}{9}\selectfont\sffamily\color{insgrey}\thepage/\pageref{LastPage}}
+\newcommand{\delstart}[1]{\clearpage
+  \noindent\hspace*{-1.55em}\makebox[1.55em][l]{\sffamily\bfseries\fontsize{12}{14}\selectfont\raisebox{0.35em}{#1}}%
+  {\sffamily\bfseries\fontsize{18}{22}\selectfont Part #1}\par\vspace{1.0em}}
+\newcommand{\sporsmal}[1]{\par\Needspace{9\baselineskip}\vspace{1.9em}%
+  \noindent{\bfseries Spørsmål #1}\par\vspace{-0.45em}%
+  \noindent{\bfseries -{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-{}-}\par\vspace{-0.15em}}
+\newcommand{\velg}[1]{\par\Needspace{6\baselineskip}\noindent{\bfseries #1}\par\vspace{0.3em}}
+\newcommand{\radio}[1]{\tikz[baseline=-0.62ex]{\draw[radiogrey,line width=0.45pt,fill=gray!5] (0,0) circle (0.56em);
+  \node[inner sep=0pt,font=\sffamily\fontsize{5.5}{6}\selectfont,text=insgrey] at (0,0) {#1};}}
+\newenvironment{alternativer}{\begin{list}{}{\setlength{\leftmargin}{2.35em}\setlength{\labelwidth}{1.4em}%
+  \setlength{\labelsep}{0.6em}\setlength{\itemsep}{0.85em}\setlength{\topsep}{0.45em}\setlength{\parsep}{0pt}}%
+  \sffamily\fontsize{10}{12.6}\selectfont}{\end{list}}
+\newcommand{\alt}[2]{\item[\radio{#1}]#2}
+\newcommand{\makspoeng}{\par\vspace{2.2em}\hfill{\sffamily\fontsize{8.5}{10}\selectfont Maks poeng: 10}\hspace*{0.5em}\par}
+\begin{document}
+
+\noindent\hspace*{-1.55em}\makebox[1.55em][l]{\raisebox{0.3em}{\sffamily\bfseries\fontsize{11}{12}\selectfont i}}%
+{\sffamily\bfseries\fontsize{18}{22}\selectfont Frontpage}\par\vspace{1.1em}
+
+{\bfseries Eksamensoppgave i TDT4172 - Introduksjon til maskinlæring}\\
+{\bfseries Øvingssett:} 8 av 10 (uoffisielt øvingssett)\\
+{\bfseries Tid:} 4 timer
+
+\vspace{0.6em}
+{\bfseries Faglig kontakt:} --- (øvingssett, ikke en offisiell eksamen)\\
+{\bfseries Møter i eksamenslokalet:} Nei
+
+\vspace{0.6em}
+{\bfseries Hjelpemiddelkode/Tillatte hjelpemidler:} D / Ingen trykte eller håndskrevne hjelpemidler tillatt.
+Bestemt, enkel kalkulator tillatt.
+
+\vspace{0.6em}
+{\bfseries\underline{ANNEN INFORMASJON:}}
+
+\vspace{0.4em}
+{\bfseries Les oppgavene nøye og gjør dine egne antagelser.} Presiser i besvarelsen hvilke forutsetninger du
+har lagt til grunn i tolkning/avgrensing av oppgaven.
+
+Dette øvingssettet er laget for egentrening, med samme format og vanskelighetsgrad som de
+siste ordinære eksamenene i emnet. Løsningsforslaget står på siste side.
+
+\vspace{1.6em}
+{\bfseries\underline{FAGSPESIFIKK INFORMASJON}}
+
+\vspace{0.4em}
+{\bfseries Ingen papirhåndtegninger:}\\
+Denne eksamenen tillater ikke bruk av håndtegninger.
+
+\vspace{1.4em}
+{\bfseries Vekting av oppgavene}:\\
+Denne eksamenen inneholder flervalgsoppgaver organisert i ti grupper på fire spørsmål hver. Hver
+gruppe vurderes separat etter følgende regler:
+
+\vspace{0.6em}
+For hver av de fire spørsmålene i gruppen får du følgende poeng
+\begin{itemize}[leftmargin=2.2em,label=\textperiodcentered,itemsep=0pt]
+\item {\bfseries Riktig svar:} +2,5 poeng
+\item {\bfseries Feil svar (et alternativ er valgt, men ikke korrekt):} $-$0,83 poeng
+\item {\bfseries Ikke besvart:} 0 poeng
+\end{itemize}
+{\bfseries Merk} at dersom du først har valgt et svaralternativ, kan du {\bfseries ikke velge det bort} igjen. Da må du
+svare på det spørsmålet. Med andre ord mister du muligheten til å la et spørsmål stå blankt så fort
+du har trykket på et alternativ.
+
+\vspace{0.6em}
+Poengsummen for hver gruppe er {\bfseries summen} av poengene for de fire enkeltspørsmålene.\\
+For {\bfseries alle spørsmålene} gjelder en {\bfseries null-grense}: dersom summen for denne gruppen blir negativ,
+settes verdien til {\bfseries 0}. Den totale poengsummen på eksamen er summen av poengene fra alle
+gruppene.
+
+\delstart{1}
+\sporsmal{1}
+Et nevralt nettverk klassifiserer bilder i tre klasser og har \textbf{softmax} i output-laget. Det trenes med
+kategorisk cross-entropy $L(\hat{\mathbf{y}}, \mathbf{y}) = -\sum_i y_i \ln \hat{y}_i$, der $\mathbf{y}$ er
+one-hot-enkodet og $k$ er den sanne klassen.
+
+Hvilket utsagn er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Tapet blir 0 så snart den sanne klassen har høyest $\hat{y}_i$, selv om $\hat{y}_k$ er mindre enn 1}
+\alt{B}{Softmax brukes fordi den lar flere klasser ha $\hat{y}_i$ nær 1 samtidig, slik at usikre bilder kan få flere labels}
+\alt{C}{Tapet summerer $-\ln \hat{y}_i$ over alle klassene, slik at høye $\hat{y}_i$ for gale klasser straffes direkte}
+\alt{D}{Tapet blir $-\ln \hat{y}_k$, så det avhenger direkte bare av predikert sannsynlighet for den sanne klassen}
+\end{alternativer}
+\sporsmal{2}
+En logistisk regresjonsmodell predikerer sannsynligheten $p$ for at en kunde kjøper et produkt. Vekten for
+featuren \emph{Antall\_besøk} er $w = 0.7$. Husk at $\mathbf{w}^T\mathbf{x} + b = \ln\frac{p}{1-p}$.
+
+Hva skjer når \emph{Antall\_besøk} øker med 1, og alle andre features holdes fast?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Oddsen $p/(1-p)$ multipliseres med $e^{0.7} \approx 2.0$}
+\alt{B}{Sannsynligheten $p$ multipliseres med $e^{0.7} \approx 2.0$}
+\alt{C}{Sannsynligheten $p$ øker med 0.7}
+\alt{D}{Oddsen $p/(1-p)$ øker med 0.7}
+\end{alternativer}
+\sporsmal{3}
+Klassen \texttt{LogisticRegression} fra notatene starter \texttt{fit} med \texttt{self.weights = np.zeros(...)}
+og \texttt{self.bias = 0}. Treningssettet har 300 punkter, hvorav 120 har $y = 1$.
+
+Hva blir gjennomsnittlig binary cross-entropy loss (med $\ln$) for prediksjonene som modellen gir
+med disse startparametrene, altså før første oppdatering?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$0.25$}
+\alt{B}{$0.50$}
+\alt{C}{$0.69$}
+\alt{D}{$0.67$}
+\end{alternativer}
+\sporsmal{4}
+En logistisk regresjonsmodell med blant annet featuren \emph{Alder} (i år) er trent til konvergens, og
+vekten for \emph{Alder} ble $0.06$. En kollega gjør om \emph{Alder} til måneder (ganger alle verdiene med 12),
+lar alt annet være likt, og trener på nytt til konvergens. Tapsfunksjonen er konveks.
+
+Hva er det mest sannsynlige resultatet?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Vekten for \emph{Alder} blir omtrent $0.005$, men biasen må endres, så prediksjonene $\hat y$ endres}
+\alt{B}{Vekten for \emph{Alder} blir omtrent $0.06$ som før, men prediksjonene $\hat y$ blir høyere}
+\alt{C}{Vekten for \emph{Alder} blir omtrent $0.72$, siden verdiene nå er tolv ganger så store}
+\alt{D}{Vekten for \emph{Alder} blir omtrent $0.005$, og alle prediksjonene $\hat y$ blir som før}
+\end{alternativer}
+\makspoeng
+
+\delstart{2}
+\sporsmal{1}
+To modeller skal oppdage en sjelden feil som finnes i 0.2\,\% av dataene. ROC-kurvene deres er nesten like
+(ROC AUC 0.97 og 0.98), mens precision–recall-kurvene viser en tydelig forskjell mellom modellene.
+
+Hva er den beste forklaringen?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Recall avhenger av hvor mange negative det er, mens TPR ikke gjør det, så de to kurvene skiller seg}
+\alt{B}{Precision–recall-kurven tar med de svært mange sanne negative (TN), og blir derfor mer følsom}
+\alt{C}{FPR deler på det store antallet negative, så mange falske positive gir lav FPR, men lav precision}
+\alt{D}{ROC AUC kan typisk ikke brukes ved ubalanserte klasser, siden verdien da alltid havner nær 1}
+\end{alternativer}
+\sporsmal{2}
+To modeller for en alvorlig sykdom er testet på de samme 1000 pasientene, hvorav 100 er syke
+(positiv klasse). Modellen skal brukes til screening: alle som flagges, får en enkel og billig oppfølgingstest,
+mens syke som ikke flagges, ikke får behandling i tide.
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Modell & TP & FN & FP & TN\\
+\midrule
+A & 85 & 15 & 85 & 815\\
+B & 40 & 60 & 40 & 860\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hvilken modell bør velges, og hvorfor?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{B, siden den har høyere spesifisitet, og det er spesifisiteten som avgjør hvor mange syke som oversees}
+\alt{B}{Begge er like gode, siden de gjør like mange feil og har samme precision på disse pasientene}
+\alt{C}{B, siden den har høyere precision, så færre friske sendes unødvendig til oppfølgingstest}
+\alt{D}{A, siden den fanger opp 85 av de 100 syke, og en unødvendig oppfølgingstest koster lite}
+\end{alternativer}
+\sporsmal{3}
+Modell A har ROC AUC $= 0.82$ og modell B har ROC AUC $= 0.30$ på det samme valideringssettet.
+
+Hvilket utsagn er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Snur man prediksjonene til B ($p \to 1-p$), får den AUC 0.70, så B inneholder nyttig informasjon}
+\alt{B}{B har AUC under 0.5 fordi valideringssettet er ubalansert, noe som alltid trekker AUC under 0.5}
+\alt{C}{A rangerer et tilfeldig positivt punkt over et tilfeldig negativt i 82\,\% av tilfellene, og har derfor 82\,\% accuracy}
+\alt{D}{B er dårligere enn tilfeldig gjetning, og prediksjonene inneholder derfor ingen nyttig informasjon}
+\end{alternativer}
+\sporsmal{4}
+Et team har 10\,000 transaksjoner, hvorav 1\,\% er svindel. De kopierer først svindelpunktene i
+\emph{hele} datasettet til klassene er like store (oversampling), og deler deretter tilfeldig i trening og
+test. Modellen får recall 0.99 på testsettet.
+
+Hva er hovedproblemet med fremgangsmåten?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Testsettet får en annen klassefordeling enn treningsdelen, siden kopiene av svindelpunktene bare havner i trening}
+\alt{B}{Oversamplingen fjerner normale transaksjoner fra trening, så modellen undertilpasser og recall blir upålitelig}
+\alt{C}{Kopier av de samme svindelpunktene havner både i trening og test, så modellen testes på punkter den har sett}
+\alt{D}{Recall avhenger ikke av klassefordelingen, så resultatet er gyldig, mens accuracy ville blitt for høy}
+\end{alternativer}
+\makspoeng
+
+\delstart{3}
+\sporsmal{1}
+I et binært klassifiseringsproblem har 20\,\% av datapunktene label $y=1$. En enkel modell predikerer
+sannsynligheten $0.4$ for $y=1$ for alle punktene. La $p = (0.2,\ 0.8)$ være fordelingen til labelene og
+$q = (0.4,\ 0.6)$ fordelingen modellen predikerer. Entropien er $H(p) = -\sum_i p_i \log_2 p_i$ og
+cross-entropy er $H(p,q) = -\sum_i p_i \log_2 q_i$.
+
+Hva blir $H(p)$ og $H(p,q)$?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$H(p) = 0.72$ og $H(p,q) = 1.12$}
+\alt{B}{$H(p) = 0.97$ og $H(p,q) = 0.85$}
+\alt{C}{$H(p) = 0.50$ og $H(p,q) = 0.59$}
+\alt{D}{$H(p) = 0.72$ og $H(p,q) = 0.85$}
+\end{alternativer}
+\sporsmal{2}
+Notatene skiller mellom \textbf{parametrisk} og \textbf{ikke-parametrisk} modellering.
+
+Hvilket utsagn er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Beslutningstrær er ikke-parametriske fordi de ikke har hyperparametre som må velges før treningen}
+\alt{B}{Logistisk regresjon er parametrisk fordi funksjonsformen er gitt, mens et tres struktur bestemmes under trening}
+\alt{C}{Beslutningstrær er parametriske fordi terskelverdiene i splittene er parametre som læres fra dataene}
+\alt{D}{Logistisk regresjon er ikke-parametrisk fordi antallet vekter øker med antallet datapunkter i treningssettet}
+\end{alternativer}
+\sporsmal{3}
+Du vil estimere simultanfordelingen $p(\mathbf{x} \mid C_k)$ for én klasse uten Naive Bayes-antakelsen, ved hjelp
+av et histogram. Du deler hver feature inn i 10 bins og vil ha minst 10 datapunkter i hver bin.
+
+Hvor mange datapunkter trenger du (for denne klassen) hvis du har 6 features?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$10^{7}$}
+\alt{B}{$10^{6}$}
+\alt{C}{$6^{10}$}
+\alt{D}{$600$}
+\end{alternativer}
+\sporsmal{4}
+Tabellen viser Titanic-treningsdataene fordelt på \emph{Sex} og \emph{Survived}.
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & \emph{Survived} $=0$ & \emph{Survived} $=1$ \\
+\midrule
+female & 81 & 233 \\
+male & 468 & 109 \\
+\bottomrule
+\end{tabular}
+\end{center}
+En trestump splitter på \emph{Sex}, og hver løvnode predikerer klassen som dominerer i noden.
+
+Hva blir treningsaccuracy for stumpen, og for en modell som alltid predikerer klassen som dominerer i hele datasettet?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$0.79$ for stumpen og $0.38$ for majoritetsmodellen}
+\alt{B}{$0.79$ for stumpen og $0.62$ for majoritetsmodellen}
+\alt{C}{$0.67$ for stumpen og $0.62$ for majoritetsmodellen}
+\alt{D}{$0.67$ for stumpen og $0.38$ for majoritetsmodellen}
+\end{alternativer}
+\makspoeng
+
+\delstart{4}
+\sporsmal{1}
+Du trener $f(\mathbf{x}) = \beta_0 + \beta_1 x_1 + \beta_2 x_2$ med full-batch gradient descent på MSE.
+Etter mange epoker er gradientvektoren
+$\bigl(\partial L/\partial\beta_0,\ \partial L/\partial\beta_1,\ \partial L/\partial\beta_2\bigr)$ nesten lik nullvektoren.
+
+Hva kan du konkludere?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Treningstapet er nær null, så modellen gjengir treningsdataene nesten perfekt, men kan overtilpasse}
+\alt{B}{Modellen har verken over- eller undertilpasset, men treningen bør fortsette til gradienten er null}
+\alt{C}{Læringsraten er for lav, så parametrene står nesten stille, men en større læringsrate gir lavere tap}
+\alt{D}{Parametrene ligger nær det globale minimumet av treningstapet, men tapet der kan fortsatt være høyt}
+\end{alternativer}
+\sporsmal{2}
+Et regresjonstre vurderer splitten $x \le 4.5$ for dataene under. Variansen i en node beregnes som
+gjennomsnittlig kvadrert avvik fra nodens gjennomsnitt (del på antall punkter i noden).
+\begin{center}
+\begin{tabular}{lcccccccc}
+\toprule
+$x$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8\\
+$y$ & 3 & 4 & 3 & 5 & 9 & 10 & 8 & 9\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva blir den vektede variansen etter splitten, $\frac{n_1}{n}\text{Var}_1 + \frac{n_2}{n}\text{Var}_2$?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$1.19$}
+\alt{B}{$0.59$}
+\alt{C}{$7.48$}
+\alt{D}{$0.69$}
+\end{alternativer}
+\sporsmal{3}
+Du har bare 120 datapunkter. To ulike tilfeldige 80/20-splitter av de samme dataene gir test-MSE 3.1 og 4.6
+for den samme modelltypen og de samme hyperparametrene.
+
+Hva er den beste tolkningen, og hva er et passende tiltak?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Forskjellen skyldes den irredusible støyen, og den blir typisk mindre hvis testsettet gjøres enda mindre}
+\alt{B}{Estimatet avhenger av hvilke 24 punkter som havner i testsettet; k-fold kryssvalidering gir et mer stabilt estimat}
+\alt{C}{Den laveste verdien, 3.1, er det beste anslaget, siden den splitten ga de mest representative testdataene}
+\alt{D}{Modellen overtilpasser, siden test-MSE varierer; den bør gjøres enklere til begge splittene gir omtrent like stor feil}
+\end{alternativer}
+\sporsmal{4}
+En regresjonsmodell trenes på mange ulike treningssett trukket fra samme fordeling. I et bestemt punkt
+$x$ er den sanne verdien $F(x) = 10$. Modellens prediksjoner i $x$ har gjennomsnitt 12 og varians 3 over
+treningssettene, og den irredusible støyen har varians $\sigma^2 = 1$.
+
+Hva er forventet kvadrert feil $\mathbb{E}_D\big[(y - f(x;D))^2\big]$ i punktet $x$?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$8$}
+\alt{B}{$6$}
+\alt{C}{$7$}
+\alt{D}{$5$}
+\end{alternativer}
+\makspoeng
+
+\delstart{5}
+\sporsmal{1}
+Ensemble-metoder skiller mellom \textbf{trening} og \textbf{inferens}.
+
+Hvilket utsagn er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{I boosting trenes modellene etter hverandre, og ved inferens kombineres prediksjonene fra alle modellene}
+\alt{B}{I boosting trenes modellene etter hverandre, men ved inferens brukes typisk bare den siste modellen}
+\alt{C}{I bagging trenes modellene etter hverandre, og ved inferens teller de senere modellene mest i snittet}
+\alt{D}{I boosting kan modellene trenes parallelt, men ved inferens må de evalueres etter hverandre i fast rekkefølge}
+\end{alternativer}
+\sporsmal{2}
+Du trener \textbf{gradient boosting} med trær av dybde 10 og 2000 boosting-runder. Treningsfeilen går mot 0,
+mens valideringsfeilen er lavest etter rundt 300 runder og deretter øker jevnt.
+
+Hva er den mest sannsynlige forklaringen, og hva er et fornuftig tiltak?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Valideringsdataene har trolig en annen fordeling; feilen bør heller måles på testsettet underveis}
+\alt{B}{Ensemblet undertilpasser fordi hvert tre er en svak lærer; flere runder og dypere trær vil hjelpe}
+\alt{C}{Boosting reduserer først bias og deretter varians, så valideringsfeilen vil trolig synke igjen med flere runder}
+\alt{D}{Ensemblet overtilpasser; antall runder og tredybde bør velges ut fra valideringsfeilen}
+\end{alternativer}
+\sporsmal{3}
+I \textbf{AdaBoost} har fem datapunkter vekt 0.2 hver. En stump klassifiserer ett av punktene feil, så den
+vektede feilraten er $\varepsilon = 0.2$ og $\alpha = \tfrac12 \ln\frac{1-\varepsilon}{\varepsilon}$. Vektene
+oppdateres med $w_i \leftarrow w_i e^{\alpha}$ for feilklassifiserte punkter og $w_i \leftarrow w_i e^{-\alpha}$ for
+riktig klassifiserte punkter, og normaliseres deretter slik at de summerer til 1.
+
+Hva blir de nye vektene?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Det feilklassifiserte punktet får 0.400, og hvert av de andre får 0.100}
+\alt{B}{Det feilklassifiserte punktet får 0.333, og hvert av de andre får 0.167}
+\alt{C}{Det feilklassifiserte punktet får 0.500, og hvert av de andre får 0.125}
+\alt{D}{Det feilklassifiserte punktet får 0.059, og hvert av de andre får 0.235}
+\end{alternativer}
+\sporsmal{4}
+I \textbf{AdaBoost} får hver svake lærer stemmevekten $\alpha = \tfrac12\ln\frac{1-\varepsilon}{\varepsilon}$,
+der $\varepsilon$ er den vektede feilraten. Tre stumper har $\varepsilon = 0.10$, $\varepsilon = 0.30$ og $\varepsilon = 0.45$.
+
+Hvilket utsagn om stemmevektene er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Stumpen med $\varepsilon = 0.10$ får størst stemmevekt, og en stump med $\varepsilon = 0.60$ ville fått vekt 0}
+\alt{B}{Alle tre får lik stemmevekt, siden AdaBoost kombinerer de svake lærerne ved vanlig flertallsavstemning}
+\alt{C}{Stumpen med $\varepsilon = 0.45$ får størst stemmevekt, siden den er trent på de vanskeligste punktene}
+\alt{D}{Stumpen med $\varepsilon = 0.10$ får størst stemmevekt, og den med $\varepsilon = 0.45$ får en vekt nær 0}
+\end{alternativer}
+\makspoeng
+
+\delstart{6}
+\sporsmal{1}
+Et nettverk har et skjult lag og tre output-noder. For et datapunkt vil én output-node få lavere tap om
+aktiveringen $a_k$ til node $k$ i det skjulte laget øker, mens en annen output-node vil få lavere tap om
+$a_k$ minker.
+
+Hvordan håndterer backpropagation dette når gradienten for vektene inn til node $k$ skal beregnes?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Bidragene fra alle output-nodene legges sammen, og den samlede ønskede endringen sendes videre bakover}
+\alt{B}{Output-noden med størst feil bestemmer endringen alene, og bidragene fra de andre nodene ignoreres her}
+\alt{C}{Aktiveringen $a_k$ settes direkte til verdien som flertallet av output-nodene ønsker, før vektene oppdateres}
+\alt{D}{Vektene inn til node $k$ oppdateres én gang per output-node, i fast rekkefølge fra første til siste node}
+\end{alternativer}
+\sporsmal{2}
+Se på følgende kode:
+\begin{lstlisting}[language=Python]
+model = keras.Sequential()
+model.add(keras.Input(shape=(3,)))
+model.add(Dense(6, activation="relu"))
+x = ops.ones((10, 4))
+out = model(x)
+\end{lstlisting}
+Hva skjer når den siste linjen kjøres?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Laget bygges på nytt for 4 features, og \texttt{out} får shape \texttt{(10, 6)} med nye vekter}
+\alt{B}{Kallet gir en feilmelding, siden laget er bygget for nøyaktig 3 input-features}
+\alt{C}{Kallet lykkes, og \texttt{out} får shape \texttt{(4, 6)}, siden hver feature gir én rad i output}
+\alt{D}{Kallet lykkes, og \texttt{out} får shape \texttt{(10, 6)}, siden den fjerde featuren ignoreres}
+\end{alternativer}
+\sporsmal{3}
+Et lite nettverk bruker Heaviside-funksjonen $H(z) = 1$ hvis $z \ge 0$, ellers 0:
+\[
+h_1 = H(x_1 + x_2 - 0.5), \qquad h_2 = H(-x_1 - x_2 + 1.5), \qquad y = H(h_1 + h_2 - 1.5).
+\]
+For hvilke binære input $(x_1, x_2)$ blir $y = 1$?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Bare for $(0,1)$ og $(1,0)$}
+\alt{B}{For alle unntatt $(0,0)$}
+\alt{C}{Bare for $(1,1)$}
+\alt{D}{Bare for $(0,0)$ og $(1,1)$}
+\end{alternativer}
+\sporsmal{4}
+Se på følgende kode:
+\begin{lstlisting}[language=Python]
+model = keras.Sequential([keras.Input(shape=(20,)),
+                          Dense(32, activation="relu"),
+                          Dense(5, activation="softmax")])
+W, b = model.layers[0].get_weights()
+print(W.shape, b.shape)
+\end{lstlisting}
+Hva skrives ut?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{\texttt{(32, 5) (5,)}}
+\alt{B}{\texttt{(20, 32) (32,)}}
+\alt{C}{\texttt{(20, 32) (20,)}}
+\alt{D}{\texttt{(32, 20) (32,)}}
+\end{alternativer}
+\makspoeng
+
+\delstart{7}
+\sporsmal{1}
+Du sammenligner \textbf{DBSCAN} med k-means på et datasett med støy.
+
+Hvilket utsagn om DBSCAN er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Antall klynger må oppgis, og punkter som ligger langt fra alle sentroidene får label $-1$}
+\alt{B}{Antall klynger må ikke oppgis, men alle punktene blir tilordnet den nærmeste klyngen}
+\alt{C}{Antall klynger må ikke oppgis, og punkter som ikke kan nås fra noe kjernepunkt får label $-1$}
+\alt{D}{Antall klynger må oppgis, men støypunktene samles i en egen klynge med label 0}
+\end{alternativer}
+\sporsmal{2}
+En clustering-algoritme beskriver hver klynge med en middelvektor og en kovariansmatrise, som estimeres
+iterativt fra dataene. Klyngene kan dermed ha ulik størrelse og elliptisk form, og hvert punkt får en grad av
+tilhørighet til hver av klyngene i stedet for én fast klynge.
+
+Hvilken av notatenes hovedkategorier hører algoritmen til?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Sentroidebasert, siden middelvektoren fungerer som en sentroide som punktene tilordnes iterativt}
+\alt{B}{Fordelingsbasert, siden middelvektoren og kovariansmatrisen er parametrene til en Gauss per klynge}
+\alt{C}{Hierarkibasert, siden hvert punkt tilhører flere klynger samtidig, med ulik grad av tilhørighet}
+\alt{D}{Tetthetsbasert, siden kovariansmatrisen beskriver hvor tett punktene ligger rundt middelvektoren}
+\end{alternativer}
+\sporsmal{3}
+Et stort datasett består av 4 like store, godt separerte klynger med svært mange punkter i hver. Du kjører
+k-means med $k = 4$ og plasserer de fire startsentroidene på tilfeldig valgte datapunkter.
+
+Hva er (tilnærmet) sannsynligheten for at hver klynge får nøyaktig én startsentroide?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$0.004$}
+\alt{B}{$0.042$}
+\alt{C}{$0.016$}
+\alt{D}{$0.094$}
+\end{alternativer}
+\sporsmal{4}
+En butikk klynger 2 millioner kunder, hver beskrevet med 12 standardiserte features, med k-means
+($k = 6$). Modellen skal senere brukes til å plassere nye kunder i en av klyngene.
+
+Hvor mange tall må den trente modellen lagre for dette, når vi ser bort fra $k$ og skaleringsparametrene?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$6$}
+\alt{B}{$24\,000\,000$}
+\alt{C}{$72$}
+\alt{D}{$18$}
+\end{alternativer}
+\makspoeng
+
+\delstart{8}
+\sporsmal{1}
+Et overvåkingssystem kjører følgende hver dag på dagens transaksjoner \texttt{X\_dag}:
+\begin{lstlisting}[language=Python]
+distances = kmeans.transform(X_dag).min(axis=1)
+threshold = np.percentile(distances, 95)
+flagget = distances > threshold
+\end{lstlisting}
+En dag består alle transaksjonene av helt vanlige kjøp, uten noen svindel. Hva skjer?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Ingen transaksjoner flagges, siden ingen avstander er uvanlig store når alle kjøpene er normale}
+\alt{B}{Rundt 95\,\% av transaksjonene flagges, siden 95-persentilen gjør at de fleste havner over terskelen}
+\alt{C}{Antall flaggede avhenger av $k$, siden hver klynge typisk får sin egen terskel på 5\,\% av punktene}
+\alt{D}{Rundt 5\,\% av transaksjonene flagges likevel, siden terskelen er beregnet ut fra dagens egne avstander}
+\end{alternativer}
+\sporsmal{2}
+Et sentrert datasett med to features har første hovedkomponent $\text{PC1} = (0.6,\ 0.8)$. Du reduserer
+punktet $\mathbf{x} = (3,\ 1)$ til én dimensjon med PCA, og transformerer det deretter tilbake til det
+opprinnelige rommet (\texttt{inverse\_transform}).
+
+Hvilket punkt får du tilbake?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$(2.60,\ 0.00)$}
+\alt{B}{$(3.00,\ 1.00)$}
+\alt{C}{$(1.56,\ 2.08)$}
+\alt{D}{$(1.80,\ 0.80)$}
+\end{alternativer}
+\sporsmal{3}
+Du bruker PCA til å redusere S-formede data i tre dimensjoner (fra \texttt{make\_s\_curve}) til to
+dimensjoner, og resultatet bevarer strukturen godt.
+
+Hva er den beste forklaringen?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{PCA er ikke-lineær og kan rette ut S-formen, slik t-SNE gjør med ikke-lineære strukturer}
+\alt{B}{Dataene varierer lite i én retning, så to lineære akser fanger nesten all variansen}
+\alt{C}{PCA bruker fargene (labels) til å orientere komponentene, så klassene holdes adskilt}
+\alt{D}{PCA fjerner retningen med størst varians, siden den typisk består mest av støy}
+\end{alternativer}
+\sporsmal{4}
+Se på følgende kode:
+\begin{lstlisting}[language=Python]
+pca = PCA().fit(X_train)
+r = pca.explained_variance_ratio_     # [0.55, 0.25, 0.12, 0.05, 0.03]
+k = np.argmax(np.cumsum(r) >= 0.90) + 1
+print(k)
+\end{lstlisting}
+Hva skrives ut?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{\texttt{3}}
+\alt{B}{\texttt{4}}
+\alt{C}{\texttt{5}}
+\alt{D}{\texttt{2}}
+\end{alternativer}
+\makspoeng
+
+\delstart{9}
+\sporsmal{1}
+Et \textbf{DQN} trenes med både et Q-nettverk og et \textbf{target network}.
+
+Hva er rollen til target network?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Det beregner rewarden $R_{t+1}$, siden miljøet bare gir reward når en episode er over}
+\alt{B}{Det velger handlingene under treningen, mens Q-nettverket bare brukes etter at treningen er ferdig}
+\alt{C}{Det gir stabile mål: $\max_A Q(S_{t+1}, A)$ beregnes med en kopi som bare oppdateres periodisk}
+\alt{D}{Det lagrer tidligere overganger, slik at de kan trekkes tilfeldig i batcher under treningen}
+\end{alternativer}
+\sporsmal{2}
+I DQN lagres overganger $(S_t, A_t, R_{t+1}, S_{t+1}, \text{done})$ i en \textbf{replay buffer}, og
+Q-nettverket trenes på tilfeldig trukne batcher fra bufferen.
+
+Hva er hovedgevinsten sammenlignet med å trene på hver overgang idet den skjer?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Påfølgende steg havner sjelden i samme batch, og hver erfaring kan brukes i flere oppdateringer}
+\alt{B}{Tilfeldig trekking fra bufferen gir nok utforskning, så $\varepsilon$ kan settes til 0 tidligere i treningen}
+\alt{C}{Overgangene fra én episode trenes samlet, slik at rewarden ved målet raskere forplanter seg bakover}
+\alt{D}{Målene $R_{t+1} + \gamma\max_A Q(S_{t+1},A)$ holdes faste mellom oppdateringene, så treningen blir stabil}
+\end{alternativer}
+\sporsmal{3}
+En agent bruker Q-læring med $Q_{new}(S_t,A_t) \leftarrow (1-\alpha)\,Q(S_t,A_t) + \alpha\,\big(R_{t+1} + \gamma \max_A Q(S_{t+1},A)\big)$,
+med $\alpha = 0.4$ og $\gamma = 0.9$. Agenten har $Q(S_t, A_t) = 2.0$, mottar $R_{t+1} = 1$, og Q-verdiene i den nye
+tilstanden er $Q(S_{t+1}, \cdot) = (3.0,\ 4.0,\ 1.5)$.
+
+Hva blir $Q_{new}(S_t, A_t)$?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{$3.20$}
+\alt{B}{$4.60$}
+\alt{C}{$3.56$}
+\alt{D}{$3.04$}
+\end{alternativer}
+\sporsmal{4}
+Se på Q-læringsregelen $Q_{new}(S_t,A_t) \leftarrow (1-\alpha)\,Q(S_t,A_t) + \alpha\,\big(R_{t+1} + \gamma \max_A Q(S_{t+1},A)\big)$.
+
+Hva skjer med $\alpha = 0$ og med $\alpha = 1$?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{Med $\alpha = 0$ teller bare umiddelbar reward; med $\alpha = 1$ vektes fremtidige rewards like mye som nåværende}
+\alt{B}{Med $\alpha = 0$ endres Q-verdiene aldri; med $\alpha = 1$ erstattes den gamle verdien helt av det nye estimatet}
+\alt{C}{Med $\alpha = 0$ konvergerer Q-verdiene raskest; med $\alpha = 1$ blir stegene så store at Q-verdiene divergerer}
+\alt{D}{Med $\alpha = 0$ velges alltid den grådige handlingen; med $\alpha = 1$ velges alle handlingene helt tilfeldig}
+\end{alternativer}
+\makspoeng
+
+\delstart{10}
+\sporsmal{1}
+Tabellen viser SHAP-verdiene for tre features på fire datapunkter.
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Feature & Punkt 1 & Punkt 2 & Punkt 3 & Punkt 4\\
+\midrule
+A & $+0.30$ & $-0.30$ & $+0.25$ & $-0.25$\\
+B & $+0.10$ & $+0.12$ & $+0.08$ & $+0.10$\\
+C & $-0.20$ & $+0.05$ & $-0.15$ & $+0.35$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hvilken feature havner øverst i et beeswarm-plott av disse SHAP-verdiene?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{B, siden den har størst gjennomsnittlig SHAP-verdi}
+\alt{B}{C, siden den har den største enkeltstående SHAP-verdien av alle}
+\alt{C}{A, siden den har størst gjennomsnittlig absolutt SHAP-verdi}
+\alt{D}{Ingen, siden lokale SHAP-verdier ikke kan slås sammen}
+\end{alternativer}
+\sporsmal{2}
+En lånemodell forklares med SHAP. Bakgrunnsdatasettet byttes fra et tilfeldig utvalg av alle søkere til et
+utvalg av bare søkere som fikk innvilget lån. Prediksjonen $f(\mathbf{x}^*)$ for søkeren som forklares, er den samme.
+
+Hvilket utsagn er riktig?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{SHAP-verdiene endres typisk, men $\phi_0$ er uendret, siden $\phi_0$ er det samme som modellens bias $b$}
+\alt{B}{SHAP-verdiene er uendret mens $\phi_0$ endres, så $\phi_0 + \sum_j \phi_j$ blir ikke lenger lik $f(\mathbf{x}^*)$}
+\alt{C}{Både $\phi_0$ og SHAP-verdiene kan endres, men $\phi_0 + \sum_j \phi_j$ er fortsatt lik $f(\mathbf{x}^*)$}
+\alt{D}{$\phi_0$ og SHAP-verdiene er uendret, siden de bare avhenger av modellen og datapunktet $\mathbf{x}^*$}
+\end{alternativer}
+\sporsmal{3}
+Se på følgende kode:
+\begin{lstlisting}[language=Python]
+df = pd.DataFrame({"Pclass": [1, 1, 3, 3, 3, 3, 2, 2],
+                   "Sex":    ["f", "m", "m", "m", "f", "m", "f", "m"]})
+p = pd.crosstab(df.Pclass, df.Sex, normalize="index")
+print(p.loc[3, "m"])
+\end{lstlisting}
+Hva skrives ut?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{\texttt{0.75}}
+\alt{B}{\texttt{0.6}}
+\alt{C}{\texttt{3}}
+\alt{D}{\texttt{0.375}}
+\end{alternativer}
+\sporsmal{4}
+Se på følgende kode:
+\begin{lstlisting}[language=Python]
+y_true = [1, 0, 1, 1]
+y_pred = [1, 0, 0, 1]
+print(np.mean(y_true == y_pred), np.mean(np.array(y_true) == np.array(y_pred)))
+\end{lstlisting}
+Hva skrives ut?
+\velg{Velg ett alternativ:}
+\begin{alternativer}
+\alt{A}{\texttt{1.0 0.75}}
+\alt{B}{\texttt{0.0 0.75}}
+\alt{C}{\texttt{0.75 0.75}}
+\alt{D}{\texttt{0.75 0.0}}
+\end{alternativer}
+\makspoeng
+
+\clearpage
+{\sffamily\bfseries\fontsize{18}{22}\selectfont Løsningsforslag}\par\vspace{0.3em}
+\noindent\rule{\textwidth}{0.4pt}\par\vspace{1.2em}
+Riktig alternativ per spørsmål (bokstaven står i rundingen foran hvert alternativ).\par\vspace{1em}
+\begin{center}\sffamily\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{l*{4}{>{\centering\arraybackslash}p{1.6cm}}}
+\toprule
+& \textbf{Sp.\ 1} & \textbf{Sp.\ 2} & \textbf{Sp.\ 3} & \textbf{Sp.\ 4}\\
+\midrule
+Part 1 & D & A & C & D\\
+Part 2 & C & D & A & C\\
+Part 3 & D & B & A & B\\
+Part 4 & D & B & B & A\\
+Part 5 & A & D & C & D\\
+Part 6 & A & B & A & B\\
+Part 7 & C & B & D & C\\
+Part 8 & D & C & B & A\\
+Part 9 & C & A & D & B\\
+Part 10 & C & C & A & B\\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{document}

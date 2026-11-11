@@ -1,0 +1,512 @@
+%%% Øvingssett 10 – TDT4172 H26
+%%% ================================================================ PART 1
+@@PART
+@@Q
+%%% NY2: cross-entropy gir ikke forsvinnende gradient for et sikkert, men feil klassifisert punkt (sammenlignet med MSE)
+En logistisk regresjonsmodell gir $z = -6$ for et treningspunkt med $y = 1$, altså
+$\hat y = \sigma(-6) \approx 0.0025$: modellen er svært sikker, men tar feil. Med cross-entropy loss er
+$\partial L/\partial w_j = (\hat y - y)\,x_j$. Tenk deg at du i stedet bruker $L = \tfrac12(\hat y - y)^2$ med
+den samme sigmoid-modellen, og husk at $\sigma'(z) = \sigma(z)\,(1-\sigma(z))$.
+
+Hvordan blir gradienten for $w_j$ fra dette punktet med de to tapsfunksjonene?
+%%% CE: (0.0025-1) x_j = -0.9975 x_j. Kvadratisk: (yhat - y) * yhat(1-yhat) * x_j = -0.0025 x_j (verifisert).
+@+ Med cross-entropy er den nær $-x_j$, mens faktoren $\hat y(1-\hat y)$ gjør den nesten null med kvadratisk tap
+@- Med cross-entropy er den nesten null fordi sigmoid er mettet, mens kvadratisk tap gir en gradient nær $-x_j$
+@- Med begge tapene er den nesten null, siden sigmoid er mettet og punktet derfor bidrar lite uansett
+@- Med begge tapene er den nær $-x_j$, siden valget av tapsfunksjon ikke påvirker hvor raskt feil rettes
+@@Q
+Et sykehus trener en modell som skal predikere om en innlagt pasient får diagnosen sepsis; omtrent
+10\,\% av pasientene i dataene får det. En av featurene er \emph{Antall\_doser\_sepsismedisin}, hentet
+fra journalen ved utskrivning. Modellen får 99\,\% accuracy og recall $0.97$ på et tilfeldig utvalgt
+valideringssett, men gjør det svært dårlig når den tas i bruk ved innleggelse.
+
+Hva er den mest sannsynlige årsaken?
+@+ Featuren registreres etter at sepsis er påvist, så den lekker target og er ukjent ved bruk
+%%% Distraktorer: overtilpasning (motsies av god validering), majoritetsklasse (motsies av recall 0.97), multikollinearitet (forklarer ikke fallet)
+@- Modellen er overtilpasset treningsdataene, siden så høy accuracy er urealistisk for en diagnose
+@- Featuren er sterkt korrelert med andre features, så vektene blir ustabile når nye data kommer
+@- Modellen predikerer nesten bare den største klassen, slik at accuracy blir høy men verdiløs
+@@Q
+En logistisk regresjonsmodell med parametre $\mathbf{w}, b$ gir $\hat y = (0.9,\ 0.2,\ 0.6)$ for tre
+treningspunkter med $y = (1,\ 0,\ 1)$. Når dataene er gitt og uttrykket
+$\prod_i \hat y_i^{\,y_i}(1-\hat y_i)^{1-y_i}$ betraktes som funksjon av $\mathbf{w}$ og $b$, kalles
+det \textbf{likelihood}.
+
+Hva er \textbf{log-likelihood} (med $\ln$) for disse dataene, og hva gjør treningen med den?
+%%% L = 0.9*0.8*0.6 = 0.432 -> ln = -0.84. Feil (bruker yhat også for y=0): 0.9*0.2*0.6=0.108 -> -2.23.
+@+ Den er $-0.84$, og treningen justerer $\mathbf{w}, b$ slik at den blir så stor som mulig
+@- Den er $-0.84$, og treningen justerer $\mathbf{w}, b$ slik at den blir så liten som mulig
+@- Den er $-2.23$, og treningen justerer $\mathbf{w}, b$ slik at den blir så stor som mulig
+@- Den er $-2.23$, og treningen justerer $\mathbf{w}, b$ slik at den blir så liten som mulig
+@@Q
+%%% Batch size er eksplisitt kalt hyperparameter i notatene; polynomgrad unngås (notatene stiller det som åpent spørsmål)
+Du trener en logistisk regresjonsmodell med mini-batch stochastic gradient descent.
+
+Hvilken liste inneholder bare \textbf{hyperparametre}?
+@+ Læringsraten $\eta$, antall epoker og batch size
+@- Læringsraten $\eta$, antall epoker og vektene $\mathbf{w}$
+@- Vektene $\mathbf{w}$, biasen $b$ og batch size
+@- Biasen $b$, læringsraten $\eta$ og batch size
+%%% ================================================================ PART 2
+@@PART
+@@Q
+En bildeklassifikator for tre klasser gir følgende confusion matrix på testsettet. Radene er
+\textbf{sann} klasse og kolonnene er \textbf{predikert} klasse.
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ & Pred.\ katt & Pred.\ hund & Pred.\ fugl \\
+\midrule
+Sann katt & 40 & 8  & 2  \\
+Sann hund & 10 & 30 & 0  \\
+Sann fugl & 5  & 7  & 18 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva er \textbf{precision} for klassen \emph{hund}?
+%%% 30/(8+30+7) = 0.667. Recall hund = 30/40 = 0.75. Accuracy = 88/120 = 0.733. 30/(30+8) = 0.79.
+@+ $0.67$
+@- $0.75$
+@- $0.73$
+@- $0.79$
+@@Q
+%%% NY: velge klassifiseringsterskel ut fra krav til recall på valideringsdata
+Valideringssettet har 50 positive punkter. Tabellen viser antall true positives og false positives
+for tre klassifiseringsterskler.
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Terskel $t$ & TP & FP \\
+\midrule
+0.3 & 48 & 60 \\
+0.5 & 42 & 18 \\
+0.7 & 33 & 6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Kravet er recall $\ge 0.80$, og blant tersklene som oppfyller kravet vil du ha høyest mulig precision.
+Hvilken terskel velges, og hva er precision der?
+%%% Recall: 0.96, 0.84, 0.66. Precision: 0.44, 0.70, 0.85. Krav oppfylt for 0.3 og 0.5 -> 0.5 (P=0.70).
+%%% Feil: 0.7 (ignorerer recall-kravet), 0.3 (maks recall), 0.5 med recall 0.84 oppgitt som precision.
+@+ $t = 0.5$, med precision $0.70$
+@- $t = 0.7$, med precision $0.85$
+@- $t = 0.3$, med precision $0.44$
+@- $t = 0.5$, med precision $0.84$
+@@Q
+%%% NY2: retningen på klassevektene i vektet tap (feil vekting forsterker ubalansen)
+I et datasett for svindeldeteksjon er klasse 1 (svindel) sterkt underrepresentert. En kollega bruker
+den vektede tapsfunksjonen
+\[ L = -w_1\, y \ln \hat y - w_0\,(1-y)\ln(1-\hat y), \]
+men setter ved en feil $w_0 = 10$ og $w_1 = 1$.
+
+Hva er den mest sannsynlige effekten, sammenlignet med å trene med uvektet tap?
+%%% w0 > w1 -> feil på y = 0 straffes mest -> modellen presses mot lave yhat -> færre svindelprediksjoner, recall ned.
+@+ Feil på klasse 0 straffes hardest, så modellen predikerer svindel enda sjeldnere og recall faller typisk
+@- Feil på klasse 1 straffes hardest, så modellen predikerer svindel oftere og recall øker typisk
+@- Vektene endrer bare tapsverdien og ikke gradientene, så den ferdig trente modellen blir den samme
+@- Vektingen virker som å senke terskelen til 0.1, så modellen gir flere alarmer og precision faller
+@@Q
+%%% NY2: hvilke metrikker bruker TN – effekten av å legge til lette negative punkter
+Et testsett utvides med 5\,000 ekstra negative punkter. Alle er svært lette, slik at modellen
+klassifiserer samtlige som negative, og ingen nye falske positive oppstår. Modellen og terskelen er uendret.
+
+Hvordan påvirker dette metrikkene som rapporteres for den positive klassen?
+%%% Bare TN øker: accuracy og TNR opp, FPR = FP/(FP+TN) ned; precision, recall og F1 bruker ikke TN.
+@+ Accuracy og TNR øker og FPR synker, mens precision, recall og F1 er uendret
+@- Precision og accuracy øker, mens recall, FPR og F1 er uendret
+@- Accuracy, precision og F1 øker, mens recall og FPR er uendret
+@- Alle metrikkene endres, siden andelen positive i testsettet blir lavere
+%%% ================================================================ PART 3
+@@PART
+@@Q
+Tabellen viser antall passasjerer i Titanic-data fordelt på klasse og overlevelse.
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & \emph{Survived}=0 & \emph{Survived}=1 \\
+\midrule
+\emph{Pclass}=1 & 80  & 136 \\
+\emph{Pclass}=2 & 97  & 87  \\
+\emph{Pclass}=3 & 372 & 119 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva er $p(\text{\emph{Pclass}}=1 \mid \text{\emph{Survived}}=1)$?
+%%% 136/342 = 0.398. P(S=1)=342/891=0.38. Simultan 136/891=0.15. P(P=1)=216/891=0.24.
+@+ $0.40$
+@- $0.38$
+@- $0.15$
+@- $0.24$
+@@Q
+%%% NY2: dimensjonsforbannelsen – andel av volumet i et tynt ytre skall (notatenes oppgave)
+Volumet av en $d$-dimensjonal kule med radius $r$ er $K_d\, r^d$, der $K_d$ bare avhenger av $d$.
+Se på en 50-dimensjonal kule med radius 1.
+
+Hvor stor andel av volumet ligger i det ytre skallet med tykkelse $\epsilon = 0.05$, altså mellom radius 0.95 og 1?
+%%% 1 - 0.95^50 = 0.923. Indre del: 0.95^50 = 0.077. Tre dimensjoner: 1 - 0.95^3 = 0.143. eps selv: 0.05.
+@+ $0.92$
+@- $0.08$
+@- $0.14$
+@- $0.05$
+@@Q
+En kollega bytter \texttt{criterion='gini'} til \texttt{criterion='entropy'} i
+\texttt{DecisionTreeClassifier} og trener på nytt med de samme dataene og
+\texttt{max\_depth=6}.
+
+Hva er det mest sannsynlige resultatet?
+@+ Treet blir som regel nesten likt, men treningen går litt tregere fordi entropi krever logaritmer
+@- Treet blir som regel mye dypere, men like raskt å trene, fordi entropi har maksimum 1 mens Gini har 0.5
+@- Treningen går som regel raskere, fordi entropi er standardvalget i sklearn og derfor optimalisert
+@- Treet blir som regel helt annerledes, fordi Gini og entropi rangerer splittene i motsatt rekkefølge
+@@Q
+Et beslutningstre bygges rekursivt etter pseudokoden fra forelesningen, med
+\texttt{max\_depth=5}. En node på dybde 2 inneholder 3 positive og 2 negative datapunkter, og alle
+features er allerede brukt på veien ned fra rotnoden. Foreldrenoden hadde 4 positive og 9 negative.
+
+Hva skjer med noden?
+%%% "no features left" -> løvnode med dominant klasse i noden (3 vs 2) -> klasse 1.
+@+ Den blir en løvnode som predikerer klasse 1, siden det ikke finnes flere features å splitte på
+@- Den splittes videre på en tilfeldig valgt feature, siden maksimal dybde ikke er nådd ennå
+@- Den blir en løvnode som predikerer klasse 0, siden den dominante klassen i foreldrenoden brukes
+@- Den fjernes, og datapunktene sendes tilbake til foreldrenoden for å prøve en annen splitt
+%%% ================================================================ PART 4
+@@PART
+@@Q
+%%% NY: bias og varians for en konstant modell vs et tre uten dybdebegrensning
+Modell A predikerer alltid gjennomsnittet av target i treningsdataene. Modell B er et regresjonstre
+uten dybdebegrensning. Begge trenes på mange ulike treningssett fra samme fordeling, og du ser på
+prediksjonene i ett fast punkt $x$ der den sanne sammenhengen er langt fra gjennomsnittet.
+
+Hvilket utsagn er riktig?
+@+ A har lav varians og høy bias, mens B har lav bias og høy varians
+@- A har høy varians og lav bias, mens B har høy bias og lav varians
+@- A har lav varians og lav bias, mens B har høy bias og høy varians
+@- A har høy varians og høy bias, mens B har lav bias og lav varians
+@@Q
+%%% NY: polynom av grad n-1 gjennom n punkter gir null trenings-MSE (overtilpasning)
+Du har 10 treningspunkter med ulike $x$-verdier og målestøy i $y$. Du tilpasser et polynom av grad 9
+med vanlig minste kvadraters metode, uten regularisering.
+
+Hva er mest sannsynlig?
+%%% 10 parametre (beta_0..beta_9) og 10 punkter med ulike x -> eksakt interpolasjon, trenings-MSE = 0.
+@+ Trenings-MSE blir 0, siden 10 parametre alltid kan gå eksakt gjennom 10 punkter, mens valideringsfeilen blir høy
+@- Trenings-MSE blir omtrent lik støyvariansen, siden støy ikke kan tilpasses bort, og valideringsfeilen blir lav
+@- Trenings-MSE blir høy, siden et polynom av grad 9 er for stivt for 10 punkter, og valideringsfeilen blir lav
+@- Trenings-MSE blir 0 bare hvis dataene er uten støy, og ellers omtrent like stor som valideringsfeilen
+@@Q
+%%% NY: typer feature engineering (selection, preprocessing, extraction)
+I et Titanic-prosjekt gjør du tre ting: (i) du dropper kolonnen \emph{PassengerId}, (ii) du skalerer
+\emph{Age} til intervallet $[0,1]$, og (iii) du lager en ny feature $\text{\emph{Age}}^2$.
+
+Hvilken type feature engineering er henholdsvis (i), (ii) og (iii)?
+\Needspace{9\baselineskip}
+@+ (i) feature selection, (ii) feature preprocessing, (iii) feature extraction
+@- (i) feature preprocessing, (ii) feature extraction, (iii) feature selection
+@- (i) feature extraction, (ii) feature selection, (iii) feature preprocessing
+@- (i) feature preprocessing, (ii) feature selection, (iii) feature extraction
+@@Q
+%%% NY: tolke størrelsen på MSE (typisk avvik = kvadratroten) ift. targetene
+En regresjonsmodell har MSE $= 900$ (uten faktoren $\tfrac12$) på valideringsdata. Targetene ligger
+typisk rundt $28$.
+
+Hvilken tolkning er riktig?
+%%% sqrt(900) = 30: typisk avvik omtrent like stort som targetene -> dårlig modell (notatenes eksempel).
+@+ Typisk avvik er rundt 30, omtrent like stort som targetene selv, så modellen er dårlig
+@- Typisk avvik er rundt 900, langt større enn targetene, så modellen er ubrukelig
+@- Typisk avvik er rundt 3, omtrent en tidel av targetene, så modellen er ganske god
+@- MSE under 1000 regnes generelt som lavt, så modellen er god uansett hva targetene er
+%%% ================================================================ PART 5
+@@PART
+@@Q
+I en random forest har hvert tre prediksjonsvarians $\sigma^2 = 4$, og parvis korrelasjon mellom
+trærnes prediksjoner er $\rho = 0.6$. Variansen til gjennomsnittet av $B$ trær er
+\[ \rho\,\sigma^2 + \frac{1-\rho}{B}\,\sigma^2 . \]
+
+Hvilken verdi nærmer variansen til ensemblet seg når antall trær $B$ blir svært stort?
+%%% B -> uendelig: rho*sigma^2 = 2.4. Uavhengige: 0. (1-rho)sigma^2 = 1.6. sigma^2/B (B=50) = 0.08.
+@+ $2.40$
+@- $0.00$
+@- $1.60$
+@- $0.08$
+@@Q
+Etter første runde i et boosting-ensemble for regresjon har punkt $i$ target $10$ og prediksjon $7$,
+mens punkt $j$ har target $4$ og prediksjon $4.5$.
+
+Hvordan skiller \textbf{AdaBoost} og \textbf{gradient boosting} seg i neste runde?
+@+ AdaBoost øker vekten til punktene med størst feil, mens gradient boosting tilpasser neste tre til $3$ og $-0.5$
+@- AdaBoost tilpasser neste tre til $3$ og $-0.5$, mens gradient boosting øker vekten til punktene med størst feil
+@- Begge øker vekten til punkt $i$, men gradient boosting erstatter i tillegg targets med residualene
+@- Begge tilpasser neste tre til $3$ og $-0.5$, men AdaBoost trekker i tillegg et nytt bootstrap-utvalg
+@@Q
+Du skal trene 400 trær, og hvert tre tar 2 sekunder å trene på én CPU-kjerne. Maskinen har 8 kjerner.
+Anta at parallellisering bare kan skje ved å trene ulike trær samtidig.
+
+Hvor lang tid tar treningen omtrent for en \textbf{random forest} og for \textbf{gradient boosting}?
+%%% RF: 400/8*2 = 100 s. GB sekvensiell: 400*2 = 800 s.
+@+ Random forest 100 s og gradient boosting 800 s
+@- Random forest 800 s og gradient boosting 100 s
+@- Random forest 100 s og gradient boosting 100 s
+@- Random forest 800 s og gradient boosting 800 s
+@@Q
+%%% NY2: ensemblemodeller mister tolkbarheten til ett beslutningstre
+En bank har brukt ett beslutningstre med dybde 3 til å vurdere lånesøknader, og saksbehandlerne kan følge
+reglene fra rotnoden til en løvnode. Treet byttes ut med en \textbf{random forest} med 500 fullt utvokste
+trær, som gir høyere accuracy på testdata.
+
+Hva er den viktigste ulempen med byttet?
+@+ Hver prediksjon er en avstemning over 500 ulike regelsett, så den kan ikke leses som én kjede av splitter
+@- Skogen kan ikke brukes på nye søkere før alle de 500 trærne er trent på nytt med de nye søkernes data
+@- Fullt utvokste trær gjør at skogens prediksjoner varierer mer enn det ene treets når treningsdata endres
+@- Skogen gir bare en klasse og ikke en sannsynlighet, så saksbehandlerne får ikke vite hvor sikker den er
+%%% ================================================================ PART 6
+@@PART
+@@Q
+%%% NY: hvilke logits backpropagation vil øke og senke (notatenes eksempel, med softmax + CE gjort eksplisitt)
+Output-laget i et nettverk har tre noder med \textbf{softmax}, og tapet er \textbf{cross-entropy}
+$L = -\sum_k y_k \ln \hat y_k$. For denne kombinasjonen er $\partial L / \partial z_k = \hat y_k - y_k$, der
+$z_k$ er logiten (verdien før softmax) til node $k$. For et datapunkt med target $\mathbf{y} = (0,\ 1,\ 0)$
+gir nettverket $\hat{\mathbf{y}} = (0.1,\ 0.2,\ 0.7)$.
+
+Hvordan flytter ett gradient descent-steg logitene for dette datapunktet?
+%%% -dL/dz = (-0.1, +0.8, -0.7): z2 opp, z3 kraftig ned, z1 litt ned. (Verifisert.)
+%%% Feil: fortegnsfeil; bytter om 1 og 3; «bare sann klasse påvirkes» (riktig for dL/dyhat, men ikke for logitene via softmax)
+@+ $z_2$ opp, $z_3$ kraftig ned og $z_1$ litt ned
+@- $z_3$ opp, $z_2$ kraftig ned og $z_1$ litt ned
+@- $z_2$ opp, $z_1$ kraftig ned og $z_3$ litt ned
+@- $z_2$ opp, mens $z_1$ og $z_3$ ikke endres
+@@Q
+%%% NY: softmax endres ikke når samme konstant legges til alle logits
+Et output-lag med softmax får logits $\mathbf{z} = (2,\ 1,\ 0)$ for ett datapunkt og
+$\mathbf{z}' = (12,\ 11,\ 10)$ for et annet.
+
+Hvilket utsagn om de predikerte sannsynlighetene er riktig?
+%%% softmax(z) = softmax(z') = (0.665, 0.245, 0.090), siden e^{10} forkortes.
+@+ De er like for begge punktene, siden softmax bare avhenger av forskjellene mellom logitene
+@- Det andre punktet får nesten all sannsynlighet på første klasse, siden logitene er mye større
+@- Det andre punktet får jevnere sannsynligheter, siden forskjellene er små relativt til logitene
+@- De kan ikke sammenlignes, siden logitene til det andre punktet ikke ligger i intervallet $[0, 1]$
+@@Q
+%%% NY: ReLU med negativ input gir null gradient til vektene foran og etter noden
+Et nettverk har én skjult ReLU-node og én lineær output:
+\[ h = \mathrm{ReLU}(w_1 x + b_1), \qquad \hat y = w_2 h + b_2, \qquad L = \tfrac12(\hat y - y)^2 , \]
+med $w_1 = -1$, $b_1 = 0.5$, $w_2 = 3$, $b_2 = 1$. For datapunktet $x = 2$, $y = 0$ beregnes gradientene
+med backpropagation.
+
+Hvilke parametre får gradient null for dette datapunktet?
+%%% z = -1.5 -> h = 0, yhat = 1, dL/dyhat = 1. dL/db2 = 1, dL/dw2 = h = 0, dL/dw1 = dL/db1 = 0 (ReLU' = 0).
+@+ $w_1$, $b_1$ og $w_2$
+@- Bare $w_1$ og $b_1$
+@- Bare $w_2$
+@- $w_1$, $b_1$, $w_2$ og $b_2$
+@@Q
+%%% NY: biasen i et perceptron som terskel for den vektede summen
+Et perceptron har vektene $\mathbf{w} = (2,\ 1,\ 1)$ og output $H(\mathbf{w}\mathbf{x} + b)$, der $H(z) = 1$ hvis
+$z \ge 0$ og ellers 0. Det skal være aktivt nøyaktig når $2x_1 + x_2 + x_3 \ge 3$.
+
+Hvilken verdi må biasen $b$ ha?
+%%% w x + b >= 0 <=> w x >= -b -> b = -3.
+@+ $b = -3$
+@- $b = 3$
+@- $b = -1.5$
+@- $b = -4$
+%%% ================================================================ PART 7
+@@PART
+@@Q
+Du kjører k-means med $k = 4$ fem ganger på samme data, med ulike tilfeldige startsentroider.
+Inertia etter konvergens blir $412,\ 388,\ 388,\ 530$ og $395$.
+
+Hva bør du gjøre?
+@+ Velge en kjøring med inertia 388, siden alle har samme $k$ og lav inertia betyr kompakte klynger
+@- Velge kjøringen med inertia 530, siden de andre kjøringene trolig har overtilpasset seg dataene
+@- Øke til $k = 5$ og kjøre på nytt, siden ulik inertia mellom kjøringene viser at $k = 4$ er feil
+@- Lete etter en feil i koden, siden k-means skal konvergere til samme løsning fra hvilken som helst start
+@@Q
+Du har kjørt k-means for $k = 2, \dots, 6$ og beregnet tre metrikker:
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+$k$ & 2 & 3 & 4 & 5 & 6 \\
+\midrule
+Inertia & 980 & 610 & 450 & 390 & 340 \\
+Silhouette & 0.48 & 0.61 & 0.55 & 0.42 & 0.39 \\
+Calinski--Harabasz & 310 & 420 & 465 & 400 & 360 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Hvilken $k$ gir \textbf{best verdi} for henholdsvis silhouette, Calinski--Harabasz og inertia?
+%%% Silhouette høy=bra -> 3. CH høy=bra -> 4. Inertia lav=bra -> 6.
+@+ Silhouette $k=3$, Calinski--Harabasz $k=4$ og inertia $k=6$
+@- Silhouette $k=3$, Calinski--Harabasz $k=2$ og inertia $k=6$
+@- Silhouette $k=6$, Calinski--Harabasz $k=4$ og inertia $k=6$
+@- Silhouette $k=6$, Calinski--Harabasz $k=2$ og inertia $k=2$
+@@Q
+Kunder beskrives med \emph{Inntekt} (kr) og \emph{Alder} (år). Kunden $\mathbf{p} = (500\,000,\ 30)$ skal
+tilordnes en av sentroidene $\mathbf{c}_A = (505\,000,\ 60)$ og $\mathbf{c}_B = (480\,000,\ 31)$ med
+euklidsk avstand. Standardavviket er $100\,000$ kr for inntekt og $10$ år for alder.
+
+Hvilken sentroide tilordnes kunden uten skalering, og hvilken etter standardisering av begge
+featurene?
+%%% Uskalert: A 5000.1, B 20000.0 -> A. Standardisert: A sqrt(0.05^2+3^2)=3.00, B sqrt(0.2^2+0.1^2)=0.22 -> B.
+@+ Uten skalering $\mathbf{c}_A$, etter standardisering $\mathbf{c}_B$
+@- Uten skalering $\mathbf{c}_B$, etter standardisering $\mathbf{c}_A$
+@- Uten skalering $\mathbf{c}_A$, etter standardisering $\mathbf{c}_A$
+@- Uten skalering $\mathbf{c}_B$, etter standardisering $\mathbf{c}_B$
+@@Q
+En klynge i et endimensjonalt datasett består av punktene $2,\ 3,\ 4,\ 5,\ 6$. I tillegg blir en
+uteligger i $x = 40$ tilordnet den samme klyngen, fordi den er nærmere denne sentroiden enn noen annen.
+
+Hvor havner sentroiden etter neste oppdatering i k-means?
+%%% (2+3+4+5+6+40)/6 = 10.0. Uten uteligger 4.0. Median 4.5. Midtpunkt (2+40)/2 = 21.
+@+ $10.0$
+@- $4.0$
+@- $4.5$
+@- $21.0$
+%%% ================================================================ PART 8
+@@PART
+@@Q
+%%% NY: med N punkter kan PCA høyst finne N-1 egenverdier ulik 0
+Du har bare 6 datapunkter, hver med 50 features, og kjører PCA (dataene sentreres først).
+
+Hvor mange hovedkomponenter kan høyst ha egenverdi større enn 0?
+%%% 6 sentrerte punkter spenner høyst et 5-dimensjonalt underrom -> høyst 5 (sjekket numerisk).
+@+ $5$
+@- $6$
+@- $50$
+@- $44$
+@@Q
+%%% NY2: hvorfor anomalier isoleres tidlig i et isolasjonstre – sannsynlighet for isolasjon i første splitt
+Et isolasjonstre splitter en node ved å velge en tilfeldig feature og en splittverdi $s$ trukket
+uniformt mellom minste og største verdi av featuren i noden. Punkter med $x \le s$ går til venstre,
+resten til høyre. En node inneholder ti punkter med én feature:
+\[ 1,\ 2,\ 3,\ 4,\ 5,\ 6,\ 7,\ 8,\ 9,\ 30 . \]
+Hva er sannsynligheten for at punktet 30 havner alene i en løvnode allerede etter første splitt?
+%%% s ~ U(1, 30); 30 er alene når s >= 9: (30-9)/(30-1) = 21/29 = 0.724.
+%%% 21/30 = 0.70 (feil nevner), 1/10 = 0.10 (velger et tilfeldig punkt), 8/29 = 0.28 (komplementet).
+@+ $0.72$
+@- $0.70$
+@- $0.10$
+@- $0.28$
+@@Q
+%%% NY: perplexity som 2^H, numerisk
+I t-SNE er perplexity lik $2^{H}$, der $H = -\sum_j p_{j|i}\log_2 p_{j|i}$ er entropien til
+naboskapsfordelingen rundt punktet $\mathbf{x}_i$. Anta at $p_{j|i} = 0.25$ for fire punkter og
+tilnærmet 0 for alle andre.
+
+Hva blir $H$ og perplexity?
+%%% H = 4 * 0.25 * 2 = 2 -> 2^2 = 4. Ett ledd: 0.5 -> 1.41. Med ln: 1.39 -> 2.61. Fortegnsfeil: -2 -> 0.25.
+@+ $H = 2.00$ og perplexity $4.00$
+@- $H = 0.50$ og perplexity $1.41$
+@- $H = 1.39$ og perplexity $2.61$
+@- $H = -2.00$ og perplexity $0.25$
+@@Q
+%%% NY: hvorfor Isolation Forest bruker mange isolasjonstrær
+En kollega bygger bare ett isolasjonstre i stedet for en Isolation Forest med 100 trær. Hvilke punkter
+som får kortest sti til rotnoden, endrer seg mye fra kjøring til kjøring.
+
+Hva er den beste forklaringen på at en skog med mange trær fungerer bedre?
+@+ Hvert tre splitter tilfeldig, så stilengden i ett enkelt tre er støyete, mens snittet over mange trær er stabilt
+%%% Distraktorer: snitt reduserer varians, ikke bias (forventet stilengde er uendret); notatene kombinerer avstander (snitt), ikke flertallsstemme; boosting-forveksling
+@- Snittet over mange trær fjerner en systematisk skjevhet i stilengden, så anomaliene får kortere sti enn i ett tre
+@- Hvert tre stemmer «anomali» eller «normal», og et punkt regnes som anomali når flertallet av trærne er enige
+@- Hvert nytt tre legger mer vekt på punktene de forrige trærne isolerte tidlig, så feilene rettes gradvis opp
+%%% ================================================================ PART 9
+@@PART
+@@Q
+En robotstøvsuger får reward $+1$ for hver enhet støv den suger opp. Etter trening har den lært å
+tømme beholderen på gulvet og suge opp det samme støvet igjen, om og om igjen.
+
+Hva er den beste forklaringen og løsningen?
+@+ Rewarden måler bare en tilnærming til målet, og agenten maksimerer den slik den står; den bør omformuleres
+%%% Distraktorer: ikke konvergert (men atferden ER optimal for denne rewarden); for lite utforskning; for lav gamma (et rent rom gir ingen ekstra reward)
+@- Q-verdiene har ikke konvergert ennå, så agenten bør trenes i flere episoder til den finner en bedre policy
+@- Agenten har utforsket for lite til å oppdage at et rent rom lønner seg; $\epsilon$ bør derfor økes igjen
+@- $\gamma$ er for liten, så agenten ser ikke verdien av å rydde hele rommet på sikt; $\gamma$ bør derfor økes mot 1
+@@Q
+En episode gir rewardene $R_1 = 0,\ R_2 = 0,\ R_3 = 1,\ R_4 = 0,\ R_5 = 5$, der $R_{t+1}$ er rewarden
+agenten får etter handlingen i steg $t$. Episoden slutter etter $R_5$, og diskonteringsfaktoren er
+$\gamma = 0.9$.
+
+Hva er den diskonterte returen $G_0 = \sum_{k=0}^{4} \gamma^k R_{k+1}$?
+%%% 0.9^2*1 + 0.9^4*5 = 0.81 + 3.2805 = 4.09. Udiskontert 6. Diskontert fra første reward (R3 som k=0): 1+0.81*5=5.05. Omvendt: 5 + 0.81 = 5.81.
+@+ $4.09$
+@- $6.00$
+@- $5.05$
+@- $5.81$
+@@Q
+En agent bruker $\epsilon$-greedy med $\epsilon = 0.2$ i en tilstand med 5 mulige handlinger. I
+tilfeldig modus trekkes handlingen uniformt blant \emph{alle} 5 handlinger, også den grådige.
+
+Hva er sannsynligheten for at agenten velger den grådige handlingen (høyest Q-verdi)?
+%%% 0.8 + 0.2/5 = 0.84.
+@+ $0.84$
+@- $0.80$
+@- $0.96$
+@- $0.20$
+@@Q
+%%% NY2: Q-tabellen lærer bare verdier for besøkte tilstander – fast start vs. tilfeldig start (prosjekt 4)
+En agent med Q-tabell trenes i et rutenett, alltid fra den samme startruten, til den følger korteste vei
+til målet. Når den grådige agenten etterpå settes i andre ruter, når den ofte ikke målet. Trenes den
+i stedet med en tilfeldig startrute i hver episode, når den målet fra alle ruter.
+
+Hva er den beste forklaringen?
+%%% Q-verdier oppdateres bare for (S,A) som faktisk besøkes; med fast start blir store deler av kartet aldri/sjelden besøkt og beholder startverdiene.
+@+ Q-verdiene oppdateres bare for tilstander som besøkes, og mange ruter ble sjelden eller aldri besøkt
+@- Q-tabellen har overtilpasset seg den ene veien, og bør regulariseres slik et nevralt nettverk gjøres
+@- $\gamma$ er for lav, så verdien av målet når ikke frem til ruter som ligger langt fra startruten
+@- Q-tabellen generaliserer fra besøkte ruter til nabo-rutene, men bare innenfor et begrenset område
+%%% ================================================================ PART 10
+@@PART
+@@Q
+%%% NY: additivitet – SHAP for et gjennomsnitt av modeller er gjennomsnittet av SHAP-verdiene
+En modell er gjennomsnittet av to trær, $f(\mathbf{x}) = \tfrac12\bigl(f_1(\mathbf{x}) + f_2(\mathbf{x})\bigr)$, og alle
+SHAP-verdier beregnes med samme bakgrunnsdatasett. For et datapunkt har featuren \emph{Alder} SHAP-verdi
+$0.20$ i tre 1 og $0.08$ i tre 2.
+
+Hva er SHAP-verdien til Alder for hele modellen, og hvilket aksiom gir dette?
+%%% Additivitet (og linearitet): phi(f) = 1/2 (0.20 + 0.08) = 0.14. Sum 0.28, maks 0.20, differanse 0.12.
+@+ $0.14$, siden additivitet gjør at verdiene for et snitt av modeller er snittet av verdiene
+@- $0.28$, siden additivitet gjør at verdiene for et snitt av modeller er summen av verdiene
+@- $0.20$, siden symmetri gjør at feature-verdien bestemmes av treet der den bidrar mest
+@- $0.12$, siden effektivitet gjør at bidragene fra de to trærne må trekkes fra hverandre
+@@Q
+%%% NY: kravene til en forklaring (treffsikker og forståelig)
+Et team skal forklare et nevralt nettverk for lånesøknader til saksbehandlere. Forslag 1 er en
+fullstendig utskrift av alle vekter og aktiveringer. Forslag 2 er et beslutningstre med to regler som
+gir samme avgjørelse (innvilg/avslå) som nettverket i 55\,\% av søknadene.
+
+Hvilken vurdering er riktig etter kursets krav til en forklaring?
+@+ Ingen av dem: utskriften er treffsikker men ikke forståelig, og treet er forståelig men ikke treffsikkert
+@- Utskriften er best, siden det viktigste kravet til en forklaring er at den gjengir modellen helt nøyaktig
+@- Treet er best, siden det viktigste kravet til en forklaring er at mennesker kan forstå og bruke den
+@- Begge er gode, siden begge er post-hoc og kan lages uten å endre det ferdig trente nettverket
+@@Q
+%%% NY: fra softmax-sannsynligheter til klasselabels med np.argmax og riktig akse
+Se på koden under.
+\par\noindent\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=Python]
+probs = model.predict(X_test)   # softmax-output med shape (500, 3)
+y_pred = ...                    # linjen som mangler
+\end{lstlisting}
+\end{minipage}
+Hvilken linje gir én predikert klasse (0, 1 eller 2) for hvert av de 500 testpunktene?
+@+ \texttt{y\_pred = np.argmax(probs, axis=1)}
+@- \texttt{y\_pred = np.argmax(probs, axis=0)}
+@- \texttt{y\_pred = np.max(probs, axis=1)}
+@- \texttt{y\_pred = (probs > 0.5).astype(int)}
+@@Q
+%%% NY: one-hot-enkoding av diskrete tilstander med np.eye (DQN-input)
+Tilstandene i et miljø med 16 ruter one-hot-enkodes før de sendes inn i et Q-nettverk:
+\par\noindent\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=Python]
+import numpy as np
+states = np.array([3, 0, 15])
+onehot = np.eye(16)[states]
+print(onehot.shape, onehot.sum(axis=1), np.argmax(onehot, axis=1))
+\end{lstlisting}
+\end{minipage}
+Hvilken beskrivelse av utskriften er riktig?
+%%% Kjørt: (3, 16) [1. 1. 1.] [ 3  0 15]
+@+ Shape $(3, 16)$, radsummene er $1, 1, 1$, og argmax gir $3, 0, 15$
+@- Shape $(16, 3)$, radsummene er $1, 1, 1$, og argmax gir $3, 0, 15$
+@- Shape $(3, 16)$, radsummene er $3, 0, 15$, og argmax gir $1, 1, 1$
+@- Shape $(3,)$, radsummene er $16, 16, 16$, og argmax gir $3, 0, 15$

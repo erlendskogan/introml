@@ -94,7 +94,7 @@
 <h3>Threshold logic unit (TLU)</h3>
 <p>Et perseptron består av én eller flere beregningsenheter, kalt <strong>noder</strong>. I den opprinnelige formuleringen var nodene <strong>threshold logic units (TLU)</strong>. En TLU tar en vektet sum av input og sender den gjennom en <strong>stegfunksjon</strong>:</p>
 <div class="eq">
-  <p class="eq-note">Perseptron / TLU (likning 89 i notatene). $x$ og $w$ er vektorer i det generelle tilfellet.</p>
+  <p class="eq-note">Perseptron / TLU (likning 88 i notatene). $x$ og $w$ er vektorer i det generelle tilfellet.</p>
   $$f(x) = H(w^\top x + b) = H\Big(\sum_i w_i x_i + b\Big), \qquad H(z)=\begin{cases}1 & z\ge 0\\ 0 & z\lt 0\end{cases}$$
 </div>
 <p>$H$ er <strong>Heaviside-funksjonen</strong> (Heaviside step function). I vår sammenheng kalles den en <strong>aktiveringsfunksjon</strong> (activation function). Noden er enten <em>aktiv</em> (output 1) eller <em>ikke aktiv</em> (output 0). Hvilke $x$ som aktiverer noden, bestemmes av $(w,b)$. Siden output er binær, gjør perseptronet <strong>klassifisering</strong>, og for at det skal klassifisere godt må vektene læres fra data, altså veiledet læring.</p>
@@ -144,7 +144,7 @@ prediction = 1.0 <span class="k">if</span> activation >= 0.0 <span class="k">els
 <h3 id="heaviside">Problemet: Heaviside kan ikke deriveres</h3>
 <p>Vi vil gjerne trene perseptronet slik vi trente logistisk regresjon: send instansene gjennom én om gangen, beregn tapet og oppdater parametrene med gradient descent,</p>
 <div class="eq">
-  <p class="eq-note">Gradient descent (likning 90 i notatene)</p>
+  <p class="eq-note">Gradient descent (likning 89 i notatene)</p>
   $$\theta_{t+1} = \theta_t - \eta\,\frac{\partial}{\partial\theta}L\big(f(x;\theta),\,y\big).$$
 </div>
 
@@ -171,7 +171,7 @@ prediction = 1.0 <span class="k">if</span> activation >= 0.0 <span class="k">els
 <h3 id="rosenblatt">Rosenblatts løsning: dropp den deriverte</h3>
 <p>I Rosenblatts opprinnelige formulering er leddet med den deriverte rett og slett <strong>utelatt</strong>. Oppdateringsregelen blir</p>
 <div class="eq">
-  <p class="eq-note">Perseptronregelen (Rosenblatt). Notatene skriver likning 91 uten $x_i$, men koden rett under har med $x$, og det er den riktige formen.</p>
+  <p class="eq-note">Perseptronregelen (Rosenblatt). Notatene skriver likning 90 uten $x_i$, men koden rett under har med $x$, og det er den riktige formen.</p>
   $$w_i \leftarrow w_i + \eta\,(y - \hat y)\,x_i, \qquad b \leftarrow b + \eta\,(y-\hat y)$$
 </div>
 <p>Se hva leddet $(y-\hat y)$ gjør. Siden både $y$ og $\hat y$ er 0 eller 1, kan det bare ha tre verdier:</p>
@@ -269,7 +269,7 @@ bs = perceptron.intercept_   <span class="c"># bias</span></code></pre>
 
 <p>Med flere klasser har vi én output-node per klasse, og hver node har sine egne vekter. Vektene blir en <strong>matrise</strong> $w_{i,j}$, og oppdateringsregelen gjelder for hvert element:</p>
 <div class="eq">
-  <p class="eq-note">Perseptronregelen med flere klasser (likning 92 i notatene)</p>
+  <p class="eq-note">Perseptronregelen med flere klasser (likning 91 i notatene)</p>
   $$w_{i,j} \leftarrow w_{i,j} + \eta\,(y_j - \hat y_j)\,x_i$$
 </div>
 <ul>
@@ -483,15 +483,15 @@ print(<span class="s">"Biases:"</span>, perceptron.intercept_.shape)  <span clas
 
 <h3>De vanlige aktiveringsfunksjonene</h3>
 <div class="eq">
-  <p class="eq-note">Sigmoid (likning 93): output i $(0,1)$. Brukes i output-noden ved binær klassifisering.</p>
+  <p class="eq-note">Sigmoid (likning 92): output i $(0,1)$. Brukes i output-noden ved binær klassifisering.</p>
   $$\sigma(x) = \frac{1}{1+e^{-x}}, \qquad \sigma'(x) = \sigma(x)\,\big(1-\sigma(x)\big) \le 0.25$$
 </div>
 <div class="eq">
-  <p class="eq-note">Softmax (likning 94): gjør en vektor med $K$ tall om til $K$ sannsynligheter som summerer til 1. Brukes i output-laget ved klassifisering med flere klasser.</p>
+  <p class="eq-note">Softmax (likning 93): gjør en vektor med $K$ tall om til $K$ sannsynligheter som summerer til 1. Brukes i output-laget ved klassifisering med flere klasser.</p>
   $$\text{softmax}(x)_i = \frac{e^{x_i}}{\sum_{j} e^{x_j}}$$
 </div>
 <div class="eq">
-  <p class="eq-note">ReLU, rectified linear unit (likning 95): standardvalget i skjulte lag i dette kurset.</p>
+  <p class="eq-note">ReLU, rectified linear unit (likning 94): standardvalget i skjulte lag i dette kurset.</p>
   $$\text{ReLU}(x) = \max(0,\,x), \qquad \text{ReLU}'(x) = \begin{cases}1 & x \gt 0\\ 0 & x \lt 0\end{cases}$$
 </div>
 <p><strong>Lineær (ingen) aktivering</strong>, $g(x) = x$, brukes i output-laget ved <strong>regresjon</strong>, fordi output da må kunne være et hvilket som helst reelt tall og ikke låses til et intervall som $[0,1]$.</p>
@@ -674,8 +674,8 @@ print(<span class="s">"Biases:"</span>, perceptron.intercept_.shape)  <span clas
 <div class="callout hook"><span class="label">Knagg</span><p>Les $w^{(l)}_{ij}$ som <strong>«til lag $l$, fra $i$ til $j$»</strong>. Hver node gjør det samme som et perseptron, bare med en glatt $g$: <em>vektet sum av alle i forrige lag, pluss bias, gjennom aktiveringen</em>.</p></div>
 
 <div class="reflect" data-id="09-first-node">
-  <p class="q">Oppgave fra notatene: Se på den første (øverste) noden i første lag etter input-laget, og skriv ned aktiveringen til denne noden med likning 96.</p>
-  <div class="answer">Vi har $l = 1$ og $j = 1$, og forrige lag er input-laget, så $a^{(0)}_i = x_i$. Det gir $a^{(1)}_1 = g\big(\sum_i w^{(1)}_{i1} x_i + b^{(1)}_1\big)$ (likning 97). Med tre input som i figur 9.6 blir det $a^{(1)}_1 = g\big(w^{(1)}_{11}x_1 + w^{(1)}_{21}x_2 + w^{(1)}_{31}x_3 + b^{(1)}_1\big)$. Legg merke til at det er <em>andre</em> indeks (1) som er fast, fordi det er mottakernoden.</div>
+  <p class="q">Oppgave fra notatene: Se på den første (øverste) noden i første lag etter input-laget, og skriv ned aktiveringen til denne noden med likning 95.</p>
+  <div class="answer">Vi har $l = 1$ og $j = 1$, og forrige lag er input-laget, så $a^{(0)}_i = x_i$. Det gir $a^{(1)}_1 = g\big(\sum_i w^{(1)}_{i1} x_i + b^{(1)}_1\big)$ (likning 95 med $l = 1$). Med tre input som i figur 9.6 blir det $a^{(1)}_1 = g\big(w^{(1)}_{11}x_1 + w^{(1)}_{21}x_2 + w^{(1)}_{31}x_3 + b^{(1)}_1\big)$. Legg merke til at det er <em>andre</em> indeks (1) som er fast, fordi det er mottakernoden.</div>
 </div>
 
 <div class="quiz" data-id="09-index">
@@ -698,7 +698,7 @@ print(<span class="s">"Biases:"</span>, perceptron.intercept_.shape)  <span clas
   a^{(1)}_3 &= g\big(w^{(1)}_{13}x_1 + w^{(1)}_{23}x_2 + b^{(1)}_3\big)
   \end{aligned}$$
 </div>
-<p>De tre likningene er én matrisemultiplikasjon (likning 101):</p>
+<p>De tre likningene er én matrisemultiplikasjon (likning 99):</p>
 <div class="eq">
   $$\underbrace{\begin{pmatrix} a^{(1)}_1\\ a^{(1)}_2\\ a^{(1)}_3\end{pmatrix}}_{3\times 1}
   = g\left(\underbrace{\begin{pmatrix} w^{(1)}_{11} & w^{(1)}_{21}\\ w^{(1)}_{12} & w^{(1)}_{22}\\ w^{(1)}_{13} & w^{(1)}_{23}\end{pmatrix}}_{3\times 2}

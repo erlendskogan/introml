@@ -1,0 +1,488 @@
+%%% Øvingssett 2 – TDT4172 H26
+%%% ================================================================ PART 1
+@@PART
+@@Q
+%%% NY: standardisering (StandardScaler) av et testpunkt
+Featuren \emph{Alder} har gjennomsnitt 40 og standardavvik 8 i treningssettet, og gjennomsnitt 45 og
+standardavvik 10 i testsettet. Du kjører
+\begin{lstlisting}[language=Python]
+scaler = StandardScaler().fit(X_train)
+X_test_s = scaler.transform(X_test)
+\end{lstlisting}
+
+Hvilken verdi får et testpunkt med \emph{Alder} $= 58$?
+%%% (58-40)/8 = 2.25; testsettets egne verdier: (58-45)/10 = 1.30; delt på varians: 18/64 = 0.28; delt på snittet: 18/40 = 0.45
+@+ $2.25$
+@- $1.30$
+@- $0.28$
+@- $0.45$
+@@Q
+%%% NY: gradient descent-steg for bias over en batch
+En logistisk regresjonsmodell har bias $b = 0.2$ og trenes med full-batch gradient descent med
+læringsrate $\eta = 0.3$. Gradienten av gjennomsnittlig cross-entropy-tap med hensyn på $b$ er
+\[ \frac{\partial L}{\partial b} = \frac{1}{N}\sum_{i=1}^{N}\big(\hat y^{(i)} - y^{(i)}\big). \]
+For de tre treningspunktene er $\hat y = (0.8,\ 0.3,\ 0.6)$ og $y = (1,\ 0,\ 0)$.
+
+Hva blir $b$ etter ett gradient descent-steg?
+%%% grad = (-0.2+0.3+0.6)/3 = 0.233; b = 0.2 - 0.3*0.233 = 0.13
+%%% sum i stedet for snitt: -0.01; absolutte feil: 0.09; glemt eta: -0.03
+@+ $0.13$
+@- $-0.01$
+@- $0.09$
+@- $-0.03$
+@@Q
+%%% NY2: hvorfor logaritme og minustegn når cross-entropy utledes fra likelihood
+I notatene utledes cross-entropy loss fra likelihooden
+$L(\mathbf{w}, b \mid \mathbf{x}, y) = \sigma(\mathbf{w}\mathbf{x}+b)^{y}\,\big(1-\sigma(\mathbf{w}\mathbf{x}+b)\big)^{1-y}$:
+først tas logaritmen, og deretter settes et minustegn foran.
+
+Hvilket utsagn begrunner disse to stegene riktig?
+@+ Logaritmen er monoton og flytter ikke optimum; minustegnet gjør en maksimering om til en minimering
+@- Logaritmen gjør likelihooden konveks; minustegnet trengs fordi logaritmen av en sannsynlighet er positiv
+@- Logaritmen flytter optimum til et punkt som er enklere å finne; minustegnet gjør tapet til en sannsynlighet
+@- Logaritmen trengs for at gradienten skal eksistere; minustegnet får gradienten til å peke mot optimum
+@@Q
+Et nevralt nettverk for tre klasser har softmax i output-laget. For ett datapunkt er verdiene inn til
+softmax (logits) $\mathbf{z} = (2.0,\ 1.0,\ 0.0)$, og riktig klasse er klasse 2 (den midterste), dvs.\
+$\mathbf{y} = (0,\,1,\,0)$.
+
+Hva blir kategorisk cross-entropy $L = -\sum_i y_i \ln \hat y_i$ for dette datapunktet?
+%%% softmax = (0.665, 0.245, 0.090); -ln(0.245) = 1.41
+%%% -ln(0.665) = 0.41 (klasse 1), -log10(0.245) = 0.61, -ln(0.090) = 2.41 (klasse 3)
+@+ $1.41$
+@- $0.41$
+@- $0.61$
+@- $2.41$
+%%% ================================================================ PART 2
+@@PART
+@@Q
+Et datasett med 10\,000 korttransaksjoner inneholder 150 svindeltilfeller (positiv klasse).
+En modell predikerer «ikke svindel» for alle transaksjonene.
+
+Hvilket utsagn om modellen er riktig?
+%%% acc = 9850/10000 = 0.985, recall = 0/150 = 0, spesifisitet = 1, precision udefinert (0/0)
+%%% F1 = 2TP/(2TP+FP+FN) = 0/150 = 0 (sklearn: 0), så «F1 nær 1» er entydig feil
+@+ Accuracy er 98.5\,\%, men recall er 0, siden modellen ikke finner noen av svindeltilfellene
+@- Accuracy er 98.5\,\%, og F1-scoren er nær 1, siden modellen aldri gir en falsk alarm
+@- Accuracy er 98.5\,\%, og recall er også 98.5\,\%, siden nesten alle tilfeller klassifiseres riktig
+@- Accuracy er 98.5\,\%, men spesifisiteten er 0, siden modellen aldri predikerer positiv klasse
+@@Q
+Et e-postsystem skal flytte phishing-e-poster (positiv klasse) til en karantene som brukerne aldri ser.
+En legitim e-post som havner i karantenen, er dermed tapt for mottakeren, og dette er svært kostbart.
+En phishing-e-post som slipper gjennom, blir som regel stoppet av andre sikkerhetstiltak.
+
+Hvilken metrikk bør modellen først og fremst skåre høyt på?
+@+ Precision, fordi falske positive er den dyreste feiltypen her
+@- Recall, fordi falske positive er den dyreste feiltypen her
+@- Recall, fordi falske negative er den dyreste feiltypen her
+@- Precision, fordi falske negative er den dyreste feiltypen her
+@@Q
+En binær klassifikator gir følgende prediksjoner på ti testpunkter (1 = positiv klasse):
+\begin{center}
+\begin{tabular}{lcccccccccc}
+\toprule
+Punkt & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10\\
+\midrule
+Label $y$ & 1 & 0 & 1 & 1 & 0 & 0 & 1 & 0 & 1 & 0\\
+Prediksjon $\hat y$ & 1 & 0 & 0 & 1 & 1 & 0 & 1 & 0 & 0 & 0\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hva blir confusion matrix-verdiene?
+%%% TP = 3 (1,4,7), FP = 1 (5), FN = 2 (3,9), TN = 4 (2,6,8,10)
+@+ TP $= 3$, FP $= 1$, FN $= 2$, TN $= 4$
+@- TP $= 3$, FP $= 2$, FN $= 1$, TN $= 4$
+@- TP $= 4$, FP $= 2$, FN $= 1$, TN $= 3$
+@- TP $= 4$, FP $= 1$, FN $= 2$, TN $= 3$
+@@Q
+Du har delt dataene i trening, validering og test. Etter treningen prøver du 20 ulike
+klassifiseringsterskler, velger terskelen som gir høyest F1-score på \textbf{testsettet}, og rapporterer
+denne F1-scoren som modellens ytelse.
+
+Hva er problemet med denne fremgangsmåten?
+@+ Den rapporterte F1-scoren blir for optimistisk, siden testsettet er brukt til å velge terskelen
+@- Ingen problemer, siden terskelen ikke endrer modellens parametre og derfor kan velges på testsettet
+@- Terskelen burde vært valgt på treningssettet, siden modellen er tilpasset de samme dataene
+@- F1 er feil metrikk; med accuracy ville fremgangsmåten gitt et forventningsrett ytelsesestimat
+%%% ================================================================ PART 3
+@@PART
+@@Q
+%%% NY: entropi for fire klasser
+En node i et klassifikasjonstre har punkter fra fire klasser med andelene $(0.5,\ 0.25,\ 0.125,\ 0.125)$.
+
+Hva er entropien $I = -\sum_i p_i \log_2 p_i$ i noden?
+%%% 0.5 + 0.5 + 0.375 + 0.375 = 1.75; Gini = 0.66; naturlig log = 1.21; majoritet mot resten (0.5, 0.5) = 1.00
+@+ $1.75$
+@- $1.00$
+@- $0.66$
+@- $1.21$
+@@Q
+Du bruker Naive Bayes på Titanic-dataene med features $x_1 = $ \emph{Pclass} og $x_2 = $ \emph{Sex}
+for å predikere klassen $C_k$ (\emph{Survived}).
+
+Hvilken antakelse gjør modellen?
+@+ $p(x_1, x_2 \mid C_k) = p(x_1 \mid C_k)\,p(x_2 \mid C_k)$ for hver klasse $C_k$
+@- $p(x_1, x_2 \mid C_k) = p(x_1 \mid C_k)\,p(x_2)$ for hver klasse $C_k$
+@- $p(C_k \mid x_1, x_2) = p(C_k \mid x_1)\,p(C_k \mid x_2)$ for hver klasse $C_k$
+@- $p(x_1, x_2 \mid C_k) = p(x_1 \mid C_k) + p(x_2 \mid C_k)$ for hver klasse $C_k$
+@@Q
+%%% NY: informasjonsgevinst mot vektet entropi etter splitt
+Når et beslutningstre velger splitt i en node, kan det enten maksimere informasjonsgevinsten
+$\Delta I = I_{\text{før}} - E[I_{\text{etter}}]$ eller minimere den vektede entropien etter splitten,
+$E[I_{\text{etter}}]$.
+
+Hvilket utsagn om disse to kriteriene er riktig?
+%%% Delta I = I_før - E[I_etter], og I_før er konstant i noden -> samme argmax/argmin uansett urenhetsmål.
+@+ De gir alltid identisk valg, siden $I_{\text{før}}$ er felles for alle kandidatene i noden
+@- Bare $\Delta I$ vekter barnenodene etter antall punkter, så kriteriene kan skille seg i ubalanserte splitter
+@- De faller sammen bare når foreldrenoden har like mange punkter fra hver klasse, slik at $I_{\text{før}} = 1$
+@- De gir identisk valg med entropi, men med Gini som urenhetsmål kan de to kriteriene velge ulike splitter
+@@Q
+%%% NY: maksimalt antall løvnoder for gitt dybde
+Et klassifikasjonstre har binære splitter (hver beslutningsnode har to barn) og \texttt{max\_depth=4}, der
+rotnoden har dybde 0.
+
+Hvor mange løvnoder, og dermed ulike regioner i datarommet, kan treet maksimalt ha?
+%%% 2^4 = 16; 2^3 = 8; 2^4 - 1 = 15 (antall beslutningsnoder); 4 (én per nivå)
+@+ $16$
+@- $8$
+@- $15$
+@- $4$
+%%% ================================================================ PART 4
+@@PART
+@@Q
+Du tilpasser modellen $f(x) = \beta_0 + \beta_1 x + \beta_2 x^2$ til data med én feature $x$.
+
+Hvilket utsagn er riktig?
+@+ Modellen er lineær i parametrene og kan trenes som lineær regresjon med $x$ og $x^2$ som features
+@- Modellen er ikke-lineær i parametrene, så MSE-tapet er ikke lenger konvekst i $\beta_0$, $\beta_1$ og $\beta_2$
+@- Modellen må trenes som et nevralt nettverk, siden lineær regresjon bare kan tilpasse rette linjer
+@- Modellen er lineær i parametrene bare dersom $x$ først standardiseres til gjennomsnitt 0
+@@Q
+Du skal tilpasse en polynomisk regresjonsmodell og vil velge graden $M \in \{1, 2, \ldots, 15\}$.
+Dataene er delt i trening, validering og test.
+
+Hvilken fremgangsmåte er riktig?
+@+ $M$ er en hyperparameter; tren én modell per grad og velg den med lavest tap på valideringsdata
+@- $M$ er en modellparameter; la gradient descent lære $M$ sammen med koeffisientene $\beta_i$
+@- $M$ er en hyperparameter; tren én modell per grad og velg den med lavest tap på treningsdataene
+@- $M$ er en hyperparameter; tren én modell per grad og velg den som gir lavest tap på testdataene
+@@Q
+%%% NY2: prediksjon fra et regresjonstre (notatenes figur 16a): løvnodens snitt, ikke indre noders snitt
+Figuren viser et \textbf{regresjonstre} med dybde 2. Hver node viser splittregelen (indre noder), antall
+treningspunkter $n$ og gjennomsnittet av target for treningspunktene i noden. Venstre gren følges når
+splittregelen er oppfylt.
+\begin{center}
+\begin{tikzpicture}[level distance=1.45cm,
+  level 1/.style={sibling distance=5.2cm}, level 2/.style={sibling distance=2.6cm},
+  every node/.style={draw, rounded corners, align=center, font=\small, inner sep=3pt}]
+\node {$x \le 2.0$\\ $n=75$, snitt $1.539$}
+  child {node {$x \le 0.99$\\ $n=37$, snitt $0.527$}
+    child {node {$n=17$\\ snitt $0.000$}}
+    child {node {$n=20$\\ snitt $0.976$}}}
+  child {node {$x \le 3.071$\\ $n=38$, snitt $2.524$}
+    child {node {$n=19$\\ snitt $2.009$}}
+    child {node {$n=19$\\ snitt $3.040$}}};
+\end{tikzpicture}
+\end{center}
+Hva predikerer treet for et nytt punkt med $x = 3.5$?
+%%% 3.5 > 2.0 -> høyre; 3.5 > 3.071 -> høyre løv: 3.040.
+%%% 2.524 = snittet i den indre noden, 1.539 = rotens snitt, 2.009 = feil gren på dybde 2
+@+ $3.040$
+@- $2.524$
+@- $2.009$
+@- $1.539$
+@@Q
+%%% NY3: andel av kvadratfeilen fra uteliggeren ved MSE-optimal konstant
+En konstant modell $f(x) = c$ tilpasses ved å minimere MSE på target-verdiene $\{1,\ 2,\ 3,\ 4,\ 100\}$.
+
+Hvor stor andel av den totale kvadrerte feilen $\sum_i (y_i - c)^2$ ved den optimale $c$ kommer fra
+punktet $y = 100$?
+%%% c = snitt = 22; kvadrater 441, 400, 361, 324, 6084; sum 7610 -> 6084/7610 = 0.80
+%%% absolutte avvik ved c=22: 78/156 = 0.50; c = median 3: 9409/9415 = 1.00; likt bidrag per punkt: 1/5 = 0.20
+@+ $0.80$
+@- $0.50$
+@- $1.00$
+@- $0.20$
+%%% ================================================================ PART 5
+@@PART
+@@Q
+%%% NY: forventet antall kopier av et punkt gitt at det er med i bootstrap-utvalget
+Fra et treningssett med $n = 1000$ ulike punkter trekkes et bootstrap-utvalg av størrelse 1000. Et bestemt
+punkt kommer med minst én gang med sannsynlighet $1-(1-1/n)^n \approx 0.632$, og over alle trekninger
+forekommer hvert punkt i snitt én gang i utvalget.
+
+Hvor mange ganger forekommer punktet i snitt, \textbf{gitt at} det er med i utvalget?
+%%% E[antall] = 1 = P(med) * E[antall | med] -> 1/0.632 = 1.58; 1.00 ignorerer betingelsen; 0.63/0.37 er sannsynligheter
+@+ $1.58$
+@- $1.00$
+@- $0.63$
+@- $0.37$
+@@Q
+%%% NY: hvorfor et ensemble av ulike modelltyper kan slå hver enkelt
+Sammenhengen mellom features og target er tilnærmet lineær for noen features, men har skarpe
+terskeleffekter for andre. Du sammenligner en lineær regresjonsmodell, et regresjonstre og et parallelt
+ensemble som tar gjennomsnittet av de to modellenes prediksjoner.
+
+Hvorfor kan ensemblet gjøre det bedre enn begge enkeltmodellene?
+@+ Modellene bygger på ulike antakelser (lineær form og akseparallelle splitter) og gjør derfor ulike feil
+@- Gjennomsnittet av en lineær modell og et tre er selv lineært, men har lavere varians enn hver av dem
+@- Treet retter opp feilene til den lineære modellen, siden det trenes på residualene fra den
+@- Gjennomsnittet halverer variansen, siden prediksjonene fra ulike modelltyper er uavhengige
+@@Q
+%%% NY: flertallsavstemning med uavhengige klassifikatorer
+Tre klassifikatorer har hver 70\,\% accuracy, og feilene deres er uavhengige av hverandre. De kombineres
+med flertallsavstemning.
+
+Hva er sannsynligheten for at ensemblet klassifiserer et tilfeldig punkt riktig?
+%%% 0.7^3 + 3*0.7^2*0.3 = 0.343 + 0.441 = 0.784; ingen gevinst 0.70; bare alle tre: 0.34; bare nøyaktig to: 0.44
+@+ $0.78$
+@- $0.70$
+@- $0.34$
+@- $0.44$
+@@Q
+%%% NY: gradient boosting som gradient descent over trær
+Gradient boosting har fått navnet sitt fra gradient descent.
+
+Hvilket utsagn beskriver sammenhengen riktig?
+@+ Hvert nye tre tilpasses den negative gradienten av tapet mht.\ prediksjonene, for kvadratisk tap residualene
+@- Splittverdiene i ett stort tre justeres med gradient descent i hver runde, slik at tapet på treningsdataene synker
+@- Vektene til feilpredikerte punkter økes langs gradienten av tapet i hver runde, så neste tre fokuserer på dem
+@- Læringsraten og trædybden justeres langs gradienten av valideringstapet etter hver runde med et nytt tre
+%%% ================================================================ PART 6
+@@PART
+@@Q
+Et perceptron med to binære input $x_1, x_2 \in \{0, 1\}$ har vekter $w_1 = w_2 = -1$, bias $b = 1.5$ og
+aktiveringsfunksjonen $H(z) = 1$ hvis $z \geq 0$, ellers $0$, der $z = w_1x_1 + w_2x_2 + b$.
+
+Hvilken logisk funksjon beregner perceptronet?
+%%% z = 1.5, 0.5, 0.5, -0.5 for (0,0),(0,1),(1,0),(1,1) -> 1,1,1,0 = NAND
+@+ NAND: output 0 bare når begge input er 1
+@- NOR: output 1 bare når begge input er 0
+@- AND: output 1 bare når begge input er 1
+@- XOR: output 1 når nøyaktig én input er 1
+@@Q
+Du skal lage et nevralt nettverk (MLP) med to skjulte lag som predikerer boligpriser i kroner.
+
+Hvilket valg av aktiveringsfunksjoner er mest passende?
+@+ ReLU i skjulte lag og ingen (lineær) aktivering i output-noden, så prisen ikke begrenses
+@- ReLU i de skjulte lagene og softmax i output-noden, slik at prisen blir normalisert
+@- Sigmoid i de skjulte lagene og sigmoid i output-noden, slik at prisen ligger i $(0,1)$
+@- Lineær aktivering i alle lag, siden target er en kontinuerlig verdi uten øvre grense
+@@Q
+%%% NY2: SGD-gradienten som forventningsrett (unbiased) estimat av full-batch-gradienten (notatenes avsnitt 2.5)
+I \textbf{stochastic gradient descent} beregnes gradienten av tapet for ett tilfeldig valgt treningspunkt
+om gangen, mens full-batch gradient descent bruker gjennomsnittet av gradientene over alle $N$
+treningspunktene. Gradienten i SGD omtales som et støyete, men \textbf{unbiased} estimat.
+
+Hva betyr «unbiased» her?
+@+ Trekkes punktet uniformt, er forventningen til enkeltgradienten lik gjennomsnittsgradienten over hele treningssettet
+@- Hver enkeltgradient peker i samme retning som full-batch-gradienten, men lengden varierer tilfeldig fra punkt til punkt
+@- I forventning får nettverket som trenes med SGD lav bias i bias--varians-forstand, siden alle punktene brukes hver epoke
+@- Gjennomsnittet av SGD-gradientene over én epoke er nøyaktig lik full-batch-gradienten i startpunktet for epoken
+%%% Parametrene endres etter hvert SGD-steg, så gradientene i en epoke evalueres i ulike punkter -> ikke lik full-batch-gradienten.
+@@Q
+Nevrale nettverk omtales som \textbf{universelle funksjonsapproksimatorer}.
+
+Hva sier dette resultatet?
+%%% Eksistensresultat: sier ingenting om at trening finner vektene; gjelder også ReLU; krever ikke-linearitet.
+@+ For enhver kontinuerlig funksjon finnes det vekter som gjør at et stort nok nettverk tilnærmer den så godt vi vil
+@- Med nok nevroner vil gradient descent typisk finne vekter som tilnærmer den sanne funksjonen bak dataene
+@- Et stort nok nettverk kan tilnærme enhver kontinuerlig funksjon, men bare dersom aktiveringen er sigmoid
+@- Også uten ikke-lineære aktiveringsfunksjoner kan et nettverk tilnærme enhver kontinuerlig funksjon, gitt nok lag
+%%% ================================================================ PART 7
+@@PART
+@@Q
+%%% NY2: k-means-grensen ligger midt mellom sentroidene, uavhengig av klyngenes spredning
+Et endimensjonalt datasett har to grupper: gruppe A er bred, med 100 punkter jevnt spredt mellom 0 og 10,
+og gruppe B er smal, med 20 punkter mellom 13 og 14. I et k-means-steg med $k = 2$ er sentroidene
+$c_A = 5$ og $c_B = 13.5$.
+
+Hvor går skillet mellom punktene som havner hos $c_A$ og hos $c_B$ i neste tilordningssteg?
+%%% Nærmeste sentroide: skille i (5+13.5)/2 = 9.25. Punktene i A i (9.25, 10] havner hos c_B.
+%%% 9.0 = midt mellom c_A og kanten av B; 11.5 = midt i gapet (10..13); 12.7 = vektet med spredning sd_A/(sd_A+sd_B)
+@+ Ved $x = 9.25$; punktene i A som ligger over 9.25, havner hos $c_B$
+@- Ved $x = 9.0$; punktene i A som ligger over 9.0, havner hos $c_B$
+@- Ved $x = 11.5$; alle de 100 punktene i A havner fortsatt hos $c_A$
+@- Ved $x \approx 12.7$; alle de 100 punktene i A havner fortsatt hos $c_A$
+@@Q
+%%% NY2: DBSCAN lenker kjernepunkter i en kjede – endepunktene havner i samme klynge
+DBSCAN brukes på de endimensjonale punktene
+\[ 0,\ 1,\ 2,\ 3,\ 4,\ 5,\ 6,\ 7,\ 8,\ 11 \]
+med $\varepsilon = 1.2$ og \texttt{min\_samples} $= 3$. Et punkt er kjernepunkt hvis minst 3 punkter
+(punktet selv medregnet) ligger innenfor avstand $\varepsilon$.
+
+Hvilket utsagn beskriver resultatet?
+%%% Naboer (inkl. seg selv): 0 og 8 -> 2, 1..7 -> 3, 11 -> 1. Kjerne: 1..7 (lenket sammen, avstand 1 < 1.2).
+%%% 0 og 8 er kantpunkter (innen eps fra kjernepunktene 1 og 7). 11 er støy. Én klynge 0..8 selv om 0 og 8 ligger 8 fra hverandre.
+@+ Én klynge med punktene 0--8, der 0 og 8 er kantpunkter, mens 11 er støy
+@- Én klynge med punktene 1--7, mens 0, 8 og 11 alle merkes som støy
+@- Én klynge med punktene 0--8, der alle ni er kjernepunkter, mens 11 er støy
+@- Flere klynger, siden 0 og 8 ligger mye lenger fra hverandre enn $\varepsilon$
+@@Q
+%%% NY: effekten av å øke min_samples i DBSCAN
+Du kjører DBSCAN med fast $\varepsilon$ og øker \texttt{min\_samples} fra 4 til 20.
+
+Hva skjer typisk med resultatet?
+@+ Færre punkter blir kjernepunkter, så flere merkes som støy, og tynne klynger kan forsvinne
+@- Flere punkter blir kjernepunkter, siden et punkt nå må ha mange naboer for å regnes som støy
+@- Klyngene blir typisk større og kan smelte sammen, siden hver klynge må ha minst 20 punkter
+@- Resultatet blir uendret, siden \texttt{min\_samples} bare avgjør hvilke punkter som er kantpunkter
+@@Q
+%%% NY3: DBSCAN er ikke skalainvariant – epsilon er en absolutt avstand i featurenes enhet
+Du har fått gode klynger med DBSCAN ($\varepsilon = 0.3$, \texttt{min\_samples} $= 5$) på posisjoner der
+begge koordinatene er målt i kilometer. Avstanden fra et punkt til nærmeste nabo er typisk 20--100 meter.
+En kollega lagrer de samme posisjonene i \textbf{meter} og kjører DBSCAN med nøyaktig de samme
+hyperparametrene.
+
+Hva blir resultatet?
+%%% I meter er eps = 0.3 m, mens nærmeste nabo er 20-100 m -> ingen har 5 naboer -> ingen kjernepunkter -> alt støy.
+%%% eps = 300 gir identiske labels (sjekket med sklearn). k-means ville vært uendret (jf. S3 7.4), DBSCAN er det ikke.
+@+ Nesten alle punkter blir støy, siden $\varepsilon = 0.3$ nå betyr 0.3 meter; samme resultat krever $\varepsilon = 300$
+@- Resultatet blir det samme, siden en felles enhetsendring ikke endrer hvilke punkter som ligger nærmest hverandre
+@- Nesten alle punkter havner i én stor klynge, siden alle avstandene mellom punktene nå er 1000 ganger større
+@- Klyngene deles opp i flere mindre klynger, men punktene som var støy med kilometer, forblir støy
+%%% ================================================================ PART 8
+@@PART
+@@Q
+Du transformerer et datasett med PCA og beholder \textbf{alle} hovedkomponentene.
+
+Hvordan ser kovariansmatrisen til de transformerte dataene ut?
+@+ Diagonal, med egenverdiene fra PCA langs diagonalen og nuller utenfor
+@- Identitetsmatrisen, siden PCA skalerer hver komponent til å ha varians 1
+@- Lik den opprinnelige kovariansmatrisen, siden PCA bare roterer koordinataksene
+@- Full, siden alle komponentene er lineærkombinasjoner av de samme opprinnelige featurene
+@@Q
+Et datasett har tre datapunkter med to features:
+\[ x_1 = (2,\ 4,\ 6), \qquad x_2 = (1,\ 3,\ 2). \]
+Hva blir kovariansmatrisen $S$ når kovariansen beregnes med $N-1$ i nevneren?
+%%% snitt 4 og 2; avvik (-2,0,2), (-1,1,0); var1 = 8/2 = 4, var2 = 2/2 = 1, cov = 2/2 = 1
+%%% med N: 2.67/0.67/0.67; fortegnsfeil: -1; standardavvik på diagonalen: 2 og 1
+@+ $S = \begin{pmatrix} 4.00 & 1.00\\ 1.00 & 1.00 \end{pmatrix}$
+@- $S = \begin{pmatrix} 2.67 & 0.67\\ 0.67 & 0.67 \end{pmatrix}$
+@- $S = \begin{pmatrix} 4.00 & -1.00\\ -1.00 & 1.00 \end{pmatrix}$
+@- $S = \begin{pmatrix} 2.00 & 1.00\\ 1.00 & 1.00 \end{pmatrix}$
+@@Q
+Du vil finne anomale transaksjoner med \textbf{DBSCAN}, og planlegger å tilpasse modellen på
+treningsdata og deretter bruke den på nye testdata, slik du ville gjort med Isolation Forest.
+
+Hvilket utsagn er riktig?
+@+ DBSCAN lærer ingen modell som kan brukes på nye punkter, så alle dataene må klynges i én og samme kjøring
+@- DBSCAN lagrer klyngesentrene, så nye punkter tilordnes nærmeste klynge og er anomalier om avstanden er stor
+@- DBSCAN trenger andelen anomalier (\texttt{contamination}) og gir så akkurat så mange punkter label $-1$
+@- DBSCAN kan brukes på testdata etter tilpasning, siden $\varepsilon$ og \texttt{min\_samples} læres fra treningsdata
+@@Q
+Isolation Forest bygger mange isolasjonstrær uten tilgang til labels.
+
+Hvilket utsagn om hvordan trærne bygges og brukes, er riktig?
+@+ Hvert tre bygges på et tilfeldig delutvalg uten tilbakelegging, med tilfeldig feature og splittverdi i hver node
+@- Hvert tre bygges på et bootstrap-utvalg, med splitter som minimerer Gini-urenheten mellom normale og anomale punkter
+@- Hvert tre bygges på alle dataene, med splitter som minimerer variansen i barnenodene
+@- Hvert tre bygges på et tilfeldig delutvalg, og anomaliene er punktene som havner dypest i treet
+%%% ================================================================ PART 9
+@@PART
+@@Q
+%%% NY2: optimistisk initialisering av Q-tabellen driver systematisk utforsking (prosjekt 4, buss-snarveien)
+I rutenett-miljøet fra prosjekt 4 gir målet reward 10 og alle andre steg reward 0, med $\gamma = 0.95$.
+Det finnes en buss-snarvei, men for å nå bussholdeplassen må agenten først gå bort fra målet. Med
+Q-tabellen initialisert til 0 lærer agenten bare den direkte veien. Med alle Q-verdier initialisert til
+1.0 (og ellers samme oppsett) finner den snarveien.
+
+Hva er den beste forklaringen?
+%%% Med start 1.0 synker verdiene for prøvde handlinger som ikke fører noe sted (mål 0 + 0.95*max < 1),
+%%% mens uprøvde handlinger beholder 1.0 og blir valgt av den grådige policyen -> systematisk utforsking.
+@+ Uprøvde handlinger beholder verdien 1.0 og ser bedre ut enn prøvde, så de blir valgt grådig
+@- Startverdien 1.0 virker som en ekstra reward i hver rute, så lengre omveier gir høyere retur
+@- Høyere startverdier gir effektivt større læringsrate, så målets verdi sprer seg raskere bakover
+@- Startverdien 1.0 gjør at $\gamma$ får mindre betydning, så omveier straffes mindre enn før
+@@Q
+%%% NY: tolkning av læringskurver (steg per episode) for DQN
+Du trener en DQN-agent i Frozen Lake (\texttt{is\_slippery=False}). En episode avsluttes når agenten faller
+i et hull eller når målet. Antall steg per episode er først lavt, øker så i en periode, og synker til slutt
+til et lavt, stabilt nivå. Andelen episoder der målet nås, er først nær 0 og til slutt nær 1.
+
+Hva er den mest rimelige tolkningen?
+@+ Først går agenten fort i vannet, så unngår den vannet men vandrer lenge, og til slutt finner den en kort vei til mål
+@- Først går agenten raskt til målet, så glemmer den veien (catastrophic forgetting), og til slutt lærer den på nytt
+@- Først utnytter agenten Q-verdiene, så øker $\varepsilon$ og den utforsker mer, og til slutt stopper den å bevege seg
+@- Først er replay-bufferen tom, så fylles den og agenten tar flere steg, og til slutt er bufferen full og læringen stopper
+@@Q
+%%% NY: hvorfor beholde liten epsilon etter trening
+En ferdig trent agent skal tas i bruk, og du vurderer å sette $\varepsilon = 0$ eller beholde en liten verdi,
+for eksempel $\varepsilon = 0.01$.
+
+Hvorfor kan en liten $\varepsilon > 0$ være å foretrekke?
+@+ En helt grådig policy kan låse seg i en løkke, og et sjeldent tilfeldig valg kan bryte den
+@- Med $\varepsilon = 0$ kan Q-verdiene slutte å oppdateres, slik at agenten gradvis glemmer det den har lært
+@- Med $\varepsilon = 0$ blir policyen deterministisk, og en deterministisk policy kan aldri være optimal
+@- En liten $\varepsilon$ gjør at Q-verdiene konvergerer raskere mot sine sanne verdier mens agenten brukes
+@@Q
+%%% NY: torch.no_grad rundt beregningen av treningsmålet i DQN
+Utdrag fra \texttt{learn}-funksjonen til en DQN-agent:
+\begin{lstlisting}[language=Python]
+with torch.no_grad():
+    next_q = self.target_network(next_states).max(dim=1, keepdim=True).values
+    next_q = torch.where(dones, torch.zeros_like(next_q), next_q)
+    y_train = rewards + self.discount * next_q
+predicted_q = self.q_network(states)
+y_pred = torch.gather(predicted_q, 1, actions)
+loss = self.criterion(y_train, y_pred)
+loss.backward()
+\end{lstlisting}
+Hvorfor beregnes \texttt{y\_train} inne i \texttt{torch.no\_grad()}?
+@+ Målet skal være en fast label, så det skal ikke gå gradienter gjennom target-nettverket
+@- Uten \texttt{no\_grad} kunne ikke vektene kopieres fra Q-nettverket til target-nettverket senere i treningen
+@- \texttt{no\_grad} sørger for at bare handlingen agenten valgte, får en verdi i \texttt{y\_train}
+@- \texttt{no\_grad} er det som setter treningsmålet til null for terminale tilstander
+%%% ================================================================ PART 10
+@@PART
+@@Q
+Du trener en XGBoost-modell. Etter treningen bruker du \texttt{shap.KernelExplainer} til å lage et
+force plot som forklarer prediksjonen for én bestemt kunde.
+
+Hvordan klassifiseres denne forklaringen?
+@+ Post-hoc, lokal og modellagnostisk
+@- Post-hoc, global og modellspesifikk
+@- Innebygd, lokal og modellspesifikk
+@- Innebygd, global og modellagnostisk
+@@Q
+En modell har 12 input-features. Du vil beregne \textbf{eksakte} Shapley-verdier for alle featurene
+for ett datapunkt, med formelen
+\[ \phi_i(v) = \sum_{S \subseteq N\setminus\{i\}} \frac{|S|!\,(|N|-|S|-1)!}{|N|!}\big(v(S\cup\{i\}) - v(S)\big). \]
+For hvor mange ulike koalisjoner $S$ må den karakteristiske funksjonen $v$ evalueres totalt?
+%%% alle delmengder av 12 features: 2^12 = 4096. 2^11 = 2048 (per feature), 12^2 = 144, 12! = 479001600
+@+ $4096$
+@- $2048$
+@- $144$
+@- $479\,001\,600$
+@@Q
+Et datasett har 200 datapunkter, hvorav 40 tilhører den positive klassen. Du kjører:
+\begin{lstlisting}[language=Python]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, stratify=y, random_state=0)
+\end{lstlisting}
+Hvilket utsagn om testsettet er riktig?
+%%% 200 * 0.25 = 50 i test; stratify -> 40 * 0.25 = 10 positive
+@+ Det inneholder 50 datapunkter, hvorav 10 er positive
+@- Det inneholder 50 datapunkter, hvorav 25 er positive
+@- Det inneholder 150 datapunkter, hvorav 30 er positive
+@- Det inneholder 50 datapunkter; antall positive varierer, men er 10 i snitt
+@@Q
+Hva skriver koden under ut?
+\begin{lstlisting}[language=Python]
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+df = pd.DataFrame({"farge": ["rød", "blå", "grønn", "blå", None],
+                   "pris":  [10, 12, np.nan, 9, 11]})
+df = df.dropna()
+df["farge"] = LabelEncoder().fit_transform(df["farge"])
+print(len(df), list(df["farge"]))
+\end{lstlisting}
+%%% dropna fjerner rad 2 (pris NaN) og rad 4 (farge None) -> rød, blå, blå
+%%% LabelEncoder sorterer klassene alfabetisk: blå = 0, rød = 1 -> [1, 0, 0] (verifisert med sklearn)
+@+ \texttt{3 [1, 0, 0]}
+@- \texttt{3 [0, 1, 1]}
+@- \texttt{4 [2, 0, 1, 0]}
+@- \texttt{4 [0, 1, 2, 1]}

@@ -229,7 +229,7 @@
 <h3>Kovarians</h3>
 <p>Kovariansen måler om to features varierer <em>sammen</em>:</p>
 <div class="eq">
-  <p class="eq-note">Kovarians mellom feature $x_i$ og $x_j$ over $N$ datapunkter (likning 105 i notatene)</p>
+  <p class="eq-note">Kovarians mellom feature $x_i$ og $x_j$ over $N$ datapunkter (likning 103 i notatene)</p>
   $$\operatorname{cov}(x_i, x_j) = \frac{1}{N-1}\sum_{k=1}^{N} (x_{i,k}-\bar{x}_i)(x_{j,k}-\bar{x}_j)$$
 </div>
 <ul>
@@ -252,7 +252,7 @@
 <h3>Kovariansmatrisen</h3>
 <p>Med to features samler vi alle fire kovariansene i en 2×2-matrise:</p>
 <div class="eq">
-  <p class="eq-note">Kovariansmatrisen (likning 106)</p>
+  <p class="eq-note">Kovariansmatrisen (likning 104)</p>
   $$S = \begin{pmatrix} \operatorname{cov}(x_1,x_1) & \operatorname{cov}(x_1,x_2) \\ \operatorname{cov}(x_2,x_1) & \operatorname{cov}(x_2,x_2) \end{pmatrix}$$
 </div>
 <ul>
@@ -815,7 +815,7 @@ Z_test = pca.transform(scaler.transform(X_test))   <span class="c"># samme scale
 
 <h3>KL-divergens</h3>
 <div class="eq">
-  <p class="eq-note">Kullback–Leibler-divergens (relativ entropi), likning 116</p>
+  <p class="eq-note">Kullback–Leibler-divergens (relativ entropi), likning 114</p>
   $$D_{KL}(P\,\|\,Q) = \sum_{x} P(x)\log\frac{P(x)}{Q(x)}$$
 </div>
 <p>KL-divergensen måler hvor forskjellig en fordeling $Q$ er fra en referansefordeling $P$. Den er forventningsverdien av den logaritmiske forskjellen $\log P(x) - \log Q(x)$, der forventningen tas over $x$ trukket fra $P$. Egenskaper du må kunne:</p>
@@ -997,6 +997,10 @@ X_embedded = tsne.fit_transform(X)   <span class="c"># tilpass og bruk på SAMME
   <li><strong>Resultatet avhenger av perplexity og tilfeldig start.</strong> Kjør med flere verdier og seeds før du konkluderer.</li>
   <li><strong>t-SNE er ikke en clustering-algoritme.</strong> Den gir et bilde der klynger kan sees. Klyngene må fortsatt finnes med for eksempel k-means eller DBSCAN.</li>
 </ul>
+</div>
+
+<div class="callout hook"><span class="label">Oppgave fra notatene: prøv selv</span>
+<p>Notatene anbefaler å leke med det interaktive verktøyet <a href="https://distill.pub/2016/misread-tsne/">«How to Use t-SNE Effectively»</a> (distill.pub). Velg et datasett, endre perplexity og antall iterasjoner, og se hvordan plottet endrer seg. Prøv spesielt å finne eksempler på fellene over: klynger med ulik størrelse som blir like store, avstander mellom klynger som ikke betyr noe, og tilfeldig støy som ser ut som klynger ved lav perplexity.</p>
 </div>
 
 <div class="callout exam"><span class="label">Eksamen</span>

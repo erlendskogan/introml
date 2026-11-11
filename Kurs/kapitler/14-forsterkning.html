@@ -22,18 +22,24 @@
   svg.diagram .sm { font-size: 12px; fill: var(--text-soft); }
   .cmp td:first-child { font-weight: 600; white-space: nowrap; }
   figure.fig-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  .qboards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+  .qboard { text-align: center; font-size: 13px; color: var(--text-soft); }
+  .qboard .g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; max-width: 170px; margin: 0 auto 6px; }
+  .qboard .g div { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 5px; font-family: var(--mono); font-size: 13px; color: var(--text); border: 1px solid var(--border); }
+  .qboard .g div.mark { font-family: var(--font); font-size: 22px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
+  .qboard .g div.best { outline: 2.5px solid var(--text); outline-offset: -2px; font-weight: 700; }
 </style>
 </head>
 <body data-chapter="14">
 <main>
 
 <header class="chapter-head">
-  <div class="kicker">Kapittel 14 · Forventet pensum</div>
+  <div class="kicker">Kapittel 14 · Del IV · Forsterkningslæring</div>
   <h1>Forsterkningslæring</h1>
   <p class="lead">Ingen fasit, bare belønning. Her lærer en agent av egen prøving og feiling: hvordan den verdsetter framtiden, hvordan Q-learning fyller ut en tabell over gode handlinger, og hvordan DQN gjør det samme med et nevralt nettverk.</p>
 </header>
 
-<div class="banner"><b>Forventet pensum.</b> Forelesningsnotatene for dette temaet var ikke kommet per 14.10.2026. Kapittelet bygger på eksamenene i 2024 (oppg. 31–33) og 2025 (del 8, del 9 og del 10.4) og på standard lærebokstoff (Sutton &amp; Barto). Et fjerde prosjekt, sannsynligvis om forsterkningslæring, er ventet. <b>Sjekk notasjon og vektlegging mot forelesningsnotatene når de kommer.</b></div>
+<div class="banner"><b>Oppdatert mot forelesningsnotatene.</b> Kapittelet ble først skrevet ut fra eksamenene i 2024 (oppg. 31–33) og 2025 (del 8, del 9 og del 10.4) og standard lærebokstoff (Sutton &amp; Barto). Det er nå sjekket mot kapittel 4 i forelesningsnotatene (s. 56–68, versjon 10.11.2026), og stoffet derfra er lagt inn: Gym-API-et og tre-på-rad-miljøet (14.6), tolkning av Q-verdier, FrozenLake, one-hot-input, catastrophic forgetting, læringssteget med <code>torch.gather</code> og overvåking av treningen (14.9). Notatene bruker store bokstaver ($S_t$, $A_t$, $R_{t+1}$). Her brukes mest små ($s_t$, $a_t$, $r_{t+1}$), men det betyr det samme.</div>
 
 <div class="goals">
   <h4>Etter dette kapittelet skal du kunne</h4>
@@ -42,9 +48,11 @@
     <li>regne ut diskontert retur $G_t$ og forklare hva diskonteringsfaktoren $\gamma$ gjør</li>
     <li>formulere Markov-egenskapen og skille mellom policy $\pi$, verdifunksjon $V(s)$ og Q-funksjon $Q(s,a)$</li>
     <li>gjøre en Q-learning-oppdatering for hånd og forklare TD-mål, TD-feil, $\alpha$ og $\gamma$</li>
+    <li>bruke Gym-API-et (<code>env.reset()</code>, <code>env.step(action)</code>), beskrive hva et environment må inneholde, og lese av Q-verdier for å se hva en agent vil gjøre</li>
     <li>forklare utforskning vs. utnyttelse, ε-greedy og ε-decay</li>
     <li>forklare hvorfor loss og reward ikke trenger å henge sammen</li>
-    <li>forklare DQN: hvorfor et nettverk, hvorfor replay buffer, hvorfor target network, og hva reward hacking er</li>
+    <li>forklare DQN: hvorfor et nettverk, hvorfor replay buffer, hvorfor target network, hva catastrophic forgetting er, og hvorfor loss bare regnes for handlingen agenten faktisk tok</li>
+    <li>forklare hva reward hacking er</li>
   </ul>
 </div>
 
@@ -81,8 +89,16 @@
 <li><b>Handling</b> (action) $a$: et valg agenten kan gjøre i en tilstand, for eksempel «gå opp».</li>
 <li><b>Belønning</b> (reward) $r$: et tall miljøet gir etter hver handling. Kan være negativt (straff).</li>
 <li><b>Episode</b>: én hel runde fra start til en slutt-tilstand (terminal state), for eksempel ett parti sjakk eller ett forsøk på et brett.</li>
-<li><b>Retur</b> (return) $G_t$: summen av framtidige belønninger fra tidssteg $t$, ofte diskontert (se 14.2).</li>
+<li><b>Retur</b> (return) $G_t$: summen av framtidige belønninger fra tidssteg $t$, ofte diskontert (se 14.2). Notatene kaller dette også <b>kumulativ reward</b>.</li>
 </ul></div>
+
+<div class="callout warn"><span class="label">«Agent» i RL er ikke en AI-agent</span>
+<p>Notatene presiserer dette. Begrepet <i>agent</i> i RL ble etablert lenge før dagens AI-agenter (som Copilot), og betyr ikke det samme. En AI-agent er i bunn og grunn en språkmodell som kjører i en løkke. I RL er en agent <b>hva som helst som tar inn en tilstand og returnerer en handling</b>: en tabell, et nevralt nettverk eller en regel.</p>
+</div>
+
+<div class="callout def"><span class="label">Eksempel fra notatene: AlphaZero</span>
+<p>AlphaZero er en kjent modell trent med RL. «Zero» betyr at den har lært bare ved å spille mot seg selv, uten annen informasjon (ingen partier fra mennesker). Den er et nevralt nettverk som får spillbrettets tilstand som input (state) og predikerer handlinger (actions), altså hvilke trekk som bør undersøkes nærmere i spilltreet. Belønningen kommer først når spillet er ferdig: $+1$ for seier, $-1$ for tap og $0$ for remis. Det er kredittildelingsproblemet i ren form.</p>
+</div>
 
 <table class="cmp">
 <tr><th></th><th>Veiledet</th><th>Uveiledet</th><th>Forsterkning</th></tr>
@@ -197,18 +213,28 @@
 <!-- ============================================================ -->
 <h2 id="mdp"><span class="sec">14.3</span>MDP og Markov-egenskapen</h2>
 
-<p>Den formelle rammen for RL er en <b>Markov-beslutningsprosess</b> (Markov decision process, MDP). Den består av</p>
+<p>Den formelle rammen for RL er en <b>Markov-beslutningsprosess</b> (Markov decision process, MDP). I notatene er en MDP et <b>4-tuppel</b> $(\mathcal{S}, \mathcal{A}, P_A, R_A)$:</p>
 <ul>
-<li>en mengde tilstander $S$ og en mengde handlinger $A$,</li>
-<li>overgangssannsynligheter $P(s' \mid s, a)$: hvor havner jeg hvis jeg gjør $a$ i $s$?</li>
-<li>en belønningsfunksjon $R(s, a, s')$,</li>
-<li>en diskonteringsfaktor $\gamma$.</li>
+<li>$\mathcal{S}$: mengden av tilstander (state space),</li>
+<li>$\mathcal{A}$: mengden av handlinger (action space). Alternativt er $\mathcal{A}_S$ handlingene som er tilgjengelige fra tilstand $S$ (i tre-på-rad bare de ledige rutene),</li>
+<li>$P_A(S_t, S_{t+1}) = P(S_{t+1} \mid S_t, A_t)$: sannsynligheten for at handling $A_t$ i $S_t$ fører til $S_{t+1}$,</li>
+<li>$R_A(S_t, S_{t+1})$: den umiddelbare belønningen for overgangen fra $S_t$ til $S_{t+1}$ gjennom $A_t$.</li>
 </ul>
+<p>Mange lærebøker regner også diskonteringsfaktoren $\gamma$ som en del av MDP-en (et 5-tuppel). I notatene dukker $\gamma$ i stedet opp som en parameter i Bellman-likningen (14.5). Begge deler er vanlig.</p>
+
+<div class="callout warn"><span class="label">I dette kurset: deterministiske miljøer</span>
+<p>Notatene sier eksplisitt at vi <b>ikke</b> ser på overgangssannsynligheter. Vi holder oss til deterministiske miljøer, der samme handling i samme tilstand alltid gir samme neste tilstand. Det er derfor FrozenLake brukes med <code>is_slippery=False</code> (14.9).</p>
+</div>
 
 <div class="callout def"><span class="label">Markov-egenskapen</span>
 <p>Neste tilstand (og belønning) avhenger bare av <b>nåværende tilstand og handling</b>, ikke av hvordan vi kom dit:</p>
 <p>$$P(s_{t+1} \mid s_t, a_t, s_{t-1}, a_{t-1}, \dots, s_0) = P(s_{t+1} \mid s_t, a_t)$$</p>
-<p>Tilstanden oppsummerer altså all relevant historie.</p>
+<p>Tilstanden oppsummerer altså all relevant historie. Slike prosesser kalles også <b>memoryless</b>. Kort sagt, som notatene sier det: <i>fremtiden er uavhengig av fortiden gitt nåtiden.</i></p>
+</div>
+
+<div class="reflect" data-id="14-r-rl-loop-markov">
+  <p class="q">Notatene spør om RL-løkka i figur 14.1: «Ser du hvilken antakelse dette svarer til?» Hva er svaret, og hvorfor?</p>
+  <div class="answer">Agenten velger handling bare ut fra $s_t$. Den får ingen informasjon om tidligere tilstander eller handlinger. Det betyr at vi antar at framtiden til miljøet bare avhenger av nåværende tilstand og valgt handling, ikke av hvordan agenten og miljøet havnet der. Det er Markov-egenskapen. Hvis tilstanden ikke inneholder all relevant informasjon (som ett bilde av en ball i bevegelse), holder ikke antakelsen.</div>
 </div>
 
 <div class="callout why"><span class="label">Hvorfor er det viktig?</span>
@@ -265,6 +291,15 @@
 <p>$Q(s,a)$ er GPS-en som viser forventet reisetid for hvert veivalg i krysset. Policyen er sjåføren som svinger. $V(s)$ er reisetiden fra krysset hvis du kjører smartest mulig.</p>
 </div>
 
+<div class="callout why"><span class="label">Verdi og reward: subtilt, men viktig</span>
+<p>Notatene skriver Q-funksjonen som $Q: \mathcal{S} \times \mathcal{A} \to \mathbb{R}$. Den gir ett tall for hvert tilstand–handling-par. Målet er en <b>optimal policy</b>, en policy som maksimerer den totale (kumulative) belønningen. Notatene skriver policyen som $\pi(A_t \mid S_t)$.</p>
+<ul>
+<li><b>Reward</b> er tilbakemeldingen agenten får fra miljøet på en handling i en tilstand. Den er <i>gitt</i>.</li>
+<li><b>Verdi</b> (utility/value, her $Q$) er den <i>forventede</i> verdien av å gjøre $A_t$ i $S_t$, inkludert framtidig verdi, under en gitt policy. Den <i>må læres</i>.</li>
+</ul>
+<p>Kort sagt: <i>vi får reward fra environmentet, mens Q må læres.</i> Agenten trenger verdifunksjonen for å se de langsiktige konsekvensene av en handling, i stedet for bare den umiddelbare belønningen.</p>
+</div>
+
 <div class="callout exam"><span class="label">Eksamen 2024 oppg. 31 og 2025 del 8 spm. 2</span>
 <p>Begge spurte hva en policy er. 2024: «En strategi som bestemmer hvilken handling agenten skal ta i en gitt tilstand.» 2025: «En tabell eller funksjon som spesifiserer hvilken handling som skal tas i hver tilstand.» Distraktorene beskrev Q-funksjonen, målet (returen), V-funksjonen og oppdateringsregelen.</p>
 </div>
@@ -302,7 +337,7 @@
 <p>Les den slik: <i>verdien av å gjøre $a$ i $s$ er belønningen jeg får nå, pluss $\gamma$ ganger verdien av det beste jeg kan gjøre fra der jeg havner.</i> Den definerer verdien rekursivt, ved hjelp av seg selv. Det er nøkkelen: vi trenger ikke vente til episoden er ferdig for å lære. Vi kan bruke vårt eget estimat av neste tilstand som en midlertidig fasit.</p>
 
 <div class="callout hook"><span class="label">Knagg: dominobrikkene baklengs</span>
-<p>Bellman sier at verdien «lekker» bakover ett steg av gangen. Ruta rett ved målet lærer først at den er verdifull. Så lærer ruta før den det, fordi den kan gå til en verdifull rute. Slik sprer verdien seg bakover fra målet, som ringer i vann. Det ser du tydelig i gridworlden i 14.6.</p>
+<p>Bellman sier at verdien «lekker» bakover ett steg av gangen. Ruta rett ved målet lærer først at den er verdifull. Så lærer ruta før den det, fordi den kan gå til en verdifull rute. Slik sprer verdien seg bakover fra målet, som ringer i vann. Det ser du tydelig i gridworlden i 14.7.</p>
 </div>
 
 <!-- ============================================================ -->
@@ -332,6 +367,16 @@
 <li><b>Diskontering</b> $\gamma \in [0,1]$: hvor mye estimatet av framtiden teller i målet.</li>
 <li><b>Terminal tilstand:</b> hvis $s'$ er slutten av episoden, finnes ingen framtid, og målet er bare $r$.</li>
 </ul>
+
+<div class="callout def"><span class="label">Q-learning i RL-løkka (notatene)</span>
+<p>Q-verdiene beregnes <b>iterativt</b>, og prosessen passer inn i RL-løkka slik:</p>
+<ol>
+<li>$Q$ initialiseres. Med en tabell settes Q-verdiene som oftest til 0. Med et nevralt nettverk har vi tilfeldige vekter i starten, så Q-verdiene er tilfeldige.</li>
+<li>For hvert steg $t$ har miljøet en tilstand $S_t$. Agenten velger en handling $A_t$, observerer belønningen $R_{t+1}$ og får en ny tilstand $S_{t+1}$.</li>
+<li>$Q$ oppdateres ut fra disse verdiene, og punkt 2–3 gjentas til RL-løkka stopper.</li>
+</ol>
+<p>Q-learning går altså ut på å <i>oppdatere Q-verdier gjennom erfaring</i>.</p>
+</div>
 
 <figure class="fig-card">
 <svg class="diagram" viewBox="0 0 600 210" role="img" aria-label="Backup-diagram for Q-learning">
@@ -381,7 +426,12 @@
 </div>
 
 <h3>Samme regel, to skrivemåter</h3>
-<p>Eksamen 2024 skrev regelen på en annen form. Gang ut parentesen i vår form:</p>
+<p>Forelesningsnotatene (likning 115) og eksamen 2024 skriver regelen på en annen form, og kaller den Bellman-likningen:</p>
+<div class="eq">
+  <p class="eq-note">Likning 117 i notatene</p>
+  $$Q^{new}(S_t,A_t) \leftarrow (1-\alpha)\cdot Q(S_t,A_t) + \alpha\cdot\Big(R_{t+1} + \gamma \max_{A} Q(S_{t+1},A)\Big)$$
+</div>
+<p>Det er samme regel. Gang ut parentesen i vår form:</p>
 <div class="eq">$$Q + \alpha(\text{mål} - Q) = (1-\alpha)\,Q + \alpha\cdot\text{mål} = (1-\alpha)\,Q(s_t,a_t) + \alpha\big(r_{t+1} + \gamma \max_{a} Q(s_{t+1}, a)\big)$$</div>
 <p>Den nye verdien er et <b>vektet gjennomsnitt</b> av gammel verdi og TD-mål. Det gjør rollene til $\alpha$ og $\gamma$ lette å se:</p>
 
@@ -397,7 +447,7 @@
 </div>
 
 <div class="callout warn"><span class="label">Navneforvirring</span>
-<p>Strengt tatt er regelen over <i>Q-learning-oppdateringen</i>, og Bellman-likningen er likheten $Q^* = \mathbb{E}[r + \gamma\max Q^*]$ som oppdateringen prøver å oppfylle. Eksamen 2024 kalte oppdateringen «Bellman-likningen». Ikke la deg forvirre: kjenn igjen formen og spør deg hva parameteren gjør.</p>
+<p>Strengt tatt er regelen over <i>Q-learning-oppdateringen</i>, og Bellman-likningen er likheten $Q^* = \mathbb{E}[r + \gamma\max Q^*]$ som oppdateringen prøver å oppfylle. Notatene og eksamen 2024 kaller oppdateringen «Bellman-likningen». Ikke la deg forvirre: kjenn igjen formen og spør deg hva parameteren gjør.</p>
 </div>
 
 <div class="quiz" data-id="14-gamma-high">
@@ -436,18 +486,126 @@
 <pre><code><span class="c"># Q-learning med tabell (f.eks. FrozenLake: 16 tilstander, 4 handlinger)</span>
 Q = np.zeros((n_states, n_actions))
 <span class="k">for</span> episode <span class="k">in</span> range(n_episodes):
-    s = env.reset()
-    done = False
-    <span class="k">while</span> <span class="k">not</span> done:
-        a = epsilon_greedy(Q, s, eps)              <span class="c"># 14.6</span>
-        s2, r, done = env.step(a)
+    s, info = env.reset()                          <span class="c"># Gym-API-et, se 14.6</span>
+    done = truncated = False
+    <span class="k">while</span> <span class="k">not</span> (done <span class="k">or</span> truncated):
+        a = epsilon_greedy(Q, s, eps)              <span class="c"># 14.7</span>
+        s2, r, done, truncated, info = env.step(a)
         target = r <span class="k">if</span> done <span class="k">else</span> r + gamma * np.max(Q[s2])
         Q[s, a] += alpha * (target - Q[s, a])      <span class="c"># TD-oppdatering</span>
         s = s2
     eps = max(eps_min, eps * eps_decay)            <span class="c"># ε-decay</span></code></pre>
 
 <!-- ============================================================ -->
-<h2 id="utforskning"><span class="sec">14.6</span>Utforskning vs. utnyttelse</h2>
+<h2 id="miljo"><span class="sec">14.6</span>Environments og agenter i kode</h2>
+
+<p>Før agenten kan lære Q-verdier, trenger vi et miljø den kan lære i. Det går fint å lage egne miljøer. Alt et miljø må kunne er å <b>ha en tilstand, ta imot en handling, gå over til en ny tilstand og returnere en belønning</b>. Likevel er det vanligst, særlig når man lærer RL for første gang, å bruke ferdige treningsmiljøer.</p>
+
+<h3>Gym-API-et</h3>
+<p>Blant de mest brukte er OpenAI sitt <b>Gym</b> (videreført som biblioteket <code>gymnasium</code>). Det er vanlig å starte med klassiske kontrollproblemer som <code>CartPole</code>, <code>MountainCar</code> og <code>Pendulum</code>. Gym-API-et har også blitt en standard for hvordan RL-miljøer ser ut. Du trenger i utgangspunktet bare to funksjoner:</p>
+
+<div class="callout def"><span class="label">De to kommandoene i RL-løkka</span>
+<p><code>env.reset() → (initial_state, info)</code><br>Setter miljøet tilbake til starttilstanden og returnerer den, sammen med eventuell ekstra info.</p>
+<p><code>env.step(action) → (state, reward, done, info)</code><br>Tar én handling som argument. Miljøet havner i en ny tilstand, som returneres sammen med belønningen for handlingen, en boolsk <code>done</code> som sier om miljøet har terminert, og eventuell ekstra info.</p>
+</div>
+
+<div class="callout warn"><span class="label">Fire eller fem returverdier?</span>
+<p>Notatene skriver <code>step</code> med fire returverdier (gamle Gym). Det nyere <code>gymnasium</code> returnerer fem: <code>state, reward, terminated, truncated, info</code>. <code>terminated</code> (kalt <code>done</code> i notatene) betyr at episoden er over fordi miljøet nådde en slutt-tilstand, for eksempel mål eller hull. <code>truncated</code> betyr at episoden ble avbrutt utenfra, for eksempel fordi den nådde maks antall steg. FrozenLake-koden i notatene (14.9) bruker femtuppelet.</p>
+</div>
+
+<p>Med disse to kan vi kode RL-løkka. Først settes miljøet i starttilstanden. Deretter lager vi enten en <code>for</code>-løkke over maks antall steg som avbrytes når <code>done == True</code>, eller en <code>while</code>-løkke som går til <code>done == True</code>. I begge tilfeller samhandler agenten med miljøet: den sender inn handlinger, mottar ny tilstand og belønning, og velger nye handlinger.</p>
+
+<h3>Eksempel fra notatene: tre-på-rad som environment</h3>
+<p>Starttilstanden er et tomt brett. Første spiller plasserer en <b>X</b> (en handling), og miljøet går over til en ny tilstand med én rute opptatt. Så plasserer den andre spilleren en <b>O</b>, og slik fortsetter det til en spiller har tre på rad (vannrett, loddrett eller diagonalt) eller brettet er fullt. I begge tilfeller settes <code>done=True</code>. Vinneren får <code>reward&gt;0</code>. Blir det uavgjort, får begge <code>reward=0</code>.</p>
+
+<p>Tilstanden kan representeres som en streng der hvert tegn er én rute: <code>'012345678'</code> er et tomt brett, og et tall betyr at ruta er ledig. Setter X et kryss i midten, blir tilstanden <code>'0123X5678'</code>. Et miljø for dette trenger minst disse funksjonene:</p>
+
+<table class="cmp">
+<tr><th>Funksjon</th><th>Hva den gjør</th></tr>
+<tr><td><code>__init__</code></td><td>Lager starttilstanden (tomt brett, <code>'012345678'</code>), setter <code>winner=None</code> og <code>player_turn='X'</code>. Kan også lage tellere for hvor ofte hver spiller har vunnet.</td></tr>
+<tr><td><code>reset</code></td><td>Setter miljøet tilbake til starttilstanden og nullstiller variablene. Returnerer starttilstanden (og eventuelt info).</td></tr>
+<tr><td><code>step</code></td><td>Tar en handling (en rute) og lager ny tilstand, sjekker om noen har vunnet, og bytter tur. Returnerer ny tilstand, reward, done og eventuelt info.</td></tr>
+<tr><td><code>check_winner</code></td><td>Leter etter vannrette, loddrette eller diagonale linjer med <code>XXX</code> eller <code>OOO</code>. Returnerer <code>True</code> hvis det finnes en vinner.</td></tr>
+<tr><td><code>render</code></td><td>Ikke nødvendig, men nyttig: tegner spillets tilstand, så du kan se på miljøet under trening eller når den ferdigtrente agenten spiller.</td></tr>
+</table>
+
+<h3>Agenten: en Q-tabell som dictionary</h3>
+<p>Agenten er en klasse (i notatene <code>Player</code>), og hver spiller er et objekt. En agent som skal lære tre-på-rad trenger minst</p>
+<ul>
+<li><code>tag</code>: <code>'X'</code> eller <code>'O'</code>,</li>
+<li>en <b>Q-tabell</b>: en (nøstet) dictionary med tilstander som nøkler. Hver tilstand peker på en ny dictionary med handlinger som nøkler og Q-verdier som verdier, altså én Q-verdi per tilstand–handling-par,</li>
+<li>parametrene $\alpha$, $\gamma$ og $\varepsilon$ (i koden <code>exploration_factor</code>).</li>
+</ul>
+<p>Med en dictionary trenger vi ikke kjenne alle tilstandene på forhånd. En ny tilstand legges inn med Q-verdi 0 første gang agenten ser den. I starten av læringen spiller agenten derfor som en «komplett idiot», som notatene sier, og gjør nesten bare tilfeldige trekk.</p>
+
+<pre><code><span class="k">def</span> choose_action(self, state):
+    available = [i <span class="k">for</span> i, c <span class="k">in</span> enumerate(state) <span class="k">if</span> c.isnumeric()]   <span class="c"># 1) ledige ruter</span>
+    <span class="k">if</span> len(available) == 0:
+        <span class="k">return</span> None
+    <span class="k">if</span> len(available) == 1:
+        <span class="k">return</span> available[0]
+    <span class="k">if</span> state <span class="k">not in</span> self.Q:                                     <span class="c"># 2) ny tilstand: Q = 0</span>
+        self.Q[state] = {a: 0.0 <span class="k">for</span> a <span class="k">in</span> available}
+    <span class="k">if</span> random.random() &lt; self.exploration_factor:                <span class="c"># 3) utforsk</span>
+        <span class="k">return</span> random.choice(available)
+    <span class="k">return</span> max(self.Q[state], key=self.Q[state].get)            <span class="c"># 4) utnytt: argmax Q</span>
+
+<span class="k">def</span> learn(self, state, action, reward, new_state, done):
+    q_old = self.Q[state][action]
+    v_next = 0 <span class="k">if</span> done <span class="k">else</span> max(self.Q.get(new_state, {0: 0.0}).values())
+    td_target = reward + self.gamma * v_next                        <span class="c"># likning 115</span>
+    self.Q[state][action] = q_old + self.alpha * (td_target - q_old)</code></pre>
+<p class="small muted">Forenklet versjon av koden i notatene (s. 59–60). Hele koden og ferdigtrente agenter ligger på <a href="https://gitlab.com/Strumke/ntnu-lectures/-/tree/main/Tictactoe%20Q-learning">gitlab.com/Strumke/ntnu-lectures</a>.</p>
+
+<p>Legg merke til at læringen skjer etter <i>hvert trekk</i>, og at <code>learn</code> trenger fire ting: tilstanden agenten var i, handlingen den valgte, tilstanden den havnet i, og belønningen. I tre-på-rad er <code>reward=0</code> helt til spillet er over. Når spillet er over, finnes det ingen framtid, så framtidig verdi settes til 0. Det gjelder generelt, ikke bare for tre-på-rad.</p>
+
+<h3>Å lese av Q-verdiene</h3>
+<p>Det er nyttig å se på Q-verdiene for å sjekke at de gir mening. Notatene laster inn en agent som har lært å spille optimalt som X, og leser av Q-verdiene for det tomme brettet:</p>
+
+<pre><code>In [4]: agent_x.values[<span class="s">'012345678'</span>]
+Out[4]: {0: 1.933, 1: 1.549, 2: 1.561, 3: 2.140, 4: 2.476,
+         5: 0.656, 6: 1.024, 7: 1.394, 8: 1.667}</code></pre>
+
+<div class="quiz" data-id="14-ttt-first">
+  <p class="q">Hvor vil agenten plassere den første X-en på det tomme brettet (rutene er nummerert 0–8 radvis fra øverst til venstre)?</p>
+  <ul>
+    <li>I rute 0, øverste venstre hjørne.</li>
+    <li data-correct>I rute 4, midten.</li>
+    <li>I rute 5, til høyre i midtraden.</li>
+    <li>Det kan vi ikke vite fra Q-verdiene.</li>
+  </ul>
+  <div class="explain">En greedy agent velger $\arg\max_a Q(s,a)$. Den høyeste verdien er $Q = 2.476$ for rute 4, midten, som svarer til optimalt spill. Rute 5 har den <i>laveste</i> verdien. Q-verdiene gir oss nettopp policyen, så vi kan lese den av direkte (unntatt når agenten tar et tilfeldig trekk med sannsynlighet $\varepsilon$).</div>
+</div>
+
+<p>Tallene er lettere å lese som et varmekart på brettet. Under følger vi et spill der agenten (X) spiller mot oss (O). Ruter som er opptatt, viser markøren. De ledige rutene viser agentens Q-verdi, og den beste er markert med ramme.</p>
+
+<figure class="fig-card">
+<div class="qboards">
+  <div class="qboard" data-state="012345678" data-q="1.93,1.55,1.56,2.14,2.48,0.66,1.02,1.39,1.67"><b>(a)</b> tomt brett</div>
+  <div class="qboard" data-state="0123XO678" data-q="0,2.93,0,0,0,0,1.30,8.10,3.19"><b>(b)</b> etter X i midten, O til høyre</div>
+  <div class="qboard" data-state="0O23XO6X8" data-q="4.34,0,0.81,0,0,0,9.00,0,0.14"><b>(c)</b> O har blokkert midtkolonnen</div>
+  <div class="qboard" data-state="0OO3XOXX8" data-q="-5,0,0,-5,0,0,0,0,10"><b>(d)</b> O har blokkert diagonalen</div>
+</div>
+<figcaption><b>Figur 14.3</b> Q-verdier fra en agent med <code>tag='X'</code> som har lært å spille optimalt (gjengitt fra figur 30 i notatene). (a) Agenten foretrekker midten. (b) Den vil sette neste kryss nederst i midten for å få tre på rad i midtkolonnen, så O må blokkere øverst i midten. (c) Den vil sette kryss nederst til venstre. Det truer diagonalen, så O må blokkere øverst til høyre. (d) Nå kan agenten få tre på rad nederst ved å sette kryss nederst til høyre ($Q = 10$), og vinner.</figcaption>
+</figure>
+
+<div class="callout why"><span class="label">Hva betyr Q-verdiene?</span>
+<p>Agenten får ingen reward før spillet er over. Likevel kan vi se på Q-verdiene hva agenten <i>forventer</i>. Mer presist er Q-verdiene <b>forventet kumulativ framtidig reward av å gjøre handling $A$ i tilstand $S$ og følge policyen deretter</b>. I (d) gir rute 8 seier straks ($Q = 10$), mens det i (a) er mange trekk igjen, så verdiene er lavere og mer like. Jo nærmere slutten, jo mer sikre og mer ytterliggående blir verdiene.</p>
+</div>
+
+<div class="quiz" data-id="14-ttt-neg">
+  <p class="q">I figur 14.3 (d) har rute 0 og rute 3 Q-verdi $-5$. Hvorfor er verdiene negative?</p>
+  <ul>
+    <li>Fordi rutene er opptatt.</li>
+    <li>Fordi $\varepsilon$ er for høy.</li>
+    <li data-correct>Hvis X ikke tar rute 8, kan O fullføre høyre kolonne (2–5–8) og vinne. Agenten har lært at disse trekkene fører til tap.</li>
+    <li>Fordi $\gamma$ er negativ.</li>
+  </ul>
+  <div class="explain">O har allerede rute 2 og 5. Rute 8 er både X sin vinnerrute (6–7–8) og O sin. Spiller X et annet sted, tar O rute 8 og vinner, og den negative belønningen har forplantet seg tilbake til Q-verdiene for disse trekkene. Opptatte ruter har ingen Q-verdi i det hele tatt, og $\gamma$ ligger alltid i $[0, 1]$.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="utforskning"><span class="sec">14.7</span>Utforskning vs. utnyttelse</h2>
 
 <p>Agenten står overfor et dilemma i hvert steg. Skal den <b>utnytte</b> (exploit) det den vet, altså ta handlingen med høyest Q-verdi? Eller skal den <b>utforske</b> (explore) og prøve noe annet, i tilfelle det finnes noe bedre den ikke har oppdaget?</p>
 
@@ -469,6 +627,33 @@ Q = np.zeros((n_states, n_actions))
 
 <div class="callout why"><span class="label">Hvorfor decay?</span>
 <p>Tidlig er Q-tabellen nesten tom, og det er lite å utnytte. Da lønner det seg å utforske. Senere er Q-verdiene gode, og tilfeldige handlinger koster bare belønning (agenten kan for eksempel gå i en felle). Q-learning trenger likevel at alle par besøkes mange nok ganger for å konvergere, så $\varepsilon$ bør ikke bli helt 0 under trening.</p>
+</div>
+
+<div class="callout def"><span class="label">Exploration–exploitation tradeoff (notatene)</span>
+<p>Høy $\varepsilon$ betyr at agenten utforsker miljøet og kanskje finner kombinasjoner av tilstander og handlinger som gir store belønninger. Lav $\varepsilon$ betyr at agenten utnytter det den vet og unngår handlinger som fører til store tap, men den går kanskje glipp av belønninger den ikke vet om, fordi de tilsvarende parene aldri er besøkt. Det ene går alltid på bekostning av det andre, og det finnes <b>ingen universell løsning</b> på avveiningen. Exploration handler om handlinger med <i>ukjent</i> utfall, exploitation om handlinger med <i>kjent</i> utfall. For å finne den optimale balansen måtte vi visst utfallet av handlingene med ukjent utfall, og det er en selvmotsigelse.</p>
+<p>En mye brukt og ofte god strategi er <b>epsilon greedy med epsilon decay</b>. Når $\varepsilon$ bør bli lav, avhenger av størrelsen på tilstand–handling-rommet, altså av miljøet og problemet.</p>
+</div>
+
+<div class="callout warn"><span class="label">Ikke helt 0, selv etter trening</span>
+<p>Notatene anbefaler at agenten slutter bare <i>nesten</i> å ta tilfeldige handlinger. Det fungerer ofte bedre å beholde en liten $\varepsilon$ enn å sette den til nøyaktig 0, også etter at treningen er ferdig. Grunnen er at selv en godt trent agent kan kjøre seg fast, for eksempel i en løkke der den går fram og tilbake, og trenger et tilfeldig dytt for å komme seg videre. Når du bare vil <i>vise</i> eller evaluere den lærte policyen (som i prosjekt 4), er $\varepsilon = 0$ likevel vanlig, fordi du da vil se nøyaktig hva policyen gjør.</p>
+</div>
+
+<pre><code><span class="k">def</span> update_exp_factor(self):                  <span class="c"># kalles etter hver episode</span>
+    <span class="k">if</span> self.exp_factor &gt; self.exp_min:
+        self.exp_factor *= self.epsilon_decay</code></pre>
+
+<div class="callout hook"><span class="label">Tommelfingerregel fra notatene</span>
+<p>Med <code>epsilon_decay</code> $= d$ er $\varepsilon$ etter $n$ episoder $\varepsilon_0 \cdot d^n$, helt til den når <code>exp_min</code>. Har agenten <b>ikke lært noe</b> i perioden der <code>exp_factor &gt; exp_min</code>, kommer den sannsynligvis ikke til å lære noe vettugt om den trener videre. Da er det ofte lurere å endre andre deler av koden, for eksempel tapsfunksjonen, enn å bare trene lenger.</p>
+</div>
+
+<div class="calc" data-id="14-eps-decay-n" data-answer="0.368" data-tol="0.002">
+  <p class="q">$\varepsilon$ starter på 1.0 og ganges med <code>epsilon_decay</code> $= 0.999$ etter hver episode. Hva er $\varepsilon$ etter 1000 episoder (tre desimaler)?</p>
+  <div class="solution">$\varepsilon_{1000} = 1.0\cdot 0.999^{1000} = e^{1000\ln 0.999} \approx e^{-1.0005} \approx 0.368$. Etter 1000 episoder tar agenten fortsatt en tilfeldig handling i over en tredjedel av stegene. Med <code>epsilon_min=0.01</code> tar det $\ln 0.01/\ln 0.999 \approx 4600$ episoder å nå minsteverdien. Det er derfor verdt å plotte $\varepsilon$ over tid før du starter en lang trening.</div>
+</div>
+
+<div class="reflect" data-id="14-r-eps-notater">
+  <p class="q">Notatene spør: Hva representerer henholdsvis en høy og en lav verdi av $\varepsilon$? Når i løpet av treningen er det lurt å velge tilfeldige handlinger? Bør agenten slutte å gjøre tilfeldige handlinger på et tidspunkt?</p>
+  <div class="answer">Høy $\varepsilon$ betyr mye utforskning (mange tilfeldige handlinger), og lav $\varepsilon$ betyr mye utnyttelse (mest greedy valg ut fra Q). Tilfeldige handlinger er mest nyttige tidlig i treningen, når Q-verdiene er nesten tomme og agenten har lite å utnytte. Senere har agenten lært mange av Q-verdiene, og tilfeldige handlinger koster mest belønning. Agenten bør likevel bare <i>nesten</i> slutte: en liten $\varepsilon$ sørger for at den fortsatt besøker sjeldne par og ikke kjører seg fast.</div>
 </div>
 
 <div class="widget">
@@ -538,9 +723,9 @@ Q = np.zeros((n_states, n_actions))
 </div>
 
 <!-- ============================================================ -->
-<h2 id="loss-reward"><span class="sec">14.7</span>Loss og reward er ikke det samme</h2>
+<h2 id="loss-reward"><span class="sec">14.8</span>Loss og reward er ikke det samme</h2>
 
-<p>Når Q-funksjonen læres med gradient descent (som i DQN, 14.8), har vi et tap (loss):</p>
+<p>Når Q-funksjonen læres med gradient descent (som i DQN, 14.9), har vi et tap (loss):</p>
 <div class="eq">$$L(\theta) = \Big(\underbrace{r + \gamma \max_{a'} Q(s',a';\theta^-)}_{\text{mål}} - Q(s,a;\theta)\Big)^2$$</div>
 <p>Tapet er den kvadrerte TD-feilen. Det måler hvor <b>konsistente</b> Q-estimatene er med Bellman-målet. Det måler ikke hvor <b>bra</b> agenten er. Belønningen (reward) kommer fra miljøet og måler hvor godt agenten faktisk gjør oppgaven.</p>
 
@@ -576,9 +761,15 @@ Q = np.zeros((n_states, n_actions))
 </div>
 
 <!-- ============================================================ -->
-<h2 id="dqn"><span class="sec">14.8</span>Deep Q-Networks (DQN)</h2>
+<h2 id="dqn"><span class="sec">14.9</span>Deep Q-Networks (DQN)</h2>
 
 <p>Q-tabellen fungerer når det er få tilstander. FrozenLake har 16 tilstander og 4 handlinger, altså 64 tall. Men hva med et Atari-spill der tilstanden er et bilde på $84\times 84$ piksler? Eller CartPole, der tilstanden er fire kontinuerlige tall (posisjon, fart, vinkel og vinkelfart)? Da blir tabellen astronomisk stor eller uendelig, og de fleste tilstander blir aldri besøkt.</p>
+
+<p>I stedet for å fylle (oppdaterte) Q-verdier inn i en dictionary, kan vi bruke et nevralt nettverk til å <b>estimere</b> Q-verdiene, også for tilstander agenten aldri har vært i. RL med dype nevrale nettverk kalles <b>deep reinforcement learning</b> (DRL). Når vi lager et dypt nettverk som estimerer Q-verdier, kalles det et <b>deep Q-network</b> (DQN).</p>
+
+<div class="callout exam"><span class="label">Hva kreves på eksamen?</span>
+<p>Notatene advarer: DRL krever mye fikling for å få til og mye erfaring for å mestre. Dere trenger ikke gjøre DRL i prosjektene, og <b>på eksamen kommer det bare konseptuelle spørsmål om DRL</b>. Kodeeksemplene under (fra notatene) er derfor til for å forstå ideene: hvorfor nettverket gir ustabil trening, og hva target network, replay buffer og læringssteget gjør.</p>
+</div>
 
 <div class="chain">
   <div><b>Problem</b>enormt eller kontinuerlig tilstandsrom, tabellen blir umulig</div><div class="arrow">→</div>
@@ -612,7 +803,7 @@ Q = np.zeros((n_states, n_actions))
   <text x="590" y="169" class="sm" text-anchor="middle">Q(s,a₃)</text>
   <text x="440" y="222" text-anchor="middle" class="sm">delte vekter θ: én oppdatering endrer mange Q-verdier</text>
 </svg>
-<figcaption><b>Figur 14.3</b> Fra tabell til nettverk. Nettverket tar tilstanden inn og gir ut én Q-verdi per handling i ett forward pass. Alle Q-verdier deler de samme vektene $\theta$.</figcaption>
+<figcaption><b>Figur 14.4</b> Fra tabell til nettverk. Nettverket tar tilstanden inn og gir ut én Q-verdi per handling i ett forward pass. Alle Q-verdier deler de samme vektene $\theta$.</figcaption>
 </figure>
 
 <h3>Vektdeling: velsignelse og forbannelse</h3>
@@ -626,7 +817,15 @@ Q = np.zeros((n_states, n_actions))
 <p>«Hvilket av følgende beskriver korrekt en utfordring som oppstår når man bruker et nevralt nettverk i stedet for en tabell?» Fasit: <b>å oppdatere én Q-verdi i nettverket endrer også mange andre Q-verdier på grunn av vektdeling.</b> Distraktorer: nettverket fjerner behovet for $\gamma$ (nei, målet bruker fortsatt $\gamma$), tvinger policyen til å bli deterministisk (nei), og kan ikke representere mer enn én handling om gangen (nei, DQN gir ut alle Q-verdiene samtidig).</p>
 </div>
 
-<p>DeepMind løste ustabiliteten med to triks i DQN-artikkelen fra 2015, der én og samme agent lærte å spille 49 Atari-spill fra rå piksler.</p>
+<div class="callout why"><span class="label">Hvorfor går det dårlig med et naivt Q-nettverk?</span>
+<p>Notatene forklarer det slik. Med Q-tabellen hadde vi et eksakt uttrykk for å oppdatere enkeltverdier av $Q$. DQN er en <b>funksjonsapproksimator</b> som skal estimere riktig Q-verdi for alle handlinger i alle tilstander. Vi kan ikke endre én prediksjon fra et nevralt nettverk (slik vi endret én celle i tabellen), men må oppdatere alle parametrene samtidig. Da endrer vi alle Q-verdiene, også dem for handlingene i <i>neste</i> tilstand, i stedet for at de står stille som i tabellen. Nettverket ender opp med å trene mot et mål som beveger seg, fordi den oppdaterte Q-verdien inneholder Q-verdier for framtidige tilstander. Parallellen i veiledet læring ville vært å endre $y$-verdiene for de samme inputene underveis i treningen. Den vanligste konsekvensen er <b>ustabil trening</b>.</p>
+</div>
+
+<div class="callout def"><span class="label">Catastrophic forgetting</span>
+<p>Et kjent fenomen i RL: agenten glemmer plutselig det den har lært. Nettverket lærer seg først å løse oppgaven og får høy belønning en periode. Så kollapser belønningen, og nettverket gjør dårlige prediksjoner igjen, selv om både læringsraten og $\varepsilon$ er lave. Syklusen kan fortsette uansett hvor lenge nettverket trener. Intuitivt lærer nettverket å løse problemet på nytt i stedet for å beholde det det lærte tidligere: det glemmer i takt med at det lærer. Årsaken er som regel <b>overtilpasning til nylige hendelser</b>, mens lærdom fra langt tilbake (kanskje da agenten gjorde det riktig) forsvinner i nye parameteroppdateringer.</p>
+</div>
+
+<p>Problemene kommer altså av at det samme nettverket representerer policyen og oppdateres underveis, og at nettverket overtilpasser seg nylige hendelser. DeepMind løste ustabiliteten med to triks i DQN-artikkelen fra 2015, der én og samme agent lærte å spille 49 Atari-spill fra rå piksler.</p>
 
 <h3>Triks 1: Replay buffer (experience replay)</h3>
 <p>Påfølgende overganger er sterkt korrelerte. Steg 101 ligner steg 100. Trener vi på dem i rekkefølge, er mini-batchene langt fra i.i.d., og nettet overtilpasser seg det agenten gjør akkurat nå (og glemmer resten). Løsningen er å lagre overgangene $(s, a, r, s', \text{done})$ i en stor buffer (f.eks. de siste 100 000) og trekke <b>tilfeldige mini-batcher</b> fra den.</p>
@@ -638,6 +837,7 @@ Q = np.zeros((n_states, n_actions))
 
 <h3>Triks 2: Target network</h3>
 <p>Målet $r + \gamma\max_{a'} Q(s',a';\theta)$ avhenger av de samme vektene vi oppdaterer. Hver gang vi skyver $Q(s,a)$ mot målet, flytter målet seg. Det er som å jage sin egen skygge (<b>moving target</b>-problemet), og det kan gi svingninger eller divergens. Løsningen er en kopi av nettet med frosne vekter $\theta^-$ som brukes bare til å beregne målet. Kopien oppdateres sjelden, for eksempel hvert 1000. steg ($\theta^- \leftarrow \theta$).</p>
+<p>Notatene beskriver det slik: vi bruker fortsatt det første Q-nettverket til å <b>velge handlinger</b>, men lar target-nettverket <b>predikere $\max_A Q$</b> i Bellman-likningen under treningen av Q-nettverket. Intuitivt er target-nettverket en mer konservativ versjon av Q-nettverket. Hvor ofte det oppdateres (ved å kopiere vektene fra Q-nettverket), styres av en frekvensparameter, i notatenes eksempel <code>target_update_frequency=10</code> steg.</p>
 
 <figure class="fig-card">
 <svg class="diagram" viewBox="0 0 620 250" role="img" aria-label="DQN med replay buffer og target network">
@@ -659,7 +859,7 @@ Q = np.zeros((n_states, n_actions))
   <text x="440" y="235" text-anchor="middle" class="sm">kopier θ → θ⁻ hvert C-te steg</text>
   <path class="ln" d="M200,180 C80,180 80,120 80,88" marker-end="url(#ah14c)"/><text x="120" y="160" text-anchor="middle" class="sm">ε-greedy handling</text>
 </svg>
-<figcaption><b>Figur 14.4</b> DQN: agenten handler med ε-greedy, lagrer overgangene i bufferen, trener online-nettet på tilfeldige mini-batcher, og beregner målet med et sjeldent oppdatert target-nett.</figcaption>
+<figcaption><b>Figur 14.5</b> DQN: agenten handler med ε-greedy, lagrer overgangene i bufferen, trener online-nettet på tilfeldige mini-batcher, og beregner målet med et sjeldent oppdatert target-nett.</figcaption>
 </figure>
 
 <div class="eq">
@@ -691,6 +891,193 @@ batch = random.sample(buffer, k=32)       <span class="c"># 32 tilfeldige, uten 
 
 <div class="callout warn"><span class="label">Vanlig feil i koden</span>
 <p><code>buffer.sort()</code> sorterer, den trekker ikke. <code>np.take(buffer, 32)</code> henter elementet med indeks 32, ikke 32 tilfeldige. <code>random.choice(buffer)</code> gir bare <i>ett</i> element. <code>random.sample</code> trekker $k$ ulike elementer tilfeldig, og det er det vi vil.</p>
+</div>
+
+<h3 id="frozenlake">Eksempel fra notatene: DQN på FrozenLake</h3>
+<p>Notatene bygger en DQN steg for steg i PyTorch (koden ligger på <a href="https://gitlab.com/Strumke/ntnu-lectures/-/tree/main/Frozenlake%20DQN">gitlab.com/Strumke/ntnu-lectures</a>). Miljøet er <code>FrozenLake</code> fra Gymnasium: agenten skal gå over en frossen innsjø på et $4\times 4$-brett fra øverste venstre hjørne til en julegave nederst til høyre, uten å falle i et hull i isen.</p>
+
+<pre><code><span class="k">import</span> gymnasium <span class="k">as</span> gym
+env = gym.make(<span class="s">'FrozenLake-v1'</span>, map_name=<span class="s">'4x4'</span>, is_slippery=False)
+<span class="c"># legg til render_mode='human' for visualisering</span>
+print(env.action_space)        <span class="c"># Discrete(4)</span>
+print(env.observation_space)   <span class="c"># Discrete(16)</span></code></pre>
+
+<ul>
+<li><b>Handlingsrom:</b> diskret med 4 handlinger: 0 (venstre), 1 (ned), 2 (høyre) og 3 (opp).</li>
+<li><b>Tilstandsrom:</b> diskret med 16 verdier, én for hver rute agenten kan stå på.</li>
+<li><b>Slutt:</b> <code>done=True</code> når agenten faller i et hull, når den når gaven, eller når den har gått mer enn 100 steg.</li>
+<li><b>Belønning:</b> <code>reward=1</code> hvis agenten når gaven, ellers <code>reward=0</code>. Belønningen er altså svært forsinket.</li>
+</ul>
+
+<h4>Input og output: one-hot-koding av tilstanden</h4>
+<p>Som alltid med nevrale nettverk må vi først finne riktig dimensjon på input- og output-laget.</p>
+
+<div class="quiz" data-id="14-fl-dims">
+  <p class="q">Notatene spør: Hvor mange noder bør input- og output-laget i Q-nettverket for FrozenLake ($4\times 4$) ha?</p>
+  <ul>
+    <li>Input 1 (tilstanden som et tall fra 0 til 15), output 1 (den beste handlingen).</li>
+    <li data-correct>Input 16 (one-hot-kodet tilstand), output 4 (én Q-verdi per handling).</li>
+    <li>Input 4, output 16.</li>
+    <li>Input 16, output 1 (Q-verdien for den beste handlingen).</li>
+  </ul>
+  <div class="explain">Prediksjonene skal være én Q-verdi per handling, så output-laget har 4 noder. Agenten kan stå på 16 ruter, som miljøet representerer som tallene 0–15. I stedet for én input-node med et tall fra 0 til 15 (som ville antydet at rute 15 er «mer» enn rute 3) er det lurt å <b>one-hot-kode</b> tilstanden: en vektor med 16 plasser der bare plassen for agentens rute er 1. Én output med «beste handling» ville gjort nettet til en klassifikator, ikke en Q-funksjon, og da kunne vi ikke brukt $\max_a Q$ i Bellman-likningen.</div>
+</div>
+
+<pre><code><span class="k">def</span> preprocess_state(state, num_states):   <span class="c"># num_states = 16</span>
+    <span class="k">return</span> F.one_hot(torch.tensor(state, dtype=torch.long), num_states)
+
+<span class="k">class</span> MLP(nn.Module):
+    <span class="k">def</span> __init__(self, input, output):
+        super().__init__()
+        self._model = nn.Sequential(
+            nn.Linear(input, 16), nn.ReLU(),
+            nn.Linear(16, 32),    nn.ReLU(),
+            nn.Linear(32, 16),    nn.ReLU(),
+            nn.Linear(16, output),  <span class="c"># lineær ut: Q kan være alle tall</span>
+        )
+    <span class="k">def</span> forward(self, x):
+        <span class="k">return</span> self._model(x.float())
+
+<span class="c"># i agenten: MLP(observation_space.n, action_space.n) = MLP(16, 4)</span></code></pre>
+<p>Fordi nettverket lages i PyTorch, må input være en PyTorch-tensor (<code>torch.tensor</code>), og da er det greit å bruke PyTorch også til one-hot-kodingen. Funksjonen tar inn en tilstand i $[0, 15]$ og returnerer en tensor med 16 elementer.</p>
+
+<h4>Agenten og hyperparametrene</h4>
+<p>Agentklassen <code>DQNAgent</code> i notatene samler alle bitene: to nettverk (<code>q_network</code> og <code>target_network</code>, der target starter som en kopi via <code>load_state_dict</code>), en <code>ExperienceReplayBuffer</code>, tapsfunksjonen <code>mse_loss</code> og optimizeren Adam. Standardverdiene er</p>
+<table class="cmp">
+<tr><th>Parameter</th><th>Verdi</th><th>Rolle</th></tr>
+<tr><td><code>epsilon</code></td><td>0.999</td><td>startverdi for $\varepsilon$</td></tr>
+<tr><td><code>epsilon_min</code>, <code>epsilon_decay</code></td><td>0.01, 0.999</td><td>ε-decay, som i 14.7</td></tr>
+<tr><td><code>discount</code></td><td>0.95</td><td>$\gamma$</td></tr>
+<tr><td><code>batch_size</code></td><td>32</td><td>antall overganger per mini-batch fra bufferen</td></tr>
+<tr><td><code>target_update_frequency</code></td><td>10</td><td>kopier vektene til target-nettet hvert 10. steg</td></tr>
+<tr><td><code>learning_rate</code></td><td>0.001</td><td>læringsraten til Adam (ikke $\alpha$ i likning 115)</td></tr>
+<tr><td><code>replay_size</code></td><td>1000</td><td>hvor mange overganger bufferen husker</td></tr>
+</table>
+<p><code>select_action</code> (ε-greedy) og <code>update_epsilon</code> (ε-decay) kan gjenbrukes nesten uendret fra tabellagenten. Det eneste som er virkelig nytt, er læringsfunksjonen.</p>
+
+<h4>Læringssteget: loss bare for handlingen som ble tatt</h4>
+<p>Funksjonen som trener Q-nettverket må</p>
+<ol>
+<li>hente en mini-batch fra replay bufferen,</li>
+<li>estimere maksimal verdi for neste tilstander med <b>target-nettverket</b>,</li>
+<li>bruke $\max_A Q$ til å regne ut den oppdaterte Q-verdien (målet),</li>
+<li>finne den predikerte Q-verdien fra <b>Q-nettverket</b> for handlingene som faktisk ble valgt (også om de ble valgt ved utforskning),</li>
+<li>regne ut loss mellom predikert og oppdatert Q-verdi, og</li>
+<li>backpropagate loss, altså trene Q-nettverket.</li>
+</ol>
+
+<div class="reflect" data-id="14-r-gather">
+  <p class="q">Notatene ber deg tenke grundig gjennom det siste punktet («hent deg en kaffe, se ut vinduet»). Q-nettverket gir ut 4 Q-verdier per tilstand. Hva er utfordringen når vi skal regne ut loss, og hva er en mulig løsning?</p>
+  <div class="answer">Prediksjonen er $Q(S_t, \cdot)$, én verdi per handling. Men målet $R_{t+1} + \gamma\max_A Q(S_{t+1}, A)$ har vi bare for <b>den ene handlingen agenten faktisk utførte</b>, $A_t$. For de tre andre handlingene vet vi ingenting nytt, så vi har ikke noe mål å sammenligne med. Løsningen er å plukke ut bare den predikerte Q-verdien for den valgte handlingen og regne loss mellom den og målet. Da påvirker gradienten bare (direkte) Q-verdien for handlingen vi har ny informasjon om. I PyTorch gjøres dette med <code>torch.gather(predicted_q, 1, actions)</code>.</div>
+</div>
+
+<pre><code><span class="k">def</span> learn(self):
+    states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
+
+    <span class="k">with</span> torch.no_grad():                                   <span class="c"># målet skal ikke ha gradient</span>
+        next_target_q_value = self.target_network(next_states).max(dim=1, keepdim=True).values
+        next_target_q_value = torch.where(dones, torch.zeros_like(next_target_q_value),
+                                          next_target_q_value)  <span class="c"># ingen framtid etter slutt</span>
+        y_train = rewards + self.discount * next_target_q_value  <span class="c"># Q^new, altså målet</span>
+
+    predicted_q = self.q_network(states)                     <span class="c"># shape (batch, 4)</span>
+    y_pred = torch.gather(predicted_q, 1, actions)           <span class="c"># bare Q for valgt handling</span>
+
+    self.optimizer.zero_grad()
+    loss = self.criterion(y_train, y_pred)                   <span class="c"># mse_loss</span>
+    loss.backward()
+    self.optimizer.step()</code></pre>
+
+<ul>
+<li><code>torch.no_grad()</code>: målet regnes ut med target-nettverket og skal behandles som en fast fasit, ikke trenes.</li>
+<li><code>torch.where(dones, 0, …)</code>: er episoden over, finnes ingen framtid, og målet er bare belønningen. Samme regel som for tabellen.</li>
+<li><code>torch.gather(predicted_q, 1, actions)</code>: plukker ut én Q-verdi per rad, nemlig den for handlingen som ble tatt.</li>
+<li>Alt må forbli PyTorch-tensorer. Konverterer du for eksempel til numpy underveis, mister PyTorch oversikten over beregningene, og gradientene kan ikke regnes ut.</li>
+</ul>
+
+<h4>RL-løkka for DQN</h4>
+<pre><code>env = gym.make(<span class="s">"FrozenLake-v1"</span>, map_name=<span class="s">"4x4"</span>, is_slippery=False, render_mode=<span class="s">"rgb_array"</span>)
+agent = DQNAgent(env)
+max_steps, episodes, total_steps = 50, 3000, 0
+
+<span class="k">for</span> ep <span class="k">in</span> range(episodes):
+    state, _ = env.reset()
+    state = preprocess_state(state, env.observation_space.n)
+    done = truncated = False
+    <span class="k">for</span> step <span class="k">in</span> range(max_steps):
+        total_steps += 1
+        action = agent.select_action(state)                          <span class="c"># ε-greedy</span>
+        next_state, reward, done, truncated, _ = env.step(action)
+        next_state = preprocess_state(next_state, env.observation_space.n)
+
+        agent.replay_buffer.add(state, action, reward, next_state, done)
+        <span class="k">if</span> agent.replay_buffer.size &gt; agent.batch_size:
+            agent.learn()                                            <span class="c"># tren Q-nettet</span>
+            <span class="k">if</span> total_steps % agent.target_update_frequency == 0:
+                agent.update_target_network()                        <span class="c"># θ⁻ ← θ</span>
+
+        state = next_state
+        <span class="k">if</span> done <span class="k">or</span> truncated:
+            <span class="k">break</span>
+    agent.update_epsilon()                                           <span class="c"># ε-decay per episode</span></code></pre>
+<p>Steg for steg: maks antall steg per episode og antall episoder settes, og totalt antall steg starter på null. Den ytre løkka går over episodene. I starten av hver episode settes miljøet tilbake til starttilstanden. Den indre løkka går over steg. For hvert steg velges en handling, og overgangen (tilstand, handling, belønning, ny tilstand, done) lagres i replay bufferen. Har bufferen minst <code>batch_size</code> elementer, trenes Q-nettet. Er det tid for det, oppdateres target-nettet. Så blir den nye tilstanden den nåværende, og episoden avbrytes hvis <code>done</code> eller <code>truncated</code> er sann. Til slutt oppdateres $\varepsilon$ etter hver episode.</p>
+
+<h4>Overvåke treningen</h4>
+<p>RL blir fort uoversiktlig. Vi vet ikke hvilke tilstander agenten havner i eller hvilke handlinger den velger, så vi har ikke kontroll på treningsdataene som lages underveis. I tillegg har vi mange (hyper)parametre å stille inn. Derfor er det lurt å <b>plotte informative størrelser</b> og se dem i lys av hverandre, for eksempel $\varepsilon$, total belønning per episode og antall steg per episode. Det kan gjøres manuelt eller med verktøy som <i>Weights &amp; Biases</i>.</p>
+
+<figure class="fig-card">
+<svg class="diagram" viewBox="0 0 620 200" role="img" aria-label="Skisse av tre treningskurver for DQN på FrozenLake">
+  <g class="sm">
+    <text x="105" y="18" text-anchor="middle" font-weight="700">ε</text>
+    <text x="310" y="18" text-anchor="middle" font-weight="700">steg per episode</text>
+    <text x="515" y="18" text-anchor="middle" font-weight="700">nådde målet</text>
+  </g>
+  <g style="stroke:var(--axis);stroke-width:1">
+    <path d="M20,30 V170 H190"/><path d="M225,30 V170 H395"/><path d="M430,30 V170 H600"/>
+  </g>
+  <path d="M22,38 C60,90 100,130 188,160" class="ln" style="stroke:var(--c1);stroke-width:2.5"/>
+  <path d="M227,155 C245,150 255,120 270,105 C290,95 320,95 340,100 C355,110 365,140 393,148" class="ln" style="stroke:var(--c2);stroke-width:2.5"/>
+  <g style="stroke:var(--c3);stroke-width:2">
+    <path d="M470,170 V40 M490,170 V40 M520,170 V40 M533,170 V40 M548,170 V40 M556,170 V40 M565,170 V40 M570,170 V40 M575,170 V40 M579,170 V40 M583,170 V40 M587,170 V40 M591,170 V40 M595,170 V40"/>
+  </g>
+  <g class="sm">
+    <text x="105" y="190" text-anchor="middle">totalt antall steg →</text>
+    <text x="310" y="190" text-anchor="middle">fase 1 · fase 2 · fase 3</text>
+    <text x="515" y="190" text-anchor="middle">sporadisk → nesten alltid</text>
+  </g>
+</svg>
+<figcaption><b>Figur 14.6</b> Skisse av plottene i figur 32 i notatene: $\varepsilon$ synker jevnt, antall steg per episode går først opp og så ned, og agenten når målet først sjelden, så sporadisk og til slutt nesten i hver episode.</figcaption>
+</figure>
+
+<div class="callout cons"><span class="label">Slik leser notatene plottene</span>
+<ol>
+<li><b>Fase 1:</b> få steg per episode og nesten aldri mål. Agenten faller stort sett i vannet, og det avbryter episodene tidlig.</li>
+<li><b>Fase 2:</b> flere steg per episode. Agenten har delvis lært å unngå vannet, men bruker mange steg på enten å finne målet eller falle uti igjen.</li>
+<li><b>Fase 3:</b> få steg per episode, og målet nås i nesten hver episode. Agenten har lært en god policy.</li>
+</ol>
+<p>Legg merke til at «få steg per episode» betyr noe helt forskjellig i fase 1 og fase 3. Det er først når plottene ses <i>sammen</i> at de forteller hva som skjer. Til slutt er det lurt å se på agenten med egne øyne: lag en løkke med <code>render_mode="human"</code> der den trente agenten spiller med lav $\varepsilon$, og skriv ut tilstand og handling for hvert steg.</p>
+</div>
+
+<div class="quiz" data-id="14-fl-steps">
+  <p class="q">Under DQN-trening på FrozenLake ser du at antall steg per episode <i>øker</i> en periode, mens andelen episoder der agenten når målet fortsatt er nær 0. Hva er den mest sannsynlige tolkningen?</p>
+  <ul>
+    <li>Agenten er i ferd med å glemme alt den har lært (catastrophic forgetting).</li>
+    <li data-correct>Agenten har lært å unngå hullene, men har ennå ikke lært veien til målet, så den vandrer rundt lenger før episoden slutter.</li>
+    <li>Læringsraten er for høy, så agenten blir tregere.</li>
+    <li>$\varepsilon$ har nådd 0, så agenten utforsker ikke lenger.</li>
+  </ul>
+  <div class="explain">Dette er fase 2 i notatenes analyse. Episodene i FrozenLake slutter når agenten faller i et hull, når den når målet eller når stegene er brukt opp. Flere steg uten flere mål betyr at den faller sjeldnere uti, men ikke finner gaven ennå. Catastrophic forgetting ville vist seg som at belønningen (andelen mål) først var høy og så kollapset. Antall steg sier ingenting direkte om læringsraten, og med $\varepsilon = 0$ ville agenten typisk gått i ring eller sittet fast, ikke vist en jevn overgang.</div>
+</div>
+
+<div class="quiz" data-id="14-catastrophic">
+  <p class="q">En DQN-agent har nådd målet i nesten hver episode i lang tid. Plutselig kollapser belønningen, selv om både læringsraten og $\varepsilon$ er lave, og etter en stund lærer den oppgaven igjen. Hva kalles fenomenet, og hva er den vanligste årsaken?</p>
+  <ul>
+    <li>Reward hacking, fordi belønningsfunksjonen har et smutthull.</li>
+    <li>Exploration, fordi $\varepsilon$ er for høy.</li>
+    <li data-correct>Catastrophic forgetting, typisk fordi nettverket overtilpasser seg nylige hendelser og mister det det lærte tidligere.</li>
+    <li>Moving target, fordi $\gamma$ er for lav.</li>
+  </ul>
+  <div class="explain">Catastrophic forgetting er når agenten plutselig glemmer det den har lært, og syklusen kan gjenta seg uansett hvor lenge den trener. Årsaken er overtilpasning til nylige erfaringer. Replay buffer (som blander inn gamle erfaringer) og target network (som gir et stabilt mål) er virkemidlene mot det. Reward hacking gir <i>høy</i> belønning for feil atferd. $\varepsilon$ er oppgitt å være lav, og moving target-problemet handler om at målet beregnes med samme nett, ikke om $\gamma$.</div>
 </div>
 
 <div class="quiz" data-id="14-target">
@@ -743,7 +1130,7 @@ batch = random.sample(buffer, k=32)       <span class="c"># 32 tilfeldige, uten 
 </div>
 
 <!-- ============================================================ -->
-<h2 id="hacking"><span class="sec">14.9</span>Reward hacking</h2>
+<h2 id="hacking"><span class="sec">14.10</span>Reward hacking</h2>
 
 <p>Agenten maksimerer belønningen vi har definert, ikke den vi <i>mente</i>. Når belønningsfunksjonen har smutthull, finner en god optimerer dem. Det kalles <b>reward hacking</b> eller <b>specification gaming</b>.</p>
 
@@ -785,14 +1172,14 @@ batch = random.sample(buffer, k=32)       <span class="c"># 32 tilfeldige, uten 
 </div>
 
 <!-- ============================================================ -->
-<h2 id="prosjekt"><span class="sec">14.10</span>Prosjekt og eksamensstrategi</h2>
+<h2 id="prosjekt"><span class="sec">14.11</span>Prosjekt og eksamensstrategi</h2>
 
-<div class="callout proj"><span class="label">Kobling til prosjekt 4 (forventet)</span>
-<p>Det fjerde prosjektet handler sannsynligvis om forsterkningslæring. Typiske oppgaver i slike prosjekter er å implementere tabell-basert Q-learning på et lite miljø som FrozenLake eller en gridworld fra Gymnasium (<code>env.reset()</code>, <code>env.step(a)</code>), og deretter en DQN på CartPole med replay buffer og target network. Vær klar til å forklare valget av $\alpha$, $\gamma$ og ε-skjema, og å tolke en belønningskurve (husk 14.7: se på reward, ikke loss). Oppdater denne seksjonen når prosjektteksten kommer.</p>
+<div class="callout proj"><span class="label">Kobling til prosjekt 4</span>
+<p>Prosjekt 4 (RL-delen) bruker tabell-basert Q-learning i et Gym-miljø (<code>TrondheimEnv</code>, et rutenett over Trondheim): først et enkelt $12\times 12$-kart, så et større kart med vann, busstopp og «teleportering». Du initialiserer en Q-tabell (én rad per rute, én kolonne per handling), skriver ε-greedy og ε-decay (14.7), trener, og tegner Q-verdiene som varmekart, slik notatene gjør med tre-på-rad (figur 14.3). Diskusjonsspørsmålene går rett på dette kapittelet: hvorfor vi trenger en utforskningsrate, hva hvert ledd i oppdateringsregelen betyr, hva som skjer med $\gamma = 0$ og $\gamma = 1$, og hvordan agenten finner korteste vei når hvert steg gir belønning 0 (svar: diskontering, verdien sprer seg bakover med en faktor $\gamma$ per steg). Prosjektet krever ikke DQN, i tråd med notatene.</p>
 </div>
 
 <div class="callout exam"><span class="label">Slik ser RL-spørsmålene ut</span>
-<p>På både 2024 og 2025 var RL-spørsmålene definisjonsspørsmål med fire alternativer, der distraktorene var andre RL-begreper: policy vs. Q vs. V, $\alpha$ vs. $\gamma$ vs. $\varepsilon$, replay buffer vs. target network. Lær deg <b>én setning</b> per begrep, og øv på å sortere distraktorene: «Hvilket begrep beskriver dette alternativet egentlig?»</p>
+<p>På både 2024 og 2025 var RL-spørsmålene definisjonsspørsmål med fire alternativer, der distraktorene var andre RL-begreper: policy vs. Q vs. V, $\alpha$ vs. $\gamma$ vs. $\varepsilon$, replay buffer vs. target network. Lær deg <b>én setning</b> per begrep, og øv på å sortere distraktorene: «Hvilket begrep beskriver dette alternativet egentlig?» Notatene sier også at DRL bare blir spurt om konseptuelt. Catastrophic forgetting, som var en distraktor i 2024, er nå forklart i notatene og kan like gjerne bli et riktig svar.</p>
 </div>
 
 <div class="quiz" data-id="14-sorter">
@@ -827,9 +1214,11 @@ batch = random.sample(buffer, k=32)       <span class="c"># 32 tilfeldige, uten 
     <li><b>Policy</b> $\pi$: tilstand → handling. <b>$V(s)$</b>: verdien av en tilstand. <b>$Q(s,a)$</b>: verdien av en handling i en tilstand. Policy = argmax av Q, men policy ≠ Q.</li>
     <li><b>Q-learning</b>: $Q \leftarrow Q + \alpha[r + \gamma\max_{a'}Q(s',a') - Q]$. TD-mål minus gammelt estimat er TD-feilen. Ved terminal tilstand er målet bare $r$.</li>
     <li><b>$\alpha$</b>: liten gir treg læring der de gamle verdiene dominerer, stor gir rask men ustabil læring.</li>
-    <li><b>ε-greedy</b>: tilfeldig handling med sannsynlighet $\varepsilon$. ε-decay: mye utforskning tidlig, mindre senere.</li>
-    <li><b>Loss ≠ reward</b>: loss måler konsistens med et mål som flytter seg. Mål framgang med belønning per episode.</li>
-    <li><b>DQN</b>: et nett erstatter tabellen (store eller kontinuerlige tilstandsrom). Vektdeling gjør at én oppdatering endrer mange Q-verdier. <b>Replay buffer</b> bryter korrelasjon (<code>random.sample</code>), og <b>target network</b> holder målet stabilt.</li>
+    <li><b>Gym-API</b>: <code>env.reset() → (state, info)</code> og <code>env.step(action) → (state, reward, done, info)</code> (fem verdier med <code>truncated</code> i gymnasium). Et miljø må ha en tilstand, ta imot en handling, gå til ny tilstand og gi reward.</li>
+    <li><b>Q-verdier</b> = forventet kumulativ framtidig reward av å gjøre $A$ i $S$ og så følge policyen. Reward får vi fra miljøet, Q må læres. Q-tabellen kan være en dictionary: tilstand → {handling: Q}.</li>
+    <li><b>ε-greedy</b>: tilfeldig handling med sannsynlighet $\varepsilon$. ε-decay: mye utforskning tidlig, mindre senere, men helst ikke helt 0. Ingen universell løsning på exploration–exploitation tradeoff.</li>
+    <li><b>Loss ≠ reward</b>: loss måler konsistens med et mål som flytter seg. Mål framgang med belønning per episode, og plott $\varepsilon$, reward og steg per episode sammen.</li>
+    <li><b>DQN</b>: et nett erstatter tabellen (store eller kontinuerlige tilstandsrom). Vektdeling gjør at én oppdatering endrer mange Q-verdier, som gir ustabil trening og <b>catastrophic forgetting</b>. <b>Replay buffer</b> bryter korrelasjon (<code>random.sample</code>), og <b>target network</b> holder målet stabilt. Diskrete tilstander one-hot-kodes som input, og output er én Q-verdi per handling. Loss regnes bare for handlingen som ble tatt (<code>torch.gather</code>).</li>
     <li><b>Reward hacking</b>: agenten utnytter svakheter i belønningsfunksjonen (CoastRunners).</li>
   </ul>
 </div>
@@ -849,6 +1238,13 @@ batch = random.sample(buffer, k=32)       <span class="c"># 32 tilfeldige, uten 
   <div class="card"><div class="front">Vektdeling i DQN</div><div class="back">Én oppdatering endrer mange Q-verdier. Gir generalisering, men også ustabilitet.</div></div>
   <div class="card"><div class="front">Loss vs reward</div><div class="back">Ikke nødvendigvis noen sammenheng. Loss = kvadrert TD-feil mot et mål som flytter seg.</div></div>
   <div class="card"><div class="front">Reward hacking</div><div class="back">Agenten utnytter smutthull i belønningsfunksjonen og gjør noe som ikke var ment (CoastRunners).</div></div>
+  <div class="card"><div class="front">Agent i RL</div><div class="back">Hva som helst som tar inn en tilstand og returnerer en handling. Ikke det samme som en AI-agent (språkmodell i en løkke).</div></div>
+  <div class="card"><div class="front">MDP (notatene)</div><div class="back">4-tuppel $(\mathcal{S}, \mathcal{A}, P_A, R_A)$: tilstander, handlinger, overgangssannsynligheter og umiddelbar reward. I kurset: deterministiske miljøer.</div></div>
+  <div class="card"><div class="front">env.reset() / env.step(a)</div><div class="back">reset → (starttilstand, info). step → (ny tilstand, reward, done, info), i gymnasium med <code>truncated</code> i tillegg.</div></div>
+  <div class="card"><div class="front">Verdi vs reward</div><div class="back">Reward gis av miljøet. Q-verdien er forventet kumulativ framtidig reward og må læres.</div></div>
+  <div class="card"><div class="front">Catastrophic forgetting</div><div class="back">Agenten glemmer plutselig det den har lært, og reward kollapser. Skyldes overtilpasning til nylige hendelser.</div></div>
+  <div class="card"><div class="front">DQN input/output (FrozenLake)</div><div class="back">16 inn (one-hot-kodet rute), 4 ut (én Q-verdi per handling).</div></div>
+  <div class="card"><div class="front">Loss i DQN</div><div class="back">Bare for handlingen som ble tatt: mål $R + \gamma\max_A Q_{target}(S', A)$ mot $Q(S, A_t)$, plukket ut med <code>torch.gather</code>.</div></div>
 </div>
 
 <div class="score-panel"></div>
@@ -1025,6 +1421,33 @@ document.addEventListener("DOMContentLoaded", () => {
   $("gwShowQ").onchange = draw; $("gwStart").onchange = () => { newEpisode(); draw(); };
   reset();
   CK.live(draw);
+});
+</script>
+<script>
+/* ---------- Q-verdier for tre-på-rad (figur 14.3) ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".qboard").forEach(b => {
+    const state = b.dataset.state, q = b.dataset.q.split(",").map(Number);
+    const free = [...state].map((c, i) => /\d/.test(c) ? i : -1).filter(i => i >= 0);
+    const vals = free.map(i => q[i]), hi = Math.max(...vals), lo = Math.min(0, ...vals);
+    const best = free.find(i => q[i] === hi);
+    const g = document.createElement("div");
+    g.className = "g";
+    [...state].forEach((c, i) => {
+      const d = document.createElement("div");
+      if (!/\d/.test(c)) { d.className = "mark"; d.textContent = c; }
+      else {
+        const v = q[i];
+        const t = v >= 0 ? (hi > 0 ? v / hi : 0) : v / lo;
+        const col = v >= 0 ? "var(--c3)" : "var(--c2)";
+        d.style.background = `color-mix(in srgb, ${col} ${Math.round(8 + 72 * t)}%, var(--surface))`;
+        d.textContent = v.toFixed(2);
+        if (i === best) d.className = "best";
+      }
+      g.appendChild(d);
+    });
+    b.prepend(g);
+  });
 });
 </script>
 </body>

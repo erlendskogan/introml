@@ -1,0 +1,466 @@
+%%% Øvingssett 4 – TDT4172 H26
+%%% ============================================================ PART 1
+@@PART
+@@Q
+En logistisk regresjonsmodell har vekter $\mathbf{w} = (0.5,\ -1.0)$ og bias $b = 0$. Den trenes med
+cross-entropy loss, der $\partial L / \partial w_j = (\hat y - y)\,x_j$. Du gjør \textbf{ett gradient descent-steg} med læringsrate $\eta = 0.1$ på ett enkelt datapunkt
+$\mathbf{x} = (2,\ 1)$ med $y = 1$.
+
+Hva blir den nye verdien av $w_1$?
+%%% z = 0.5*2 - 1*1 = 0 -> yhat = 0.5 ; grad w1 = (0.5-1)*2 = -1 ; w1 = 0.5 - 0.1*(-1) = 0.60
+%%% feil: fortegn 0.40 ; brukt x2 i stedet for x1 0.55 ; brukt x2 og fortegnsfeil: 0.5-0.1*0.5 = 0.45
+@+ $0.60$
+@- $0.40$
+@- $0.55$
+@- $0.45$
+@@Q
+%%% NY3 (erstatter «tapet synker sakte», som overlappet S6 1.2): for høy læringsrate gir sikksakk i tapet.
+%%% Simulert (ren Python, full-batch, eta = 1.0, logistisk regresjon): 0.69, 0.98, 0.55, 0.52, 0.64, 0.44, ... -> sikksakk med svakt fallende trend.
+Du trener logistisk regresjon med \textbf{full-batch} gradient descent på standardiserte features.
+Treningstapet etter hver av de første epokene er
+\[ 0.69,\ 0.98,\ 0.55,\ 0.64,\ 0.44,\ 0.51,\ 0.43,\ 0.49 . \]
+
+Hva er den mest sannsynlige forklaringen?
+@+ Læringsraten er for høy, så stegene går forbi minimum og havner på motsatt side av dalen
+@- Gradienten beregnes fra et tilfeldig utvalg av punktene, så tapet blir støyete fra epoke til epoke
+@- Tapsfunksjonen har flere lokale minima, og gradient descent hopper mellom dem underveis
+@- Klassene er ikke lineært separerbare, så modellen veksler mellom to like gode beslutningsgrenser
+@@Q
+%%% NY2: ROC-kurven trenger sannsynlighetene, ikke 0/1-prediksjonene fra predict
+Du har implementert \texttt{LogisticRegression} som i notatene, der \texttt{predict} avslutter med
+\begin{lstlisting}[language=Python]
+return [1 if _y > 0.5 else 0 for _y in y_pred]
+\end{lstlisting}
+For å tegne en \textbf{ROC-kurve} på testdataene sender du resultatet av \texttt{predict(X\_test)} inn som skår.
+
+Hva blir resultatet?
+%%% Bare to ulike skårverdier -> bare ett punkt mellom (0,0) og (1,1). roc_curve godtar 0/1, så den kan tegnes.
+@+ Kurven får bare ett punkt mellom $(0,0)$ og $(1,1)$; den trenger $\hat y$ fra før terskelen brukes
+@- Kurven blir som vanlig, siden den bare avhenger av hvilke testpunkter som er klassifisert riktig
+@- Kurven blir diagonalen fra $(0,0)$ til $(1,1)$, siden 0/1-skår tilsvarer tilfeldig gjetting
+@- Kurven kan ikke tegnes, siden ROC bare er definert for skår som er sannsynligheter i $(0,1)$
+@@Q
+En klassifikator for alvorlig sykdom trenes ved å minimere \textbf{binary cross-entropy}, men rapporteres
+med \textbf{recall} på testsettet.
+
+Hvorfor brukes ulike størrelser til trening og evaluering?
+%%% NY3: distraktorer = lekkasje-misforståelse, konveksitet i stedet for deriverbarhet, recall forvekslet med precision
+@+ Tapsfunksjonen må være deriverbar for gradient descent, mens metrikken skal gi mening for mennesker
+@- Å bruke samme størrelse til trening og evaluering ville lekke informasjon fra testsettet inn i modellen
+@- Gradient descent krever en konveks tapsfunksjon, og recall er bare konveks når klassene er balanserte
+@- Cross-entropy straffer både falske positive og falske negative, mens recall bare teller falske positive
+%%% ============================================================ PART 2
+@@PART
+@@Q
+En binær klassifikator bruker regelen «positiv hvis $\hat y > t$». Du øker terskelen fra $t = 0.5$ til
+$t = 0.8$.
+
+Hvilket utsagn holder uansett hvilke data og hvilken modell det er snakk om?
+@+ Recall kan aldri øke, og FPR kan ikke øke
+@- Precision kan aldri synke, og recall kan ikke øke
+@- TPR og FPR kan ikke synke
+@- Recall og FPR kan ikke synke
+@@Q
+En modell for å oppdage en sjelden feil i produksjon har 10\,\% positive i valideringsdataene. Den tas i bruk
+i en fabrikk der bare 1\,\% av enhetene er defekte. Modellen og terskelen er uendret, og de defekte
+enhetene ligner på dem i valideringsdataene.
+
+Hva skjer mest sannsynlig med metrikkene?
+@+ TPR og FPR er omtrent uendret, men precision synker
+@- Precision og recall er omtrent uendret, men FPR øker
+@- TPR synker, siden det er færre positive å finne
+@- ROC AUC synker, siden klassene blir mer ubalanserte
+@@Q
+Et testsett har 1000 punkter, hvorav 50 er positive. En modell predikerer \textbf{positiv for alle
+punktene}.
+
+Hva blir precision og FPR?
+%%% TP=50, FP=950 -> precision 0.05, FPR 950/950 = 1.00
+@+ Precision $0.05$, FPR $1.00$
+@- Precision $0.95$, FPR $0.00$
+@- Precision $1.00$, FPR $0.05$
+@- Precision $0.05$, FPR $0.00$
+@@Q
+%%% NY2: regne baklengs fra recall og precision til antall flaggede punkter og FP
+Valideringssettet har 60 positive punkter. Ved den valgte klassifiseringsterskelen har modellen
+\textbf{recall} $0.75$ og \textbf{precision} $0.60$.
+
+Hvor mange punkter predikerer modellen som positive, og hvor mange av dem er falske positive (FP)?
+%%% TP = 0.75*60 = 45, flagget = 45/0.60 = 75, FP = 30.
+%%% byttet P/R: TP = 36, flagget 48, FP 12. FP = 0.4*60 = 24 -> 69 flagget. 60 flagget og FN = 15 som FP.
+@+ $75$ punkter, hvorav $30$ er FP
+@- $48$ punkter, hvorav $12$ er FP
+@- $69$ punkter, hvorav $24$ er FP
+@- $60$ punkter, hvorav $15$ er FP
+%%% ============================================================ PART 3
+@@PART
+@@Q
+En node i et beslutningstre inneholder 12 punkter: 3 fra klasse A og 9 fra klasse B.
+
+Hva er entropien $I = -\sum_i p_i \log_2 p_i$ i noden?
+%%% -(0.25 log2 0.25 + 0.75 log2 0.75) = 0.811 ; Gini 0.375 ; ln 0.562 ; bare ett ledd -0.25 log2 0.25 = 0.50
+@+ $0.81$
+@- $0.38$
+@- $0.56$
+@- $0.50$
+@@Q
+%%% NY2: største mulige Gini-urenhet med flere enn to klasser (1 - 1/k)
+Notatene oppgir at Gini-urenheten $1-\sum_i p_i^2$ ligger i intervallet $[0,\,0.5]$. Et klassifikasjonstre skal
+nå skille mellom \textbf{fire} klasser.
+
+Hva er den største mulige Gini-urenheten i en node, og for hvilken klassefordeling oppnås den?
+%%% Maks ved uniform fordeling: 1 - 4*0.25^2 = 0.75. [0, 0.5] gjelder bare to klasser.
+%%% To klasser med 0.5 hver: 0.5. Entropi (log2) ved uniform: 2.00.
+@+ $0.75$, når alle fire klassene har andel $0.25$ i noden
+@- $0.50$, når alle fire klassene har andel $0.25$ i noden
+@- $0.50$, når to av klassene har andel $0.50$ hver i noden
+@- $2.00$, når alle fire klassene har andel $0.25$ i noden
+@@Q
+%%% NY3: distraktorer = entropi i rotnoden (uavhengig av feature) vs. vektet entropi i barna, kausalitet (forsiktig formulert), redundans-misforståelse
+Et beslutningstre trent for å forutsi om en kunde sier opp abonnementet sitt, bruker informasjonsgevinst
+(entropi) som splittkriterium og splitter på \emph{Antall\_klager} i rotnoden.
+
+Hva kan du slutte av dette?
+@+ Av alle kandidatsplittene i roten ga splitten på \emph{Antall\_klager} størst fall i vektet entropi
+@- \emph{Antall\_klager} ga lavest entropi i rotnoden før splitten, og ble derfor valgt som første feature
+@- \emph{Antall\_klager} har trolig en årsakssammenheng med oppsigelse, ellers ville treet ikke valgt den først
+@- \emph{Antall\_klager} er minst korrelert med de andre featurene, og tilfører derfor mest ny informasjon
+@@Q
+%%% NY2: navn og roller for leddene i Bayes' teorem (prior, likelihood, evidens)
+For klassifisering skriver notatene Bayes' teorem som
+\[ p(C_k \mid \mathbf{x}) = \frac{p(\mathbf{x}\mid C_k)\,p(C_k)}{p(\mathbf{x})}. \]
+Hvert av leddene har et eget navn og en egen rolle.
+
+Hvilket utsagn om leddene er riktig?
+%%% Notatene: p(Ck) prior, p(x) evidens, p(x|Ck) likelihood (én fordeling per klasse, like mange dim. som features).
+@+ $p(\mathbf{x}\mid C_k)$ er likelihooden, siden den beskriver fordelingen av features innen klassen $C_k$
+@- $p(C_k)$ er en likelihood, siden den sier hvor sannsynlig hver klasse er i treningsdataene
+@- $p(\mathbf{x})$ er prioren, siden den kan anslås fra dataene uten å vite klassen til punktet
+@- $p(C_k\mid\mathbf{x})$ er evidensen, siden modellen bruker den som bevis for den valgte klassen
+%%% ============================================================ PART 4
+@@PART
+@@Q
+Forventet kvadratfeil i et punkt $x$ kan dekomponeres som
+\[ E_D\big[(y - f(x;D))^2\big] = \big(\mathrm{Bias}_D[f(x;D)]\big)^2 + \mathrm{Var}_D[f(x;D)] + \sigma^2 . \]
+
+Hva beskriver variansleddet $\mathrm{Var}_D[f(x;D)]$?
+@+ Hvor mye prediksjonen i $x$ varierer rundt sitt eget snitt når treningssettet $D$ byttes ut
+@- Hvor mye de observerte targetverdiene $y$ varierer rundt $F(x)$ på grunn av støy i målingene
+@- Hvor langt den gjennomsnittlige prediksjonen i $x$ ligger fra den sanne verdien $F(x)$
+@- Hvor mye prediksjonene varierer mellom ulike datapunkter $x$ i ett og samme testsett
+@@Q
+Den sanne verdien i et punkt er $F(x) = 5.0$. Du trener samme type modell på fem ulike, tilfeldig trukne
+treningssett og får prediksjonene $f(x;D_1),\dots,f(x;D_5) = 4.0,\ 5.0,\ 3.0,\ 6.0,\ 4.5$.
+
+Hva er (estimatet av) \textbf{biasen} $\mathrm{Bias}_D[f(x;D)] = E_D[f(x;D)] - F(x)$ i dette punktet?
+%%% snitt 4.5 -> bias -0.5 ; fortegn +0.5 ; varians 1.0 ; snitt absolutt avvik |dev from F|: (1+0+2+1+0.5)/5 = 0.9
+@+ $-0.50$
+@- $0.50$
+@- $1.00$
+@- $0.90$
+@@Q
+Et datasett har 7 numeriske features. Du lager to nye features, $x_1^2$ og $x_1^3$, og beholder alle de
+opprinnelige. Deretter tilpasser du en \textbf{lineær regresjonsmodell} $f(\mathbf{x}) = \beta_0 + \sum_i \beta_i x_i$.
+
+Hvor mange parametre har modellen?
+%%% 9 features + bias = 10 ; uten bias 9 ; uten nye features 8 ; bare de 7 opprinnelige uten bias: 7
+@+ $10$
+@- $9$
+@- $8$
+@- $7$
+@@Q
+Treningsdataene har $x \in [0, 10]$. Du trener et \textbf{regresjonstre} og en \textbf{polynomregresjon av
+grad 9} og ber begge predikere for $x = 15$.
+
+Hva er mest sannsynlig?
+%%% NY3: distraktorer = treet forlenger trenden, treet faller tilbake til rotsnittet, begge «flater ut»
+@+ Treet gir verdien fra løvnoden lengst til høyre, mens polynomet kan gi en ekstremt stor verdi
+@- Treet forlenger trenden fra de siste løvnodene, mens polynomet trolig holder seg nær verdien i $x = 10$
+@- Treet gir snittet av alle treningsverdiene, siden $x = 15$ ikke hører til noen av løvnodene
+@- Begge gir omtrent verdien i $x = 10$, siden ingen av modellene har sett data utenfor $[0, 10]$
+%%% ============================================================ PART 5
+@@PART
+@@Q
+%%% NY: vektet avstemning i AdaBoost kan gå mot flertallet
+%%% 1.1 - 0.4 - 0.5 = +0.2 -> +1 ; flertallet sier -1
+Et AdaBoost-ensemble har tre stumper med stemmevekter $\alpha = (1.1,\ 0.4,\ 0.5)$. For et datapunkt
+predikerer de henholdsvis $+1$, $-1$ og $-1$. Ensemblet predikerer fortegnet til $\sum_m \alpha_m h_m(x)$.
+
+Hva blir ensemblets prediksjon?
+@+ $+1$, siden den vektede summen er $+0.2$
+@- $-1$, siden to av tre stumper stemmer $-1$
+@- $-1$, siden den vektede summen er $-0.2$
+@- $+1$, siden stumpen med størst $\alpha$ alltid avgjør
+@@Q
+%%% NY2: hierarkisk ensemble – metamodellen må trenes på prediksjoner for data grunnmodellene ikke har sett
+Du lager et \textbf{hierarkisk} ensemble. Et beslutningstre uten dybdebegrensning, en logistisk
+regresjonsmodell og et nevralt nettverk trenes på treningssettet. Deretter trenes en metamodell på de
+tre modellenes prediksjoner for de \emph{samme} treningspunktene. Metamodellen legger nesten all vekt
+på beslutningstreet, og ensemblet gjør det dårligere på valideringsdata enn hver av de tre alene.
+
+Hva er den mest sannsynlige forklaringen?
+@+ Treet har lært treningspunktene utenat, så prediksjonene det gir for dem ser perfekte ut for metamodellen
+@- Metamodellen er for enkel; en lineær modell kan ikke kombinere tre prediksjoner på en meningsfull måte
+@- Grunnmodellene ble trent uavhengig, mens et hierarkisk ensemble krever at de trenes etter hverandre
+@- Metamodellen burde fått de opprinnelige featurene i stedet for prediksjonene, ellers lærer den ingenting
+@@Q
+%%% NY2: bagging av regresjonstrær gir en finere trappefunksjon enn ett tre
+Du har én feature $x$ og tilpasser et \textbf{regresjonstre} med 8 løvnoder. Deretter lager du et
+bagging-ensemble av 50 slike trær, hvert trent på sitt eget bootstrap-utvalg, der prediksjonen er
+gjennomsnittet av trærnes prediksjoner.
+
+Hvordan ser prediksjonskurven $\hat y(x)$ til ensemblet ut, sammenlignet med kurven til ett enkelt tre?
+%%% hvert tre: trapp med 8 nivåer; trærne splitter ved ulike x, så snittet får inntil 7*50+1 = 351 intervaller
+@+ Den er fortsatt en trapp, men med mange flere og lavere trinn, siden trærne splitter ved ulike $x$
+@- Den er en trapp med høyst 8 trinn, siden hvert av de 50 trærne bare kan gi 8 ulike verdier
+@- Den blir en glatt rett linje, siden et gjennomsnitt av mange trær nærmer seg en lineær modell
+@- Den har nøyaktig $8 \cdot 50 = 400$ trinn, siden hver løvnode i hvert tre gir sitt eget trinn
+@@Q
+I en random forest trent \emph{uten} tilfeldig utvalg av features ved hver splitt er én feature mye sterkere
+enn de andre, slik at nesten alle trærne splitter på den i rotnoden og ender opp svært like.
+
+Hva betyr dette for effekten av å ta gjennomsnitt over trærne?
+@+ Gevinsten blir liten, siden et snitt av svært like trær varierer nesten like mye som ett tre
+@- Gevinsten blir stor, fordi trær som er enige med hverandre gir et stabilt og presist ensemble
+@- Gevinsten er uavhengig av korrelasjonen, siden den bare avhenger av hvor mange trær som brukes
+@- Gevinsten forsvinner, fordi bias øker kraftig når alle trærne bruker den samme featuren
+%%% ============================================================ PART 6
+@@PART
+@@Q
+En Keras-modell kalles på en input-tensor \texttt{x} med shape \texttt{(32, 10)}:
+
+\begin{lstlisting}[language=Python]
+model = Sequential([
+    Dense(64, activation="relu"),
+    Dense(16, activation="relu"),
+    Dense(3, activation="softmax"),
+])
+\end{lstlisting}
+
+Hva er shape på outputen fra det \emph{andre} laget, \texttt{Dense(16)}?
+%%% (batch, noder) = (32, 16)
+@+ \texttt{(32, 16)}
+@- \texttt{(16,)}
+@- \texttt{(10, 16)}
+@- \texttt{(64, 16)}
+@@Q
+Hvilket utsagn om \textbf{backpropagation} i et nevralt nettverk med skjulte lag er korrekt?
+%%% NY3: distraktorer = numerisk derivasjon, «bare SGD», bare output-laget får gradient (perceptronregel i skjulte lag)
+@+ Den beregner gradienten til tapet for alle vekter med kjerneregelen, bakover fra output-laget
+@- Den beregner gradienten numerisk ved å endre hver vekt litt og måle hvor mye tapet endrer seg
+@- Den kan bare brukes med SGD, siden kjerneregelen krever gradienten for ett treningspunkt om gangen
+@- Den gir gradienten for vektene inn til output-laget, mens skjulte lag oppdateres med perceptronregelen
+@@Q
+Et nettverk skal klassifisere bilder av trafikkskilt i 10 klasser, med nøyaktig én klasse per bilde.
+
+Hvilken kombinasjon av output-lag og tapsfunksjon passer best?
+@+ 10 noder med softmax og kategorisk cross-entropy
+@- 10 noder med sigmoid og binary cross-entropy per node
+@- 1 node uten aktivering og MSE på klassenummeret 0--9
+@- 10 noder med ReLU og kategorisk cross-entropy
+@@Q
+Et tabulært datasett har 11 numeriske features og én kategorisk feature med 5 kategorier, som
+one-hot-encodes (og erstattes av de 5 nye kolonnene). Target er én av 3 klasser.
+
+Hvor mange noder bør input- og output-laget i et fullt koblet nettverk ha?
+%%% input 11 + 5 = 16 ; output 3 (softmax)
+@+ Input 16, output 3
+@- Input 12, output 3
+@- Input 16, output 1
+@- Input 12, output 1
+%%% ============================================================ PART 7
+@@PART
+@@Q
+I k-means++ er første sentroide plassert i $x = 0$ på en tallinje. De gjenværende datapunktene ligger i
+$x = 1$, $x = 2$ og $x = 4$.
+
+Hva er sannsynligheten for at punktet i $x = 4$ velges som neste sentroide?
+%%% d^2: 1, 4, 16 -> 16/21 = 0.76 ; proporsjonal med d: 4/7 = 0.57 ; uniform 0.33 ; sannsynlighet for x=2: 4/21 = 0.19
+@+ $0.76$
+@- $0.57$
+@- $0.33$
+@- $0.19$
+@@Q
+En enkel initialisering av k-means plasserer hver nye sentroide på datapunktet som har størst avstand
+til nærmeste allerede valgte sentroide.
+
+Hva er den viktigste svakheten ved denne strategien, ifølge argumentet for k-means++?
+@+ Den havner ofte i ytterkanten av klynger eller på outliers, ikke nær klyngesentrene
+@- Den plasserer ofte flere sentroider i den største klyngen, fordi den har flest punkter langt unna
+@- Den gir ulike resultater fra kjøring til kjøring, fordi avstandene beregnes med støy
+@- Den krever, i motsetning til tilfeldig initialisering, at antall klynger $k$ er kjent
+@@Q
+%%% NY2: klyngenumre fra k-means er vilkårlige navn (label-permutasjon)
+Du kjører \texttt{KMeans(n\_clusters=3)} to ganger på de samme sju punktene, med ulik \texttt{random\_state}.
+Første kjøring gir \texttt{labels\_ = [0, 0, 1, 1, 2, 2, 2]}, og andre kjøring gir
+\texttt{labels\_ = [2, 2, 0, 0, 1, 1, 1]}. En kollega sammenligner listene element for element,
+finner 0\,\% samsvar og konkluderer med at resultatene er helt forskjellige.
+
+Hvilket utsagn er riktig?
+%%% Samme partisjon {1,2},{3,4},{5,6,7}; bare nummereringen er permutert -> samme sentroider og samme inertia.
+@+ Inndelingen er identisk; klyngenummeret er bare et navn som avhenger av starten
+@- Inndelingen er identisk, men inertia er ulik, siden sentroidene har fått nye numre
+@- Kjøringene har havnet i ulike lokale minima, og den med lavest inertia bør velges
+@- Kjøringene er svært ulike, noe som tyder på at dataene mangler klyngestruktur
+@@Q
+%%% NY: valg av epsilon i DBSCAN i høye dimensjoner (concentration of distances)
+Du kjører DBSCAN på data med 500 features og finner ingen verdi av $\epsilon$ som gir fornuftige klynger:
+enten blir nesten alle punkter støy, eller nesten alt havner i én klynge.
+
+Hva er den mest sannsynlige forklaringen?
+@+ Nærmeste og fjerneste nabo blir nesten like langt unna, så $\epsilon$ skiller dårlig tett fra glissent
+@- Alle avstander går mot null i høye dimensjoner, så $\epsilon$ må velges mindre enn presisjonen i flyttallene
+@- DBSCAN krever at antall features er mindre enn \texttt{min\_samples}, ellers blir ingen punkter kjernepunkter
+@- Med 500 features må $\epsilon$ skaleres med antall datapunkter, og det støtter ikke DBSCAN i sklearn
+%%% ============================================================ PART 8
+@@PART
+@@Q
+Du har laget en t-SNE-embedding av 10\,000 punkter med \texttt{TSNE().fit\_transform(X)}. Nå kommer 500
+nye punkter som du vil vise i samme plott.
+
+Hva er riktig fremgangsmåte?
+@+ Kjør \texttt{fit\_transform} på nytt på alle 10\,500 punktene samlet, gamle og nye
+@- Bruk \texttt{transform} fra den tilpassede t-SNE-modellen på de 500 nye punktene
+@- Kjør t-SNE på de 500 nye punktene alene og legg resultatet oppå det gamle plottet
+@- Projiser de nye punktene på hovedkomponentene som t-SNE beregnet under tilpasningen
+@@Q
+SNE og t-SNE måler likhet mellom punkter med sannsynlighetsfordelinger i det høydimensjonale rommet ($P$)
+og i embeddingen ($Q$).
+
+Hva er forskjellen mellom de to metodene?
+@+ t-SNE bruker en t-fordeling med tyngre haler for $Q$, mens begge bruker Gauss for $P$
+@- t-SNE bevarer globale avstander mellom klynger, mens SNE bare bevarer lokale nabolag
+@- t-SNE bruker t-fordelinger for både $P$ og $Q$, mens SNE bruker Gauss for begge
+@- t-SNE erstatter KL-divergensen med MSE, mens begge bruker Gauss for både $P$ og $Q$
+@@Q
+Et team har 300 sensorfeatures. De bruker PCA til å redusere dataene til 10 komponenter (tilpasset på
+treningsdataene) før de trener en klassifikator, og valideringsytelsen blir bedre enn med alle 300.
+
+Hva er den mest sannsynlige forklaringen?
+%%% NY3: distraktorer = PCA forvekslet med veiledet metode (LDA), «ukorrelerte features er alltid bedre», PCA forvekslet med skalering
+@+ Retningene med lav varians inneholdt mye støy, og å fjerne dem ga en mer robust modell
+@- De 10 komponentene er retningene der klassene ligger lengst fra hverandre, og er derfor mest prediktive
+@- Komponentene er ukorrelerte, og en klassifikator gir alltid bedre ytelse med ukorrelerte features
+@- PCA standardiserer de 300 featurene, og det var manglende skalering som ga svak ytelse med alle 300
+@@Q
+PCA på et datasett med tre features gir egenverdiene $5.2$, $1.3$ og $0.0$ for kovariansmatrisen.
+
+Hva forteller dette?
+@+ Dataene ligger i et plan, og to hovedkomponenter gjengir dem helt uten tap
+@- Dataene ligger på en linje, og én hovedkomponent gjengir all variansen
+@- Én av de tre opprinnelige featurene er konstant og må fjernes før PCA
+@- Den tredje komponenten er viktigst, siden den er ukorrelert med de andre
+%%% ============================================================ PART 9
+@@PART
+@@Q
+%%% NY2: ren grådig agent (epsilon = 0) med null-initialisert Q-tabell lærer ingenting
+En agent i et rutenett får reward 1 når den når målet og 0 ellers. Q-tabellen initialiseres med nuller,
+og agenten bruker $\epsilon = 0$ fra første episode. Når flere Q-verdier er like, velger
+\texttt{np.argmax} den første handlingen, «opp». Går agenten mot kanten av rutenettet, blir den stående.
+Målet ligger ikke rett ovenfor startruten.
+
+Hva skjer under treningen?
+%%% Alltid «opp» -> blir stående ved øvre kant, når aldri målet. Alle oppdateringer: 0 + gamma*0 = 0 -> tabellen forblir 0, likt valg for alltid.
+@+ Agenten går «opp» i hvert steg, når aldri målet, og alle Q-verdiene forblir 0
+@- Q-verdien for «opp» synker når agenten står fast, så den bytter til de andre handlingene
+@- Agenten lærer sakte, fordi $\gamma \max_A Q$ gradvis sprer rewarden fra målet bakover
+@- Agenten lærer raskere enn med $\epsilon > 0$, siden ingen steg brukes på tilfeldige handlinger
+@@Q
+I en labyrint får agenten reward 1 kun ved målet, som tidligst nås etter 20 steg. Alle andre steg gir
+reward 0. Du sammenligner $\gamma = 0.1$ og $\gamma = 0.99$.
+
+Hvilket utsagn er korrekt?
+%%% 0.1^19 ~ 1e-19 ; 0.99^19 ~ 0.83
+@+ Med $\gamma = 0.1$ blir verdien av målet nesten null langt unna, så læringssignalet blir svakt
+@- Med $\gamma = 0.1$ lærer agenten raskere, fordi en liten $\gamma$ gir mindre støy i hver Q-oppdatering
+@- $\gamma$ påvirker bare hvor ofte agenten utforsker, så valget har liten betydning i denne labyrinten
+@- Med $\gamma = 0.99$ ignorerer agenten belønningen ved målet og lærer bare fra umiddelbare rewards
+@@Q
+%%% NY2: reward-design med gamma = 1 – +1 ved mål gir ingen preferanse for kort vei, -1 per steg gjør det
+En agent skal lære korteste vei gjennom et rutenett uten hull, og det brukes $\gamma = 1$. Du vurderer
+to belønningsordninger:
+\begin{itemize}
+\item[I:] reward $+1$ når målet nås, og $0$ for alle andre steg,
+\item[II:] reward $-1$ for hvert steg, og $0$ for steget som når målet (episoden slutter der).
+\end{itemize}
+For hvilken ordning gir korteste vei høyest kumulativ reward?
+%%% I: alle veier som når målet gir retur 1 -> ingen preferanse. II: retur = -(antall steg før målet) -> korteste vei er best.
+@+ Bare ordning II, siden returen der blir minus antall steg før målet
+@- Bare ordning I, siden negative rewards straffer alle handlinger likt uansett vei
+@- Begge, siden en vei med færre steg alltid gir høyere retur når målet nås
+@- Ingen av dem, siden korteste vei bare gir høyest retur når $\gamma < 1$
+@@Q
+%%% NY: DQN-targets for en batch med done-flagg
+%%% y = r + gamma*maxQ*(1-done) = (0.45, 1.00, 0.18), snitt 0.543 ; uten gamma 0.567 ; ignorert done 0.783 ; ignorert done og gamma 0.833
+En DQN-agent trekker en batch med tre overganger fra replay bufferen. Targetverdien er
+$y = R_{t+1} + \gamma \max_A Q_{target}(S_{t+1},A)$ med $\gamma = 0.9$, men fremtidig verdi settes til 0 når
+\texttt{done} er \texttt{True}.
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+Overgang & $R_{t+1}$ & \texttt{done} & $\max_A Q_{target}(S_{t+1},A)$ \\
+\midrule
+1 & 0 & False & 0.5 \\
+2 & 1 & True & 0.8 \\
+3 & 0 & False & 0.2 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Hva er gjennomsnittet av de tre targetverdiene?
+@+ $0.54$
+@- $0.57$
+@- $0.78$
+@- $0.83$
+%%% ============================================================ PART 10
+@@PART
+@@Q
+SHAP skriver prediksjonen for et datapunkt $x^*$ som $f(x^*) = \phi_0 + \sum_j \phi_j$.
+
+Hvilket av Shapley-aksiomene sørger for at SHAP-verdiene summerer til $f(x^*) - \phi_0$?
+@+ Effektivitet
+@- Symmetri
+@- Nullspiller
+@- Additivitet
+@@Q
+Image SHAP deler bildet inn i \textbf{superpiksler} (grupper av piksler) og behandler hver gruppe som én feature.
+
+Hva er hovedgrunnen til dette?
+@+ Antall koalisjoner vokser eksponentielt med antall features, og forklaringer per piksel gir lite mening
+@- TreeExplainer krever at bildet deles i regioner, slik at hver region kan bli en node i et beslutningstre
+@- Shapley-verdier er bare definert for kategoriske features, så pikselverdiene må grupperes først
+@- Superpiksler gjør forklaringen global, slik at den gjelder for alle bildene i datasettet samtidig
+@@Q
+Koden under finner anomalier med to ulike metoder.
+
+\begin{lstlisting}[language=Python]
+dbscan = DBSCAN(eps=0.5, min_samples=5).fit(X)
+a = dbscan.labels_ == -1
+iso = IsolationForest(contamination=0.01).fit(X_train)
+b = iso.predict(X_test) == -1
+\end{lstlisting}
+
+Hvilket utsagn er korrekt?
+%%% NY3: alle alternativer er nå konkrete påstander. a = støy i X; b = anomalier i X_test (contamination styrer terskelen fra treningsdataene).
+%%% DBSCAN i sklearn har ingen predict-metode; label -1 er støy, ikke kantpunkter.
+@+ \texttt{a} er \texttt{True} for støypunktene i \texttt{X}, og \texttt{b} for punktene i \texttt{X\_test} som isoleres raskt
+@- \texttt{a} er \texttt{True} for kantpunktene i \texttt{X}, siden DBSCAN gir label $-1$ til punkter i utkanten av en klynge
+@- \texttt{dbscan.predict(X\_test) == -1} ville markert anomaliene i \texttt{X\_test} på samme måte som \texttt{b}
+@- \texttt{b} er \texttt{True} for nøyaktig 1\,\% av punktene i \texttt{X\_test}, siden \texttt{contamination} er 0.01
+@@Q
+Koden under er hentet fra en DQN-agent. Linje 2 kjøres for hvert steg i miljøet, og linje 3--4 kjøres
+når nettverket skal trenes (bufferen har da minst 32 elementer).
+
+\begin{lstlisting}[language=Python]
+buffer = deque(maxlen=1000)
+buffer.append((state, action, reward, next_state, done))
+batch = random.sample(buffer, 32)
+states, actions, rewards, next_states, dones = zip(*batch)
+\end{lstlisting}
+
+Hvilket utsagn om koden er korrekt?
+@+ Ingen bufferposisjon kan forekomme to ganger i \texttt{batch}, siden trekningen er uten tilbakelegging
+@- \texttt{batch} er de 32 siste overgangene, slik at nettverket alltid trenes på agentens nyeste erfaring
+@- \texttt{zip(*batch)} gir 32 tupler, ett for hver overgang i \texttt{batch}, med fem verdier i hvert
+@- \texttt{deque(maxlen=1000)} gir en \texttt{IndexError} når overgang nummer 1001 legges til i bufferen

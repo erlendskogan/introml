@@ -1,0 +1,553 @@
+%%% Øvingssett 5 – TDT4172 H26
+%%% ================================================================ PART 1
+@@PART
+@@Q
+Du trener en \textbf{logistisk regresjonsmodell} med binary cross-entropy loss og gradient descent.
+Du kjører treningen to ganger på nøyaktig samme treningsdata, men med ulike tilfeldige startverdier
+for $\mathbf{w}$ og $b$. Læringsraten er liten nok til at begge kjøringene konvergerer.
+
+Hva kan du forvente om de to kjøringene?
+@+ Begge når samme minimale tap, siden tapsfunksjonen er konveks og alle minima er globale
+@- De ender typisk i ulike lokale minima, så man bør beholde kjøringen med lavest valideringstap
+@- De ender på samme tapsverdi bare hvis featurene er standardisert, ellers havner de i ulike minima
+@- De ender på ulike tapsverdier, fordi sigmoid er ikke-lineær og gir tapsflaten flere daler
+@@Q
+%%% NY2: å bytte om hvilken klasse som kodes som 1 gir parametrene (-w, -b)
+En logistisk regresjonsmodell for Titanic-dataene er trent til konvergens med \emph{Survived} som target
+($y = 1$ betyr overlevde) og har fått parametrene $\mathbf{w}$ og $b$. En kollega trener den samme modellen på
+de samme dataene, men koder target omvendt, slik at $y = 1$ betyr omkom. Tapsfunksjonen er konveks.
+
+Hvilke parametre får kollegaens modell?
+%%% sigma(-z) = 1 - sigma(z): (-w, -b) gir yhat' = 1 - yhat, som er optimal for de omkodede labelene.
+@+ $(-\mathbf{w},\,-b)$, slik at den nye $\hat y$ blir $1 - \hat y$ for hvert punkt
+@- $(\mathbf{w},\,-b)$, siden bare skjæringspunktet flyttes når klassene bytter navn
+@- $(-\mathbf{w},\,b)$, siden bare retningen på vektene snur når klassene bytter navn
+@- $(\mathbf{w},\,b)$, siden kodingen av target bare påvirker tolkningen av $\hat y$
+@@Q
+%%% NY: uskalerte features gir ubalanserte gradienter i gradient descent (notatenes tabell 8)
+Du trener logistisk regresjon med gradient descent på to uskalerte features: \emph{Inntekt} (typisk
+300\,000--900\,000 kr) og \emph{Alder} (20--70 år). Gradienten er $\partial L/\partial w_j = (\hat y - y)\,x_j$.
+Med læringsrate $\eta = 0.01$ eksploderer tapet etter få steg, og med $\eta = 10^{-7}$ flytter vekten for
+\emph{Alder} seg nesten ikke, selv etter mange epoker.
+
+Hva er den beste forklaringen og løsningen?
+@+ Gradienten for $w_{\text{Inntekt}}$ er langt større enn for $w_{\text{Alder}}$; standardiser featurene så én læringsrate passer for begge
+@- Sigmoid mettes for store input slik at gradienten forsvinner; bytt til MSE som tapsfunksjon, siden den ikke bruker sigmoid
+@- Tapsfunksjonen blir ikke-konveks når featurene har ulik skala; prøv flere startverdier og behold kjøringen med lavest tap
+@- Læringsraten må bare finjusteres; en verdi mellom $10^{-7}$ og $0.01$ vil gi rask konvergens for begge vektene
+@@Q
+Et datasett har disse features (target er \emph{Konvertert} og regnes ikke med):
+\begin{itemize}
+\item \emph{Region}: kategorisk med 5 mulige verdier
+\item \emph{Abonnement}: kategorisk med verdiene \{basis, standard, premium\}
+\item \emph{Daglig\_bruk}: kontinuerlig
+\item \emph{Betalende}: binær \{ja, nei\}
+\end{itemize}
+Du one-hot-enkoder \emph{Region} og \emph{Abonnement} med én kolonne per kategori, gjør
+\emph{Betalende} om til 0/1 med en LabelEncoder, og beholder \emph{Daglig\_bruk} som den er.
+
+Hvor mange input-features får modellen?
+@+ $10$
+@- $4$
+@- $6$
+@- $8$
+%%% 5+3+1+1 = 10. 4 = ingen utvidelse, 6 = Region label-enkodet (1+3+1+1), 8 = dropper én kolonne per kategori
+%%% ================================================================ PART 2
+@@PART
+@@Q
+Fire klassifiseringsmodeller er evaluert på samme valideringssett:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Modell & Precision & Recall \\
+\midrule
+M1 & 0.95 & 0.50 \\
+M2 & 0.58 & 0.84 \\
+M3 & 0.66 & 0.66 \\
+M4 & 0.45 & 0.99 \\
+\bottomrule
+\end{tabular}
+\end{center}
+F1-score er definert som $F_1 = \dfrac{2\cdot\text{Precision}\cdot\text{Recall}}{\text{Precision}+\text{Recall}}$.
+
+Hvilken modell har høyest \textbf{F1-score}?
+@+ M2
+@- M1
+@- M3
+@- M4
+%%% F1: M1 0.655, M2 0.686, M3 0.660, M4 0.619. Aritmetisk snitt: M1 0.725 (høyest), M4 0.720, M2 0.710, M3 0.660.
+%%% M3 er den eneste balanserte raden, men ikke svaret (motvirker «F1 liker balanse»-gjetting).
+@@Q
+Et datasett med 12\,000 korttransaksjoner inneholder 2.5\,\% svindel. Du splitter først datasettet
+\textbf{stratifisert} i 80\,\% trening og 20\,\% test. Deretter gjør du \textbf{random undersampling}
+av treningsdataene slik at de to klassene blir like store.
+
+Hvor mange datapunkter består det balanserte treningssettet av?
+@+ $480$
+@- $600$
+@- $9600$
+@- $18720$
+%%% trening 9600, svindel 240 -> 2*240 = 480. 600 = gjort på hele datasettet, 9600 = hele treningssettet uten resampling, 18720 = oversampling
+@@Q
+Figuren viser ROC-kurvene til to modeller A og B på samme testsett. AUC er 0.83 for A og 0.80 for B.
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=7.2cm,height=7.2cm,xmin=0,xmax=1,ymin=0,ymax=1,
+  xlabel={FPR},ylabel={TPR},grid=major,grid style={gray!25},
+  legend pos=south east,legend style={font=\small},tick label style={font=\small}]
+\addplot[thick,blue,mark=*,mark size=1.3pt] coordinates {(0,0) (0.05,0.20) (0.1,0.42) (0.2,0.75) (0.4,0.93) (0.6,0.97) (1,1)};
+\addlegendentry{A}
+\addplot[thick,red,dashed,mark=square*,mark size=1.3pt] coordinates {(0,0) (0.05,0.55) (0.1,0.65) (0.2,0.72) (0.4,0.80) (0.6,0.86) (1,1)};
+\addlegendentry{B}
+\addplot[gray,dotted] coordinates {(0,0) (1,1)};
+\draw[black!60,densely dashed] (axis cs:0.05,0) -- (axis cs:0.05,1);
+\end{axis}
+\end{tikzpicture}
+\end{center}
+Modellen skal brukes i et system der andelen falske alarmer blant de negative ikke kan overstige
+5\,\%, altså FPR $\le 0.05$ (markert med vertikal strek).
+
+Hvilket utsagn er riktig?
+@+ B bør velges, siden B har høyere TPR enn A ved FPR $= 0.05$, det eneste relevante driftspunktet
+@- A bør velges, siden høyest AUC gir høyest TPR ved alle FPR, også ved FPR $= 0.05$
+@- B bør velges, siden lavere AUC betyr færre positive prediksjoner og dermed lavere FPR
+@- A bør velges, siden AUC oppgir ytelsen ved den terskelen som gir FPR $= 0.05$ i drift
+%%% AUC verifisert med trapesregel: A 0.831, B 0.802. Ved FPR 0.05: A 0.20, B 0.55
+@@Q
+%%% NY2: etter oversampling til 50/50 er yhat ikke lenger et godt sannsynlighetsestimat i drift (prior-skift)
+Svindel utgjør 1\,\% av transaksjonene. Et team oversampler svindelklassen i treningsdataene til
+50/50, trener en logistisk regresjonsmodell, og bruker deretter $\hat y$ direkte som estimat på
+sannsynligheten for at en ny transaksjon i drift er svindel.
+
+Hvilket utsagn om disse estimatene er riktig?
+@+ De blir typisk for høye, siden modellen er trent med en andel svindel på 50\,\% i stedet for 1\,\%
+@- De blir uendret, siden kopiering av punkter ikke gir modellen ny informasjon om featurene
+@- De blir typisk for lave, siden kopiene gjør at modellen overtilpasser til de få svindelpunktene
+@- De blir godt kalibrerte, siden balanserte treningsdata gir de mest nøytrale sannsynlighetene
+%%% ================================================================ PART 3
+@@PART
+@@Q
+En node i et beslutningstre inneholder 20 positive og 20 negative datapunkter. En kandidatsplitt gir
+\begin{itemize}
+\item venstre barn: 12 positive og 4 negative,
+\item høyre barn: 8 positive og 16 negative.
+\end{itemize}
+Gini-urenheten til et datasett er $1-\sum_i p_i^2$, og urenheten etter en splitt er det vektede
+gjennomsnittet over barna, vektet med andelen datapunkter i hvert barn.
+
+Hva er Gini-urenheten etter splitten?
+@+ $0.417$
+@- $0.500$
+@- $0.083$
+@- $0.875$
+%%% venstre 0.375, høyre 0.444; vektet 0.4*0.375+0.6*0.444 = 0.417. 0.500 = urenheten i noden før splitten, 0.083 = reduksjonen, 0.875 = vektet entropi
+@@Q
+%%% NY2: grådig splittvalg – XOR-data gir null informasjonsgevinst i rotnoden
+To binære features $A, B \in \{0, 1\}$ bestemmer klassen slik: klassen er 1 hvis nøyaktig én av $A$ og $B$
+er 1, og 0 ellers (XOR). Datasettet har 25 punkter for hver av de fire kombinasjonene av $(A, B)$.
+Et beslutningstre vurderer å splitte rotnoden på $A$, med entropi $I = -\sum_i p_i\log_2 p_i$.
+
+Hva blir informasjonsgevinsten for denne splitten, og hva betyr det?
+%%% Rot: 50/50 -> I = 1. A=0: (0,0)->0, (0,1)->1 => 25/25 -> I = 1. A=1: også 25/25. Delta I = 1 - 1 = 0.
+%%% Dybde 2 (A, så B) klassifiserer perfekt. 0.5/1 er typiske feiltolkninger.
+@+ Gevinsten er 0, og et tre som splitter på $A$ og deretter på $B$ klassifiserer alle punktene riktig
+@- Gevinsten er 0, og en splitt på $B$ i neste nivå gir også 0, så treet kan ikke skille klassene
+@- Gevinsten er 1, siden $A$ og $B$ til sammen bestemmer klassen fullstendig for hvert punkt
+@- Gevinsten er 0.5, men den stiger til 1 når $B$ brukes som splitt i neste nivå av treet
+@@Q
+%%% NY2: ustabile trær – grådig valg i rotnoden forplanter seg nedover
+Du trener et \texttt{DecisionTreeClassifier} uten dybdebegrensning to ganger med de samme
+hyperparametrene: først på alle 500 treningspunktene, og deretter etter å ha fjernet fem tilfeldige
+punkter. Det første treet splitter rotnoden på \emph{Alder}, det andre på \emph{Inntekt}, og resten av
+de to trærne er helt forskjellige.
+
+Hva er den beste forklaringen?
+@+ To kandidatsplitter var nesten like gode i rotnoden, og når valget bytter, endres alle splittene under
+@- Treet starter fra tilfeldige startverdier for vektene, så to treninger gir ulike trær selv på samme data
+@- Fjerningen endret skalaen til featurene, og splittvalget i et beslutningstre er følsomt for skalering
+@- Dype trær har høy bias, og høy bias gjør at små endringer i dataene gir et helt annet tre
+@@Q
+En sykdom forekommer hos 1\,\% av befolkningen. En test gir positivt svar hos 95\,\% av de syke, og
+hos 10\,\% av de friske.
+
+En tilfeldig valgt person tester positivt. Omtrent hvor stor er sannsynligheten for at personen er syk?
+@+ ca. 8.8\,\%
+@- ca. 95\,\%
+@- ca. 90\,\%
+@- ca. 10.9\,\%
+%%% 0.95*0.01/(0.95*0.01+0.10*0.99) = 0.0876. 95 = sensitivitet, 90 = spesifisitet, 10.9 = evidensen p(pos) = 0.1085 (glemt å dele)
+%%% ================================================================ PART 4
+@@PART
+@@Q
+%%% NY2: nøstede modeller – høyere polynomgrad kan ikke gi høyere trenings-MSE ved fullført minimering
+Du tilpasser polynomer av grad 2, 4, 8 og 12 (features $x, x^2, \dots, x^M$) til de \textbf{samme}
+treningsdataene med gradient descent på MSE, og måler tapet på treningsdataene:
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Grad $M$ & 2 & 4 & 8 & 12 \\
+Trenings-MSE & 9.6 & 3.2 & 2.5 & 3.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+En kollega mener at økningen fra grad 8 til grad 12 viser at modellen overtilpasser.
+Hvilket utsagn er riktig?
+@+ En modell av grad 12 rommer alle modeller av grad 8, så optimeringen har stanset før minimum er nådd
+@- Kollegaen har rett; overtilpasning vises ved at trenings-MSE begynner å øke når graden blir for høy
+@- Økningen er ventet, siden flere ledd gir høyere bias, og biasen dominerer feilen på treningsdataene
+@- Økningen skyldes tilfeldig variasjon i datasplitten og ville forsvunnet med k-fold kryssvalidering
+%%% beta_9..beta_12 = 0 gir nøyaktig grad-8-modellen, så minimum for grad 12 er <= minimum for grad 8.
+@@Q
+Du har 1000 datapunkter og vil sammenligne 4 ulike verdier av en hyperparameter med
+\textbf{5-fold kryssvalidering}.
+
+Hvilket utsagn er riktig?
+@+ Totalt trenes 20 modeller, og hvert punkt brukes til validering nøyaktig én gang per hyperparameterverdi
+@- Totalt trenes 20 modeller, og hvert datapunkt brukes til validering i fire av de fem foldene
+@- Totalt trenes 5 modeller, fordi alle hyperparameterverdiene kan evalueres på samme modell i hver fold
+@- Totalt trenes 20 modeller, og hver av dem valideres på 800 datapunkter som ikke ble brukt i treningen
+@@Q
+Både \textbf{bootstrapping} og \textbf{$k$-fold kryssvalidering} lager flere delsett fra ett datasett med
+$n$ punkter.
+
+Hvilket utsagn beskriver riktig hvordan delsettene skiller seg?
+@+ Bootstrap-utvalgene kan overlappe og inneholde duplikater, mens foldene i $k$-fold er disjunkte
+@- Bootstrap trekker uten tilbakelegging, så utvalgene kan overlappe, men ingen punkter gjentas i ett utvalg
+@- Bootstrap trekker med tilbakelegging, men hvert punkt havner likevel i bare ett utvalg, som i $k$-fold
+@- Begge lager disjunkte delsett, men bootstrap bruker flere delsett enn $k$-fold og gir lavere varians
+@@Q
+%%% NY2: optimalt konstantledd beta_0 ved å sette dL/dbeta_0 = 0 (notatenes likning 55)
+Modellen $f(x) = \beta_0 + \beta_1 x$ trenes med gradient descent på
+$\text{MSE} = \frac{1}{2N}\sum_{i}\bigl(y^{(i)} - f(x^{(i)})\bigr)^2$, slik at
+\[
+\frac{\partial L}{\partial \beta_0} = \frac{1}{N}\sum_{i=1}^{N}\bigl(f(x^{(i)}) - y^{(i)}\bigr).
+\]
+Treningsdataene er
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+$x$ & 1 & 2 & 4 & 5 \\
+$y$ & 4 & 5 & 10 & 11 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Anta at stigningstallet er ferdig tilpasset og holdes fast på $\beta_1 = 2$.
+Hvilken verdi av $\beta_0$ gjør $\partial L/\partial\beta_0 = 0$?
+%%% y - 2x = (2, 1, 2, 1) -> snitt 1.5. 6.0 = summen av y - 2x (glemt 1/N), 7.5 = snitt av y (glemt beta_1 x),
+%%% 4.5 = snitt(y) - snitt(x) (glemt å gange med beta_1)
+@+ $1.50$
+@- $4.50$
+@- $6.00$
+@- $7.50$
+%%% ================================================================ PART 5
+@@PART
+@@Q
+Gradient boosting for regresjon brukes på tre datapunkter med targets $y = (10,\,14,\,18)$.
+Startprediksjonen er gjennomsnittet, $F_0(x) = 14$ for alle punkter. I hver runde $m$ tilpasses et
+nytt tre $h_m$ til pseudo-residualene $r = y - F_{m-1}(x)$, og vi antar at treet treffer dem eksakt.
+Ensemblet oppdateres med læringsrate $\eta = 0.1$:
+\[
+F_m(x) = F_{m-1}(x) + \eta\, h_m(x).
+\]
+
+Hva er prediksjonen $F_2$ for punktet med $y = 18$ etter to runder?
+@+ $14.76$
+@- $14.80$
+@- $18.00$
+@- $13.16$
+%%% F1 = 14.4, r = 3.6, F2 = 14.76. 14.80 = ikke oppdatert residual, 18 = eta=1, 13.16 = feil fortegn
+@@Q
+%%% NY2: AdaBoost og feilmerkede punkter – vektene vokser og senere stumper jager støy
+Et treningssett inneholder noen få punkter med \textbf{feilregistrert label}. Du trener AdaBoost med
+trestumper, og ser at disse punktene klassifiseres feil av nesten hver ny stump, runde etter runde.
+
+Hva skjer med disse punktene, og hva betyr det for ensemblet?
+@+ Vektene deres blir stadig større, så senere stumper bruker mye av kapasiteten sin på å tilpasse seg støy
+@- Vektene deres settes til null etter noen runder, siden AdaBoost oppdager at punktene er umulige å lære
+@- Vektene deres blir stadig større, men det påvirker bare treningsfeilen og ikke prediksjonene på nye data
+@- Vektene deres endres ikke, siden vektene bare justeres for punktene som den første stumpen bommet på
+@@Q
+%%% NY2: gradient boosting når første tre tilpasser treningsdataene perfekt (residualene blir 0)
+Du trener gradient boosting for regresjon med kvadratisk tap og læringsrate $\eta = 1$. Ved en feil settes
+maks dybde så høyt at det første treet etter startprediksjonen tilpasser treningsdataene perfekt, slik at
+trenings-MSE blir 0.
+
+Hva skjer i de påfølgende boosting-rundene?
+@+ Pseudo-residualene er 0 for alle treningspunkter, så nye trær predikerer 0 og ensemblet endres ikke
+@- Neste tre tilpasses de største feilene på valideringsdata, slik at ensemblet gradvis generaliserer bedre
+@- Neste tre får høyere vekt på de vanskeligste punktene, slik at overtilpasningen gradvis rettes opp
+@- Pseudo-residualene er 0, så neste tre tilpasses i stedet de opprinnelige targetene på nytt
+@@Q
+Du har et treningssett med $n = 1000$ punkter og trener et \textbf{bagging}-ensemble med 50 beslutningstrær.
+
+Hvilken beskrivelse av treningsdataene til tre nummer 17 er riktig?
+@+ 1000 punkter trukket med tilbakelegging, så noen punkter forekommer flere ganger og andre mangler
+@- 1000 punkter trukket med tilbakelegging, der punktene tre 16 bommet på har høyere sannsynlighet for å bli trukket
+@- 20 punkter, slik at de 50 trærne til sammen deler treningssettet i disjunkte deler
+@- De 1000 punktene i ny tilfeldig rekkefølge, slik at forskjellen mellom trærne skyldes rekkefølgen
+%%% ================================================================ PART 6
+@@PART
+@@Q
+Et nevralt nettverk trenes på $N = 8000$ treningspunkter i 5 epoker.
+
+Hvor mange parameteroppdateringer gjør henholdsvis \textbf{SGD} (ett datapunkt per oppdatering) og
+\textbf{mini-batch SGD} med batch size $B = 50$ i løpet av de 5 epokene?
+@+ SGD: $40\,000$, mini-batch: $800$
+@- SGD: $8\,000$, mini-batch: $250$
+@- SGD: $40\,000$, mini-batch: $250$
+@- SGD: $8\,000$, mini-batch: $800$
+%%% SGD 5*8000=40000, mini 5*8000/50 = 800. 8000 = glemt epoker, 250 = 5*50
+@@Q
+Du trener et nevralt nettverk med mini-batch SGD og vurderer å endre \textbf{batch size} fra 256 til 16.
+
+Hvilket utsagn er riktig?
+@+ Batch size er en hyperparameter; med 16 blir gradienten mer støyete, men hver oppdatering billigere
+@- Batch size er en modellparameter som justeres med backpropagation sammen med vektene og biasene i nettverket
+@- Med 16 blir gradientestimatet mer presist, fordi hvert datapunkt får større innflytelse på oppdateringen
+@- Batch size påvirker hvor lang tid en epoke tar, men oppdateringene blir de samme uansett batch size
+@@Q
+%%% NY3: skjult lag som lært feature-transformasjon, sett via aktiveringene (ikke ringer – de brukes i 7.1)
+Et nettverk har to inputs, ett skjult lag med to ReLU-noder $(h_1, h_2)$ og én sigmoid-node i output-laget, og er
+trent til nesten 100\,\% accuracy på et binært problem der klassene \textbf{ikke} er lineært separerbare i
+$(x_1, x_2)$. Når du plotter aktiveringene $(h_1, h_2)$ for treningspunktene, kan de to klassene skilles med en
+rett linje i $(h_1, h_2)$-planet.
+
+Hva er den beste tolkningen?
+%%% Output-noden er en logistisk regresjon på (h1, h2); det skjulte laget har lært features som gjør problemet lineært separerbart.
+@+ Det skjulte laget har lært nye features, og output-noden er en logistisk regresjon på dem
+@- Det skjulte laget har lært en rotasjon og skalering av input, slik PCA gjør, uten ikke-linearitet
+@- Sigmoid i output-noden gir den ikke-lineære grensen, mens det skjulte laget bare skalerer input
+@- Nettverket har trolig overtilpasset, siden lineær separerbarhet i $(h_1, h_2)$ krever at punktene er pugget
+@@Q
+%%% NY2: oppdateringsregelen for perceptron med flere output-noder (notatenes likning 92)
+Et perceptron for tre klasser har to inputs og én output-node per klasse, alle med Heaviside-aktivering.
+Vektene oppdateres med
+\[
+w_{i,j} \leftarrow w_{i,j} + \eta\,(y_j - \hat y_j)\,x_i ,
+\]
+der $w_{i,j}$ er vekten fra input $i$ til output-node $j$. For datapunktet $\mathbf{x} = (2,\,-1)$ med
+target $\mathbf{y} = (0,\,0,\,1)$ gir perceptronet $\hat{\mathbf{y}} = (1,\,0,\,1)$, og $\eta = 0.5$.
+Se bort fra bias.
+
+Hvilken endring gjøres i vektene?
+%%% Node 1: 0.5*(0-1)*(2,-1) = (-1, +0.5). Node 2 og 3: y_j - yhat_j = 0 -> ingen endring.
+@+ Bare vektene inn til node 1 endres, med $(\Delta w_{1,1},\,\Delta w_{2,1}) = (-1.0,\,+0.5)$
+@- Bare vektene inn til node 1 endres, med $(\Delta w_{1,1},\,\Delta w_{2,1}) = (+1.0,\,-0.5)$
+@- Vektene inn til node 1 og 3 endres, med $(-1.0,\,+0.5)$ for node 1 og $(+1.0,\,-0.5)$ for node 3
+@- Ingen vekter endres, siden node 3 er aktiv og perceptronet dermed allerede gir riktig klasse
+%%% ================================================================ PART 7
+@@PART
+@@Q
+Figuren viser et datasett som består av to konsentriske ringer. Fargene viser resultatet av
+\textbf{k-means} med $k=2$: dataene er delt i en venstre og en høyre halvdel.
+\begin{center}
+\begin{tikzpicture}[scale=0.55]
+\foreach \a in {0,30,...,330} {
+  \pgfmathsetmacro{\cosv}{cos(\a)}
+  \ifdim \cosv pt < -0.01pt
+    \fill[blue!70] ({cos(\a)},{sin(\a)}) circle (2.6pt);
+  \else
+    \fill[orange!90!black] ({cos(\a)},{sin(\a)}) circle (2.6pt);
+  \fi
+}
+\foreach \a in {0,10,...,350} {
+  \pgfmathsetmacro{\cosv}{cos(\a)}
+  \ifdim \cosv pt < -0.01pt
+    \fill[blue!70] ({3.2*cos(\a)},{3.2*sin(\a)}) circle (2.6pt);
+  \else
+    \fill[orange!90!black] ({3.2*cos(\a)},{3.2*sin(\a)}) circle (2.6pt);
+  \fi
+}
+\draw[->,gray] (-4,0) -- (4,0) node[right] {\small $x_1$};
+\draw[->,gray] (0,-3.8) -- (0,3.8) node[above] {\small $x_2$};
+\end{tikzpicture}
+\end{center}
+
+Hvorfor finner ikke k-means de to ringene?
+@+ k-means tilordner punkter til nærmeste sentroide og antar dermed kompakte, omtrent sfæriske klynger
+@- Initialiseringen var uheldig; med k-means++ ville sentroidene havnet slik at ringene ble skilt
+@- Featurene er ikke skalert; etter standardisering ville avstandene trolig skilt den indre og ytre ringen
+@- k-means krever like mange punkter i hver klynge, og den ytre ringen inneholder flere punkter enn den indre
+@@Q
+%%% NY: skalerbarhet – k-means vs DBSCAN for svært stor n
+Du skal klynge 20 millioner GPS-posisjoner med to features og vurderer k-means og DBSCAN.
+Beregningstid er det viktigste kriteriet.
+
+Hvilket utsagn er riktig?
+@+ k-means skalerer best, fordi DBSCAN må finne naboene til hvert punkt og dermed beregne avstander mellom svært mange par
+@- DBSCAN skalerer best, fordi den ikke trenger antall klynger og derfor slipper å kjøres for mange verdier av $k$
+@- k-means skalerer best, fordi DBSCAN må kjøres på nytt for hver kombinasjon av $\varepsilon$ og \texttt{min\_samples}
+@- DBSCAN skalerer best, fordi k-means må beregne avstanden mellom alle par av datapunkter i hver iterasjon
+@@Q
+%%% NY2: tolkning av negativ silhouette-verdi for ett punkt
+Etter en clustering beregner du silhouette-koeffisienten $s = (b-a)/\max(a,b)$ for hvert punkt, der $a$ er
+midlere avstand til de andre punktene i egen klynge og $b$ er midlere avstand til punktene i nærmeste
+andre klynge. Punktet P får $s = -0.4$.
+
+Hva forteller dette om P?
+%%% s < 0 <=> b < a: P ligger i snitt nærmere nabo-klyngen enn sin egen -> trolig feil klynge (notatene: -1 = feil klynge, 0 = overlapp/rand).
+@+ P ligger i snitt nærmere den andre klyngen enn sin egen, og er trolig i feil klynge
+@- P ligger på grensen mellom to klynger, siden negative verdier betyr at klyngene overlapper
+@- P er trolig en outlier, siden en negativ verdi betyr at P ligger langt fra alle klyngene
+@- P er rimelig godt plassert, siden bare absoluttverdien $|s| = 0.4$ har betydning
+@@Q
+k-means med $k=2$ kjøres på seks punkter i planet:
+\[
+(1,1),\ (2,1),\ (1,2),\ (3,2),\ (4,3),\ (5,4).
+\]
+Startsentroidene er $\mathbf{c}_1 = (1,1)$ og $\mathbf{c}_2 = (5,4)$, og det brukes Euklidsk avstand.
+
+Hva blir de nye sentroidene etter ett tilordningssteg og ett oppdateringssteg?
+@+ $\mathbf{c}_1 = (1.75,\,1.50)$ og $\mathbf{c}_2 = (4.50,\,3.50)$
+@- $\mathbf{c}_1 = (1.33,\,1.33)$ og $\mathbf{c}_2 = (4.00,\,3.00)$
+@- $\mathbf{c}_1 = (2.00,\,1.50)$ og $\mathbf{c}_2 = (4.50,\,3.50)$
+@- $\mathbf{c}_1 = (1.60,\,1.40)$ og $\mathbf{c}_2 = (4.67,\,3.67)$
+%%% (3,2): d^2 til c1 = 5, til c2 = 8 -> c1. c1 = mean{(1,1),(2,1),(1,2),(3,2)} = (1.75,1.5); c2 = (4.5,3.5)
+%%% feil: (3,2) til c2; midtpunkt av ytterpunkter; gammel sentroide tatt med som punkt
+%%% ================================================================ PART 8
+@@PART
+@@Q
+Du lager t-SNE-plott av samme datasett med \texttt{perplexity=3} og med \texttt{perplexity=50}.
+
+Hvilket utsagn om \textbf{perplexity} er riktig?
+@+ Den styrer variansen til gaussen rundt hvert punkt og kan tolkes som effektivt antall naboer
+@- Den angir antall dimensjoner i embeddingen, slik at \texttt{perplexity=3} gir en tredimensjonal embedding
+@- Den angir antall iterasjoner med gradient descent, så høy perplexity gir en bedre konvergert embedding
+@- Den er antall frihetsgrader i t-fordelingen og kan tolkes som hvor tunge halene i det lavdimensjonale rommet er
+@@Q
+t-SNE minimerer \textbf{KL-divergensen}
+$D_{KL}(P\,\|\,Q) = \sum_x P(x)\log\dfrac{P(x)}{Q(x)}$ mellom naboskapsfordelingene $P$ (høydimensjonalt)
+og $Q$ (lavdimensjonalt).
+
+Hvilket utsagn om KL-divergensen er riktig?
+@+ Den er aldri negativ og er 0 når $P = Q$, men $D_{KL}(P\|Q)$ og $D_{KL}(Q\|P)$ er generelt ulike
+@- Den er aldri negativ, og $D_{KL}(P\|Q) = D_{KL}(Q\|P)$, slik at den er et avstandsmål som Euklidsk avstand
+@- Den er symmetrisk i $P$ og $Q$, men kan bli negativ når $Q$ er mer konsentrert enn $P$
+@- Den er 0 når $P$ og $Q$ har lik varians, men vokser ellers med forskjellen i varians mellom dem
+@@Q
+%%% NY3: PCA vs t-SNE – mål og hva metodene gir (transform-vinklingen ligger i 10.4)
+Du har 20\,000 kunder med 50 features og to ønsker:
+\begin{itemize}
+\item[(1)] et 2D-plott der kunder med lignende profil havner tett sammen i tydelige grupper,
+\item[(2)] et tall for hvor stor andel av den totale variansen som bevares i to dimensjoner.
+\end{itemize}
+Hvilken kombinasjon passer best?
+%%% t-SNE: bevarer lokale nabolag (visualisering). PCA: andel varians = (l1+l2)/sum(l). t-SNE har ingen «forklart varians».
+@+ t-SNE for (1), siden den bevarer lokale nabolag, og PCA for (2), siden egenverdiene gir variansandelen
+@- PCA for (1), siden den bevarer lokale nabolag, og t-SNE for (2), siden KL-divergensen gir variansandelen
+@- t-SNE for begge, siden KL-divergensen etter treningen angir hvor stor andel av variansen som er bevart
+@- PCA for begge, siden t-SNE også er en lineær projeksjon og derfor ikke kan vise grupper bedre enn PCA
+@@Q
+Kovariansmatrisen til et sentrert datasett med to features er
+\[
+S = \begin{pmatrix} 5 & 2 \\ 2 & 2 \end{pmatrix}.
+\]
+
+Hvilken retning har første hovedkomponent (PC1), og hvor stor er variansen til dataene langs PC1?
+@+ PC1 $\propto (2,\,1)$, og variansen langs PC1 er $6$
+@- PC1 $\propto (1,\,-2)$, og variansen langs PC1 er $6$
+@- PC1 $\propto (2,\,1)$, og variansen langs PC1 er $1$
+@- PC1 $\propto (1,\,-2)$, og variansen langs PC1 er $1$
+%%% egenverdier 6 og 1 (spor 7, det 6). S(2,1) = (12,6) = 6(2,1). S(1,-2) = (1,-2).
+%%% ================================================================ PART 9
+@@PART
+@@Q
+I Q-læring tar agenten handlingen $A_t$ i tilstanden $S_t$, får belønningen $R_{t+1} = 1$, og
+miljøet returnerer \texttt{done=True} fordi agenten har nådd målet og episoden er over.
+
+Hvordan bør target-verdien i Q-oppdateringen for $(S_t, A_t)$ beregnes?
+@+ Som bare $R_{t+1}$, fordi en terminaltilstand ikke har fremtidig verdi og $\gamma\max_A Q(S_{t+1},A)$ settes til 0
+@- Som $R_{t+1} + \gamma\max_A Q(S_{t+1},A)$ som vanlig, fordi Q-verdiene i terminaltilstanden læres som for andre tilstander
+@- Som 0, fordi episoden er over og belønningen i siste steg derfor ikke kan påvirke Q-verdiene lenger
+@- Som $R_{t+1}/(1-\gamma)$, fordi agenten antas å få samme belønning i alle fremtidige steg etter målet
+@@Q
+%%% NY2: tommelfingerregel – har agenten ikke lært noe mens epsilon > epsilon_min, hjelper lengre trening lite
+Du trener en Q-agent med epsilon decay, og $\epsilon$ når \texttt{epsilon\_min} etter omtrent 1500 episoder.
+Etter 3000 episoder har agenten fortsatt nesten aldri nådd målet, og total reward per episode har ikke
+økt i løpet av treningen.
+
+Hva er det mest fornuftige neste steget?
+%%% Notatene: en agent som ikke har lært noe mens exp_factor > exp_min, lærer sannsynligvis ikke noe vettugt av å trene videre;
+%%% endre heller andre deler av koden (f.eks. tapsfunksjon/reward/oppsett).
+@+ Endre andre deler av oppsettet, for eksempel reward eller tapsfunksjon, før du trener på nytt
+@- Tren videre i mange flere episoder, siden Q-verdiene trenger tid etter at utforskingen er over
+@- Sett $\epsilon = 0$ resten av treningen, slik at agenten kan utnytte det den har lært til nå
+@- Senk $\gamma$, slik at agenten vektlegger umiddelbar reward og dermed lærer raskere
+@@Q
+%%% NY: DQN vs Q-tabell for enormt tilstandsrom (generalisering til ubesøkte tilstander)
+Et miljø har omtrent $10^{12}$ mulige tilstander, og agenten vil bare besøke en liten brøkdel av dem
+under treningen.
+
+Hvorfor er et DQN bedre egnet enn en Q-tabell her?
+@+ Et nettverk generaliserer fra lignende tilstander, så det gir Q-verdier også der en tabell er tom
+@- Et DQN trenger ikke utforsking, siden nettverket predikerer Q-verdiene uten å prøve handlingene
+@- Et DQN gir mer stabil trening enn en tabell, fordi én oppdatering justerer mange Q-verdier samtidig
+@- Et DQN lagrer Q-verdiene i en replay buffer i stedet for i en tabell, og trenger derfor mindre minne
+@@Q
+En robotstøvsuger trenes med reinforcement learning. I hvert tidssteg $t$ har systemet en
+tilstand $S_t$, en handling $A_t$ og en belønning $R_{t+1}$.
+
+Hvilket utsagn beskriver rollene i \textbf{RL-loopen} riktig?
+@+ Agenten velger $A_t$ ut fra $S_t$; miljøet returnerer deretter både $R_{t+1}$ og neste tilstand $S_{t+1}$
+@- Agenten velger $A_t$ og beregner $R_{t+1}$ fra sine Q-verdier; miljøet returnerer bare neste tilstand $S_{t+1}$
+@- Miljøet velger $A_t$ ut fra $S_t$ og $S_{t+1}$; agenten returnerer $R_{t+1}$ som en vurdering av handlingen
+@- Agenten velger både $A_t$ og neste tilstand $S_{t+1}$; miljøet returnerer bare belønningen $R_{t+1}$
+%%% ================================================================ PART 10
+@@PART
+@@Q
+En modell skal forklares med SHAP. Modellens prediksjoner på bakgrunnsdatasettet har gjennomsnitt $0.30$.
+For datapunktet $\mathbf{x}^*$ med tre features er prediksjonen $f(\mathbf{x}^*) = 0.62$, og to av
+SHAP-verdiene er
+\[
+\phi_{\text{alder}} = 0.12, \qquad \phi_{\text{inntekt}} = -0.05 .
+\]
+
+Hva er SHAP-verdien til den tredje featuren, $\phi_{\text{gjeld}}$?
+@+ $0.25$
+@- $0.55$
+@- $0.49$
+@- $0.32$
+%%% f = phi0 + sum phi -> 0.62 - 0.30 - 0.12 + 0.05 = 0.25. 0.55 = glemt phi0, 0.49 = la til kjente phi i stedet for å trekke fra, 0.32 = glemt de to andre
+@@Q
+En lineær regresjonsmodell predikerer boligpris (i kroner) med
+\[
+f(\mathbf{x}) = \beta_0 + 50\,000\cdot\textit{Soverom} - 30\cdot\textit{Avstand},
+\]
+der \emph{Soverom} varierer mellom 1 og 6 og \emph{Avstand} til sentrum måles i meter og varierer mellom
+200 og 20\,000. SHAP-verdier over testsettet viser at gjennomsnittlig $|\phi|$ er størst for \emph{Avstand}.
+
+Hvorfor kan SHAP rangere \emph{Avstand} høyest selv om koeffisienten er mye mindre?
+@+ Koeffisienten er effekten per enhet, mens SHAP også tar hensyn til hvor mye featuren faktisk varierer i dataene
+@- SHAP bruker absoluttverdier, og når koeffisienten er negativ, blir SHAP-verdien alltid størst
+@- SHAP-verdiene til en lineær modell er lik koeffisientene, så bakgrunnsdataene må variere for lite
+@- SHAP standardiserer target før beregningen, så koeffisientene og SHAP-verdiene måles på ulike skalaer
+@@Q
+%%% NY2: softmax normalisert over hele matrisen i stedet for per rad (manglende axis=1)
+En student implementerer softmax for en batch med to datapunkter og tre klasser:
+\begin{lstlisting}[language=Python]
+import numpy as np
+Z = np.array([[2.0, 1.0, 0.0],
+              [0.0, 0.0, 0.0]])     # logits, one row per data point
+P = np.exp(Z) / np.exp(Z).sum()
+print(P.sum(axis=1).round(2))
+\end{lstlisting}
+Hva skrives ut?
+%%% exp-summer per rad: 11.107 og 3.000, totalt 14.107 -> radsummer 0.79 og 0.21 (verifisert med numpy).
+%%% [1. 1.] = riktig softmax (axis=1, keepdims=True), [0.59 0.26 0.14] = summerer over kolonner (axis=0), [0.5 0.5] = lik andel per rad
+@+ \texttt{[0.79 0.21]}
+@- \texttt{[1. 1.]}
+@- \texttt{[0.59 0.26 0.14]}
+@- \texttt{[0.5 0.5]}
+@@Q
+Du har delt dataene i \texttt{X\_train} og \texttt{X\_test}, og vil redusere begge til to dimensjoner.
+Deretter skal en klassifikator trenes på \texttt{Z\_tr} og evalueres på \texttt{Z\_te}. Objektene er opprettet slik:
+\begin{lstlisting}[language=Python]
+pca = PCA(n_components=2)
+tsne = TSNE(n_components=2)
+\end{lstlisting}
+
+Hvilken kode er riktig?
+@+ \texttt{pca.fit(X\_train); Z\_tr = pca.transform(X\_train); Z\_te = pca.transform(X\_test)}
+@- \texttt{Z\_tr = pca.fit\_transform(X\_train); Z\_te = pca.fit\_transform(X\_test)}
+@- \texttt{tsne.fit(X\_train); Z\_tr = tsne.transform(X\_train); Z\_te = tsne.transform(X\_test)}
+@- \texttt{pca.fit(X\_test); Z\_tr = pca.transform(X\_train); Z\_te = pca.transform(X\_test)}

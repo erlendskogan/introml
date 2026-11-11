@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TDT4172 · Hele kurset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  html { scroll-behavior: auto; }
+  .all-head { max-width: var(--maxw); margin: 0 auto; padding: 28px 16px 8px; }
+  .all-head h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 6px 0 10px; letter-spacing: -.01em; }
+  .all-head p { color: var(--text-soft); margin: 0 0 10px; }
+  .all-toc { columns: 2 260px; column-gap: 24px; margin: 14px 0 0; padding: 0; list-style: none; font-size: 15px; }
+  .all-toc li { break-inside: avoid; padding: 2px 0; }
+  .all-toc .num { color: var(--muted); font-variant-numeric: tabular-nums; display: inline-block; min-width: 1.8em; }
+  .ch-sep { max-width: var(--maxw); margin: 0 auto; padding: 40px 16px 0; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .ch-sep .part { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .ch-sep .rule { flex: 1; min-width: 40px; border-top: 3px solid var(--accent); align-self: center; opacity: .5; }
+  .ch-sep a { font-size: 13.5px; color: var(--muted); }
+  section.ch { scroll-margin-top: 56px; }
+  section.ch iframe { display: block; width: 100%; height: 100vh; border: 0; background: var(--bg); }
+  section.ch .loading { max-width: var(--maxw); margin: 0 auto; padding: 0 16px; color: var(--muted); font-size: 14px; }
+  .drawer .sub { display: none; margin: 0 0 6px 34px; }
+  .drawer li.current .sub { display: block; }
+  .drawer .sub a { display: block; padding: 3px 8px; font-size: 13.5px; color: var(--text-soft); }
+  .drawer li.current > a { background: var(--accent-soft); font-weight: 600; }
+  .topbar .pct { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 4px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 9ch; text-align: right; }
+  .topbar .where { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  @media (max-width: 560px) { .topbar .brand small, .topbar .where { display: none; } }
+  @media print { section.ch iframe { height: auto; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="menu-btn" aria-label="Kapitler">☰ Kapitler</button>
+  <a class="brand" href="index.html">TDT4172 <small>Hele kurset</small></a>
+  <span class="where"></span>
+  <span class="spacer"></span>
+  <span class="pct" title="Hvor langt du har scrollet i hele kurset">0.00 %</span>
+  <button class="theme-btn" aria-label="Bytt lys/mørk modus">◐</button>
+  <div class="progress-line"></div>
+</header>
+<nav class="drawer" aria-label="Kapitler"><h3>Hele kurset</h3><ol id="drawer-list"></ol></nav>
+<div class="scrim"></div>
+
+<div class="all-head">
+  <div class="chapter-head" style="margin:0"><div class="kicker">TDT4172 · Alle kapitler</div></div>
+  <h1>Hele kurset på én side</h1>
+  <p>Kapittel 01 til 18 etter hverandre, så du kan scrolle gjennom alt fra start til slutt. Quizer, widgets og lagrede svar fungerer som på de vanlige kapittelsidene. Bruk ☰ Kapitler for å hoppe rundt.</p>
+  <ol class="all-toc" id="all-toc"></ol>
+</div>
+<div id="chapters"></div>
+
+<script>
+(function () {
+  "use strict";
+  // Samme liste som i assets/course.js
+  const CHAPTERS = [
+    ["01", "01-grunnlag.html", "Del I · Veiledet læring", "Hva er maskinlæring?"],
+    ["02", "02-logistisk.html", "Del I · Veiledet læring", "Logistisk regresjon og gradient descent"],
+    ["03", "03-evaluering.html", "Del I · Veiledet læring", "Evaluering og ubalanserte data"],
+    ["04", "04-sannsynlighet.html", "Del I · Veiledet læring", "Entropi, Bayes og dimensjonsforbannelsen"],
+    ["05", "05-traer.html", "Del I · Veiledet læring", "Beslutningstrær"],
+    ["06", "06-regresjon.html", "Del I · Veiledet læring", "Lineær og polynomisk regresjon"],
+    ["07", "07-generalisering.html", "Del I · Veiledet læring", "Generalisering: validering og bias–varians"],
+    ["08", "08-ensemble.html", "Del I · Veiledet læring", "Ensemble-modeller"],
+    ["09", "09-nevrale-nett.html", "Del II · Nevrale nettverk", "Fra perseptron til nevrale nettverk"],
+    ["10", "10-trening-nn.html", "Del II · Nevrale nettverk", "Trening av nevrale nettverk"],
+    ["11", "11-clustering.html", "Del III · Uveiledet læring", "Clustering"],
+    ["12", "12-dimensjonsreduksjon.html", "Del III · Uveiledet læring", "Dimensjonsreduksjon: PCA og t-SNE"],
+    ["13", "13-anomali.html", "Del III · Uveiledet læring", "Anomalideteksjon"],
+    ["14", "14-forsterkning.html", "Del IV · Forsterkningslæring", "Forsterkningslæring"],
+    ["15", "15-xai-etikk.html", "Del V · Forklarbar KI og etikk", "Forklarbar KI og etikk"],
+    ["16", "16-eksamen.html", "Del VI · Eksamen", "Eksamenstrening"],
+    ["17", "17-formelark.html", "Del VI · Eksamen", "Formelark og begrepsliste"],
+    ["18", "18-regneoppgaver.html", "Del VI · Eksamen", "Regneoppgaver steg for steg"]
+  ].map(([id, file, part, title]) => ({ id, file, part, title }));
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("tdt4172:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem("tdt4172:" + k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const topbarH = () => $(".topbar").getBoundingClientRect().height;
+
+  /* ---------- tema ---------- */
+  let theme = store.get("theme", null);
+  if (theme) document.documentElement.setAttribute("data-theme", theme);
+  const send = (frame, msg) => { try { frame.contentWindow.postMessage(Object.assign({ ck: true }, msg), "*"); } catch (e) {} };
+  $(".theme-btn").onclick = () => {
+    const cur = document.documentElement.getAttribute("data-theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    theme = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", theme);
+    store.set("theme", theme);
+    CHAPTERS.forEach(c => c.frame && send(c.frame, { type: "theme", theme }));
+  };
+
+  /* ---------- bygg sidene ---------- */
+  const host = $("#chapters"), toc = $("#all-toc"), list = $("#drawer-list");
+  for (const c of CHAPTERS) {
+    toc.insertAdjacentHTML("beforeend", `<li><a href="#k${c.id}"><span class="num">${c.id}</span>${esc(c.title)}</a></li>`);
+    const s = store.get("ch:" + c.id, null);
+    const badge = s && s.total ? `${s.correct}/${s.total}` : "";
+    list.insertAdjacentHTML("beforeend",
+      `<li data-ch="${c.id}"><a href="#k${c.id}"><span class="num">${c.id}</span><span>${esc(c.title)}</span><span class="badge">${badge}</span></a><div class="sub"></div></li>`);
+
+    const sec = document.createElement("section");
+    sec.className = "ch"; sec.id = "k" + c.id;
+    sec.innerHTML = `<div class="ch-sep"><span class="part">${esc(c.part)} · Kapittel ${c.id}</span><span class="rule"></span><a href="kapitler/${c.file}">Åpne alene ↗</a></div><p class="loading">Laster kapittel ${c.id} …</p>`;
+    const f = document.createElement("iframe");
+    f.title = `Kapittel ${c.id}: ${c.title}`;
+    f.src = `kapitler/${c.file}?embed=1${theme ? "&theme=" + theme : ""}`;
+    f.addEventListener("load", () => { const l = $(".loading", sec); if (l) l.remove(); if (theme) send(f, { type: "theme", theme }); });
+    sec.appendChild(f);
+    host.appendChild(sec);
+    c.frame = f; c.sec = sec;
+  }
+
+  /* ---------- navigasjon ---------- */
+  // Når kapitler over målet endrer høyde mens de laster, hold målet på plass en liten stund.
+  let pending = null;
+  function scrollToY(y) { window.scrollTo(0, Math.max(0, y)); }
+  function gotoChapter(c, y = 0) {
+    pending = { c, y, until: Date.now() + 4000 };
+    scrollToY(c.sec.offsetTop + (y ? c.frame.offsetTop - c.sec.offsetTop + y - topbarH() : -topbarH() + 8));
+  }
+  addEventListener("wheel", () => { pending = null; }, { passive: true });
+  addEventListener("touchmove", () => { pending = null; }, { passive: true });
+  addEventListener("keydown", e => { if (/Arrow|Page|Home|End|Space/.test(e.key) || e.key === " ") pending = null; });
+
+  addEventListener("message", e => {
+    const d = e.data; if (!d || !d.ck) return;
+    const c = CHAPTERS.find(x => x.frame && x.frame.contentWindow === e.source);
+    if (!c) return;
+    if (d.type === "height") {
+      c.frame.style.height = Math.max(200, d.h) + "px";
+      onScroll();
+      if (pending && Date.now() < pending.until) gotoChapter(pending.c, pending.y); else pending = null;
+    } else if (d.type === "toc") {
+      $(`li[data-ch="${c.id}"] .sub`, list).innerHTML =
+        (d.items || []).map(it => `<a href="#k${c.id}" data-h="${esc(it.id)}">${esc(it.text)}</a>`).join("");
+    } else if (d.type === "scroll") {
+      gotoChapter(c, d.y);
+    } else if (d.type === "goto") {
+      const t = CHAPTERS.find(x => x.id === d.target);
+      if (!t) return;
+      history.replaceState(null, "", "#k" + t.id);
+      if (d.hash) send(t.frame, { type: "find", hash: d.hash }); else gotoChapter(t);
+    }
+  });
+
+  /* ---------- skuff ---------- */
+  const drawer = $(".drawer"), scrim = $(".scrim");
+  const toggle = open => { drawer.classList.toggle("open", open); scrim.classList.toggle("open", open); };
+  $(".menu-btn").onclick = () => toggle(!drawer.classList.contains("open"));
+  scrim.onclick = () => toggle(false);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") toggle(false); });
+
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a[href^='#k']");
+    if (!a) return;
+    const c = CHAPTERS.find(x => "#k" + x.id === a.getAttribute("href"));
+    if (!c) return;
+    e.preventDefault();
+    toggle(false);
+    history.replaceState(null, "", "#k" + c.id);
+    if (a.dataset.h) send(c.frame, { type: "find", hash: a.dataset.h }); else gotoChapter(c);
+  });
+
+  /* ---------- hvor er jeg ---------- */
+  const where = $(".where"), line = $(".progress-line"), pct = $(".pct");
+  let currentId = null;
+  function onScroll() {
+    const h = document.documentElement.scrollHeight - innerHeight;
+    const p = h > 0 ? Math.min(100, Math.max(0, scrollY / h * 100)) : 0;
+    line.style.width = p + "%";
+    pct.textContent = p.toFixed(2) + " %";
+    const probe = scrollY + topbarH() + 40;
+    let cur = null;
+    for (const c of CHAPTERS) if (c.sec.offsetTop <= probe) cur = c;
+    const id = cur ? cur.id : null;
+    if (id === currentId) return;
+    currentId = id;
+    where.textContent = cur ? `${cur.id} · ${cur.title}` : "";
+    list.querySelectorAll("li").forEach(li => li.classList.toggle("current", li.dataset.ch === id));
+  }
+  addEventListener("scroll", onScroll, { passive: true });
+  addEventListener("resize", onScroll);
+  onScroll();
+
+  // åpnet med #k07 e.l.
+  const m = location.hash.match(/^#k(\d\d)$/);
+  if (m) { const c = CHAPTERS.find(x => x.id === m[1]); if (c) gotoChapter(c); }
+})();
+</script>
+</body>
+</html>

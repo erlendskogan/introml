@@ -1,0 +1,586 @@
+%%% Øvingssett 6 – TDT4172 H26
+%%% ================================================================ PART 1
+@@PART
+@@Q
+%%% NY2: hvilket datapunkt bidrar mest til gradienten (yhat - y) x_j
+For ett datapunkt er gradienten av cross-entropy loss med hensyn på $w_1$ lik $(\hat y - y)\,x_1$.
+Tabellen viser fire treningspunkter og modellens nåværende prediksjoner.
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Punkt & P1 & P2 & P3 & P4\\
+\midrule
+$x_1$ & 1.0 & 0.5 & 2.0 & $-3.0$\\
+$y$ & 1 & 0 & 1 & 0\\
+$\hat y$ & 0.95 & 0.90 & 0.70 & 0.12\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hvilket punkt gir det største bidraget (i absoluttverdi) til $\partial L/\partial w_1$?
+%%% P1: -0.05, P2: 0.45, P3: -0.60, P4: -0.36 (verifisert). P2 = størst |yhat - y|, P4 = størst |x1|.
+@+ P3, fordi produktet av avviket $\hat y - y$ og verdien $x_1$ er størst i absoluttverdi der
+@- P2, fordi det er punktet der prediksjonen $\hat y$ ligger lengst unna sin label $y$
+@- P4, fordi det er punktet med den største absoluttverdien av featuren $x_1$
+@- Alle fire bidrar like mye, siden gradienten er et gjennomsnitt over treningspunktene
+@@Q
+Figuren viser tap (loss) og accuracy på \textbf{treningsdataene} etter hver epoke for en logistisk
+regresjonsmodell som er trent i 30 epoker.
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=8.5cm,height=5.2cm,xmin=0,xmax=30,ymin=0,ymax=1,
+  xlabel={Epoke},grid=major,grid style={gray!25},legend pos=south west,
+  legend style={font=\small},tick label style={font=\small}]
+\addplot[thick,red,domain=1:30,samples=60] {0.62*exp(-x/28)+0.12};
+\addlegendentry{Loss}
+\addplot[thick,blue,dashed,domain=1:30,samples=60] {0.88-0.40*exp(-x/22)};
+\addlegendentry{Accuracy}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Hva er den beste tolkningen av kurvene?
+@+ Modellen er ikke ferdig trent; kurvene har ikke flatet ut, så den bør trenes lenger
+@- Modellen overtilpasser, siden tapet på treningsdataene fortsatt minker etter 30 epoker
+@- Læringsraten er for høy, siden tapet fortsatt endrer seg mye mellom de siste epokene
+@- Modellen har konvergert, siden accuracy har passert 0.7 og tapet er under 0.4
+@@Q
+Tabellen viser et lite datasett der \emph{Mislighold} er target (tom celle = manglende verdi).
+\begin{center}
+\begin{tabular}{rlrrlc}
+\toprule
+KundeID & Navn & Alder & Inntekt & Sivilstatus & Mislighold \\
+\midrule
+1001 & Hansen & 34 & 520 & gift & 0 \\
+1002 &        & 51 & 610 & ugift & 0 \\
+1003 & Berg   & 27 & 380 & ugift & 1 \\
+1004 & Lie    &    & 450 & gift & 0 \\
+1005 & Dahl   & 45 & 700 & skilt & 0 \\
+1006 & Moe    & 38 &     & gift & 1 \\
+1007 & Bakke  & 62 & 590 & ugift & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Du fjerner først kolonnene som ikke bør brukes som features, og kjører deretter \texttt{df.dropna()}.
+
+Hvor mange rader og hvor mange features (target ikke medregnet) står du igjen med?
+@+ 5 rader og 3 features
+@- 4 rader og 3 features
+@- 4 rader og 5 features
+@- 7 rader og 4 features
+%%% fjerner KundeID og Navn -> Alder, Inntekt, Sivilstatus. dropna fjerner 1004 og 1006 -> 5 rader.
+%%% 4/3 = dropna før kolonnene fjernes (1002 mangler navn), 4/5 = dropna først og beholder alt, 7/4 = uten dropna, beholder ID
+@@Q
+Feature \emph{Alder} skaleres med \texttt{MinMaxScaler}, som tilpasses (\texttt{fit}) på treningsdataene.
+I treningsdataene er minste alder 20 og største 60. Testsettet inneholder en person på 70 år.
+
+Hvilken verdi gir \texttt{scaler.transform} for denne personen?
+@+ $1.25$
+@- $1.00$
+@- $0.83$
+@- $0.71$
+%%% (70-20)/(60-20) = 1.25. 1.00 = tror verdien klippes / scaler tilpasset testsett, 0.83 = (70-20)/60, 0.71 = (70-20)/70
+%%% ================================================================ PART 2
+@@PART
+@@Q
+Et treningssett har 5000 normale produkter og 250 defekte. Du bruker \textbf{random oversampling}
+av minoritetsklassen til klassene er like store.
+
+Hva blir størrelsen på treningssettet, og hva er den viktigste risikoen?
+@+ $10\,000$ punkter; mange identiske kopier av minoritetspunktene kan gi overtilpasning
+@- $5\,250$ punkter; datasettet er uendret, men de defekte produktene får høyere vekt i tapet
+@- $500$ punkter; det blir få datapunkter totalt, og modellen kan derfor undertilpasse
+@- $9\,750$ punkter; nye syntetiske defekte produkter gjør modellen mer robust mot støy
+@@Q
+%%% NY: vektet tap tilsvarer omtrent oversampling (kopiering) av klassen
+Du trener med vektet binary cross-entropy
+\[
+L = -w_1\, y \ln \hat{y} - w_0\,(1-y)\ln(1-\hat{y}),
+\]
+med $w_0 = 1$ og $w_1 = 5$ for den underrepresenterte klassen 1, på det opprinnelige treningssettet.
+
+Hvilken annen fremgangsmåte gir omtrent samme totale tap som modellen minimerer under trening?
+@+ Å la hvert punkt i klasse 1 forekomme fem ganger og trene med uvektet tap
+@- Å trene med uvektet tap og deretter senke klassifiseringsterskelen fra 0.5 til 0.2
+@- Å gange feature-verdiene til punktene i klasse 1 med 5 og trene med uvektet tap
+@- Å trene med uvektet tap og deretter gange alle de lærte vektene $\mathbf{w}$ med 5
+%%% sum over punkter: hvert klasse-1-punkt bidrar 5x -> identisk med 5 kopier. Terskel/vektskalering endrer ikke treningstapet.
+@@Q
+%%% NY: ROC AUC beregnet som andel riktig rangerte positiv-negativ-par
+En klassifikator gir disse skårene på seks testpunkter:
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Positive punkter & 0.9 & 0.7 & 0.4 \\
+Negative punkter & 0.8 & 0.3 & 0.2 \\
+\bottomrule
+\end{tabular}
+\end{center}
+ROC AUC kan tolkes som sannsynligheten for at et tilfeldig valgt positivt punkt får høyere skår enn et
+tilfeldig valgt negativt punkt.
+
+Hva er ROC AUC for disse punktene?
+@+ $0.78$
+@- $0.67$
+@- $0.33$
+@- $0.22$
+%%% 7 av 9 par riktig rangert = 0.78 (sklearn roc_auc_score bekrefter). 0.67 = accuracy med terskel 0.5,
+%%% 0.33 = andel positive over alle negative, 0.22 = andel feilrangerte par
+@@Q
+%%% NY2: valg av positiv klasse – precision/recall for majoritetsklassen skjuler en svak modell
+En svindelmodell evalueres på 10\,000 transaksjoner, hvorav 50 er svindel. Modellen finner 20 av
+svindeltilfellene og gir 30 falske alarmer. En kollega regner ut precision og recall med
+\emph{normal transaksjon} som positiv klasse, og får begge til omtrent $0.997$.
+
+Hvilket utsagn er riktig?
+%%% Normal som positiv: TP = 9920, FP = 30 (oversett svindel), FN = 30 (falske alarmer) -> 0.997 / 0.997.
+%%% Svindel som positiv: recall 20/50 = 0.40, precision 20/(20+30) = 0.40.
+@+ Med svindel som positiv klasse blir både precision og recall 0.40, så tallene skjuler en svak modell
+@- Tallene blir de samme uansett hvilken klasse som regnes som positiv, så modellen finner svindel godt
+@- Med svindel som positiv klasse blir recall 0.40, men precision er fortsatt 0.997, siden alarmene er få
+@- Med svindel som positiv klasse blir begge 0.003, siden metrikkene da er 1 minus kollegaens verdier
+%%% ================================================================ PART 3
+@@PART
+@@Q
+%%% NY2: pseudokodens tilfelle «no data left to test» – tom partisjon får foreldrenodens majoritetsklasse
+Et beslutningstre bygges etter pseudokoden fra forelesningen. En node splittes på den kategoriske
+featuren \emph{Embarked}, med én gren for hver av verdiene C, Q og S. Noden inneholder 12 treningspunkter,
+hvorav 8 overlevde og 4 omkom, men \textbf{ingen} av dem har \emph{Embarked} $=$ Q.
+Treet har ikke nådd \texttt{max\_depth}, og det finnes fortsatt features å splitte på.
+
+Hva predikerer grenen for Q?
+%%% Pseudokoden: elif (no data left to test): return (dominant class in parent node) -> overlevde.
+@+ Overlevde, siden en partisjon uten data får den dominerende klassen i foreldrenoden
+@- Omkom, siden en partisjon uten data får klasse 0 når $p/(p+n)$ ikke kan beregnes
+@- Majoritetsklassen i hele treningssettet, siden grenen ikke har egne datapunkter
+@- Ingen klasse; grenen fjernes, og punkter med Q sendes videre til den største grenen
+@@Q
+Et beslutningstre med begrenset dybde har en løvnode som inneholder 7 treningspunkter fra klasse A og
+3 fra klasse B. Treet bruker \textbf{majoritetsregelen} i løvnodene.
+
+Hvilket utsagn er riktig?
+%%% NY3: distraktorer = Gini forvekslet med feilrate (1-0.49-0.09 = 0.42), tilfeldig trekning etter andelene, kNN-forveksling
+@+ Alle punkter i noden predikeres som A, så 3 av de 10 treningspunktene der blir feilklassifisert
+@- Alle punkter i noden predikeres som A, og treningsfeilen der er Gini-urenheten $1 - 0.7^2 - 0.3^2 = 0.42$
+@- Hvert punkt som havner i noden, får A med sannsynlighet 0.7 og B med 0.3, trukket tilfeldig ved prediksjon
+@- Hvert punkt som havner i noden, får klassen til det nærmeste av de 10 treningspunktene i noden
+@@Q
+For et datapunkt $\mathbf{x}$ og to klasser har en modell estimert
+\[
+p(C_1) = 0.3,\quad p(\mathbf{x}\mid C_1) = 0.20, \qquad p(C_0) = 0.7,\quad p(\mathbf{x}\mid C_0) = 0.05 .
+\]
+
+Hvilket utsagn er riktig?
+@+ Klasse 1 velges; evidensen $p(\mathbf{x})$ er lik for begge klasser og trengs ikke for å finne argmax
+@- Klasse 0 velges, fordi prioren $p(C_0) = 0.7$ er størst og derfor dominerer posterior
+@- Klasse 1 velges, men først etter at evidensen $p(\mathbf{x})$ er beregnet, siden den er ulik for de to klassene
+@- Klasse 0 velges, fordi likelihooden $p(\mathbf{x}\mid C_0)$ er minst og dermed gir minst tap
+%%% 0.3*0.2 = 0.06 > 0.7*0.05 = 0.035 -> klasse 1
+@@Q
+Et datasett med 20 e-poster har 5 spam og 15 ikke spam. Tellingene for to binære features er:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & Spam (5) & Ikke spam (15) \\
+\midrule
+Inneholder ordet ``gratis'' & 4 & 3 \\
+Inneholder en lenke & 4 & 6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+En ny e-post inneholder ordet ``gratis'', men \emph{ingen} lenke. Bruk Naive Bayes med skåren
+$p(C)\prod_i p(x_i\mid C)$.
+
+Hva blir klassifiseringen og de to skårene?
+@+ Ikke spam, med skår 0.04 for spam og 0.09 for ikke spam
+@- Spam, med skår 0.16 for spam og 0.12 for ikke spam
+@- Spam, med skår 0.16 for spam og 0.06 for ikke spam
+@- Ikke spam, med skår 0.01 for spam og 0.36 for ikke spam
+%%% spam 0.25*0.8*0.2 = 0.04; ikke 0.75*0.2*0.6 = 0.09. 0.16/0.12 = uten prior, 0.16/0.06 = P(lenke=ja), 0.01/0.36 = P(gratis=nei)
+%%% ================================================================ PART 4
+@@PART
+@@Q
+Du har et datasett med $n = 500$ punkter og vurderer \textbf{leave-one-out-kryssvalidering} (LOOCV)
+mot \textbf{10-fold kryssvalidering}.
+
+Hvilket utsagn er riktig?
+@+ LOOCV krever 500 treninger med ett utelatt punkt hver gang, mens 10-fold bare krever 10 treninger
+@- LOOCV krever bare én trening, siden den samme modellen evalueres på hvert enkelt punkt etter tur
+@- 10-fold bruker flere punkter til trening i hver iterasjon enn LOOCV, og gir derfor et bedre estimat
+@- LOOCV og 10-fold krever like mange treninger, men LOOCV har et mindre valideringssett i hver iterasjon
+@@Q
+Et nevralt nettverk trenes med \textbf{early stopping}: treningen stoppes når valideringstapet ikke har
+blitt lavere enn sitt hittil beste på 3 epoker på rad.
+\begin{center}
+\small
+\begin{tabular}{lcccccccccccc}
+\toprule
+Epoke & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\midrule
+Treningstap & .95 & .74 & .61 & .53 & .47 & .42 & .38 & .35 & .32 & .30 & .28 & .26 \\
+Valideringstap & .90 & .70 & .58 & .52 & .50 & .49 & .495 & .51 & .50 & .52 & .54 & .56 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Etter hvilken epoke stopper treningen?
+@+ Epoke 9
+@- Epoke 6
+@- Epoke 7
+@- Epoke 8
+%%% beste 0.49 i epoke 6; 7, 8, 9 ikke bedre -> stopp etter 9. 8 = teller epoke 6 med i de 3 (off-by-one), 6 = beste, 7 = første økning
+@@Q
+Modellen $f(x) = \beta_0 + \beta_1 x$ med $\beta_0 = 1$ og $\beta_1 = 1.5$ trenes på punktene
+$(x, y) = (1, 2),\ (2, 2),\ (3, 5)$. Tapet er $\text{MSE} = \frac{1}{2N}\sum_i \bigl(y^{(i)} - f(x^{(i)})\bigr)^2$, slik at
+\[
+\frac{\partial L}{\partial \beta_0} = \frac{1}{N}\sum_i \bigl(f(x^{(i)}) - y^{(i)}\bigr), \qquad
+\frac{\partial L}{\partial \beta_1} = \frac{1}{N}\sum_i x^{(i)}\bigl(f(x^{(i)}) - y^{(i)}\bigr).
+\]
+
+Hva blir $(\beta_0, \beta_1)$ etter ett gradient descent-steg med læringsrate $\eta = 0.1$?
+@+ $(0.90,\ 1.30)$
+@- $(1.10,\ 1.70)$
+@- $(0.90,\ 1.40)$
+@- $(0.80,\ 1.10)$
+%%% f = 2.5, 4, 5.5; f-y = 0.5, 2, 0.5; dβ0 = 1, dβ1 = (0.5+4+1.5)/3 = 2. β0 = 0.9, β1 = 1.3.
+%%% (1.1,1.7) = feil fortegn, (0.9,1.4) = glemt x i dβ1, (0.8,1.1) = gradient uten faktoren 1/2
+@@Q
+%%% NY2: steg i utledningen av bias – hvorfor F(x) kan flyttes ut av E_D (notatenes likning 64–65)
+Data genereres som $y = F(x) + \varepsilon$, og en læringsalgoritme gir modellen $f(x;D)$ når den trenes
+på et tilfeldig trukket treningssett $D$. I notatene skrives biasen i et fast punkt $x$ som
+\[
+\text{Bias}_D\bigl[f(x;D)\bigr] = \mathbb{E}_D\bigl[f(x;D) - F(x)\bigr] = \mathbb{E}_D\bigl[f(x;D)\bigr] - F(x).
+\]
+Hvorfor kan $F(x)$ tas ut av forventningsverdien i det siste steget?
+@+ $F(x)$ er den samme uansett hvilket treningssett $D$ som trekkes, så for fast $x$ er den konstant
+@- Støyen $\varepsilon$ har forventning 0, så $F(x)$ er lik forventningen til $y$ over alle trekninger av $D$
+@- $f(x;D)$ og $F(x)$ er statistisk uavhengige, og da kan forventningen av differansen deles opp
+@- $F(x)$ er lineær i $x$, og forventningsverdien over $D$ kan flyttes forbi lineære funksjoner
+%%% ================================================================ PART 5
+@@PART
+@@Q
+Et ensemble av 5 klassifiseringstrær gir disse sannsynlighetene for klasse 1 for et datapunkt:
+\[
+0.90,\quad 0.60,\quad 0.40,\quad 0.45,\quad 0.30 .
+\]
+Hvert tre predikerer klasse 1 hvis sannsynligheten er over 0.5.
+
+Hva predikerer ensemblet med (i) majoritetsstemme over trærnes klasseprediksjoner og
+(ii) gjennomsnitt av sannsynlighetene med terskel 0.5?
+@+ (i) klasse 0 og (ii) klasse 1
+@- (i) klasse 1 og (ii) klasse 1
+@- (i) klasse 0 og (ii) klasse 0
+@- (i) klasse 1 og (ii) klasse 0
+%%% stemmer: 2 av 5 for klasse 1 -> 0. snitt = 2.65/5 = 0.53 -> 1
+@@Q
+Du har et tabulært datasett med 50\,000 kunder og 30 features, og har trent et nevralt nettverk som får
+0.84 i accuracy på valideringsdataene.
+
+Hva er en god neste fremgangsmåte for å vurdere om resultatet er bra?
+@+ Bruk en trebasert ensemblemodell som XGBoost eller LightGBM som referanse for hva som er oppnåelig
+@- Bruk et enkelt beslutningstre som referanse, siden ensembler typisk overtilpasser tabulære data
+@- Bruk logistisk regresjon som referanse, siden konveks tapsfunksjon gir den beste oppnåelige ytelsen
+@- Bruk treningsaccuracy til nettverket som referanse, siden nevrale nettverk er universelle approksimatorer
+@@Q
+Et treningssett har $n = 1000$ forskjellige punkter, og du trekker et \textbf{bootstrap-utvalg} med 1000
+punkter. I hver enkelt trekning er sannsynligheten $1 - 1/n$ for at et bestemt punkt \emph{ikke} blir trukket.
+
+Omtrent hvor mange \emph{forskjellige} punkter forventer du at bootstrap-utvalget inneholder?
+@+ ca. 632
+@- ca. 368
+@- ca. 500
+@- ca. 1000
+%%% P(ikke trukket) = 0.999^1000 = 0.368 -> 1000*(1-0.368) = 632. 368 = out-of-bag, 1000 = tror ingen duplikater
+@@Q
+%%% NY3 (erstatter «én sterk feature»-scenariet, som dupliserte S4 5.4): tilfeldig feature-utvalg per splitt, numerisk
+%%% P(Inntekt blant 5 av 25, uten tilbakelegging) = C(24,4)/C(25,5) = 5/25 = 0.20 -> andel trær uten Inntekt i roten = 0.80.
+%%% 0.20 = byttet om (andelen MED Inntekt), 0.96 = 1 - 1/25 (tror bare én feature trekkes), 0.00 = tror den beste featuren alltid er med (vanlig bagging)
+Et datasett har 25 features, der \emph{Inntekt} er klart sterkest: når den er blant kandidatene, gir den
+alltid den beste splitten i rotnoden. I en \textbf{random forest} trekkes det ved hver splitt 5 av de 25
+featurene tilfeldig (uten tilbakelegging), og den beste splitten blant disse 5 velges.
+
+Omtrent hvor stor andel av trærne får en rotnode som splitter på en \emph{annen} feature enn \emph{Inntekt}?
+@+ $0.80$
+@- $0.20$
+@- $0.96$
+@- $0.00$
+%%% ================================================================ PART 6
+@@PART
+@@Q
+En student bygger et nettverk med to lag der alle nodene bruker Heaviside-funksjonen som aktivering,
+og prøver å trene det med gradient descent og backpropagation. Vektene endrer seg ikke under treningen.
+
+Hva er årsaken?
+@+ Heaviside har derivert 0 overalt der den er deriverbar, så gradienten til vektene blir 0
+@- Heaviside gir bare 0 eller 1 som output, så tapet blir alltid 0 og det finnes ingen feil å propagere
+@- Læringsraten er for liten; med Heaviside må den være større enn 1 for at vektene skal endre seg
+@- Backpropagation krever lineære aktiveringsfunksjoner, og Heaviside er ikke-lineær
+@@Q
+%%% NY: forward pass gjennom et skjult lag med ReLU (matriseform)
+Et skjult lag med tre noder og ReLU-aktivering får input $\mathbf{x} = (1,\,2)$ og beregner
+$\mathbf{a} = \mathrm{ReLU}(W\mathbf{x} + \mathbf{b})$, der
+\[
+W = \begin{pmatrix} 1 & 0 \\ -1 & 1 \\ 0.5 & -1 \end{pmatrix}, \qquad
+\mathbf{b} = \begin{pmatrix} 0 \\ -1 \\ 0.5 \end{pmatrix}.
+\]
+
+Hva blir aktiveringene $\mathbf{a}$?
+@+ $(1,\ 0,\ 0)$
+@- $(1,\ 0,\ -1)$
+@- $(1,\ 1,\ 0)$
+@- $(0.73,\ 0.50,\ 0.27)$
+%%% Wx+b = (1, 0, -1) -> ReLU (1,0,0). (1,0,-1) = glemt ReLU, (1,1,0) = glemt bias, (0.73,0.5,0.27) = sigmoid
+@@Q
+%%% NY: antall vekter og bias i et perceptron for flere klasser
+Du tilpasser \texttt{sklearn.linear\_model.Perceptron} til et datasett med 4 features og 3 klasser.
+Modellen har én output-node per klasse, slik som i notatene.
+
+Hvor mange vekter og bias-verdier har modellen?
+@+ 12 vekter og 3 bias-verdier
+@- 7 vekter og 3 bias-verdier
+@- 12 vekter og 4 bias-verdier
+@- 7 vekter og 4 bias-verdier
+%%% 4*3 = 12 vekter (coef_ shape (3,4)), 3 bias (intercept_ shape (3,)); verifisert med sklearn
+@@Q
+%%% NY2: utrent Keras-modell kalt på en tensor av ettall (notatenes avsnitt 2.6) – like rader, tilfeldige verdier
+Se på følgende kode (notatenes eksempel):
+\begin{lstlisting}[language=Python]
+x = ops.ones((10, 3))
+model = Sequential([Dense(6, activation="relu"),
+                    Dense(7, activation="relu"),
+                    Dense(2, activation="softmax")])
+out = model(x)
+\end{lstlisting}
+Modellen er verken kompilert eller trent. Hvilket utsagn om \texttt{out} er riktig?
+@+ Den har shape $(10, 2)$ med like rader som summerer til 1, men verdiene er tilfeldige og meningsløse
+@- Den har shape $(10, 2)$, og radene er ulike, siden vektene trekkes tilfeldig på nytt for hvert datapunkt i \texttt{x}
+@- Kallet gir en feilmelding, siden modellen må kompileres og trenes med \texttt{fit} før den kan beregne output
+@- Den har shape $(10, 2)$, og hver rad er $(0.5,\ 0.5)$, siden alle vektene settes til 0 før treningen starter
+%%% Alle input-rader er identiske -> identiske output-rader; softmax gir sum 1; kallet bygger vektene med tilfeldig initialisering.
+%%% ================================================================ PART 7
+@@PART
+@@Q
+Endimensjonale data består av to tydelige grupper og én uteligger:
+\[
+1,\ 2,\ 3,\qquad 10,\ 11,\ 12,\qquad 40 .
+\]
+Du kjører k-means med $k = 2$ og ser på inndelingen med \textbf{lavest mulig inertia}.
+
+Hvilket utsagn beskriver denne inndelingen?
+@+ Uteliggeren 40 får en egen klynge, og de to gruppene slås sammen i én klynge med sentroide 6.5
+@- Uteliggeren ignoreres, og sentroidene blir 2 og 11, siden det er de to gruppene som er tydelige
+@- Uteliggeren havner sammen med 10, 11 og 12, og trekker den sentroiden opp til 18.25
+@- Uteliggeren fordeles mellom begge klyngene, slik at begge sentroidene trekkes litt mot 40
+%%% inertia {1..12},{40} = 125.5 (lavest av alle sammenhengende splitter); {1,2,3},{10,11,12,40} = 634.75
+@@Q
+DBSCAN brukes med $\varepsilon = 1.5$ og \texttt{min\_samples} $= 4$. Et punkt er et
+\textbf{kjernepunkt} hvis det har minst 4 punkter (inkludert seg selv) innenfor avstand $\varepsilon$.
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+\draw[step=1,gray!20] (-0.5,-0.5) grid (5.5,3.5);
+\draw[->,gray] (-0.5,0) -- (5.7,0);
+\draw[->,gray] (0,-0.5) -- (0,3.7);
+\foreach \x in {0,...,5} \node[below,font=\scriptsize,gray] at (\x,-0.5) {\x};
+\foreach \y in {0,...,3} \node[left,font=\scriptsize,gray] at (-0.5,\y) {\y};
+\foreach \p/\n/\pos in {{(0,0)}/A/below left,{(1,0)}/B/below right,{(0,1)}/C/above left,{(1,1)}/D/above,{(2.2,1)}/E/above,{(3.4,1)}/F/above,{(5,3)}/G/above}
+  {\fill \p circle (2.5pt) node[\pos,font=\small] {\n};}
+\end{tikzpicture}
+\end{center}
+Punktene er A$(0,0)$, B$(1,0)$, C$(0,1)$, D$(1,1)$, E$(2.2,1)$, F$(3.4,1)$ og G$(5,3)$.
+
+Hvilken klassifisering av E, F og G er riktig?
+@+ E er et kantpunkt, mens F og G er støy
+@- E og F er kantpunkter, mens G er støy
+@- E er kjernepunkt, F er kantpunkt, G er støy
+@- E, F og G er alle tre støypunkter
+%%% naboer (inkl. seg selv): A,B,C 4 (kjerne), D 5 (kjerne), E 3 (D,E,F) -> ikke kjerne, men innen eps av D -> kant.
+%%% F: E,F -> 2, ingen kjernenabo -> støy. G alene -> støy. Verifisert med sklearn DBSCAN.
+@@Q
+Fire punkter i planet, $(0,0)$, $(0,4)$, $(6,0)$ og $(6,4)$, skal deles i to klynger. Vi sammenligner
+inndelingen \emph{venstre/høyre} $\{(0,0),(0,4)\}$, $\{(6,0),(6,4)\}$ med inndelingen \emph{topp/bunn}
+$\{(0,4),(6,4)\}$, $\{(0,0),(6,0)\}$. Begge bruker klyngegjennomsnittet som sentroide.
+
+Hvilken inndeling har lavest verdi av størrelsen som \textbf{k-means minimerer}, og hva er verdien?
+@+ Venstre/høyre, med verdi 16
+@- Venstre/høyre, med verdi 32
+@- Topp/bunn, med verdi 36
+@- Topp/bunn, med verdi 72
+%%% inertia V/H: 4 punkter * 2^2 = 16; T/B: 4 * 3^2 = 36. 32 og 72 = sum av kvadrerte parvise avstander innad i klyngene (i stedet for til sentroiden)
+@@Q
+En kollega kjører k-means for $k = 1,\dots,8$ og får inertia
+\[
+1000,\ 520,\ 300,\ 260,\ 230,\ 205,\ 185,\ 170 .
+\]
+Kollegaen vil velge $k = 8$ fordi inertia er lavest der.
+
+Hvilket utsagn er riktig?
+@+ Ved optimal plassering kan inertia aldri øke med $k$, så lavest inertia er ikke et gyldig kriterium for $k$
+@- Inertia sier lite om klyngekvalitet og bør derfor ikke brukes når $k$ velges, heller ikke sammen med andre metrikker
+@- Lavere inertia betyr mer kompakte klynger og dermed bedre clustering, så $k = 8$ er det riktige valget
+@- Inertia faller mest fra $k = 1$ til $k = 2$, og det største fallet angir riktig antall klynger, altså $k = 2$
+%%% ================================================================ PART 8
+@@PART
+@@Q
+Et t-SNE-plott av kundedata viser tre grupper: A er stor og spredt, B er liten og tett, og B og C
+ligger nær hverandre, mens A ligger langt unna begge.
+
+%%% NY3: alle alternativer er nå parallelle «trolig»-konklusjoner; bare den lokale (naboskap) er støttet av t-SNE (P/Q måler naboskap)
+Hvilken konklusjon kan du trekke fra plottet?
+@+ Punkter som er nære naboer innen B i plottet, er trolig også nære naboer i originalrommet
+@- A er trolig mest spredt også i originalrommet, siden t-SNE bevarer variansen innen hver gruppe
+@- B og C er trolig likere hverandre enn A, siden t-SNE bevarer avstandene mellom gruppene
+@- B har trolig færrest punkter, siden arealet en gruppe dekker i plottet følger antall punkter
+@@Q
+%%% NY: stegene i SNE (P i originalrommet, tilfeldig start, gradient descent på KL)
+SNE lager en lavdimensjonal embedding av et datasett.
+
+Hvilken beskrivelse av fremgangsmåten er riktig?
+@+ $P$ beregnes i originalrommet, punktene plasseres tilfeldig i lav dimensjon og flyttes med gradient descent for å minimere $D_{KL}(P\|Q)$
+@- Hovedkomponentene beregnes først og punktene projiseres på dem; deretter justeres $Q$ slik at variansen langs aksene blir størst mulig
+@- $Q$ velges først i lav dimensjon, og deretter flyttes punktene i originalrommet med gradient descent til $P$ blir lik $Q$
+@- Parvise avstander beregnes i originalrommet, og punktene plasseres i lav dimensjon slik at summen av kvadrerte avstandsavvik blir minst
+@@Q
+%%% NY: Isolation Forest – gjennomsnittlig stilengde og contamination (numerisk)
+En Isolation Forest med tre trær er tilpasset et datasett med 8 punkter. Tabellen viser dybden (antall
+splitter fra rotnoden) der hvert punkt havner i en egen løvnode, i hvert av de tre trærne.
+\begin{center}
+\begin{tabular}{lcccccccc}
+\toprule
+Punkt & P1 & P2 & P3 & P4 & P5 & P6 & P7 & P8 \\
+\midrule
+Tre 1 & 9 & 2 & 8 & 5 & 10 & 3 & 7 & 2 \\
+Tre 2 & 8 & 7 & 9 & 4 & 9 & 2 & 8 & 10 \\
+Tre 3 & 10 & 3 & 7 & 6 & 11 & 4 & 9 & 9 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Modellen skal markere de 25\,\% mest anomale punktene.
+
+Hvilke punkter markeres som anomalier?
+@+ P2 og P6
+@- P2 og P8
+@- P1 og P5
+@- P2, P6 og P8
+%%% snitt: P6 3, P2 4, P4 5, P8 7, P3 8, P7 8, P1 9, P5 10 -> 2 korteste: P2, P6.
+%%% P2/P8 = bare tre 1, P1/P5 = lengste stier, P2/P6/P8 = alle med en sti på 2
+@@Q
+%%% NY2: tolke ladningene (koeffisientene) i en hovedkomponent – notatenes høyde/vekt/alder-eksempel
+Du kjører PCA på de standardiserte featurene \emph{Høyde}, \emph{Vekt} og \emph{Alder} for en gruppe
+voksne. Første hovedkomponent er enhetsvektoren
+\[ \text{PC1} \approx (0.69,\ 0.70,\ 0.19) \quad \text{i rekkefølgen } (\textit{Høyde},\ \textit{Vekt},\ \textit{Alder}). \]
+Person A får en stor positiv koordinat langs PC1.
+
+Hva forteller dette mest sannsynlig om person A?
+%%% Koordinat = 0.69 z_h + 0.70 z_v + 0.19 z_a: stor verdi -> høy og tung; alder har liten vekt.
+@+ A er både høyere og tyngre enn snittet, mens alderen bidrar lite til koordinaten
+@- A har uvanlig stor spredning i egne målinger, siden PC1 er retningen med størst varians
+@- A ligger omtrent like høyt over snittet i alle tre features, siden alle ladningene er positive
+@- A er først og fremst eldre enn snittet, siden PC1 forklarer mest av variansen i dataene
+%%% ================================================================ PART 9
+@@PART
+@@Q
+En agent trenes med $\epsilon$-greedy der $\epsilon$ starter på 1.0, ganges med en faktor litt under 1
+etter hver episode, og aldri går under en minimumsverdi $\epsilon_{\min} = 0.01$.
+
+Hvorfor er dette en fornuftig strategi?
+%%% NY3: speilpar-distraktoren (utnytt først) erstattet med ε/α-forveksling; riktig svar uten notatenes «tilfeldig dytt»
+@+ Q-verdiene er upålitelige tidlig, så da lønner utforsking seg mest; $\epsilon_{\min} > 0$ hindrer at agenten låser seg helt senere
+@- Avtagende $\epsilon$ virker som en avtagende læringsrate, så Q-verdiene stabiliserer seg; $\epsilon_{\min} > 0$ hindrer at læringen stopper helt
+@- Utforsking trengs bare til første belønning er funnet; $\epsilon_{\min} > 0$ brukes kun under trening og settes til 0 når agenten tas i bruk
+@- Høy $\epsilon$ tidlig gjør at Q-verdiene oppdateres oftere, siden Q-tabellen bare oppdateres når en tilfeldig handling velges
+@@Q
+I et rutenett-miljø har en agent funnet en vei til målet på 10 steg. Q-verdiene langs denne veien er
+positive, mens alle andre Q-verdier fortsatt er 0. Ingen belønninger i miljøet er negative. Det finnes
+også en kortere vei som agenten aldri har prøvd. Fra nå av settes $\epsilon = 0$.
+
+Hva vil skje?
+@+ Agenten følger den kjente veien og prøver aldri handlingene som fører mot den kortere veien
+@- Agenten finner etter hvert den kortere veien, fordi $\gamma < 1$ gir kortere veier høyere Q-verdi
+@- Agenten utforsker maksimalt, siden $\epsilon = 0$ betyr at alle handlinger velges like ofte
+@- Agenten finner den kortere veien hvis læringsraten $\alpha$ økes, siden oppdateringene da blir større
+@@Q
+En agent skal lære å spille et ballspill. Tilstanden agenten får, er ett enkelt bilde av spillet, som viser
+hvor ballen er, men ikke hvilken vei eller hvor fort den beveger seg.
+
+Er \textbf{Markov-egenskapen} oppfylt for denne tilstandsrepresentasjonen?
+@+ Nei; neste tilstand avhenger også av fart og retning, som ett enkelt bilde ikke viser
+@- Ja; Markov-egenskapen betyr bare at agenten ikke husker tidligere tilstander, og det gjelder her
+@- Nei; Markov-egenskapen krever at miljøet er stokastisk, men ballens bevegelse er deterministisk
+@- Ja; så lenge belønningen bare avhenger av nåværende tilstand, er Markov-egenskapen oppfylt
+@@Q
+En MDP beskrives som $(S, A, P, R)$. Se på miljøet FrozenLake $4\times 4$ med \texttt{is\_slippery=False}:
+agenten kan stå på 16 ruter, har 4 handlinger (venstre, ned, høyre, opp), og episoden avsluttes når
+agenten faller i et hull eller når målet.
+
+Hvilken beskrivelse av $P$ og $R$ er riktig?
+@+ $P(S_{t+1}\mid S_t, A_t)$ er 1 for én bestemt neste tilstand; $R$ er 1 ved mål og ellers 0
+@- $P(S_{t+1}\mid S_t, A_t)$ er $1/4$ for hver naborute; $R$ er 1 ved mål og $-1$ ved fall i et hull
+@- $P(S_{t+1}\mid S_t, A_t)$ er $1/4$ for hver naborute; $R$ er 1 ved mål og ellers 0
+@- $P(S_{t+1}\mid S_t, A_t)$ er 1 for én bestemt neste tilstand; $R$ er 1 ved mål og $-1$ ved fall i et hull
+%%% deterministisk miljø (notatene). reward=1 ved mål, ellers 0 (notatene 4.6.1)
+%%% ================================================================ PART 10
+@@PART
+@@Q
+%%% NY: lese et SHAP force plot (lokal forklaring, farger, baseline)
+Et SHAP force plot for én låntaker viser baseline $\phi_0 = 0.30$ (gjennomsnittsprediksjonen på
+bakgrunnsdatasettet) og prediksjonen $f(\mathbf{x}^*) = 0.12$. Bidragene er
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Feature & SHAP-verdi & Farge i plottet \\
+\midrule
+\emph{Alder} & $+0.05$ & rød \\
+\emph{Inntekt} & $-0.15$ & blå \\
+\emph{Gjeld} & $-0.08$ & blå \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Hvilket utsagn er riktig?
+@+ For denne låntakeren er det \emph{Inntekt} som trekker prediksjonen lengst ned fra 0.30
+@- \emph{Inntekt} er trolig den viktigste featuren for modellen generelt, siden den har størst $|\phi|$ her
+@- \emph{Alder} er rød fordi låntakeren har høy alder, siden fargen viser featurens verdi
+@- Baseline 0.30 er prediksjonen modellen gir når alle featurene settes til 0
+%%% 0.30 + 0.05 - 0.15 - 0.08 = 0.12 (konsistent)
+@@Q
+%%% NY: tre tilnærminger til forklaring (følsomhet/SHAP, surrogat/LIME, modellspesifikk)
+%%% NY3: grunt beslutningstre i stedet for lineær modell, og treet selv er forklaringen -> ikke forvekslbart med KernelExplainer (lineær regresjon på koalisjoner -> Shapley-verdier)
+Et team vil forklare én prediksjon fra et nevralt nettverk. De lager mange varianter av $\mathbf{x}^*$
+ved å endre featureverdiene litt, lar nettverket predikere på dem, og tilpasser et \textbf{grunt
+beslutningstre} til disse prediksjonene. Forklaringen de viser fram, er splittene i dette treet.
+
+Hvilken av notatenes tre tilnærminger er dette?
+@+ En surrogatmodell, der nettverket rundt $\mathbf{x}^*$ erstattes av en enklere, tolkbar funksjon
+@- En modellspesifikk forklaring, der parametrene og strukturen i nettverket undersøkes direkte
+@- SHAP, der input-featurene er spillere og prediksjonen fordeles mellom dem med Shapley-verdier
+@- En tolkbar modell, siden det grunne treet erstatter nettverket når nye prediksjoner skal gjøres
+@@Q
+%%% NY: KODE history.history["val_loss"], np.argmin og indeksering (off-by-one)
+Se på koden, der \texttt{history} kommer fra \texttt{model.fit(..., epochs=6, validation\_data=...)}:
+\begin{lstlisting}[language=Python]
+val_losses = history.history["val_loss"]
+print(val_losses)   # [0.62, 0.48, 0.41, 0.43, 0.45, 0.47]
+best_epoch = np.argmin(val_losses) + 1
+print(best_epoch, val_losses[best_epoch])
+\end{lstlisting}
+
+Hva skriver den siste linjen ut?
+@+ \texttt{3 0.43}
+@- \texttt{3 0.41}
+@- \texttt{2 0.41}
+@- \texttt{6 0.47}
+%%% argmin = 2 -> best_epoch 3; val_losses[3] = 0.43 (indeksen er forskjøvet). Kjørt i Python.
+@@Q
+%%% NY: KODE to train_test_split etter hverandre (trening/validering/test-størrelser)
+\texttt{X} har 1000 rader. Se på koden:
+\begin{lstlisting}[language=Python]
+X_tmp, X_test = train_test_split(X, test_size=0.2)
+X_train, X_val = train_test_split(X_tmp, test_size=0.25)
+print(len(X_train), len(X_val), len(X_test))
+\end{lstlisting}
+
+Hva skrives ut?
+@+ \texttt{600 200 200}
+@- \texttt{640 160 200}
+@- \texttt{750 250 200}
+@- \texttt{800 200 200}
+%%% 800 -> 600/200; test 200. 640/160 = brukt 0.2 i andre splitt, 750/250 = andre splitt på hele X, 800 = val ikke trukket fra. Kjørt i Python.

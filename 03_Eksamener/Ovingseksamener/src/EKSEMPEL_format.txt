@@ -1,0 +1,38 @@
+%%% EKSEMPEL PÅ FORMAT – brukes ikke i noen eksamen.
+%%% Linjer som starter med %%% er kommentarer. Riktig alternativ skrives med @+,
+%%% feil med @-. Rekkefølgen stokkes automatisk av build.py.
+@@PART
+@@Q
+En logistisk regresjonsmodell har vekter $\mathbf{w} = (0.8,\,-1.5)$ og bias $b = 0.2$.
+Modellen bruker $\hat{y} = \sigma(\mathbf{w}^T\mathbf{x} + b)$ og klassifiseringsterskel 0.5.
+
+Hva predikerer modellen for datapunktet $\mathbf{x} = (2,\,1)$?
+@+ $\hat{y} \approx 0.57$, og punktet klassifiseres som klasse 1
+@- $\hat{y} \approx 0.53$, og punktet klassifiseres som klasse 1
+@- $\hat{y} \approx 0.43$, og punktet klassifiseres som klasse 0
+@- $\hat{y} \approx 0.96$, og punktet klassifiseres som klasse 1
+@@Q
+Du har et datasett med featuren \emph{Inntekt} (kontinuerlig, i kroner) og skal trene en
+\textbf{logistisk regresjonsmodell}. Du har allerede delt dataene i trenings-, validerings- og testsett.
+
+Hvilken fremgangsmåte for \textbf{standardisering} av \emph{Inntekt} er korrekt?
+@+ Beregn gjennomsnitt og standardavvik på treningssettet, og bruk disse verdiene på alle tre settene
+@- Beregn gjennomsnitt og standardavvik på trening og validering samlet, siden ingen av dem er testdata
+@- Beregn gjennomsnitt og standardavvik separat for hvert sett, slik at hvert sett får gjennomsnitt 0
+@- Beregn gjennomsnitt og standardavvik på hele datasettet før splitten, slik at skalaen blir lik overalt
+@@Q
+Logistisk regresjon trenes ved å minimere cross-entropy loss med gradient descent.
+
+Hvilket utsagn om denne tapsfunksjonen er riktig?
+@+ Den er konveks i $\mathbf{w}$ og $b$, så et minimum som gradient descent finner, er også globalt
+@- Den er konveks i $\mathbf{w}$ og $b$ bare dersom alle features først er skalert til intervallet $[0,1]$
+@- Den er ikke-konveks fordi sigmoid er ikke-lineær, så man bør prøve flere tilfeldige initialiseringer
+@- Den er konveks fordi den er en sum av kvadrerte avvik, akkurat som MSE i lineær regresjon
+@@Q
+For ett datapunkt med $y = 1$ predikerer modellen $\hat{y} = 0.2$.
+
+Hva blir binary cross-entropy loss $L = -y\ln\hat{y} - (1-y)\ln(1-\hat{y})$ for dette punktet?
+@+ $1.61$
+@- $0.22$
+@- $0.64$
+@- $0.70$

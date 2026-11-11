@@ -63,7 +63,9 @@
   </ul>
 </div>
 
-<div class="banner">Formler merket <b>forventet pensum</b> (stiplet ramme) hører til forsterkningslæring og forklarbar KI. De ble spurt om på eksamen 2024/2025, men står ikke i forelesningsnotatene. Se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>.</div>
+<div class="banner">Formelarket følger forelesningsnotatene versjon 10.11.2026. Forsterkningslæring (kapittel 4, likning 115) og forklarbar KI (kapittel 5, likning 116–125: Shapley, SHAP, LIME og konseptdeteksjon) står nå i notatene, se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>. Begreper merket <b>forventet pensum</b> (AI Act, etikk) ble spurt om på eksamen 2024, men står ikke i notatene.</div>
+
+<p class="muted small">Vil du øve på å <em>bruke</em> formlene? <a href="18-regneoppgaver.html">Kapittel 18</a> har alle typene regneoppgaver med oppskrift steg for steg.</p>
 
 <!-- ===================================================================== -->
 <h2 id="formler"><span class="sec">17.1</span>Formelark</h2>
@@ -276,12 +278,12 @@
     <div class="fm"><b>k-means-anomalier</b>: avstand til nærmeste sentroide over en valgt persentil. Terskelen er et valg, ingen fasit. DBSCAN: <code>labels_ == -1</code>. Isolation Forest: kort gjennomsnittlig sti fra rot = anomali, <code>predict == -1</code>. <a class="fl" href="13-anomali.html">kap. 13</a></div></div>
 </div>
 
-<h3 id="f-rl">Forsterkningslæring <span class="muted small">(forventet pensum)</span></h3>
+<h3 id="f-rl">Forsterkningslæring</h3>
 <div class="flist">
-  <div class="f exp"><div class="fx">$$Q^{new}(S_t,A_t) \leftarrow (1-\alpha)\,Q(S_t,A_t) + \alpha\big(R_{t+1} + \gamma\max_{A} Q(S_{t+1},A)\big)$$</div>
-    <div class="fm"><span class="tag">forventet pensum</span><b>Q-learning-oppdatering</b> (kalt Bellman-likningen på eksamen 2024 oppg. 32). $\alpha$ = læringsrate (hvor mye ny info veier), $\gamma\in[0,1]$ = diskonteringsfaktor (hvor mye fremtiden veier). Høy $\gamma$ → læringen domineres av estimatet av fremtidige tilstander. <a class="fl" href="14-forsterkning.html">kap. 14</a></div></div>
-  <div class="f exp"><div class="fx">$$Q \leftarrow Q + \alpha\big(\underbrace{R + \gamma\max_{a'}Q(s',a') - Q}_{\text{TD-feil}}\big), \qquad G_t = \sum_{k=0}^{\infty}\gamma^k R_{t+k+1}$$</div>
-    <div class="fm"><span class="tag">forventet pensum</span><b>Samme oppdatering</b> skrevet med TD-feil, og <b>diskontert retur</b>. ε-greedy: tilfeldig handling med sannsynlighet ε (utforsking), ellers $\arg\max_a Q$ (utnyttelse). <a class="fl" href="14-forsterkning.html">kap. 14</a></div></div>
+  <div class="f"><div class="fx">$$Q^{new}(S_t,A_t) \leftarrow (1-\alpha)\,Q(S_t,A_t) + \alpha\big(R_{t+1} + \gamma\max_{A} Q(S_{t+1},A)\big)$$</div>
+    <div class="fm"><b>Q-learning-oppdatering</b>, likning 115 i notatene (kalt Bellman-likningen i notatene og på eksamen 2024 oppg. 32). $\alpha$ = læringsrate (hvor mye ny info veier), $\gamma\in[0,1]$ = diskonteringsfaktor (hvor mye fremtiden veier). Høy $\gamma$ → læringen domineres av estimatet av fremtidige tilstander. <a class="fl" href="14-forsterkning.html">kap. 14</a></div></div>
+  <div class="f"><div class="fx">$$Q \leftarrow Q + \alpha\big(\underbrace{R + \gamma\max_{a'}Q(s',a') - Q}_{\text{TD-feil}}\big), \qquad G_t = \sum_{k=0}^{\infty}\gamma^k R_{t+k+1}$$</div>
+    <div class="fm"><b>Samme oppdatering</b> skrevet med TD-feil, og <b>diskontert retur</b>. ε-greedy: tilfeldig handling med sannsynlighet ε (utforsking), ellers $\arg\max_a Q$ (utnyttelse). DQN: mål $R + \gamma\max_A Q_{target}(S',A)$ (0 framtid hvis done), MSE-loss bare for valgt handling. <a class="fl" href="14-forsterkning.html">kap. 14</a></div></div>
 </div>
 
 <div class="calc" data-id="17-qlearn" data-answer="3.3" data-tol="0.001">
@@ -289,10 +291,18 @@
   <div class="solution">$(1-0.5)\cdot 2 + 0.5\cdot(1 + 0.9\cdot 4) = 1 + 0.5\cdot 4.6 = 1 + 2.3 = 3.3$.</div>
 </div>
 
-<h3 id="f-xai">Forklarbar KI <span class="muted small">(forventet pensum)</span></h3>
+<h3 id="f-xai">Forklarbar KI</h3>
 <div class="flist">
-  <div class="f exp"><div class="fx">$$\phi_i(v) = \sum_{S\subseteq N\setminus\{i\}}\frac{|S|!\,(|N|-|S|-1)!}{|N|!}\Big(v(S\cup\{i\}) - v(S)\Big)$$</div>
-    <div class="fm"><span class="tag">forventet pensum</span><b>Shapley-verdi</b>: spiller (feature) $i$ sitt vektede gjennomsnittlige marginalbidrag over alle koalisjoner $S$ uten $i$. Efficiency: $\sum_i\phi_i = v(N) - v(\emptyset)$. SHAP bruker dette for å fordele en prediksjon på featurene. LIME = lokal, tolkbar surrogatmodell rundt ett punkt. <a class="fl" href="15-xai-etikk.html">kap. 15</a></div></div>
+  <div class="f"><div class="fx">$$\phi_i(v) = \sum_{S\subseteq N\setminus\{i\}}\frac{|S|!\,(|N|-|S|-1)!}{|N|!}\Big(v(S\cup\{i\}) - v(S)\Big)$$</div>
+    <div class="fm"><b>Shapley-verdi</b>, likning 116 i notatene: spiller (feature) $i$ sitt vektede gjennomsnittlige marginalbidrag over alle koalisjoner $S$ uten $i$. Vekten kan skrives $\frac{1}{|N|}\cdot 1/\binom{|N|-1}{|S|}$ (likning 119): snitt over koalisjonsstørrelser, så over koalisjoner av hver størrelse. Vekter for $|N| = 3$: $\frac13, \frac16, \frac16, \frac13$. Effektivitet: $\sum_i\phi_i = v(N) - v(\emptyset)$. Taxi 3, 7, 10 km → 1, 3, 6. Eksakt krever $2^{|N|}$ koalisjoner (maks ca. 20 features). <a class="fl" href="15-xai-etikk.html">kap. 15</a></div></div>
+  <div class="f"><div class="fx">$$v(S) = \mathbb{E}\big[f(x)\mid x_S = x^*_S\big], \qquad f(x^*) = \phi_0 + \sum_{j=1}^{M}\phi^*_j, \quad \phi_0 = \mathbb{E}[f(x)]$$</div>
+    <div class="fm"><b>SHAP</b>, likning 120 og 121: modellen er spillet, featurene er spillerne. Fraværende features hentes fra et bakgrunnsdatasett (antar uavhengige features). $\phi_0$ = gjennomsnittsprediksjonen på bakgrunnsdataene (<code>expected_value</code>). Force plot: rød drar opp, blå drar ned. Beeswarm: farge = feature-verdi. <a class="fl" href="15-xai-etikk.html">kap. 15</a></div></div>
+  <div class="f"><div class="fx">$$\underset{g \in G}{\operatorname{argmin}}\; \mathcal{L}(f, g, \pi_x) + \Omega(g)$$</div>
+    <div class="fm"><b>LIME</b>, likning 122: lokal surrogatmodell. Trekk punkter $x_i$ rundt $x$, gi dem labels med $f(x_i)$ (ikke targets), og tilpass en tolkbar $g$ vektet med nabolaget $\pi_x$. $\mathcal{L}$ = hvor dårlig $g$ etterligner $f$, $\Omega(g)$ = kompleksitet (antall features med koeffisient ≠ 0, eller tredybde). <a class="fl" href="15-xai-etikk.html#lime">kap. 15.3</a></div></div>
+  <div class="f"><div class="fx">$$X \to Z_1 \to Z_2 \;\Rightarrow\; I(X; Z_2) \le I(X; Z_1)$$</div>
+    <div class="fm"><b>Data processing inequality</b>, likning 123. $I$ = gjensidig informasjon. Et lag kan aldri inneholde mer informasjon om input enn lagene før (men kan ha like mye). <a class="fl" href="15-xai-etikk.html#dpi">kap. 15.7</a></div></div>
+  <div class="f"><div class="fx">$$S_{C,k,l}(\mathbf{x}) = \nabla h_{l,k}\big(f_l(\mathbf{x})\big)\cdot v^l_C, \qquad \text{TCAV}_{Q_{C,k,l}} = \frac{|\{\mathbf{x}\in X_k : S_{C,k,l}(\mathbf{x}) &gt; 0\}|}{|X_k|}$$</div>
+    <div class="fm"><b>TCAV</b>, likning 124–125. $v^l_C$ = CAV (normalvektoren til en lineær probe som skiller konseptaktiveringer fra tilfeldige i lag $l$). Sensitiviteten er prikkproduktet mellom gradienten og CAV-en. TCAV = andelen inputs i klasse $k$ med positiv sensitivitet. <a class="fl" href="15-xai-etikk.html#tcav">kap. 15.7</a></div></div>
 </div>
 
 <div class="calc" data-id="17-shapley" data-answer="0.5" data-tol="0.001">
@@ -302,10 +312,10 @@
 
 <!-- ===================================================================== -->
 <h2 id="begreper"><span class="sec">17.2</span>Begrepsliste A–Å</h2>
-<p>124 begreper med norsk og engelsk navn, kort definisjon og lenke til kapittelet der det forklares. Eksamen bruker begge språk om hverandre. Skriv i søkefeltet for å filtrere (søket går i både begrep, engelsk navn og definisjon).</p>
+<p>139 begreper med norsk og engelsk navn, kort definisjon og lenke til kapittelet der det forklares. Eksamen bruker begge språk om hverandre. Skriv i søkefeltet for å filtrere (søket går i både begrep, engelsk navn og definisjon).</p>
 <div class="gloss-tools">
   <input type="search" id="glossSearch" placeholder="Søk, f.eks. «bias», «varians», «DBSCAN» …" aria-label="Søk i begrepslisten">
-  <span class="readout" id="glossCount">124 begreper</span>
+  <span class="readout" id="glossCount">139 begreper</span>
 </div>
 <div class="gloss-letters"><a href="#g-A">A</a><a href="#g-B">B</a><a href="#g-C">C</a><a href="#g-D">D</a><a href="#g-E">E</a><a href="#g-F">F</a><a href="#g-G">G</a><a href="#g-H">H</a><a href="#g-I">I</a><a href="#g-K">K</a><a href="#g-L">L</a><a href="#g-M">M</a><a href="#g-N">N</a><a href="#g-O">O</a><a href="#g-P">P</a><a href="#g-Q">Q</a><a href="#g-R">R</a><a href="#g-S">S</a><a href="#g-T">T</a><a href="#g-U">U</a><a href="#g-V">V</a><a href="#g-X">X</a></div>
 <div class="gloss" id="gloss">
@@ -324,6 +334,7 @@
 <dl>
   <div class="g"><dt>Backpropagation / tilbakepropagering<a href="10-trening-nn.html">kap. 10</a></dt><dd>Beregner gradienten av tapet med hensyn på alle vekter ved å bruke kjerneregelen bakover fra output til input.</dd></div>
   <div class="g"><dt>Bagging <span class="en">bootstrap aggregating</span><a href="08-ensemble.html">kap. 8</a></dt><dd>Tren flere modeller parallelt på bootstrap-utvalg og aggreger (snitt/flertall). Reduserer varians.</dd></div>
+  <div class="g"><dt>Bakgrunnsdatasett <span class="en">background dataset</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Data som SHAP henter verdier fra når en feature er «fraværende». Prediksjonene snittes. Antar uavhengige features, og valget påvirker forklaringen.</dd></div>
   <div class="g"><dt>Batch size<a href="10-trening-nn.html">kap. 10</a></dt><dd>Antall treningspunkter som brukes til å regne ut én gradient og gjøre én oppdatering. Hyperparameter.</dd></div>
   <div class="g"><dt>Bayes' teorem<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$P(A|B) = P(B|A)P(A)/P(B)$. Posterior = likelihood × prior / evidens.</dd></div>
   <div class="g"><dt>Bellman-likningen <span class="en">Bellman equation</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Rekursiv sammenheng: verdien nå = belønning + diskontert verdi av neste tilstand. Grunnlaget for Q-learning-oppdateringen.</dd></div>
@@ -335,12 +346,15 @@
 <h3 class="letter" id="g-C">C</h3>
 <dl>
   <div class="g"><dt>Calinski–Harabasz-score<a href="11-clustering.html">kap. 11</a></dt><dd>Forholdet mellom spredning mellom klynger og spredning innad i klynger. Høy = tette, separerte klynger.</dd></div>
+  <div class="g"><dt>Catastrophic forgetting<a href="14-forsterkning.html">kap. 14</a></dt><dd>I DQN: agenten glemmer plutselig det den har lært, og belønningen kollapser, selv med lav læringsrate og ε. Skyldes som regel overtilpasning til nylige hendelser.</dd></div>
+  <div class="g"><dt>CAV (konseptaktiveringsvektor) <span class="en">concept activation vector</span><a href="15-xai-etikk.html#cav">kap. 15</a></dt><dd>Normalvektoren $v^l_C$ til beslutningsflaten til en lineær probe som skiller aktiveringer for konseptdata fra tilfeldige data i lag $l$. Peker mot konseptet.</dd></div>
   <div class="g"><dt>Concentration of distances<a href="11-clustering.html">kap. 11</a></dt><dd>I høye dimensjoner blir alle parvise avstander nesten like store, så «nær» og «fjern» mister mening.</dd></div>
   <div class="g"><dt>Confusion matrix / forvekslingsmatrise<a href="03-evaluering.html">kap. 3</a></dt><dd>Tabell med TP, FP, FN og TN. Grunnlaget for de fleste klassifiseringsmetrikker.</dd></div>
   <div class="g"><dt>Crowding<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>I lav dimensjon er det ikke plass til alle moderat nære naboer. t-SNE løser det med t-fordelingens tunge haler.</dd></div>
 </dl>
 <h3 class="letter" id="g-D">D</h3>
 <dl>
+  <div class="g"><dt>Data processing inequality<a href="15-xai-etikk.html#dpi">kap. 15</a></dt><dd>$I(X;Z_2) \le I(X;Z_1)$ for en Markov-kjede $X\to Z_1\to Z_2$. Ingen etterbehandling kan øke informasjonen om input.</dd></div>
   <div class="g"><dt>DBSCAN<a href="11-clustering.html">kap. 11</a></dt><dd>Tetthetsbasert clustering med $\epsilon$ og <code>min_samples</code>. Finner kjernepunkter, ikke-kjernepunkter og outliers (label −1). Trenger ikke $k$.</dd></div>
   <div class="g"><dt>Dimensjonsforbannelsen <span class="en">curse of dimensionality</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>Datarommet vokser eksponentielt med antall features ($10^d$ bins), så data blir glisne og avstander konsentreres.</dd></div>
   <div class="g"><dt>Dimensjonsreduksjon <span class="en">dimensionality reduction</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Gå fra $n$ til $n'\lt n$ features og bevare mest mulig informasjon (varians i PCA, nabolag i t-SNE).</dd></div>
@@ -356,12 +370,16 @@
   <div class="g"><dt>Ensemble<a href="08-ensemble.html">kap. 8</a></dt><dd>Kombinasjon av flere modeller (parallelt, sekvensielt eller hierarkisk) som til sammen blir bedre enn hver enkelt.</dd></div>
   <div class="g"><dt>Entropi <span class="en">entropy</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$H = -\sum p\log p$. Usikkerhet i en fordeling. Binær maks 1 bit.</dd></div>
   <div class="g"><dt>Epoke <span class="en">epoch</span><a href="10-trening-nn.html">kap. 10</a></dt><dd>Én gjennomgang av hele treningsdatasettet.</dd></div>
+  <div class="g"><dt>Environment (miljø)<a href="14-forsterkning.html">kap. 14</a></dt><dd>Det agenten handler i. Gym-API: <code>env.reset()</code> gir starttilstand, <code>env.step(a)</code> gir ny tilstand, reward, done og info.</dd></div>
+  <div class="g"><dt>Exploration–exploitation tradeoff<a href="14-forsterkning.html">kap. 14</a></dt><dd>Avveiningen mellom å prøve handlinger med ukjent utfall (høy ε) og å utnytte kjente (lav ε). Ingen universell løsning; vanlig strategi er ε-greedy med ε-decay.</dd></div>
   <div class="g"><dt>Evidens <span class="en">evidence</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(\mathbf{x})$ i Bayes: sannsynligheten for dataene uavhengig av klasse. Lik for alle klasser, sikrer at posterior summerer til 1.</dd></div>
 </dl>
 <h3 class="letter" id="g-F">F</h3>
 <dl>
   <div class="g"><dt>Feature engineering<a href="06-regresjon.html">kap. 6</a></dt><dd>Alt vi gjør med featurene: selection (velge ut), preprocessing (skalere, encode) og extraction (lage nye, f.eks. $x^2$ eller PCA).</dd></div>
   <div class="g"><dt>Feature / variabel<a href="01-grunnlag.html">kap. 1</a></dt><dd>En egenskap ved datapunktene, en kolonne i datasettet. Kan være kvalitativ (kategorisk) eller kvantitativ.</dd></div>
+  <div class="g"><dt>Force plot<a href="15-xai-etikk.html">kap. 15</a></dt><dd>SHAP-plott for ett datapunkt: fra gjennomsnittsprediksjonen $\phi_0$ til $f(x^*)$. Rød feature drar opp, blå drar ned.</dd></div>
+  <div class="g"><dt>Forklarbarhet <span class="en">explainability</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Aktiv egenskap: ekstra funksjonalitet lagt til for å forklare en modell som ikke er tolkbar i seg selv. Jf. tolkbarhet.</dd></div>
   <div class="g"><dt>Forward pass<a href="10-trening-nn.html">kap. 10</a></dt><dd>Å sende input gjennom nettet lag for lag for å få en prediksjon.</dd></div>
   <div class="g"><dt>Fully connected / Dense<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Lag der hver node er koblet til alle noder i forrige lag. MLP består av slike lag.</dd></div>
 </dl>
@@ -369,6 +387,7 @@
 <dl>
   <div class="g"><dt>Generalisering <span class="en">generalization</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Evnen til å gjøre det godt på nye, usette data. Hovedmålet i maskinlæring.</dd></div>
   <div class="g"><dt>Gini-urenhet <span class="en">Gini impurity</span><a href="05-traer.html">kap. 5</a></dt><dd>$1-\sum p_i^2$. Sannsynligheten for å gjette feil klasse ved å gjette etter klassefordelingen. 0 = ren node.</dd></div>
+  <div class="g"><dt>Gjensidig informasjon <span class="en">mutual information</span><a href="15-xai-etikk.html#dpi">kap. 15</a></dt><dd>$I(X;Z)$: hvor mye én variabel forteller om en annen.</dd></div>
   <div class="g"><dt>Gradient<a href="02-logistisk.html">kap. 2</a></dt><dd>Vektoren av partiellderiverte av tapet med hensyn på parametrene. Peker mot brattest økning.</dd></div>
   <div class="g"><dt>Gradient boosting<a href="08-ensemble.html">kap. 8</a></dt><dd>Sekvensielt ensemble der hvert nye tre tilpasses residualene (negativ gradient) til ensemblet så langt.</dd></div>
   <div class="g"><dt>Gradient descent<a href="02-logistisk.html">kap. 2</a></dt><dd>Iterativ minimering: $\theta \leftarrow \theta - \eta\nabla L$. Finner globalt minimum for konvekse funksjoner.</dd></div>
@@ -397,6 +416,8 @@
   <div class="g"><dt>KL-divergens <span class="en">Kullback–Leibler divergence</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>$\sum P\log(P/Q)$. Relativ entropi; ≥ 0, ikke symmetrisk. Tapsfunksjonen i (t-)SNE.</dd></div>
   <div class="g"><dt>k-means<a href="11-clustering.html">kap. 11</a></dt><dd>Sentroidebasert clustering: tilordne til nærmeste sentroide, flytt sentroiden til snittet, gjenta. Antar runde, like store klynger; må velge $k$.</dd></div>
   <div class="g"><dt>k-means++<a href="11-clustering.html">kap. 11</a></dt><dd>Initialisering der neste sentroide trekkes med sannsynlighet $\propto D(\mathbf{x})^2$.</dd></div>
+  <div class="g"><dt>Konsept <span class="en">concept</span><a href="15-xai-etikk.html#konsepter">kap. 15</a></dt><dd>Abstrakt begrep på høyere nivå («stripete», «formue»), satt sammen av mange features. Implisitt, mens features er eksplisitte i dataene.</dd></div>
+  <div class="g"><dt>Konseptdeteksjon <span class="en">concept detection</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Modellspesifikk forklaring: undersøk om menneskelige konsepter er representert i nettverkets indre aktiveringer («knus boksen»). Verktøy: CAV, probe og TCAV.</dd></div>
   <div class="g"><dt>Konveks funksjon <span class="en">convex function</span><a href="02-logistisk.html">kap. 2</a></dt><dd>Funksjon med bare ett (globalt) minimum. Da finner gradient descent garantert det globale minimumet.</dd></div>
   <div class="g"><dt>Kovarians / kovariansmatrise <span class="en">covariance (matrix)</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Hvor mye to features varierer sammen. Matrisen har varianser på diagonalen og kovarianser utenfor.</dd></div>
   <div class="g"><dt>Kryss-entropi <span class="en">cross-entropy</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$H(p,q) = -\sum p\log q$. Tapsfunksjon for klassifisering (BCE for to klasser).</dd></div>
@@ -413,6 +434,7 @@
 <h3 class="letter" id="g-M">M</h3>
 <dl>
   <div class="g"><dt>Markov-egenskapen <span class="en">Markov property</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Neste tilstand avhenger bare av nåværende tilstand og handling, ikke av historikken.</dd></div>
+  <div class="g"><dt>MDL <span class="en">Minimum Description Length</span><a href="15-xai-etikk.html#dpi">kap. 15</a></dt><dd>Den beste modellen gir den korteste samlede beskrivelsen av dataene. «Comprehension is compression.»</dd></div>
   <div class="g"><dt>Metrikk <span class="en">metric</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Mål på ytelse som skal gi mening for mennesker (precision, recall, AUC …). Trenger ikke være deriverbar, i motsetning til tapet.</dd></div>
   <div class="g"><dt>Mini-batch SGD<a href="10-trening-nn.html">kap. 10</a></dt><dd>Gradient beregnet på en liten tilfeldig batch (f.eks. 32–128 punkter). Det dyplæringsfolk mener med «SGD».</dd></div>
   <div class="g"><dt>MLP <span class="en">multi-layer perceptron</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Fully connected feed-forward nevralt nett med ett eller flere skjulte lag.</dd></div>
@@ -438,10 +460,12 @@
   <div class="g"><dt>Perplexity<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>$2^{H(P_i)}$ i t-SNE; effektivt antall naboer. Bestemmer bredden $\sigma_i$ til hver gauss.</dd></div>
   <div class="g"><dt>Perseptron<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Enkleste nevrale enhet: $H(\mathbf{w}\mathbf{x}+b)$. Rosenblatt 1957. Kan bare løse lineært separerbare problemer.</dd></div>
   <div class="g"><dt>Policy<a href="14-forsterkning.html">kap. 14</a></dt><dd>Strategien som bestemmer hvilken handling agenten tar i hver tilstand, $\pi(s)$.</dd></div>
+  <div class="g"><dt>Post hoc<a href="15-xai-etikk.html">kap. 15</a></dt><dd>Forklaringen genereres på en ferdigtrent modell, ikke bygget inn under modelleringen.</dd></div>
   <div class="g"><dt>Posterior<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(C_k|\mathbf{x})$: sannsynligheten for klassen gitt dataene. Det klassifisering prøver å estimere.</dd></div>
   <div class="g"><dt>Precision / presisjon<a href="03-evaluering.html">kap. 3</a></dt><dd>$TP/(TP+FP)$: andelen av predikerte positive som er riktige. Viktig når falske alarmer er dyre.</dd></div>
   <div class="g"><dt>Preprosessering <span class="en">preprocessing</span><a href="01-grunnlag.html">kap. 1</a></dt><dd>Klargjøring av data: fjerne manglende verdier, encode kategorier, skalere.</dd></div>
   <div class="g"><dt>Prior<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(C_k)$: klassefordelingen før vi ser på $\mathbf{x}$.</dd></div>
+  <div class="g"><dt>Probe <span class="en">probe</span><a href="15-xai-etikk.html#cav">kap. 15</a></dt><dd>Enkel (lineær) klassifikator trent på aktiveringene i ett lag for å se om et konsept er representert der.</dd></div>
   <div class="g"><dt>Pseudo-residualer <span class="en">pseudo-residuals</span><a href="08-ensemble.html">kap. 8</a></dt><dd>$y - \hat{y}$ (negativ gradient av tapet) som hvert nye tre tilpasses i gradient boosting.</dd></div>
 </dl>
 <h3 class="letter" id="g-Q">Q</h3>
@@ -472,13 +496,20 @@
   <div class="g"><dt>Softmax<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>$e^{x_i}/\sum_j e^{x_j}$. Output-aktivering for flere klasser; summerer til 1.</dd></div>
   <div class="g"><dt>Spesifisitet / TNR <span class="en">specificity</span><a href="03-evaluering.html">kap. 3</a></dt><dd>$TN/(TN+FP)$: andelen faktisk negative som klassifiseres riktig. FPR = 1 − spesifisitet.</dd></div>
   <div class="g"><dt>Støyfjerning <span class="en">denoising</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>En grunn til dimensjonsreduksjon: kast retninger som stort sett er støy.</dd></div>
+  <div class="g"><dt>Subsymbolsk KI<a href="15-xai-etikk.html">kap. 15</a></dt><dd>KI som lærer sammenhenger fra data (maskinlæring, nevrale nett). Kunnskapen ligger i parametrene, «under symbolene», og er ikke tolkbar.</dd></div>
+  <div class="g"><dt>Superpiksler <span class="en">superpixels</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Grupper av piksler som behandles som én feature i Image SHAP. Gir færre spillere og mer forståelige forklaringer.</dd></div>
+  <div class="g"><dt>Surrogatmodell <span class="en">surrogate model</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>En tolkbar modell som erstatter (etterligner) den svarte boksen, globalt eller lokalt. LIME er kursets eksempel.</dd></div>
+  <div class="g"><dt>Symbolsk KI<a href="15-xai-etikk.html">kap. 15</a></dt><dd>KI der mennesker koder kunnskap som eksplisitte regler og symboler (f.eks. ekspertsystemer). Dominerte fra 1956 til ca. 1990.</dd></div>
 </dl>
 <h3 class="letter" id="g-T">T</h3>
 <dl>
   <div class="g"><dt>Tapsfunksjon <span class="en">loss function</span><a href="02-logistisk.html">kap. 2</a></dt><dd>$L(y_{pred},y)$: hvor feil prediksjonen er. Må være deriverbar for gradient descent.</dd></div>
   <div class="g"><dt>Target / label<a href="01-grunnlag.html">kap. 1</a></dt><dd>Det vi vil predikere, $y$. Finnes i veiledet læring, ikke i uveiledet.</dd></div>
   <div class="g"><dt>Target network<a href="14-forsterkning.html">kap. 14</a></dt><dd>Kopi av Q-nettet i DQN som oppdateres sjelden, slik at treningsmålene holdes stabile.</dd></div>
+  <div class="g"><dt>TCAV <span class="en">Testing with Concept Activation Vectors</span><a href="15-xai-etikk.html#tcav">kap. 15</a></dt><dd>Andelen inputs i klasse $k$ der prediksjonen øker når aktiveringene flyttes i retning av konseptet ($S_{C,k,l} &gt; 0$).</dd></div>
   <div class="g"><dt>Testdata<a href="07-generalisering.html">kap. 7</a></dt><dd>Brukes kun én gang til slutt for å rapportere ytelsen til den ferdige modellen. Aldri til tilpasning.</dd></div>
+  <div class="g"><dt>Tolkbarhet <span class="en">interpretability</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Passiv egenskap: modellen gir direkte mening for mennesker (f.eks. lineær regresjon). Transparent (alle tall synlige) er ikke det samme som tolkbar.</dd></div>
+  <div class="g"><dt>TreeExplainer / KernelExplainer<a href="15-xai-etikk.html">kap. 15</a></dt><dd>SHAP-explainers. Tree: trær og skoger, eksakte verdier i polynomisk tid. Kernel: alle modeller, approksimerer med trukne koalisjoner og en lineær modell. Deep/Gradient: nevrale nett.</dd></div>
   <div class="g"><dt>Treningsdata<a href="07-generalisering.html">kap. 7</a></dt><dd>Data modellparametrene tilpasses på.</dd></div>
   <div class="g"><dt>t-SNE<a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>SNE med t-fordeling (tunge haler) i lav dimensjon. Brukes til visualisering; ikke-parametrisk.</dd></div>
 </dl>
@@ -486,6 +517,7 @@
 <dl>
   <div class="g"><dt>Underfitting / undertilpasning<a href="07-generalisering.html">kap. 7</a></dt><dd>Modellen er for enkel: høy feil på både trening og validering. Høy bias.</dd></div>
   <div class="g"><dt>Undersampling<a href="03-evaluering.html">kap. 3</a></dt><dd>Trekk like mange fra majoritetsklassen som minoriteten har. Risiko: for lite data, underfitting.</dd></div>
+  <div class="g"><dt>Universell funksjonsapproksimator <span class="en">universal function approximator</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Med nok nevroner kan et nevralt nett tilnærme enhver kontinuerlig funksjon så nøyaktig vi vil.</dd></div>
   <div class="g"><dt>Uveiledet læring <span class="en">unsupervised learning</span><a href="11-clustering.html">kap. 11</a></dt><dd>Læring uten targets: clustering, dimensjonsreduksjon, anomalideteksjon.</dd></div>
 </dl>
 <h3 class="letter" id="g-V">V</h3>

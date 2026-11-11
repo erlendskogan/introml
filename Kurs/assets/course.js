@@ -20,10 +20,11 @@
     { id: "11", file: "11-clustering.html",    part: "Del III · Uveiledet læring", title: "Clustering",                         desc: "k-means og k-means++, klyngemetrikker, DBSCAN og avstand i høye dimensjoner." },
     { id: "12", file: "12-dimensjonsreduksjon.html", part: "Del III · Uveiledet læring", title: "Dimensjonsreduksjon: PCA og t-SNE", desc: "Kovarians og egenvektorer, PCA for hånd, SNE/t-SNE og KL-divergens." },
     { id: "13", file: "13-anomali.html",       part: "Del III · Uveiledet læring", title: "Anomalideteksjon",                   desc: "k-means-avstand, DBSCAN-støy og Isolation Forest." },
-    { id: "14", file: "14-forsterkning.html",  part: "Del IV · Forventet pensum", title: "Forsterkningslæring", expected: true, desc: "Agent, miljø, policy, Markov-egenskapen, Q-learning, Bellman, ε-greedy og DQN." },
-    { id: "15", file: "15-xai-etikk.html",     part: "Del IV · Forventet pensum", title: "Forklarbar KI og etikk", expected: true, desc: "LIME, SHAP og Shapley-verdier, AI Act og etiske prinsipper." },
-    { id: "16", file: "16-eksamen.html",       part: "Del V · Eksamen", title: "Eksamenstrening",                               desc: "Tidligere eksamener som interaktive prøver, med forklaringer og eksamensstrategi." },
-    { id: "17", file: "17-formelark.html",     part: "Del V · Eksamen", title: "Formelark og begrepsliste",                     desc: "Alle formler, begreper og «knagger» samlet på ett sted for repetisjon." }
+    { id: "14", file: "14-forsterkning.html",  part: "Del IV · Forsterkningslæring", title: "Forsterkningslæring", desc: "Agent, miljø, Markov-egenskapen, Q-learning og Bellman, Gym-API og Q-tabell, ε-greedy, DQN og catastrophic forgetting." },
+    { id: "15", file: "15-xai-etikk.html",     part: "Del V · Forklarbar KI og etikk", title: "Forklarbar KI og etikk", desc: "Tolkbarhet og forklarbarhet, Shapley-verdier (taxieksempelet), SHAP med bakgrunnsdatasett, force plot og beeswarm, SHAP for bilder og tekst, LIME som lokal surrogatmodell, konseptdeteksjon (CAV og TCAV), AI Act og etiske prinsipper." },
+    { id: "16", file: "16-eksamen.html",       part: "Del VI · Eksamen", title: "Eksamenstrening",                               desc: "Tidligere eksamener som interaktive prøver, med forklaringer og eksamensstrategi." },
+    { id: "17", file: "17-formelark.html",     part: "Del VI · Eksamen", title: "Formelark og begrepsliste",                     desc: "Alle formler, begreper og «knagger» samlet på ett sted for repetisjon." },
+    { id: "18", file: "18-regneoppgaver.html", part: "Del VI · Eksamen", title: "Regneoppgaver steg for steg",                   desc: "Alle typene regneoppgaver fra eksamen og øvingssett, med oppskrift, gjennomregnet eksempel og en oppgave du regner selv." }
   ];
 
   const LS = "tdt4172:";
@@ -40,9 +41,13 @@
   const inChapterDir = /\/kapitler\//.test(location.pathname);
   const root = inChapterDir ? "../" : "";
   const chapterId = document.body.dataset.chapter || null;
+  // innebygd i alt.html (hele kurset på én side): kapittelet vises i en iframe
+  const embedded = window.parent !== window && /[?&]embed\b/.test(location.search);
+  if (embedded) document.documentElement.classList.add("embedded");
 
   /* ---------------- tema ---------------- */
-  const savedTheme = store.get("theme", null);
+  const urlTheme = (location.search.match(/[?&]theme=(light|dark)/) || [])[1];
+  const savedTheme = (embedded && urlTheme) || store.get("theme", null);
   if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
   const themeListeners = [];
   function toggleTheme() {
@@ -73,7 +78,7 @@
       const badge = s && s.total ? `${s.correct}/${s.total}` : "";
       html += `<li><a href="${root}kapitler/${c.file}" class="${c.id === chapterId ? "current" : ""}"><span class="num">${c.id}</span><span>${c.title}${c.expected ? " <span class='muted'>(forventet)</span>" : ""}</span><span class="badge">${badge}</span></a></li>`;
     }
-    html += `</ol>`;
+    html += `</ol><p style="margin:14px 10px 0"><a href="${root}alt.html${chapterId ? "#k" + chapterId : ""}">Hele kurset på én side →</a></p>`;
     drawer.innerHTML = html;
     // innholdsfortegnelse for dette kapittelet
     const h2s = $$("main h2[id]");
@@ -429,17 +434,64 @@
   }
 
   /* ---------------- oppstart ---------------- */
+  /* ---------------- innebygd modus (alt.html) ---------------- */
+  function setupEmbed() {
+    const post = msg => window.parent.postMessage(Object.assign({ ck: true, chapter: chapterId }, msg), "*");
+    const sendHeight = () => post({ type: "height", h: Math.ceil(document.body.getBoundingClientRect().height) });
+    if (window.ResizeObserver) new ResizeObserver(sendHeight).observe(document.body);
+    addEventListener("load", sendHeight);
+    sendHeight();
+    post({ type: "toc", items: $$("main h2[id]").map(h => ({ id: h.id, text: h.textContent })) });
+
+    const scrollToId = id => {
+      let t = null;
+      try { t = id ? document.getElementById(decodeURIComponent(id)) : null; } catch (e) {}
+      post({ type: "scroll", y: t ? Math.max(0, t.getBoundingClientRect().top + scrollY - 8) : 0 });
+    };
+    const chapterOf = url => {
+      if (!/\/kapitler\//.test(url.pathname)) return null;
+      const f = url.pathname.split("/").pop();
+      return CHAPTERS.find(c => c.file === f) || null;
+    };
+    // lenker til andre sider skal åpnes i toppvinduet, ikke inne i rammen
+    $$("a[href]").forEach(a => {
+      const h = a.getAttribute("href");
+      if (h.startsWith("#") || a.target) return;
+      try { if (!chapterOf(new URL(a.href))) a.target = "_top"; } catch (e) {}
+    });
+    document.addEventListener("click", e => {
+      const a = e.target.closest && e.target.closest("a[href]");
+      if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || a.target === "_blank") return;
+      const h = a.getAttribute("href");
+      if (h.startsWith("#")) { e.preventDefault(); scrollToId(h.slice(1)); return; }
+      let url; try { url = new URL(a.href); } catch (err) { return; }
+      const c = chapterOf(url);
+      if (!c) return;
+      e.preventDefault();
+      if (c.id === chapterId) scrollToId(url.hash.slice(1));
+      else post({ type: "goto", target: c.id, hash: url.hash.slice(1) });
+    });
+    addEventListener("message", e => {
+      if (e.source !== window.parent || !e.data || !e.data.ck) return;
+      if (e.data.type === "theme") {
+        if (e.data.theme) document.documentElement.setAttribute("data-theme", e.data.theme);
+        else document.documentElement.removeAttribute("data-theme");
+        themeListeners.forEach(f => { try { f(); } catch (err) { console.error(err); } });
+      } else if (e.data.type === "find") scrollToId(e.data.hash);
+    });
+  }
+
   function init() {
-    buildChrome();
+    if (embedded) setupEmbed(); else buildChrome();
     $$(".quiz").forEach(setupQuiz);
     $$(".calc[data-answer]").forEach(setupCalc);
     $$(".reflect").forEach(setupReflect);
     setupCards();
-    buildPager();
+    if (!embedded) buildPager();
     updateScore();
     buildIndex();
     renderMath();
-    if (chapterId) store.set("last", chapterId);
+    if (chapterId && !embedded) store.set("last", chapterId);
     const cont = $("#continue-link");
     if (cont) {
       const last = store.get("last", null), c = CHAPTERS.find(x => x.id === last);

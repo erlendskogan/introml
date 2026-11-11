@@ -9,3 +9,11 @@ __pycache__/
 
 # Duplikat av Kurs/
 Kurs.zip
+
+# LaTeX-hjelpefiler fra bygging av øvingseksamenene
+*.aux
+*.log
+
+# Duplikater av mapper som allerede er med
+nyttKursIntroML.zip
+03_Eksamener/OvingseksamenerIntroML.zip

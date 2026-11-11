@@ -1,0 +1,510 @@
+%%% Øvingssett 7 – TDT4172 H26
+%%% ================================================================ PART 1
+@@PART
+@@Q
+%%% NY2: ved optimum gir dL/db = 0 at snittet av yhat er lik andelen positive i treningsdataene
+Du trener logistisk regresjon (med bias $b$) på 500 treningspunkter, hvorav 190 har $y = 1$, helt til
+gradienten er null. For gjennomsnittlig cross-entropy loss er
+\[ \frac{\partial L}{\partial b} = \frac{1}{N}\sum_{i=1}^{N}\big(\hat y^{(i)} - y^{(i)}\big). \]
+Hva er gjennomsnittet av prediksjonene $\hat y^{(i)}$ over treningspunktene etter treningen?
+%%% dL/db = 0 -> mean(yhat) = mean(y) = 190/500 = 0.38. 190/310 = 0.61 (odds).
+@+ $0.38$, siden gradienten for $b$ bare er null når snittet av $\hat y^{(i)}$ er andelen positive
+@- $0.50$, siden gradienten for $b$ er null når prediksjonene i snitt ligger på terskelen 0.5
+@- $0.61$, siden gradienten for $b$ er null når modellen gjengir oddsen $190/310$
+@- Ukjent uten $\mathbf{w}$, siden gradienten for $b$ avhenger av $\mathbf{w}$ gjennom hver $\hat y^{(i)}$
+@@Q
+En logistisk regresjonsmodell predikerer om en kunde misligholder et lån. Featurene er brukt uten skalering:
+\emph{Inntekt} (i kroner, typisk mellom 200\,000 og 2\,000\,000) og \emph{Antall\_kredittkort} (typisk 0 til 10).
+De trente vektene er $w_{\text{inntekt}} = -0.000004$ og $w_{\text{kort}} = 0.35$.
+
+Hvilket utsagn om vektene er riktig?
+%%% Over inntektsspennet endres logit med 1.8e6 * 4e-6 = 7.2, mot 10 * 0.35 = 3.5 for kort.
+@+ Vektene kan ikke sammenlignes direkte, siden én krone og ett kredittkort er helt ulike enheter
+@- Inntekt betyr trolig lite for prediksjonen, siden vekten er mange størrelsesordener mindre enn 0.35
+@- Inntekt bør fjernes fra modellen, siden en så liten vekt typisk bare fanger opp støy i dataene
+@- Vektene blir de samme om Inntekt måles i tusen kroner, siden vektene beskriver sammenhengen og ikke enheten
+@@Q
+En logistisk regresjonsmodell har vekter $\mathbf{w} = (0.5,\,-1.2,\,0.8)$ og bias $b = -0.3$, og bruker
+$\hat{y} = \sigma(\mathbf{w}^T\mathbf{x} + b)$. Fordi falske positive er dyre, klassifiseres et punkt som
+klasse 1 bare dersom $\hat{y} > 0.7$.
+
+Hva blir $\hat{y}$ og predikert klasse for datapunktet $\mathbf{x} = (2,\,1,\,1.5)$?
+%%% z = 1 - 1.2 + 1.2 - 0.3 = 0.7, sigma(0.7) = 0.668 -> klasse 0. Uten bias: sigma(1.0)=0.731. sigma(-0.7)=0.332
+@+ $\hat{y} \approx 0.67$, og punktet klassifiseres som klasse 0
+@- $\hat{y} \approx 0.67$, og punktet klassifiseres som klasse 1
+@- $\hat{y} \approx 0.73$, og punktet klassifiseres som klasse 1
+@- $\hat{y} \approx 0.33$, og punktet klassifiseres som klasse 0
+@@Q
+En logistisk regresjonsmodell med to features har $\mathbf{w} = (2,\,-1)$ og $b = 1$. Med terskel 0.5 er
+beslutningsgrensen linjen $2x_1 - x_2 + 1 = 0$. Terskelen endres nå til 0.8, dvs. klasse 1 hvis $\hat{y} > 0.8$.
+
+Hvordan ser den nye \textbf{beslutningsgrensen} ut?
+%%% sigma(z) = 0.8 <=> z = ln(0.8/0.2) = ln 4 = 1.386
+@+ Den er fortsatt en rett linje, parallellforskjøvet til $2x_1 - x_2 + 1 = \ln 4$
+@- Den er fortsatt linjen $2x_1 - x_2 + 1 = 0$, siden terskelen bare endrer sannsynlighetene
+@- Den blir en krum kurve, siden sigmoid er sterkt ikke-lineær rundt $\hat{y} = 0.8$
+@- Den er fortsatt en rett linje, men roteres slik at stigningstallet skaleres med 0.8
+%%% ================================================================ PART 2
+@@PART
+@@Q
+%%% NY2: accuracy som prevalensvektet snitt av TPR og TNR, sammenlignet med «alltid negativ»
+En screeningmodell brukes i en populasjon der 4\,\% er syke (positiv klasse). Modellen har
+TPR $= 0.50$ og TNR $= 0.97$.
+
+Hva blir accuracy i denne populasjonen, og hva ville accuracy vært for en modell som alltid
+predikerer negativ?
+%%% 0.04*0.50 + 0.96*0.97 = 0.951; alltid negativ: 0.96. Snitt av TPR og TNR: 0.735.
+%%% byttet vekter: 0.96*0.50 + 0.04*0.97 = 0.519. «Alltid negativ» = 0.50 (myntkast) eller 0.04 (andel positive).
+@+ $0.95$, mot $0.96$ for modellen som alltid predikerer negativ
+@- $0.74$, mot $0.96$ for modellen som alltid predikerer negativ
+@- $0.95$, mot $0.50$ for modellen som alltid predikerer negativ
+@- $0.52$, mot $0.04$ for modellen som alltid predikerer negativ
+@@Q
+%%% NY2: få positive i testsettet gjør recall-estimatet grovt og usikkert
+Et testsett har 300 punkter, hvorav bare 3 er positive. Modellen finner 2 av de 3 positive, og teamet
+rapporterer \textbf{recall} $= 0.67$ som et mål på hvor godt modellen finner positive tilfeller i drift.
+
+Hva er det største problemet med denne rapporteringen?
+@+ Recall er beregnet fra bare tre positive punkter, så tallet er et svært usikkert estimat
+@- Recall er beregnet feil, siden TP skal deles på alle de 300 punktene i testsettet og ikke bare de positive
+@- Recall påvirkes av de 297 negative punktene, så den kan bli for optimistisk når de positive er så få
+@- Recall er typisk for lav når klassene er så ubalanserte, så modellens reelle evne er trolig noe høyere
+@@Q
+%%% NY: velge terskel ut fra forventet kostnad (FN og FP med ulik pris)
+En bank bruker en svindelmodell. En oversett svindel (FN) koster i snitt 500 kr, mens en falsk alarm (FP) koster
+20 kr i manuell kontroll. På valideringsdata gir fire terskler følgende antall feil:
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Terskel $t$ & 0.2 & 0.4 & 0.6 & 0.8\\
+\midrule
+FP & 200 & 120 & 40 & 10\\
+FN & 4 & 9 & 16 & 30\\
+\bottomrule
+\end{tabular}
+\end{center}
+Hvilken terskel gir lavest samlet kostnad?
+%%% Kostnad 20*FP + 500*FN: 6000, 6900, 8800, 15200 -> t = 0.2.
+%%% Byttet priser: min ved 0.8 (5600). Minst antall feil FP+FN: 0.8 (40).
+@+ $t = 0.2$
+@- $t = 0.4$
+@- $t = 0.6$
+@- $t = 0.8$
+@@Q
+%%% NY: terskeljustering endrer ikke modellen (rangering/ROC uendret, bare driftspunkt)
+Etter treningen senker et team klassifiseringsterskelen fra 0.5 til 0.3. Recall på valideringsdataene øker da
+fra 0.62 til 0.81, og teamet skriver i rapporten at «modellen er forbedret».
+
+Hvilket utsagn er riktig?
+@+ Scorene og dermed ROC-kurven er uendret; det er bare driftspunktet på kurven som er flyttet
+@- ROC-kurven har flyttet seg oppover, siden flere av de positive punktene nå får høyere score
+@- Precision har typisk også økt, siden flere av de positive punktene nå blir funnet av modellen
+@- Vektene $\mathbf{w}$ og $b$ er endret, siden terskelen inngår i tapsfunksjonen under trening
+%%% ================================================================ PART 3
+@@PART
+@@Q
+Du skal trene et beslutningstre (\texttt{DecisionTreeClassifier}) på featurene \emph{Alder} (år) og
+\emph{Inntekt} (kroner). En kollega foreslår å \textbf{standardisere} begge featurene først.
+
+Hvilket utsagn er riktig?
+@+ Det er unødvendig, siden hver splitt er en terskel på én feature, og skalering bevarer rekkefølgen
+@- Det er nødvendig, siden Inntekt ellers dominerer Gini-beregningen med sine store tallverdier
+@- Det er nyttig, siden treet da kan lage skrå beslutningsgrenser som kombinerer Alder og Inntekt
+@- Det er nødvendig, siden gradient descent ellers konvergerer sakte når splittene i treet læres
+@@Q
+Et beslutningstre trenes \textbf{uten begrensning på dybden} på et datasett der en del av labelene er
+feilregistrert (støy). Treningsnøyaktigheten blir 100\,\%.
+
+Hva er den mest sannsynlige situasjonen, og hvordan bør \texttt{max\_depth} velges?
+@+ Treet overtilpasser til støyen; \texttt{max\_depth} bør velges ut fra ytelsen på valideringsdata
+@- Treet overtilpasser til støyen; \texttt{max\_depth} bør velges ut fra ytelsen på testdata
+@- Treet generaliserer godt, siden et dypt tre har lav bias; \texttt{max\_depth} trenger ikke begrenses
+@- Treet har høy bias; \texttt{max\_depth} bør velges slik at treningsnøyaktigheten blir høyest mulig
+@@Q
+En Naive Bayes-klassifikator for spam bruker blant annet de binære featurene «inneholder \emph{gratis}» og
+«inneholder \emph{tilbud}». Blant spam-e-postene inneholder nesten alle som har \emph{gratis}, også \emph{tilbud},
+mens bare et mindretall av de øvrige spam-e-postene gjør det.
+
+Hvilket utsagn er riktig?
+@+ Antakelsen om betinget uavhengighet gitt klassen er brutt, men modellen kan fortsatt klassifisere godt
+@- Antakelsen er brutt, så sannsynlighetene blir feil, og klassifiseringen blir typisk dårligere enn å gjette største klasse
+@- Antakelsen er ikke brutt, men den ville vært det om ordene også ofte forekom sammen i vanlige e-poster
+@- Modellen kan ikke trenes, fordi $p(\mathbf{x}\mid C_k)$ da ikke kan skrives som et produkt av faktorer
+@@Q
+%%% NY2: antall sannsynligheter å estimere – Naive Bayes mot full simultanfordeling
+Du vil predikere \emph{Survived} i Titanic-dataene fra \emph{Sex} (2 verdier), \emph{Pclass} (3 verdier) og
+\emph{Age}, der \emph{Age} deles inn i 10 bins. For hver klasse $C_k$ estimeres sannsynlighetene som
+relative frekvenser i en tabell. Tell alle tabellcellene, også de som er bestemt av at sannsynlighetene
+summerer til 1.
+
+Hvor mange sannsynligheter må estimeres \textbf{per klasse} med Naive Bayes, og hvor mange for hele
+simultanfordelingen $p(\text{Sex}, \text{Pclass}, \text{Age}\mid C_k)$?
+%%% NB: 2 + 3 + 10 = 15. Simultan: 2*3*10 = 60. 1000 = 10 bins per feature (tabell 5-tankegang).
+%%% 30/120 = begge klassene talt med. 60/15 = byttet om.
+@+ Naive Bayes $15$, simultanfordelingen $60$
+@- Naive Bayes $60$, simultanfordelingen $15$
+@- Naive Bayes $15$, simultanfordelingen $1000$
+@- Naive Bayes $30$, simultanfordelingen $120$
+%%% ================================================================ PART 4
+@@PART
+@@Q
+%%% NY: bias til læringsalgoritmen er ikke konstantleddet beta_0
+En lineær regresjonsmodell $f(x) = \beta_0 + \beta_1 x$ tilpasses data der den sanne sammenhengen er tydelig krum.
+Over mange ulike treningssett bommer modellen systematisk i samme retning for store og for små $x$. En kollega
+sier: «Modellen har høy bias, så vi må øke $\beta_0$.»
+
+Hvilket utsagn er riktig?
+@+ Avviket skyldes at modellformen er for enkel, og forsvinner ikke ved å endre $\beta_0$ eller samle mer data
+@- Kollegaen har rett: høy bias betyr at konstantleddet $\beta_0$ er for lavt, så det bør økes
+@- Høy bias betyr at modellen er svært følsom for treningsdataene, slik at $\beta_0$ varierer mye mellom settene
+@- Høy bias kan typisk fjernes med mer data, siden $\beta_0$ og $\beta_1$ da estimeres mer presist
+@@Q
+%%% NY: minste tredybde for en trappefunksjon (maks 2^d løvnoder)
+Data er generert som $y = \lfloor x \rfloor$ pluss litt støy, for $x$ jevnt fordelt i $[0, 8)$. Funksjonen har
+altså 8 trinn. Du tilpasser et regresjonstre (binære splitter) og vil at treet skal kunne gi én egen
+prediksjon for hvert trinn.
+
+Hva er den minste dybden treet må ha?
+%%% Dybde d gir maks 2^d løvnoder; 8 trinn -> d = 3. 7 = antall terskler, 8 = antall trinn, 2 = forvekslet 2^2 = 4 løvnoder med 8
+@+ $3$
+@- $2$
+@- $7$
+@- $8$
+@@Q
+%%% NY: bias^2 og varians som funksjon av modellkompleksitet (polynomgrad)
+Du tilpasser polynomer av grad 1, 3, 9 og 15 til mange ulike treningssett fra samme fordeling, og estimerer
+$\text{Bias}^2$ og varians i et sett med testpunkter for hver grad.
+
+Hvilket mønster er mest sannsynlig når graden øker?
+@+ $\text{Bias}^2$ synker og variansen øker, så forventet testfeil først synker og deretter øker
+@- $\text{Bias}^2$ og variansen synker begge, så forventet testfeil synker for hver økning i grad
+@- $\text{Bias}^2$ øker og variansen synker, siden en høyere grad gjør modellen stivere
+@- $\text{Bias}^2$ og variansen endres lite, men den irredusible støyen øker med graden
+@@Q
+%%% NY2: treningsløkke med SGDRegressor.partial_fit og overvåking av trenings-/valideringstap (notatenes kode i 1.4.3)
+Koden under trener en lineær regresjonsmodell og lagrer tapet underveis.
+\begin{lstlisting}[language=Python]
+model = SGDRegressor(learning_rate="constant", eta0=0.01)
+train_losses, val_losses = [], []
+for epoch in range(100):
+    model.partial_fit(X_train, y_train)
+    train_losses.append(mean_squared_error(y_train, model.predict(X_train)))
+    val_losses.append(mean_squared_error(y_val, model.predict(X_val)))
+\end{lstlisting}
+Hvilket utsagn om koden er riktig?
+@+ Bare treningsdataene endrer parametrene, mens valideringstapet kun registreres for å følge med på treningen
+@- Hvert kall på \texttt{partial\_fit} starter treningen på nytt, så de to listene beskriver 100 uavhengige modeller
+@- Valideringsdataene påvirker gradienten gjennom \texttt{predict}, så modellen tilpasses også litt til \texttt{X\_val}
+@- Løkken avsluttes automatisk når \texttt{val\_losses} slutter å synke, siden \texttt{SGDRegressor} da selv stopper treningen før epoke 100
+%%% ================================================================ PART 5
+@@PART
+@@Q
+%%% NY2: AdaBoost velger stumpen med lavest vektet feilrate (ikke færrest feil)
+I andre runde av AdaBoost har de seks treningspunktene disse vektene (etter oppdatering og normalisering):
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+Punkt & P1 & P2 & P3 & P4 & P5 & P6 \\
+\midrule
+Vekt & 0.10 & 0.10 & 0.10 & 0.10 & 0.30 & 0.30 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Stump A klassifiserer P1 og P2 feil, og stump B klassifiserer bare P5 feil. Alle andre punkter blir riktige.
+
+Hvilken stump velges i denne runden, og hva er dens vektede feilrate?
+%%% A: 0.10+0.10 = 0.20, B: 0.30 -> A. Uvektet: A 2/6 = 0.33, B 1/6 = 0.17.
+@+ Stump A, med vektet feilrate $0.20$
+@- Stump B, med vektet feilrate $0.17$
+@- Stump B, med vektet feilrate $0.30$
+@- Stump A, med vektet feilrate $0.33$
+@@Q
+Tre modeller – en logistisk regresjonsmodell, et beslutningstre og et nevralt nettverk – trenes hver for seg.
+Deretter trenes en fjerde modell som får de tre modellenes prediksjoner som input, og som gir den endelige
+prediksjonen.
+
+Hvilken type ensemble er dette, i notatenes inndeling?
+@+ Hierarkisk, siden en modell lærer å kombinere prediksjonene fra en parallell kombinasjon
+@- Parallell, siden alle de fire modellene trenes uavhengig av hverandre på de samme dataene
+@- Sekvensiell, siden den fjerde modellen trenes til slutt og retter opp feilene til de andre
+@- Bagging, siden flere ulike modeller kombineres til én prediksjon gjennom aggregering
+@@Q
+Du skal lage et ensemble ved hjelp av \textbf{bagging}.
+
+Hvilken type grunnmodell har typisk mest å tjene på bagging, og hvorfor?
+@+ Dype trær, fordi bagging først og fremst reduserer varians, og dype trær har høy varians
+@- Trestumper, fordi bagging først og fremst reduserer bias, og trestumper har høy bias
+@- Dype trær, fordi bagging først og fremst reduserer bias, og dype trær har høy bias
+@- Trestumper, fordi bagging først og fremst reduserer varians, og trestumper har høy varians
+@@Q
+%%% NY2: læringsrate i gradient boosting – residualen krymper geometrisk (regne antall runder)
+I gradient boosting for regresjon er $F_m(x) = F_{m-1}(x) + \eta\,h_m(x)$, der hvert nye tre $h_m$ tilpasses
+pseudo-residualene $y - F_{m-1}(x)$. Anta at hvert tre treffer residualene eksakt på treningspunktene, og at
+$\eta = 0.2$. For et bestemt treningspunkt er residualen etter startprediksjonen $y - F_0(x) = 10$.
+
+Etter hvor mange runder er residualen $y - F_m(x)$ for første gang mindre enn 1?
+%%% r_m = 10 * 0.8^m: m=10 -> 1.07, m=11 -> 0.86 -> 11.
+%%% 5 = lineær tanke (fjerner 0.2*10 = 2 per runde, 9/2 = 4.5), 10 = 0.8^10 ~ 0.1 uten å sjekke, 2 = 10*0.2^m
+@+ $11$
+@- $5$
+@- $10$
+@- $2$
+%%% ================================================================ PART 6
+@@PART
+@@Q
+%%% NY: hva model.compile gjør (vs. fit/predict/evaluate)
+En Keras-modell er definert med \texttt{keras.Input(shape=(10,))} og to Dense-lag. Deretter kjøres:
+\begin{lstlisting}[language=Python]
+model.compile(optimizer=keras.optimizers.SGD(),
+              loss="binary_crossentropy", metrics=["accuracy"])
+\end{lstlisting}
+Hva gjør dette kallet?
+@+ Det angir optimizer, tapsfunksjon og metrikker; ingen vekter oppdateres før \texttt{model.fit} kalles
+@- Det trener modellen med SGD til tapet slutter å synke, og lagrer accuracy for hver epoke
+@- Det bygger vektene ut fra input-shapen, men trener dem først når \texttt{model.evaluate} kalles
+@- Det evaluerer modellen på valideringsdata og velger tapsfunksjonen som gir høyest accuracy
+@@Q
+%%% NY: forward pass gjennom et lite ReLU-nettverk
+Et nettverk har to inputs, ett skjult lag med to ReLU-noder og én lineær output-node:
+\[
+\mathbf{h} = \text{ReLU}\!\left(\begin{pmatrix} 1 & -1 \\ 0.5 & 1 \end{pmatrix}\mathbf{x} + \begin{pmatrix} 0.5 \\ -1 \end{pmatrix}\right),
+\qquad \hat{y} = (-2,\ 1)\,\mathbf{h} - 0.5 .
+\]
+Hva blir $\hat{y}$ for $\mathbf{x} = (1,\ 2)$?
+%%% Wx+b = (-0.5, 1.5) -> h = (0, 1.5) -> y = 1.5 - 0.5 = 1.0.
+%%% Glemt output-bias: 1.5. Uten ReLU: 2.0. Uten ReLU og output-bias: 2.5
+@+ $1.0$
+@- $1.5$
+@- $2.0$
+@- $2.5$
+@@Q
+%%% NY: backpropagation – gradienten til en vekt er proporsjonal med aktiveringen den ganges med
+En lineær output-node beregner $\hat{y} = w_1 a_1 + w_2 a_2 + w_3 a_3 + b$, der aktiveringene fra forrige lag er
+$\mathbf{a} = (0,\ 0.5,\ 2.0)$ for et datapunkt. Med tapet $L = \tfrac12(\hat{y}-y)^2$ er
+$\partial L/\partial w_i = (\hat{y} - y)\,a_i$, og $\hat{y} \ne y$.
+
+Hva skjer med vektene etter ett gradient descent-steg på dette punktet?
+@+ $w_1$ endres ikke i det hele tatt, og endringen i $w_3$ blir fire ganger så stor som i $w_2$
+@- Alle tre vektene endres like mye, siden de deler den samme feilen $\hat{y} - y$
+@- $w_1$ endres mest, siden noden med aktivering 0 må aktiveres for å redusere tapet
+@- $w_3$ endres minst, siden en stor aktivering allerede bidrar mye til $\hat{y}$
+@@Q
+%%% NY2: funksjonsformen til et nettverk med ReLU i skjult lag og lineær output (stykkevis lineær med knekkpunkter)
+Et nettverk har én input $x$, ett skjult lag med tre ReLU-noder og én lineær output-node:
+\[
+\hat y = \sum_{j=1}^{3} v_j\,\mathrm{ReLU}(w_j x + b_j) + c, \qquad \mathrm{ReLU}(z) = \max(0, z),
+\]
+der alle $w_j \neq 0$. Hvordan ser $\hat y$ ut som funksjon av $x$?
+@+ Kontinuerlig og stykkevis lineær, med høyst tre knekkpunkter langs $x$-aksen
+@- Et glatt polynom av grad høyst tre, én grad for hver node i det skjulte laget
+@- En trappefunksjon med høyst fire nivåer, siden hver ReLU-node enten er av eller på
+@- En rett linje, siden ReLU er lineær for positive input og output-noden er lineær
+%%% Hver ReLU knekker i x = -b_j/w_j; summen av lineære biter er kontinuerlig og stykkevis lineær.
+@@PART
+@@Q
+%%% NY2: inertia kan aldri øke mellom iterasjoner i standard k-means – en økning avslører en feil
+Du implementerer standard k-means selv (alle punkter brukes i hver iterasjon) og skriver ut inertia
+etter hver iterasjon (tilordning etterfulgt av oppdatering av sentroidene):
+\[ 812,\quad 640,\quad 655,\quad 610,\quad 610 . \]
+
+Hvilket utsagn er riktig?
+%%% Tilordning til nærmeste sentroide kan ikke øke summen, og gjennomsnittet minimerer kvadratsummen i hver klynge -> monotont ikke-økende.
+@+ Økningen fra 640 til 655 avslører en feil i koden, siden ingen av de to stegene kan øke inertia
+@- Økningen er normal, siden k-means av og til må gå oppover for å komme ut av et lokalt minimum
+@- Økningen er normal når et punkt bytter klynge, siden klyngen det havner i, kan bli mer spredt
+@- Økningen er normal, siden inertia bare må synke i snitt over iterasjonene, slik tapet gjør i SGD
+@@Q
+Figuren viser et datasett med to klynger: en kompakt klynge til venstre og en mer utstrakt klynge til høyre.
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+\draw[->] (0,0) -- (9,0) node[right] {$x_1$};
+\draw[->] (0,0) -- (0,5.5) node[above] {$x_2$};
+\foreach \p in {(3.10,2.24),(2.84,2.61),(3.29,2.60),(2.67,2.66),(2.76,2.85),(2.95,2.96),(2.97,2.39),(2.71,2.53),(3.09,2.84),(3.05,2.45),(3.10,2.31),(3.10,2.45),(3.30,2.80),(3.07,2.40),(3.11,2.67),(2.89,2.48),(3.25,2.52),(3.09,2.88),(2.70,2.96),(3.20,2.47),(2.81,2.36),(3.19,2.09),(3.19,2.63),(2.86,2.50),(2.93,2.55),(3.18,2.43),(3.22,2.80),(2.95,2.72),(2.89,2.61),(3.10,2.99),(2.99,2.57),(3.01,2.56),(2.78,2.98),(2.88,2.48),(2.86,2.74),(3.59,3.21),(3.20,2.67),(3.00,2.40),(3.15,2.58),(3.42,2.55),(2.80,2.23),(2.64,2.72),(3.07,2.37),(2.69,2.66),(2.93,2.65),(5.59,2.27),(4.12,3.01),(5.68,3.05),(6.41,3.65),(5.18,3.37),(3.74,3.45),(5.57,3.72),(6.45,2.14),(5.49,3.80),(5.13,2.96),(5.08,3.38),(5.85,2.23),(4.38,1.11),(6.33,2.54),(5.00,2.48),(4.81,3.45),(6.14,1.09),(5.58,2.99),(5.32,2.99),(7.04,3.16),(6.63,3.73),(4.30,4.34),(5.78,2.67),(6.33,4.72)}
+  \fill \p circle (1.6pt);
+\end{tikzpicture}
+\end{center}
+Du prøver mange verdier av $\varepsilon$ og \texttt{min\_samples}, men \textbf{DBSCAN} klarer aldri å skille de to
+klyngene på en god måte. Hva er den beste forklaringen?
+@+ $\varepsilon$ og \texttt{min\_samples} er globale, så det samme nabolagskravet gjelder i begge områdene
+@- DBSCAN antar at klyngene er omtrent sirkulære og like store, noe som ikke holder her
+@- DBSCAN må få oppgitt antall klynger, og klarer ikke klynger med ulikt antall punkter
+@- DBSCAN legger sentroider i de tetteste områdene, så den spredte klyngen får ingen sentroide
+@@Q
+Et datapunkt $P$ tilhører klynge A etter en clustering med tre klynger. Avstandene fra $P$ til de andre
+punktene er:
+\begin{itemize}
+\item til de tre andre punktene i klynge A: 1.0, 2.0 og 1.5
+\item til de to punktene i klynge B: 4.0 og 5.0
+\item til de tre punktene i klynge C: 3.0, 3.6 og 2.4
+\end{itemize}
+Hva er \textbf{silhouette-koeffisienten} $s = (b-a)/\max(a,b)$ for punktet $P$?
+%%% a = 1.5, b = min(4.5, 3.0) = 3.0 -> s = 0.50. Med a inkl. avstand 0 til seg selv (1.125): 0.63. Med b = 4.5: 0.67. Med b = snitt av alle andre (3.6): 0.58. Byttet a/b: -0.50
+@+ $0.50$
+@- $0.67$
+@- $0.58$
+@- $0.63$
+@@Q
+%%% NY2: klynger fra k-means trenger ikke svare til klassene (MNIST 4/9 og to typer 1-tall)
+Du reduserer MNIST-bildene til 50 dimensjoner med PCA og kjører k-means med $k = 10$. Når du
+sammenligner med de sanne sifrene, inneholder én klynge nesten bare 4- og 9-tall om hverandre, mens
+1-tallene er fordelt på to klynger: rette og skrå.
+
+Hva er den beste tolkningen?
+%%% k-means ser aldri labelene; den grupperer etter avstand. Like sifre deler klynge, ulike skrivemåter av samme siffer splittes.
+@+ k-means ser aldri sifrene, bare avstander, så klyngene trenger ikke svare til klassene
+@- Algoritmen har trolig ikke konvergert; med flere iterasjoner ville 4- og 9-tallene blitt skilt
+@- PCA har fjernet det som skiller 4 og 9; uten PCA ville de typisk havnet i hver sin klynge
+@- Verdien av $k$ er feil valgt; med riktig $k$ ville hver klynge inneholdt nøyaktig ett siffer
+%%% ================================================================ PART 8
+@@PART
+@@Q
+%%% NY: k-means-anomalideteksjon bommer når k er så stor at anomaliene får egen sentroide
+En bank flagger transaksjoner som ligger langt fra nærmeste k-means-sentroide. En liten, men tett gruppe på 40
+svindeltransaksjoner ligger langt fra alle vanlige transaksjoner. Med $k = 3$ blir nesten alle de 40 flagget,
+men med $k = 25$ blir nesten ingen av dem flagget.
+
+Hva er den mest sannsynlige forklaringen?
+@+ Med stor $k$ får svindelgruppen sitt eget klyngesenter, så punktene der får kort avstand
+@- Med stor $k$ beregnes persentil-terskelen per klynge, så hver klynge får like mange flaggede punkter
+@- Med stor $k$ overtilpasser k-means, så alle sentroidene trekkes inn mot snittet av hele datasettet
+@- Med stor $k$ får svindelgruppen label $-1$ fra k-means, og da beregnes ingen avstand for punktene
+@@Q
+%%% NY: finne DBSCAN-outliers (label -1) for gitte endimensjonale data
+Endimensjonale data består av punktene
+\[
+1.0,\ 1.4,\ 1.9,\ 2.2,\ 2.6,\ 5.0,\ 7.8,\ 8.1,\ 8.5,\ 12.0 .
+\]
+Du bruker \textbf{DBSCAN} til anomalideteksjon med $\varepsilon = 0.6$. Et punkt er kjernepunkt hvis minst
+3 punkter (inkludert punktet selv) ligger innenfor avstand $\varepsilon$.
+
+Hvilke punkter får label $-1$?
+%%% Kjerne: 1.4, 1.9, 2.2, 8.1. Kant: 1.0, 2.6, 7.8, 8.5. Støy: 5.0 og 12.0 (sklearn DBSCAN(eps=0.6, min_samples=3)).
+%%% Uten å telle punktet selv (min_samples=4) blir alle ti støy.
+@+ Bare 5.0 og 12.0, fordi ingen av dem nås fra en tett gruppe av punkter
+@- Alle som ikke er kjernepunkter, altså 1.0, 2.6, 5.0, 7.8, 8.5 og 12.0
+@- 5.0 og 12.0, pluss gruppen 7.8, 8.1 og 8.5, som er for liten til å bli en klynge
+@- Alle ti punktene, siden ingen av dem har 3 naboer i tillegg til seg selv
+@@Q
+%%% NY: PC2 må være en enhetsvektor ortogonal på PC1
+En PCA på et datasett med to features gir første hovedkomponent $\text{PC1} = (0.8,\ 0.6)$.
+
+Hvilken vektor kan være den andre hovedkomponenten PC2?
+%%% (-0.6, 0.8): ortogonal og lengde 1. (0.6, 0.8): byttet koordinater uten fortegn, prikk 0.96.
+%%% (0.8, -0.6): byttet fortegn uten å bytte koordinater, prikk 0.28. (-0.8, 0.6): prikk -0.28. Alle er enhetsvektorer.
+@+ $(-0.6,\ 0.8)$
+@- $(0.6,\ 0.8)$
+@- $(0.8,\ -0.6)$
+@- $(-0.8,\ 0.6)$
+@@Q
+%%% NY: t-SNE gir ulike plott ved ulike kjøringer (tilfeldig start + gradient descent)
+Du kjører \texttt{TSNE(n\_components=2).fit\_transform(X)} to ganger på nøyaktig de samme dataene, uten å
+sette \texttt{random\_state}. Plottene viser de samme gruppene, men gruppene ligger på ulike steder.
+
+Hva er forklaringen?
+@+ Punktene plasseres tilfeldig i 2D før KL-divergensen minimeres med gradient descent
+@- t-SNE trekker et nytt bootstrap-utvalg av dataene ved hver kjøring av \texttt{fit\_transform}
+@- Perplexity velges tilfeldig ved hver kjøring, så gaussene får en ny varians hver gang
+@- t-SNE er en lineær projeksjon som typisk kan snu fortegn mellom kjøringer, slik PCA kan
+%%% ================================================================ PART 9
+@@PART
+@@Q
+En robot beveger seg i et rutenett på $6 \times 5$ ruter. I hver rute kan den velge mellom fire
+bevegelser (opp, ned, venstre, høyre) og handlingen «plukk opp». Tilstanden består av hvilken rute
+roboten står i og om den bærer en pakke eller ikke.
+
+Hvor mange Q-verdier inneholder en fullstendig \textbf{Q-tabell} for dette problemet?
+%%% |S| = 30*2 = 60, |A| = 5 -> 300. Glemt pakke: 150. Glemt plukk opp: 240. |S|+|A| = 65
+@+ $300$
+@- $150$
+@- $240$
+@- $65$
+@@Q
+Du lager et \textbf{DQN} for FrozenLake med kart på $8 \times 8$ ruter og fire mulige handlinger. Tilstanden
+(rutenummeret) one-hot-enkodes, og agenten skal kunne velge handling ut fra ett enkelt kall (én forward pass)
+på nettverket.
+
+Hvilken input- og output-dimensjon er riktig?
+@+ 64 input-noder og 4 output-noder, én Q-verdi per handling
+@- 64 input-noder og 1 output-node, med Q-verdien til beste handling
+@- 4 input-noder og 64 output-noder, én Q-verdi per tilstand
+@- 16 input-noder og 4 output-noder, én Q-verdi per handling
+@@Q
+I notatene skrives en \textbf{policy} som $\pi(A_t \mid S_t)$.
+
+Hva beskriver en policy?
+@+ Hvordan agenten velger handling $A_t$ i tilstanden $S_t$
+@- Sannsynligheten for at miljøet går til $S_{t+1}$ gitt $S_t$ og $A_t$
+@- Forventet kumulativ belønning ved å gjøre $A_t$ i tilstanden $S_t$
+@- Belønningen $R_{t+1}$ som miljøet gir for å gjøre $A_t$ i $S_t$
+@@Q
+%%% NY2: lese tre-på-rad-tilstand og avgjøre hvilket trekk en optimal X-agent verdsetter høyest (vinn vs. blokker)
+En tre-på-rad-agent med tag X har lært å spille optimalt. Tilstanden er strengen \texttt{0OO3XOXX8},
+der ledige ruter har sitt indekstall (0--8, radvis fra øverst til venstre):
+\begin{center}
+\begin{tabular}{c|c|c}
+0 & O & O \\ \hline
+3 & X & O \\ \hline
+X & X & 8
+\end{tabular}
+\end{center}
+Det er X sin tur. Hvilken handling har høyest Q-verdi, og hvorfor?
+%%% Ledige: 0, 3, 8. X i 8 gir 6-7-8 = XXX -> seier og reward nå (notatenes figur 30d). O truer 0 (rad 0-1-2) og 8 (kolonne 2-5-8).
+@+ 8, siden X da fyller hele nederste rad og vinner spillet med en gang
+@- 0, siden dette hindrer O i å få tre på rad i øverste rad på neste trekk
+@- 0, siden et hjørne gir agenten flest mulige rekker å vinne på senere
+@- 3, siden agenten da får to kryss i venstre kolonne og truer med å vinne
+%%% ================================================================ PART 10
+@@PART
+@@Q
+%%% NY: vekten i Shapley-summen for en koalisjon av gitt størrelse
+En modell har $|N| = 5$ features. I Shapley-formelen
+$\phi_i = \sum_{S \subseteq N\setminus\{i\}} \frac{|S|!\,(|N|-|S|-1)!}{|N|!}\big(v(S\cup\{i\}) - v(S)\big)$
+bidrar hver koalisjon med en vekt foran marginalbidraget.
+
+Hvilken vekt får en koalisjon $S$ som består av nøyaktig én annen feature ($|S| = 1$)?
+%%% 1! * 3! / 5! = 6/120 = 0.05. 1/C(4,1) = 0.25 (glemt 1/N). 1/N = 0.20 (glemt binomialen). 1/5! = 0.008
+@+ $0.050$
+@- $0.008$
+@- $0.200$
+@- $0.250$
+@@Q
+%%% NY: SHAP for tekst/språkmodell – ord som spillere, lokal tolkning
+En språkmodell klassifiserer setninger etter emosjon. Du bruker SHAP til å forklare hvorfor setningen
+«Jeg er ikke glad i dag» får høy sannsynlighet for klassen \emph{sinne}, og ordet «ikke» får en stor positiv SHAP-verdi.
+
+Hvilket utsagn er riktig?
+@+ Ordene i setningen er spillerne, og «ikke» trekker sannsynligheten for sinne opp i akkurat denne setningen
+@- Lagene i modellen er spillerne, og verdien sier at laget som leser «ikke» bidrar mest til prediksjonen
+@- Setningene i datasettet er spillerne, og verdien sier at denne setningen ligner mest på sinne-eksempler
+@- Ordene i setningen er spillerne, og «ikke» vil derfor øke sannsynligheten for sinne i alle setninger
+@@Q
+%%% NY: KODE – rekkefølgen i sklearn.metrics.confusion_matrix
+Se på følgende kode:
+\begin{lstlisting}[language=Python]
+from sklearn.metrics import confusion_matrix
+y_true = [0, 1, 1, 0, 1, 0, 0, 1]
+y_pred = [0, 1, 0, 0, 1, 1, 1, 1]
+print(confusion_matrix(y_true, y_pred))
+\end{lstlisting}
+Hva skrives ut? (Radene er sanne klasser og kolonnene predikerte klasser, i sortert rekkefølge.)
+%%% TN = 2, FP = 2, FN = 1, TP = 3 -> [[2 2] [1 3]] (verifisert med sklearn)
+@+ \texttt{[[2 2] [1 3]]}
+@- \texttt{[[3 1] [2 2]]}
+@- \texttt{[[3 2] [1 2]]}
+@- \texttt{[[2 1] [2 3]]}
+@@Q
+%%% NY2: train_test_split med shuffle=False på data som er sortert etter target
+Titanic-dataene har 891 passasjerer, hvorav 342 overlevde. Etter sortering på \emph{Survived}
+ligger alle med \emph{Survived} $=0$ først og alle med \emph{Survived} $=1$ sist. Deretter kjøres
+\begin{lstlisting}[language=Python]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, shuffle=False)
+print(y_train.mean().round(2), y_test.mean().round(2))
+\end{lstlisting}
+Hva skrives ut?
+%%% shuffle=False: de første 712 radene blir trening, de siste 179 test. Trening: 163 av 712 -> 0.23; test: bare 1-ere -> 1.0
+%%% 0.38 0.38 = tror splitten stokker/stratifiserer (342/891), 0.48 0.0 = tror testsettet tas fra starten (342/712), 0.0 1.0 = tror splitten går nøyaktig ved klasseskillet
+@+ \texttt{0.23 1.0}
+@- \texttt{0.38 0.38}
+@- \texttt{0.48 0.0}
+@- \texttt{0.0 1.0}
