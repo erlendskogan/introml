@@ -78,7 +78,7 @@
       const badge = s && s.total ? `${s.correct}/${s.total}` : "";
       html += `<li><a href="${root}kapitler/${c.file}" class="${c.id === chapterId ? "current" : ""}"><span class="num">${c.id}</span><span>${c.title}${c.expected ? " <span class='muted'>(forventet)</span>" : ""}</span><span class="badge">${badge}</span></a></li>`;
     }
-    html += `</ol><p style="margin:14px 10px 0"><a href="${root}alt.html${chapterId ? "#k" + chapterId : ""}">Hele kurset på én side →</a></p>`;
+    html += `</ol><p style="margin:14px 10px 0"><a href="${root}kompendium.html">Kompendium med kapitteltester →</a></p><p style="margin:6px 10px 0"><a href="${root}alt.html${/^\d+$/.test(chapterId || "") ? "#k" + chapterId : ""}">Hele kurset på én side →</a></p>`;
     drawer.innerHTML = html;
     // innholdsfortegnelse for dette kapittelet
     const h2s = $$("main h2[id]");
@@ -491,7 +491,7 @@
     updateScore();
     buildIndex();
     renderMath();
-    if (chapterId && !embedded) store.set("last", chapterId);
+    if (chapterId && !embedded && CHAPTERS.some(c => c.id === chapterId)) store.set("last", chapterId);
     const cont = $("#continue-link");
     if (cont) {
       const last = store.get("last", null), c = CHAPTERS.find(x => x.id === last);
