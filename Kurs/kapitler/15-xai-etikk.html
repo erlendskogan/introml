@@ -29,6 +29,13 @@
   .pyramid div { margin: 0 auto 6px; padding: 10px 14px; border-radius: 10px; text-align: center; font-size: 15px; color: #fff; }
   .pyramid b { display: block; font-size: 16px; }
   figure.fig-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+  .ai-tl { list-style: none; margin: 12px 0 0; padding: 0; border-left: 3px solid var(--border); }
+  .ai-tl li { display: grid; grid-template-columns: 7.5em 1fr; gap: 4px 12px; padding: 7px 10px 7px 14px; margin: 0 0 4px; border-radius: 0 8px 8px 0; font-size: 15px; color: var(--muted); position: relative; }
+  .ai-tl li::before { content: ""; position: absolute; left: -8px; top: 13px; width: 11px; height: 11px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--border); }
+  .ai-tl li.on { color: var(--text); background: var(--ok-bg); }
+  .ai-tl li.on::before { background: var(--ok); border-color: var(--ok); }
+  .ai-tl .d { font-family: var(--mono); font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+  @media (max-width: 520px) { .ai-tl li { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body data-chapter="15">
@@ -40,7 +47,7 @@
   <p class="lead">En modell som er treffsikker, men som ingen forstår, er vanskelig å stole på, feilsøke og regulere. Her lærer du å åpne den svarte boksen med SHAP og Shapley-verdier (dytt på boksen), LIME (finn noe du forstår) og konseptdeteksjon (knus boksen), og hvilke etiske prinsipper og regler (AI Act) som gjelder når modellene tar beslutninger om mennesker.</p>
 </header>
 
-<div class="banner"><b>Oppdatert mot forelesningsnotatene (versjon 10.11.2026).</b> XAI-delen (15.1–15.7) følger nå hele kapittel 5 i notatene (s. 69–79): symbolsk og subsymbolsk KI, tolkbarhet og forklarbarhet (15.1), de tre tilnærmingene i tabell 10 og begrepene i 5.5 (15.2), LIME som lokal surrogatmodell med likning 122 (15.3), Shapley-verdier og taxieksempelet (15.4), SHAP med bakgrunnsdatasett, explainers og plott (15.5), SHAP for bilder og tekst (15.6) og konseptdeteksjon med data processing inequality, CAV og TCAV (15.7). <b>Fortsatt forventet pensum:</b> etikk, skjevhet og AI Act (15.8–15.10) står ikke i notatene og bygger på eksamen 2024.</div>
+<div class="banner"><b>Oppdatert mot forelesningsnotatene (versjon 11.11.2026).</b> XAI-delen (15.1–15.7) følger hele kapittel 5 i notatene (s. 73–84): symbolsk og subsymbolsk KI, tolkbarhet og forklarbarhet (15.1), de tre tilnærmingene i tabell 10 og begrepene i 5.5 (15.2), LIME som lokal surrogatmodell med likning 122 (15.3), Shapley-verdier og taxieksempelet (15.4), SHAP med bakgrunnsdatasett, explainers og plott (15.5), SHAP for bilder og tekst (15.6) og konseptdeteksjon med data processing inequality, CAV og TCAV (15.7). <b>Nytt i 11.11-versjonen:</b> etiske prinsipper (15.8) følger kapittel 7 (s. 93–94), og AI Act (15.10) følger kapittel 6 (s. 85–92) med status i Norge, Digital Omnibus, kravene til høyrisikosystemer og GPAI. Skjevhet i data (15.9) er tilleggsstoff.</div>
 
 <div class="goals">
   <h4>Etter dette kapittelet skal du kunne</h4>
@@ -54,8 +61,10 @@
     <li>velge riktig explainer (Kernel, Tree, Deep, Gradient) og lese et force plot og et beeswarm-plott: hvilken feature betyr mest, og i hvilken retning den trekker</li>
     <li>forklare på et overordnet nivå hva SHAP-verdier betyr for bilder (superpiksler) og tekst</li>
     <li>forklare data processing inequality, forskjellen på konsepter og features, hvordan en CAV lages med en lineær probe, og regne ut og tolke en TCAV-skår</li>
-    <li>kjenne de etiske prinsippene velgjørenhet, ikke-skade, autonomi, rettferdighet og forklarbarhet</li>
-    <li>forklare den risikobaserte inndelingen i AI Act og gi eksempler på skjevhet og diskriminering i data</li>
+    <li>forklare de fem etiske prinsippene til Floridi og Cowls (beneficence, non-maleficence, autonomy, justice, explicability), hvor de kommer fra, og nyansene: ikke-skade ≠ velgjørenhet, meta-autonomi, justice ≠ fairness, og intelligibility vs. accountability</li>
+    <li>gi eksempler på skjevhet og diskriminering i data</li>
+    <li>forklare hva AI Act er rettslig (forordning, EØS, KI-loven), skillet mellom å tre i kraft og å gjelde, og hva Digital Omnibus endret</li>
+    <li>plassere et KI-system i riktig kategori (uakseptabel, høy, begrenset, minimal, GPAI eller utenfor), og kjenne kravene i artikkel 9–15, transparenskravene og GPAI-kravene, inkludert systemisk risiko ($10^{25}$ FLOP)</li>
   </ul>
 </div>
 
@@ -2960,20 +2969,63 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
 <!-- ============================================================ -->
 <h2 id="prinsipper"><span class="sec">15.8</span>Etiske prinsipper for KI</h2>
 
-<div class="banner"><b>Forventet pensum (15.8–15.10).</b> Etikk, skjevhet i data og AI Act står ikke i forelesningsnotatene per 10.11.2026. Seksjonene bygger på eksamen 2024 (oppg. 37–39), Floridi og Cowls (2019) og EUs KI-forordning.</div>
+<div class="banner"><b>Notatene kapittel 7 (s. 93–94).</b> Etiske prinsipper står i forelesningsnotatene fra versjon 11.11.2026. Seksjonen følger notatene og eksamen 2024 (oppg. 38–39).</div>
 
-<p>Mange rammeverk for KI-etikk koker ned til fem prinsipper. Fire av dem er hentet fra medisinsk etikk, og det femte er lagt til for KI (Floridi og Cowls, 2019):</p>
+<p>Det finnes flere hundre rammeverk og retningslinjer for etisk KI, fra myndigheter, forskergrupper og kommersielle selskaper. En kartlegging fra 2019 fant 84 slike dokumenter (Jobin m.fl.), og en tilsvarende gjennomgang fra 2023 fant 200 (Correa m.fl.). <b>Luciano Floridi og Josh Cowls</b> (2019) gikk gjennom seks av de mest profilerte dokumentene, med til sammen 47 prinsipper. De fant stor overlapp, og prinsippene som går igjen kan oppsummeres i fem:</p>
 
 <table>
-<tr><th>Prinsipp</th><th>Betydning</th><th>Brudd, eksempel</th></tr>
-<tr><td><b>Velgjørenhet</b> (beneficence)</td><td>KI skal fremme menneskelig velferd og gjøre godt</td><td>et system som bare optimerer klikk uten tanke på brukernes helse</td></tr>
-<tr><td><b>Ikke-skade</b> (non-maleficence)</td><td>KI skal ikke skade: personvern, sikkerhet, robusthet</td><td>datalekkasje, en selvkjørende bil som ikke er testet godt nok</td></tr>
-<tr><td><b>Autonomi</b> (autonomy)</td><td>mennesker skal beholde kontroll og kunne ta egne valg</td><td>manipulasjon uten at brukeren vet det, beslutninger som tvinges på brukeren uten samtykke eller kontroll</td></tr>
-<tr><td><b>Rettferdighet</b> (justice)</td><td>rettferdig fordeling av goder og byrder, ingen diskriminering</td><td>en ansettelsesmodell som systematisk rangerer kvinner lavere</td></tr>
-<tr><td><b>Forklarbarhet</b> (explicability)</td><td>åpenhet og ansvarlighet: vi skal forstå hvordan systemet virker og hvem som har ansvaret</td><td>avslag på søknad uten begrunnelse og uten klagemulighet</td></tr>
+<tr><th>Prinsipp</th><th>Betydning (notatene)</th><th>Brudd, eksempel</th></tr>
+<tr><td><b>Velgjørenhet</b> (beneficence)</td><td>KI skal gjøre godt: fremme menneskers velferd, ivareta menneskeverdet og bidra til å bevare planeten. Samfunnet skal være bedre etter at systemet er tatt i bruk.</td><td>et system som bare optimerer klikk uten tanke på brukernes helse</td></tr>
+<tr><td><b>Ikke-skade</b> (non-maleficence)</td><td>KI skal ikke skade mennesker eller samfunnet, verken fysisk, psykisk, sosialt eller økonomisk. Gjelder også utilsiktet skade.</td><td>datalekkasje, svak cybersikkerhet, en selvkjørende bil som ikke er testet godt nok</td></tr>
+<tr><td><b>Autonomi</b> (autonomy)</td><td>overføringen av beslutningsmakt til KI skal skje på menneskers premisser, og kunne trekkes tilbake (meta-autonomi)</td><td>manipulasjon uten at brukeren vet det, beslutninger som tvinges på brukeren uten samtykke eller kontroll</td></tr>
+<tr><td><b>Rettferdighet</b> (justice)</td><td>ingen urettmessig forskjellsbehandling, og i tillegg: rette opp tidligere urett, fordele fordelene og ikke skape ny urett</td><td>en ansettelsesmodell som systematisk rangerer kvinner lavere</td></tr>
+<tr><td><b>Forklarbarhet</b> (explicability)</td><td>intelligibility (hvordan virker det?) og accountability (hvem er ansvarlig?)</td><td>avslag på søknad uten begrunnelse og uten noen som kan stilles til ansvar</td></tr>
 </table>
 
-<p>EUs ekspertgruppe for pålitelig KI og den norske nasjonale KI-strategien bruker beslektede prinsipper: menneskelig kontroll og tilsyn, robusthet og sikkerhet, personvern, åpenhet, rettferdighet og ikke-diskriminering, samfunns- og miljømessig velferd, og ansvarlighet.</p>
+<p>De fire første er hentet fra <b>bioetikken</b>, der de har vært etablert siden Beauchamp og Childress' <i>Principles of Biomedical Ethics</i> (første utgave 1979). Det femte, <b>explicability</b>, er nytt. Floridi og Cowls argumenterer for at det trengs fordi (subsymbolske) KI-systemer har egenskaper medisinsk etikk aldri har måttet håndtere: de kan være vanskelige eller umulige for mennesker å forstå.</p>
+
+<h3 id="p-benef">Beneficence: gjør godt</h3>
+<p>Prinsippet oversettes vanligvis med «velgjørenhet». Et KI-system som oppfyller det, fremmer menneskers velferd, ivaretar menneskeverdet og bidrar til å bevare planeten. Kort sagt etterlater det samfunnet bedre enn det var før systemet ble tatt i bruk.</p>
+
+<h3 id="p-nonmal">Non-maleficence: ikke skad</h3>
+<p>I medisinsk etikk oversettes det med «ikke-skade». KI-systemer skal ikke påføre mennesker eller samfunnet skade, verken fysisk, psykisk, sosialt eller økonomisk. To presiseringer fra notatene:</p>
+<ul>
+<li><b>Prinsippet forutsetter ikke onde hensikter.</b> Også skade som oppstår utilsiktet, gjennom feil, dårlig sikkerhet eller uforutsette bivirkninger, bryter med det. Særlig relevant for KI er brudd på personvern, svak cybersikkerhet, <i>misalignment</i> i agenter og kappløp om autonome våpen.</li>
+<li><b>Ikke-skade er ikke det samme som velgjørenhet.</b> Å la være å gjøre skade er noe annet enn å gjøre godt. Et system kan være ufarlig uten å gjøre noen nytte.</li>
+</ul>
+
+<h3 id="p-auto">Autonomy: meta-autonomi</h3>
+<p>Når vi tar i bruk et KI-system, overlater vi noe av beslutningsmakten vår til det. Prinsippet krever at overføringen skjer på menneskers premisser. Floridi og Cowls kaller dette <b>meta-autonomi</b>: mennesker skal beholde retten til å bestemme <i>hvilke</i> beslutninger som overlates til maskinen, og overføringen skal kunne trekkes tilbake. For den enkelte betyr det blant annet friheten til å velge bort, eller påvirke, KI-baserte beslutninger som angår en selv. For å velge informert må man forstå noe av hvordan systemet virker, så autonomi henger tett sammen med forklarbarhet.</p>
+
+<h3 id="p-justice">Justice er mer enn fairness</h3>
+<p>Justice oversettes vanligvis med «rettferdighet», men det overlapper med det engelske <i>fairness</i>, som er noe annet:</p>
+<div class="two-col">
+  <div class="callout def"><span class="label">Fairness (ML-litteraturen)</span>
+  <p>Matematisk definerte krav om at en modell skal behandle ulike grupper likt, for eksempel <b>like høy feilrate</b> for kvinner og menn. Det kan måles og testes.</p></div>
+  <div class="callout def"><span class="label">Justice (etisk prinsipp)</span>
+  <p>Ikke diskriminere (som fairness), men <b>i tillegg</b>: brukes til å rette opp tidligere urett, fordele fordelene ved KI i stedet for å konsentrere dem, og ikke skape nye former for urett eller undergrave solidariteten i samfunnet.</p></div>
+</div>
+
+<h3 id="p-expl">Explicability: intelligibility og accountability</h3>
+<p>Prinsippet oversettes med «forklarbarhet» og er det eneste av de fem som ikke speiler bioetikken. Det har to komponenter, som kan være oppfylt uavhengig av hverandre:</p>
+<ul>
+<li><b>Intelligibility</b> (forståelighet) svarer på «<i>hvordan virker det?</i>». Systemet skal kunne forstås både av lekfolk (brukere, kunder) og av fagfolk (utviklere). Det er dette XAI-metodene i 15.1–15.7 jobber med.</li>
+<li><b>Accountability</b> (ansvarlighet) svarer på «<i>hvem er ansvarlig for måten det virker på?</i>». Det skal være avklart hvem som står til ansvar hvis systemet gjør feil eller forårsaker skade.</li>
+</ul>
+<p>Forklarbarhet er som oftest en <b>forutsetning for de fire andre</b>: vi må forstå et system for å vurdere om det gjør godt eller skade, vi må vite hvordan det oppfører seg for å ta et informert valg om hva vi overlater til det, og vi må vite hvilke sammenhenger og antakelser det bygger på for å vurdere rettferdighet.</p>
+
+<h3 id="p-aiact">Fra prinsipper til lov: kobling til AI Act</h3>
+<p>Det er bred enighet om <i>hvilke</i> prinsipper som bør gjelde, men mindre enighet om hvordan de skal fungere i praksis. Medisin brukes ofte som parallell, men har flere ting KI-utvikling mangler: felles mål og <b>fidusiære plikter</b> (plikten til å handle i den andres interesse, slik leger har overfor pasienter), en profesjonshistorie med etablerte normer, utprøvde metoder for å omsette prinsipper til praksis, og robuste juridiske og profesjonelle ansvarsmekanismer. Likevel har deler av prinsippene fått rettslig form i <a href="#aiact">AI Act</a>: forordningen krever <b>menneskelig tilsyn</b> med høyrisikosystemer (artikkel 14), og gir under visse vilkår personer som berøres av beslutninger basert på slike systemer, <b>rett til en forklaring</b> (artikkel 86).</p>
+
+<figure class="fig-card">
+  <img src="../assets/fig/notater/s86_1.png" alt="EUs rammeverk for tillitsverdig KI fra 2019: lovlig, etisk og robust KI; fire etiske prinsipper (respekt for menneskelig autonomi, forebygging av skade, fairness, explicability) og sju nøkkelkrav" width="560" style="display:block;margin:0 auto;max-width:100%;height:auto;background:#fff;border-radius:8px">
+  <figcaption><b>Figur 15.8</b> Figur 37 i notatene: rammeverket for etisk og tillitsverdig KI, publisert av EU-kommisjonens ekspertgruppe i 2019. Fire etiske prinsipper og sju nøkkelkrav (key requirements).</figcaption>
+</figure>
+
+<div class="reflect" data-id="15-r-fig37">
+  <p class="q">Oppgave fra notatene: Finn igjen alle de fem prinsippene til Floridi og Cowls i EUs rammeverk i figuren over.</p>
+  <div class="answer">EU-rammeverket har bare fire «ethical principles», men alle fem finnes: <b>autonomy</b> = «Respect for human autonomy» (og nøkkelkravet «Human agency and oversight»). <b>Non-maleficence</b> = «Prevention of harm» (og «Technical robustness and safety», «Privacy and data governance»). <b>Justice</b> = «Fairness» (og «Diversity, non-discrimination and fairness»). <b>Explicability</b> = «Explicability», delt i «Transparency» (intelligibility) og «Accountability». <b>Beneficence</b> står ikke blant de fire prinsippene, men dukker opp som nøkkelkravet «Societal and environmental wellbeing».</div>
+</div>
 
 <div class="callout hook"><span class="label">Knagg: legeløftet</span>
 <p>De fire første er det en god lege lover: gjør godt, ikke skad, respekter pasientens valg, og behandle alle likt. KI-etikken legger til det femte: <b>og kunne forklare hvorfor</b>.</p>
@@ -3020,8 +3072,59 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
   <div class="explain">Ulik behandling av grupper med samme behov er et rettferdighetsproblem. Forklarbarhet kan hjelpe oss å <i>oppdage</i> det, og systemet gjør kanskje ikke så mye godt heller, men kjernen er urettferdig fordeling. Ingen blir manipulert eller fratatt valg, så det er ikke primært autonomi.</div>
 </div>
 
+<div class="quiz" data-id="15-nonmal">
+  <p class="q">Et selskap lanserer en KI-assistent uten å teste sikkerheten skikkelig. Ingen ønsker å skade noen, men en sårbarhet gjør at brukernes helseopplysninger lekker. Hva er riktig etter notatene?</p>
+  <ul>
+    <li>Ingen prinsipper er brutt, siden ingen hadde til hensikt å skade.</li>
+    <li data-correct>Ikke-skade (non-maleficence) er brutt, fordi prinsippet også gjelder utilsiktet skade fra feil og dårlig sikkerhet.</li>
+    <li>Bare velgjørenhet er brutt, fordi systemet ikke gjorde godt.</li>
+    <li>Bare forklarbarhet er brutt, fordi brukerne ikke visste hvordan systemet virket.</li>
+  </ul>
+  <div class="explain">Notatene presiserer at non-maleficence ikke forutsetter onde hensikter: skade gjennom feil, dårlig sikkerhet eller uforutsette bivirkninger bryter også med prinsippet. Brudd på personvern og svak cybersikkerhet nevnes eksplisitt.</div>
+</div>
+
+<div class="quiz" data-id="15-justice-fairness">
+  <p class="q">Hva skiller prinsippet <i>justice</i> fra <i>fairness</i> slik begrepet brukes i maskinlæringslitteraturen?</p>
+  <ul>
+    <li>De betyr det samme, bare på henholdsvis norsk og engelsk.</li>
+    <li>Fairness er bredere: det omfatter også at fordelene ved KI skal fordeles i samfunnet.</li>
+    <li data-correct>Fairness er matematisk definerte krav om lik behandling av grupper. Justice rommer i tillegg å rette opp tidligere urett, fordele fordelene og ikke skape ny urett.</li>
+    <li>Justice handler bare om at systemet skal følge loven.</li>
+  </ul>
+  <div class="explain">Fairness er for eksempel kravet om like høy feilrate for kvinner og menn, noe som kan måles. Justice inkluderer ikke-diskriminering, men går lenger: KI bør brukes til å rette opp tidligere urett, fordelene bør spres heller enn konsentreres, og KI-bruk skal ikke undergrave solidariteten i samfunnet.</div>
+</div>
+
+<div class="quiz" data-multi data-id="15-explicability">
+  <p class="q">Hvilke utsagn om explicability stemmer med notatene?</p>
+  <ul>
+    <li data-correct>Det er det eneste av de fem prinsippene som ikke er hentet fra bioetikken.</li>
+    <li data-correct>Det har to komponenter: intelligibility («hvordan virker det?») og accountability («hvem er ansvarlig?»).</li>
+    <li>Er intelligibility oppfylt, er accountability automatisk også oppfylt.</li>
+    <li data-correct>Det er som oftest en forutsetning for å vurdere de fire andre prinsippene.</li>
+  </ul>
+  <div class="explain">De to komponentene kan være oppfylt uavhengig av hverandre: en helt forståelig modell kan mangle noen som står til ansvar, og et selskap kan ta fullt ansvar for en svart boks. De tre andre utsagnene står i notatene.</div>
+</div>
+
+<div class="quiz" data-id="15-metaauto">
+  <p class="q">Hva menes med <i>meta-autonomi</i> hos Floridi og Cowls?</p>
+  <ul>
+    <li>At KI-systemet selv bestemmer når det skal be et menneske om hjelp.</li>
+    <li data-correct>At mennesker beholder retten til å bestemme hvilke beslutninger som overlates til maskinen, og kan trekke overføringen tilbake.</li>
+    <li>At brukeren må godkjenne hver eneste prediksjon systemet gjør.</li>
+    <li>At KI-systemer skal kunne forbedre seg selv uten menneskelig innblanding.</li>
+  </ul>
+  <div class="explain">Det handler om beslutningen <i>over</i> beslutningene: vi kan gjerne overlate mye til et system, så lenge det er vi som har bestemt det og kan ombestemme oss. Å godkjenne hver prediksjon er ett mulig valg, men ikke definisjonen.</div>
+</div>
+
+<div class="reflect" data-id="15-r-prinsipper">
+  <p class="q">Oppgavene fra notatene: Gi for hvert av de fem prinsippene et eksempel på et KI-system som oppfyller det og et som bryter med det. Finn også et system som oppfyller non-maleficence, men ikke beneficence, og et der bare én av de to komponentene i explicability er oppfylt.</p>
+  <div class="answer"><b>Beneficence:</b> oppfyller: KI som oppdager tidlige tegn på kreft i screeningbilder. Bryter: en feed som maksimerer skjermtid på bekostning av brukernes søvn og psykiske helse. <b>Non-maleficence:</b> oppfyller: et grundig testet og sikret system for legemiddelinteraksjoner. Bryter: en chatbot som lekker persondata, eller en agent som jakter et feilspesifisert mål (misalignment). <b>Autonomy:</b> oppfyller: et anbefalingssystem der brukeren kan slå av personalisering og se hvorfor noe anbefales. Bryter: «dark patterns» som manipulerer til kjøp, eller automatiske avgjørelser uten mulighet til å be om menneskelig behandling. <b>Justice:</b> oppfyller: et system som er testet for like feilrater på tvers av grupper og brukes til å nå underbetjente pasienter. Bryter: COMPAS eller Amazon-verktøyet i 15.9. <b>Explicability:</b> oppfyller: et kredittsystem som gir søkeren en begrunnelse og har en tydelig ansvarlig bank. Bryter: en svart boks i offentlig saksbehandling uten begrunnelse og uten klagemulighet.<br><b>Non-maleficence uten beneficence:</b> et KI-filter i et dataspill som pynter bilder. Det skader ingen, men gjør heller ikke samfunnet bedre. <b>Bare én komponent:</b> en enkel, helt tolkbar regelmodell som deles fritt på nettet uten at noen står ansvarlig for bruken (intelligibility uten accountability), eller en bank som tar fullt juridisk ansvar for en uforklarlig svart boks (accountability uten intelligibility).</div>
+</div>
+
 <!-- ============================================================ -->
 <h2 id="skjevhet"><span class="sec">15.9</span>Skjevhet og diskriminering i data</h2>
+
+<div class="banner"><b>Tilleggsstoff.</b> Skjevhet i data har ikke et eget avsnitt i notatene, men er kjernen i prinsippet <a href="#p-justice">justice</a> og i AI Acts krav til data (artikkel 10 og den nye artikkel 4a). Eksemplene her gjør prinsippene konkrete.</div>
 
 <p>En modell lærer mønstrene i treningsdataene, også de urettferdige. Hvis historikken er skjev, blir modellen skjev. Det kalles <b>skjevhet</b> (bias), men det er ikke det samme som bias i lineær modell eller bias i bias–varians (<a href="07-generalisering.html">kapittel 7</a>).</p>
 
@@ -3045,6 +3148,7 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
 
 <div class="callout cons"><span class="label">Hva fører det til?</span>
 <p>Det holder ikke å sjekke total accuracy. Mål ytelsen <b>per gruppe</b> (for eksempel falsk positiv-rate og recall per gruppe, se <a href="03-evaluering.html">kapittel 3</a>), se etter stedfortredere, og spør om målvariabelen faktisk måler det du bryr deg om. Forklaringsmetoder som SHAP kan avsløre at en modell lener seg på mistenkelige features.</p>
+<p>For å måle skjevhet per gruppe må du vite hvem som tilhører gruppen, og det er ofte sensitive personopplysninger (etnisitet, helse). AI Act gir derfor adgang til å behandle slike opplysninger for å oppdage og rette skjevheter, under strenge vilkår. Etter endringene i 2026 (ny <b>artikkel 4a</b>) gjelder adgangen alle KI-systemer og GPAI-modeller, ikke bare høyrisikosystemer.</p>
 </div>
 
 <div class="quiz" data-id="15-proxy">
@@ -3066,33 +3170,200 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
 <!-- ============================================================ -->
 <h2 id="aiact"><span class="sec">15.10</span>AI Act: EUs risikobaserte regulering</h2>
 
-<p>AI Act (KI-forordningen, forordning (EU) 2024/1689) ble vedtatt i 2024 og trådte i kraft 1. august 2024. Den omtales som <b>verdens første omfattende, KI-spesifikke regulering</b>. Reglene fases inn gradvis: forbudene gjelder fra februar 2025, reglene for generelle KI-modeller (som store språkmodeller) fra august 2025, og de fleste kravene til høyrisikosystemer fra 2026–2027. EU har foreslått å utsette deler av høyrisikoreglene. Norge er med via EØS, og det er planlagt en norsk KI-lov som gjennomfører forordningen.</p>
+<div class="banner"><b>Notatene kapittel 6 (s. 85–92).</b> AI Act står i forelesningsnotatene fra versjon 11.11.2026, med status per november 2026. Oversettelsene i notatene er gjort av faglærer og vil ikke nødvendigvis samsvare med den endelige norske lovteksten.</div>
 
-<p>Kjernen er at reguleringen er <b>risikobasert</b>: jo større risiko systemet er for helse, sikkerhet og grunnleggende rettigheter, jo strengere krav. Inndelingen er etter <i>bruksområde og risiko</i>, ikke etter teknologi eller sektor.</p>
+<p><b>AI Act</b>, formelt <b>forordning (EU) 2024/1689</b>, er en <i>forordning</i>. Det betyr at den gjelder direkte i alle EU-land, uten at landene må vedta egne lover. For Norge er det annerledes: forordningen er EØS-relevant, men må først tas inn i EØS-avtalen ved en beslutning i EØS-komiteen, og deretter gjøres til norsk lov. På norsk heter forordningen <b>KI-forordningen</b>, og loven som skal gjennomføre den, har fått navnet lov om kunstig intelligens, forkortet <b>KI-loven</b>. Per november 2026 er AI Act ennå ikke en del av norsk rett.</p>
+
+<p>Kjernen er at reguleringen er <b>risikobasert</b>: jo større samfunnsrisiko systemet utgjør for helse, sikkerhet og grunnleggende rettigheter, jo strengere krav. Inndelingen er etter <i>bruksområde og risiko</i>, ikke etter teknologi eller sektor.</p>
 
 <div class="pyramid">
-  <div style="width:40%;background:var(--bad)"><b>Uakseptabel risiko</b>forbudt</div>
-  <div style="width:58%;background:var(--cons)"><b>Høy risiko</b>tillatt, men strengt regulert</div>
-  <div style="width:76%;background:var(--warn);color:#1d1f23"><b>Begrenset risiko</b>krav om åpenhet</div>
-  <div style="width:94%;background:var(--ok)"><b>Minimal risiko</b>ingen nye krav</div>
+  <div style="width:40%;background:var(--bad)"><b>Uakseptabel risiko</b>forbudt (artikkel 5)</div>
+  <div style="width:58%;background:var(--cons)"><b>Høy risiko</b>tillatt, men strengt regulert (artikkel 6–15)</div>
+  <div style="width:76%;background:var(--warn);color:#1d1f23"><b>Begrenset risiko</b>transparenskrav (artikkel 50)</div>
+  <div style="width:94%;background:var(--ok)"><b>Minimal risiko</b>ingen særskilte krav</div>
 </div>
+<p class="small muted" style="text-align:center;margin-top:0">Ved siden av pyramiden: <b>general purpose AI</b> (GPAI, artikkel 51–55), en egen kategori som ikke følger risikoinndelingen.</p>
+
+<h3 id="ai-historie">Bakgrunn: fra etiske retningslinjer til lov</h3>
+<p>Reguleringen vokste ut av flere år med strategier og retningslinjer i EU, deriblant de etiske retningslinjene fra 2019 i <a href="#p-aiact">figur 15.8</a>. I EU må et lovforslag vedtas av to institusjoner: <b>Rådet</b> (ministrene fra medlemslandene) og <b>Europaparlamentet</b>. Etter at begge hadde vedtatt sine posisjoner, fulgte lukkede <b>trilogforhandlinger</b> mellom Parlamentet, Rådet og Kommisjonen. Utkastet ble sterkt bearbeidet, lobbyister fra de store (primært amerikanske) teknologiselskapene jobbet for en mindre streng regulering, og OpenAI truet med å trekke seg ut av Europa. Særlig Tyskland, Italia og Frankrike fryktet for europeisk konkurransekraft og ville ha «mandatory self-regulation through codes of conduct» i stedet for regulering, særlig for foundation models.</p>
+
+<details class="more"><summary>Tidslinjen i detalj <span class="tag">notatene 6.1</span></summary><div>
+<table>
+<tr><th>Dato</th><th>Hendelse</th></tr>
+<tr><td>april 2018</td><td>Kommisjonen: <i>Communication Artificial Intelligence for Europe</i>, med en definisjon av KI som teknologi</td></tr>
+<tr><td>april 2019</td><td>EUs etiske retningslinjer for KI (figur 15.8)</td></tr>
+<tr><td>februar 2020</td><td><i>White Paper on Artificial Intelligence – A European approach to excellence and trust</i></td></tr>
+<tr><td>1.–2. okt. 2020</td><td>Det europeiske råd (stats- og regjeringssjefene) diskuterer KI på toppmøtet</td></tr>
+<tr><td>21. april 2021</td><td>Kommisjonen foreslår Artificial Intelligence Act</td></tr>
+<tr><td>6. des. 2022</td><td>Rådet vedtar sin forhandlingsposisjon</td></tr>
+<tr><td>14. juni 2023</td><td>Parlamentet vedtar sin posisjon (499 for, 28 imot, 93 avholdende)</td></tr>
+<tr><td>9. des. 2023</td><td>Politisk enighet etter tre dager med «marathon talks»</td></tr>
+<tr><td>13. mars 2024</td><td>Parlamentet stemmer reguleringen igjennom (523 for, 46 imot, 49 blanke)</td></tr>
+<tr><td>21. mai 2024</td><td>Rådet godkjenner</td></tr>
+<tr><td>13. juni / 12. juli 2024</td><td>Undertegnet / publisert i EU-tidende (Official Journal)</td></tr>
+<tr><td><b>1. aug. 2024</b></td><td><b>Trer i kraft</b></td></tr>
+</table>
+<p class="small muted">Stemmetall og eksakte datoer i forhandlingene er neppe det viktigste. Det viktige er gangen i prosessen (forslag, posisjoner, trilog, vedtak) og forskjellen på når forordningen trer i kraft og når reglene gjelder.</p>
+</div></details>
+
+<h3 id="ai-innforing">Trer i kraft vs. gjelder: gradvis innføring og Digital Omnibus</h3>
+<p>Skill mellom når en forordning <b>trer i kraft</b> (blir gyldig lov) og når reglene <b>gjelder</b> (pliktene faktisk må etterleves). AI Act trådte i kraft 1. august 2024, men gjøres gjeldende i trinn. I den opprinnelige teksten gjaldt forbudene etter 6 måneder, GPAI-reglene etter 12 måneder og hoveddelen, med de fleste høyrisikokravene, etter 24 måneder (2. august 2026). Høyrisikosystemer i produkter som allerede er regulert av annen EU-lovgivning (som medisinsk utstyr) fikk 36 måneder.</p>
+
+<p>Utover i 2025 ble det klart at tidsløpet ikke ville holde. Høyrisikokravene skal konkretiseres gjennom <b>harmoniserte standarder</b> (tekniske standarder som gir en virksomhet som følger dem, en presumsjon for at den oppfyller kravene), og de var ikke ferdige. Kommisjonens retningslinjer for klassifisering av høyrisikosystemer, som skulle kommet innen 2. februar 2026, kom først som utkast i mai 2026. Samtidig hadde EU, etter Draghi-rapporten om konkurransekraft (september 2024), satt forenkling av regelverk høyt på dagsordenen.</p>
+
+<p>Kommisjonen la derfor 19. november 2025 frem <b>Digital Omnibus</b>, en pakke med endringer i det digitale regelverket der én del gjaldt AI Act. (En <i>omnibus</i> er en samlerettsakt som endrer flere regelverk på én gang.) Endringene ble vedtatt sommeren 2026 som forordning (EU) 2026/1744 og trådte i kraft <b>27. juli 2026</b>, bare tre dager etter publisering i stedet for de vanlige 20, fordi den opprinnelige fristen 2. august 2026 lå like rundt hjørnet.</p>
+
+<div class="callout def"><span class="label">De viktigste endringene i 2026</span>
+<ul>
+<li><b>Utsatte høyrisikokrav:</b> områdene i <b>Anneks 3</b> fra <b>2. desember 2027</b>, produkter regulert av annen EU-lovgivning (<b>Anneks 1</b>) fra <b>2. august 2028</b>.</li>
+<li><b>Nye forbud</b> mot KI som lager seksualiserte bilder av identifiserbare personer uten samtykke, og mot systemer som lager overgrepsmateriale av barn.</li>
+<li><b>Svakere krav til KI-kompetanse (artikkel 4):</b> fra å <i>sikre</i> et tilstrekkelig kompetansenivå hos ansatte til å iverksette tiltak som <i>støtter</i> utviklingen av kompetanse, uten å garantere noe nivå.</li>
+<li><b>Sensitive personopplysninger for å avdekke skjevheter (ny artikkel 4a):</b> utvidet fra høyrisikosystemer til alle KI-systemer og GPAI-modeller, under strenge vilkår.</li>
+<li><b>Lettelser for flere bedrifter:</b> det som gjaldt små og mellomstore bedrifter, gjelder nå også <i>small mid-caps</i>.</li>
+<li><b>Mer sentralisert tilsyn:</b> EUs <b>AI-kontor</b> (AI Office) i Kommisjonen får eksklusivt tilsyn med KI-systemer bygget på en GPAI-modell fra samme tilbyder, og med KI i svært store nettplattformer og søkemotorer.</li>
+<li><b>Smalere høyrisikoområde for produkter:</b> maskiner er langt på vei unntatt, og en komponent uten sikkerhetsbetydning regnes ikke som sikkerhetskomponent.</li>
+<li><b>Senere frist for sandkasser:</b> minst én regulatorisk sandkasse per land innen 2. august 2027.</li>
+</ul></div>
+
+<p>Endringene ble kritisert av digitale rettighets- og menneskerettighetsorganisasjoner og av De grønne og The Left, som mente EU hadde gitt etter for press. Tilhengerne argumenterte med at det er lite meningsfullt å kreve etterlevelse før standardene som konkretiserer kravene, finnes.</p>
+
+<div class="widget">
+  <h4>Hva gjelder når? Dra i datoen</h4>
+  <p class="small muted" style="margin:0 0 4px">Tidslinjen etter endringene i 2026 (notatene 6.2 og 6.5). Grønt = gjelder på valgt dato.</p>
+  <div class="controls" style="margin-top:4px"><label>Dato <input type="range" id="aiDate" min="0" max="9" step="1" value="5"></label><output id="aiDateOut"></output></div>
+  <ul class="ai-tl" id="aiTl"></ul>
+</div>
+
+<h3 id="ai-formal">Formål, mottakelse og håndheving</h3>
+<p>Formålet er en mer ansvarlig KI-utvikling, ved å kreve at KI-systemer som tas i bruk i EU, oppfyller krav om ansvarlighet, ikke-diskriminering, etiske prinsipper som menneskelig autonomi, bærekraft, transparens, sikkerhet og rettferdighet. Det føyer seg inn i en lang EU-tradisjon for <b>forbrukerrettet regulering</b>. Lovteknisk er AI Act bygget over samme lest som EUs <b>produktsikkerhetsregelverk</b>: et KI-system behandles som et produkt som må oppfylle visse krav før det kan selges eller tas i bruk på det indre markedet.</p>
+
+<p>AI Act omtales ofte som verdens første regulering skrevet spesifikt for KI. Mer presist er den verdens første <b>omfattende og horisontale</b> KI-regulering, altså en som gjelder på tvers av alle sektorer. Kina hadde allerede i 2022 og 2023 innført smalere regler for blant annet anbefalingsalgoritmer og generativ KI.</p>
+
+<p>Forordningen gjelder alle KI-systemer som brukes i EU, ikke bare tilbydere med hovedsete i EU (<b>artikkel 2</b>). Mange frykter at det gir EU en ulempe i den globale KI-utviklingen. De viktigste motargumentene er (1) at EU er et marked med stor kjøpekraft, så aktørene vil heller tilpasse seg enn å forlate det (kanskje med færre funksjoner for europeiske brukere), og (2) at <b>GDPR</b> (vedtatt 2016, gjeldende fra 25. mai 2018) har satt en global standard. At EU-regler sprer seg globalt fordi internasjonale selskaper velger å følge dem overalt, kalles <b>Brussels-effekten</b> (etter Anu Bradfords bok fra 2020). Om AI Act får samme effekt, er omdiskutert. Almada og Radu (2024) peker på en bivirkning: fordi forordningen er bygget som produktregulering, beskytter den grunnleggende rettigheter bare delvis, og det er også disse svakhetene som eksporteres.</p>
+
+<p>Den største ulempen for næringslivet er at etterlevelse kan være dyrt, særlig for små bedrifter og startups som skal tolke kravene. Det var en viktig drivkraft bak endringene i 2026. Et annet tiltak er <b>regulatoriske sandkasser</b>: et miljø der aktører kan teste produktene sine og få tilbakemelding fra tilsynsmyndigheten <i>før</i> produktet slippes på markedet og leverandøren kan bøtelegges.</p>
+
+<div class="callout cons"><span class="label">Håndheving og bøter</span>
+<p>Tilsynet er delt mellom <b>nasjonale markedstilsynsmyndigheter</b> (de fleste KI-systemer) og <b>AI-kontoret</b> i Kommisjonen (GPAI-modeller og, etter 2026, flere systemer bygget på dem). Bøtene (artikkel 99 og 101):</p>
+<ul>
+<li>brudd på forbudene: inntil <b>35 millioner euro eller 7 %</b> av global årsomsetning, det som er høyest</li>
+<li>de fleste andre brudd: inntil <b>15 millioner euro eller 3 %</b></li>
+</ul></div>
+
+<h3 id="ai-norge">Status i Norge</h3>
+<ul>
+<li><b>Tilsyn:</b> Etter anbefaling fra DFØ har regjeringen besluttet at <b>Nkom</b> (Nasjonal kommunikasjonsmyndighet) skal være nasjonal koordinerende markedstilsynsmyndighet og Norges kontaktpunkt mot EU. Sektormyndigheter som <b>Datatilsynet</b> får ansvar innenfor sine områder.</li>
+<li><b>KI Norge</b> i Digitaliseringsdirektoratet (Digdir) er en nasjonal arena for ansvarlig KI-innovasjon. Den norske regulatoriske sandkassen skal ligge der, som et samarbeid mellom Digdir, Nkom og Datatilsynet.</li>
+<li><b>KI-loven:</b> Et utkast ble sendt på høring 30. juni 2025, med mål om at loven skulle gjelde fra sensommeren 2026. Det holdt ikke. Etter EU-endringene varslet regjeringen en ny høring (sendt 30. oktober 2026, frist 11. desember 2026), og ambisjonen er å fremme lovforslaget for Stortinget <b>våren 2027</b>.</li>
+</ul>
+<div class="callout warn"><span class="label">Vanlig misforståelse</span>
+<p>Per november 2026 er forordningen verken tatt inn i EØS-avtalen eller gjennomført i norsk lov, så <b>ingen plikter gjelder for virksomheter som bare opererer i Norge</b>. Men et norsk selskap som tilbyr KI-systemer eller GPAI-modeller <b>i EU</b>, må følge forordningen der, fordi den gjelder alle som plasserer slike produkter på EU-markedet, uansett hvor de er etablert (artikkel 2).</p>
+</div>
+
+<h3 id="ai-kategorier">Risikokategoriene</h3>
+<p>AI Act deler KI-systemer inn i fire kategorier basert på samfunnsrisiko, pluss kategorien general purpose (lagt til i 2023). Oversikten:</p>
 
 <table>
 <tr><th>Kategori</th><th>Hva skjer</th><th>Eksempler</th></tr>
-<tr><td><b>Uakseptabel</b></td><td><b>Forbudt</b></td><td>sosial poengberegning (social scoring), manipulasjon som utnytter sårbare grupper, følelsesgjenkjenning på arbeidsplass og i skole, biometrisk fjernidentifikasjon i sanntid på offentlig sted for politiet (med snevre unntak), forutsigelse av kriminalitet basert bare på profilering, ukritisk innsamling av ansiktsbilder fra nettet</td></tr>
-<tr><td><b>Høy risiko</b></td><td><b>Tillatt, men regulert</b>: risikostyring, datakvalitet, dokumentasjon, logging, åpenhet, menneskelig tilsyn, nøyaktighet og robusthet, samsvarsvurdering og CE-merking</td><td>CV-sortering og ansettelse, kredittvurdering, opptak og vurdering i utdanning, tilgang til offentlige tjenester og ytelser, kritisk infrastruktur, politi, grensekontroll, rettsvesen, og KI som sikkerhetskomponent i produkter som medisinsk utstyr, biler og leketøy</td></tr>
-<tr><td><b>Begrenset</b></td><td><b>Åpenhetskrav</b>: brukeren skal vite at det er KI</td><td>chatboter, deepfakes og KI-generert innhold som skal merkes</td></tr>
-<tr><td><b>Minimal</b></td><td>ingen nye krav (frivillige retningslinjer)</td><td>spamfilter, KI i dataspill, de fleste anbefalingssystemer</td></tr>
+<tr><td><b>Uakseptabel</b> (art. 5)</td><td><b>Forbudt</b> siden 2. feb. 2025. To nye forbud fra 2. des. 2026.</td><td>sosial poengberegning, manipulasjon og utnyttelse av sårbare grupper, følelsesgjenkjenning på arbeidsplass og i skole, kriminalitetsprediksjon bare ut fra profilering, ukritisk innsamling av ansiktsbilder, biometrisk fjernidentifisering i sanntid for politiet, «nudify»-apper</td></tr>
+<tr><td><b>Høy risiko</b> (art. 6–15)</td><td><b>Tillatt, men regulert</b>: risikostyring, datakvalitet, dokumentasjon, logging, transparens, menneskelig tilsyn, nøyaktighet, robusthet og cybersikkerhet. Gjelder fra 2. des. 2027 (Anneks 3) og 2. aug. 2028 (Anneks 1).</td><td>CV-sortering og ansettelse, kredittvurdering, opptak, vurdering og eksamensovervåking i utdanning, kritisk infrastruktur, politi, grensekontroll, rettspleie og valg, og KI som sikkerhetskomponent i medisinsk utstyr, leketøy og heiser</td></tr>
+<tr><td><b>Begrenset</b> (art. 50)</td><td><b>Transparenskrav</b> fra 2. aug. 2026</td><td>chatboter, deepfakes og KI-generert innhold som skal merkes</td></tr>
+<tr><td><b>Minimal</b></td><td>ingen særskilte krav</td><td>spamfilter, KI i dataspill, de fleste anbefalingssystemer</td></tr>
+<tr><td><b>GPAI</b> (art. 51–55)</td><td>dokumentasjon og opphavsrett siden 2. aug. 2025, ekstra krav ved <b>systemisk risiko</b></td><td>store språkmodeller som ligger bak chatboter og kodeassistenter</td></tr>
 </table>
 
-<p>I tillegg har generelle KI-modeller (general-purpose AI, som store språkmodeller) egne krav til dokumentasjon og opphavsrett, og strengere krav for de største modellene. Bøtene kan bli store, opptil 35 millioner euro eller 7 % av global omsetning for brudd på forbudene.</p>
+<div class="callout warn"><span class="label">Unntak: militær bruk</span>
+<p>AI Act gjelder ikke KI-systemer som <b>utelukkende</b> brukes til militære formål, forsvar eller nasjonal sikkerhet, uansett om de utvikles av offentlige eller private aktører. Men tas det samme systemet i bruk til <b>sivile formål</b>, blir det omfattet.</p>
+</div>
+
+<h3 id="ai-uakseptabel">Uakseptabel risiko (artikkel 5)</h3>
+<p>Forbudet gjelder KI-systemer som</p>
+<ul>
+<li>bruker manipulerende eller villedende teknikker, eller teknikker under bevissthetsterskelen, slik at atferd påvirkes på en måte som kan gi betydelig skade,</li>
+<li>utnytter sårbarheter knyttet til alder, funksjonsnedsettelse eller sosial og økonomisk situasjon,</li>
+<li>gir mennesker en «sosial score» basert på atferd eller personlige egenskaper, når den fører til urimelig eller uforholdsmessig negativ behandling,</li>
+<li>predikerer sannsynligheten for at en person vil begå lovbrudd, når prediksjonen <i>bare</i> bygger på profilering eller personlighetstrekk,</li>
+<li>bygger databaser for ansiktsgjenkjenning ved å samle inn ansiktsbilder ukritisk fra internett eller overvåkingskameraer,</li>
+<li>gjenkjenner følelser på arbeidsplassen eller i utdanningsinstitusjoner (unntatt medisinske formål og sikkerhetsformål),</li>
+<li>kategoriserer mennesker basert på biometriske data for å utlede sensitive egenskaper som etnisitet, politisk syn, religion eller seksuell orientering,</li>
+<li>gjør biometrisk fjernidentifisering i sanntid på offentlig tilgjengelige steder for politiformål, med snevre unntak (leting etter savnede, avverging av terrorangrep).</li>
+</ul>
+<p>Biometrisk identifisering er altså <b>ikke forbudt generelt</b>; mange slike systemer er høyrisikosystemer. Forbudene har gjeldt siden 2. februar 2025. Med endringene i 2026 kommer to nye forbud fra <b>2. desember 2026</b>: mot systemer som lager realistiske bilder, video eller lyd av en identifiserbar persons intime kroppsdeler eller seksuelle aktivitet uten samtykke (<i>nudify</i>-apper), og mot systemer som lager overgrepsmateriale av barn. Forbudet rammer også systemer der slikt innhold er et <b>forutsigbart resultat</b> fordi rimelige tekniske sperrer mangler. Forbudene kom inn i forhandlingene etter skandalen der chatboten Grok ble brukt til å lage seksualiserte bilder av virkelige personer.</p>
+
+<h3 id="ai-hoy">Høy risiko (artikkel 6)</h3>
+<p>Det er to veier inn i kategorien:</p>
+<ol>
+<li><b>Anneks 1:</b> KI-systemer som er, eller er sikkerhetskomponenter i, produkter som allerede er regulert av EU-lovgivning (medisinsk utstyr, leketøy, heiser), når produktet må samsvarsvurderes av en uavhengig tredjepart.</li>
+<li><b>Anneks 3:</b> KI-systemer som brukes i disse områdene: biometri (tillatt fjernidentifisering, kategorisering, følelsesgjenkjenning), kritisk infrastruktur, utdanning (opptak, vurdering, overvåking under eksamen), arbeidsliv (rekruttering, forfremmelse, oppsigelse, overvåking), tilgang til viktige tjenester og velferd (helsetjenester, kredittvurdering, prising av livs- og helseforsikring, prioritering av nødanrop), politi, migrasjon og grensekontroll, og rettspleie og demokratiske prosesser.</li>
+</ol>
+<p><b>Unntaket i artikkel 6(3):</b> et system i et Anneks 3-område er likevel ikke høyrisiko hvis det ikke utgjør en betydelig risiko, for eksempel fordi det bare utfører en snever, prosedyremessig oppgave. Unntaket gjelder <b>aldri</b> systemer som profilerer enkeltpersoner, og tilbyderen må dokumentere vurderingen og registrere systemet i EUs database.</p>
+
+<p>Høyrisikosystemer må oppfylle kravene i <b>artikkel 8–15</b>:</p>
+<table>
+<tr><th>Artikkel</th><th>Krav</th></tr>
+<tr><td>9 · Risk management system</td><td>identifisere, vurdere og redusere risiko gjennom hele levetiden</td></tr>
+<tr><td>10 · Data and data governance</td><td>trenings-, validerings- og testdata skal være relevante, tilstrekkelig representative, så feilfrie som mulig og ha statistiske egenskaper som hindrer systematisk diskriminering</td></tr>
+<tr><td>11 · Technical documentation</td><td>dokumentasjon av at kravene er oppfylt <i>før</i> systemet plasseres på markedet</td></tr>
+<tr><td>12 · Record-keeping</td><td>automatisk logging gjennom hele levetiden, så det i ettertid kan spores hvordan systemet har fungert (for biometrisk fjernidentifisering blant annet start- og sluttid, referansedatabase og hvem som kontrollerte resultatene)</td></tr>
+<tr><td>13 · Transparens overfor deployers</td><td>de som tar systemet i bruk, skal kunne tolke output og bruke det riktig, med informasjon om forventet treffsikkerhet, robusthet og sikkerhet og hvilke metrikker som er brukt</td></tr>
+<tr><td>14 · Human oversight</td><td>et menneske skal effektivt kunne overvåke systemet: forstå muligheter og begrensninger, være bevisst <b>automation bias</b> (tendensen til å stole for mye på output), tolke output riktig, se bort fra eller overstyre det, og stanse systemet</td></tr>
+<tr><td>15 · Accuracy, robustness and cybersecurity</td><td>tilfredsstillende og stabil ytelse på relevante metrikker, og beskyttelse mot KI-spesifikke angrep som <b>data poisoning</b> (manipulerte treningsdata) og <b>adversarial examples</b></td></tr>
+</table>
+<p>I tillegg må tilbyderen ha et kvalitetsstyringssystem, gjennomføre en samsvarsvurdering og registrere systemet i EUs database, og de som tar systemet i bruk (deployers), har egne plikter, som å sørge for menneskelig kontroll i praksis. Kommisjonen publiserte utkast til retningslinjer for klassifisering 19. mai 2026, og de endelige er varslet innen utgangen av 2026.</p>
+
+<div class="callout why"><span class="label">Kobling til resten av kurset</span>
+<p>Kravene er ML-begreper du kjenner: representative data og skjevhet (artikkel 10, <a href="#skjevhet">15.9</a>), metrikker på testdata (artikkel 13 og 15, <a href="03-evaluering.html">kapittel 3</a>), forklarbarhet for de som skal overvåke systemet (artikkel 13–14, 15.1–15.7) og robusthet mot adversarial examples.</p>
+</div>
+
+<h3 id="ai-begrenset">Begrenset risiko og transparenskrav (artikkel 50)</h3>
+<p>Kravene gjelder fra <b>2. august 2026</b>:</p>
+<ul>
+<li>Systemer som samhandler med mennesker, som <b>chatboter</b>, skal fortelle brukerne at de kommuniserer med et KI-system, med mindre det er åpenbart.</li>
+<li>Tilbydere av <b>generative systemer</b> skal merke output slik at det i et <b>maskinlesbart</b> format kan påvises at innholdet er kunstig generert. For systemer som var på markedet før 2. august 2026, gjelder dette fra 2. desember 2026.</li>
+<li>De som lager <b>deepfakes</b> (realistiske bilder, lyd eller video som fremstår som ekte), skal opplyse om det. Det samme gjelder KI-generert tekst som publiseres for å informere offentligheten om saker av allmenn interesse, med mindre teksten har vært gjennom menneskelig redaksjonell kontroll.</li>
+</ul>
+<p>Kommisjonen publiserte 10. juni 2026 en frivillig <i>Code of Practice on marking and labelling of AI-generated content</i> om hvordan kravene kan oppfylles i praksis.</p>
+
+<h3 id="ai-gpai">General purpose AI (GPAI)</h3>
+<p>Etter lanseringen av generative modeller som ChatGPT ble en kategori som <b>ikke følger risikoinndelingen</b> lagt til: general purpose AI. Den favner modeller som ikke har smale bruksområder (som en bildeklassifiserer), men uten å gå inn i det spekulative domenet artificial general intelligence (AGI). Parlamentets utkast fra 2023 brukte begrepet <i>foundation models</i>, men den endelige teksten bruker <b>general-purpose AI model</b>, definert i <b>artikkel 3(63)</b> som en modell som viser betydelig generalitet, kan utføre et bredt spekter av oppgaver kompetent, og kan integreres i mange ulike systemer. Definisjonen nevner eksplisitt modeller trent med <b>selvveiledet læring</b> i stor skala, altså læring fra ikke-annoterte data der modellen trenes til å predikere deler av dataene selv (for eksempel neste ord), og som deretter kan tilpasses med fine-tuning.</p>
+
+<p>Forordningen skiller mellom <b>modellen</b> og et <b>GPAI-system</b> (et KI-system bygget på en slik modell). Kapittel 5 i forordningen regulerer modellene. Et system bygget på en GPAI-modell kan <i>i tillegg</i> være et høyrisikosystem hvis det brukes i et Anneks 3-område.</p>
+
+<div class="two-col">
+  <div class="callout def"><span class="label">Alle GPAI-modeller (art. 53)</span>
+  <ul>
+  <li>teknisk dokumentasjon (inkludert trenings-, test- og evalueringsresultater) som kan overleveres tilsynet på forespørsel</li>
+  <li>informasjon til dem som bygger systemer på modellen</li>
+  <li>retningslinjer for å overholde opphavsretten</li>
+  <li>offentlig sammendrag av innholdet modellen er trent på</li>
+  </ul>
+  <p class="small"><b>Åpen kildekode</b> er unntatt fra dokumentasjonskravene, men <b>ikke</b> fra opphavsrettskravene, og unntaket gjelder ikke modeller med systemisk risiko.</p></div>
+  <div class="callout cons"><span class="label">Systemisk risiko (art. 51 og 55)</span>
+  <p>En modell antas å ha systemisk risiko hvis treningen har brukt mer enn $10^{25}$ <b>flyttallsoperasjoner (FLOP)</b>. Kommisjonen kan også utpeke modeller etter kriteriene i Anneks 13 (antall parametre, datasettstørrelse, evne til oppgaver den ikke er trent til, antall brukere). Ekstra krav:</p>
+  <ul>
+  <li>evaluering, blant annet med <b>adversarial testing</b> (bevisst prøve å få modellen til å oppføre seg skadelig)</li>
+  <li>vurdere og redusere systemiske risikoer</li>
+  <li>rapportere alvorlige hendelser til AI-kontoret</li>
+  <li>tilstrekkelig cybersikkerhet</li>
+  </ul></div>
+</div>
+
+<p>GPAI-reglene har gjeldt siden <b>2. august 2025</b>. Kommisjonen publiserte 10. juli 2025 en frivillig <i>General-Purpose AI Code of Practice</i> (transparens, opphavsrett, sikkerhet). De fleste store modellutviklerne har signert, men Meta har valgt å stå utenfor. Fra <b>2. august 2026</b> kan Kommisjonen bøtelegge GPAI-tilbydere, og modeller som var på markedet før 2. august 2025, må oppfylle kravene innen 2. august 2027.</p>
+
+<div class="callout warn"><span class="label">Vanlig forveksling</span>
+<p><b>Systemisk risiko</b> er en egen kategori for GPAI-<i>modeller</i>, og ikke det samme som et <b>høyrisikosystem</b>. Høy risiko handler om hva et system <i>brukes til</i> (Anneks 1 og 3). Systemisk risiko handler om hvor stor og kapabel modellen er ($10^{25}$ FLOP).</p>
+</div>
 
 <div class="callout hook"><span class="label">Knagg: trafikklyset</span>
-<p>Rødt = forbudt. Oransje = kjør, men forsiktig og med førerkort (høy risiko er regulert, <b>ikke forbudt</b>). Gult = vis tydelig at du er KI. Grønt = kjør fritt.</p>
+<p>Rødt = forbudt. Oransje = kjør, men forsiktig og med førerkort (høy risiko er regulert, <b>ikke forbudt</b>). Gult = vis tydelig at du er KI. Grønt = kjør fritt. Og GPAI er <b>motoren</b>: den reguleres for seg, uansett hvilken bil den settes inn i.</p>
 </div>
 
 <div class="callout exam"><span class="label">Eksamen 2024 oppg. 37 (flere riktige)</span>
-<p>Sanne: <b>«AI Act er verdens første AI-spesifikke regulering»</b> og <b>«AI Act vil regulere AI-systemer basert på samfunnsrisiko».</b> <br>Usanne: «AI Act deler AI-systemer inn i flere kategorier, hvor AI-systemer til bruk i helsesektoren har en egen kategori» (kategoriene er risikonivåer, ikke sektorer. Medisinsk KI havner ofte i høy risiko, men det finnes ingen egen helsekategori). «AI-systemer som medfører høy samfunnsrisiko vil bli forbudt» (høy risiko er <i>regulert</i>, bare uakseptabel risiko er forbudt).</p>
+<p>Sanne: <b>«AI Act er verdens første AI-spesifikke regulering»</b> og <b>«AI Act vil regulere AI-systemer basert på samfunnsrisiko».</b> <br>Usanne: «AI Act deler AI-systemer inn i flere kategorier, hvor AI-systemer til bruk i helsesektoren har en egen kategori» (kategoriene er risikonivåer, ikke sektorer. Medisinsk KI havner ofte i høy risiko, men det finnes ingen egen helsekategori). «AI-systemer som medfører høy samfunnsrisiko vil bli forbudt» (høy risiko er <i>regulert</i>, bare uakseptabel risiko er forbudt).<br>Merk at notatene nå presiserer at AI Act er verdens første <i>omfattende og horisontale</i> KI-regulering, siden Kina hadde smalere regler før. Får du et alternativ som skiller på dette, er «omfattende og horisontal» det presise svaret.</p>
+</div>
+
+<div class="callout exam"><span class="label">Eksempelspørsmål i notatene (kapittel 8)</span>
+<p>Notatene har to eksempelspørsmål om AI Act: militært system som senere selges til sivil bruk, og et norsk selskap som slipper en åpen GPAI-modell i EU. Begge er med som interaktive spørsmål i <a href="16-eksamen.html#notatene">kapittel 16.7</a>, og de bygger på unntaket for militær bruk og reglene for åpen kildekode over.</p>
 </div>
 
 <div class="widget">
@@ -3124,6 +3395,88 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
   <div class="explain">Ansettelse og arbeidsliv står uttrykkelig på listen over høyrisikoområder, fordi beslutningene påvirker folks livsmuligheter og kan diskriminere. Det er ikke forbudt (det er f.eks. følelsesgjenkjenning på arbeidsplassen). Åpenhet alene er kravet for begrenset risiko og er ikke nok her.</div>
 </div>
 
+<div class="quiz" data-id="15-aiact-ikraft">
+  <p class="q">AI Act trådte i kraft 1. august 2024. Hva betyr det for et KI-system som brukes til kredittvurdering i EU?</p>
+  <ul>
+    <li>Alle høyrisikokravene har gjeldt siden 1. august 2024.</li>
+    <li>Høyrisikokravene gjaldt fra 2. august 2026, slik den opprinnelige teksten sa.</li>
+    <li data-correct>Forordningen er gyldig lov, men høyrisikokravene for Anneks 3-områder som kredittvurdering gjelder først fra 2. desember 2027 etter endringene i 2026.</li>
+    <li>Kredittvurdering er unntatt fordi banker allerede er regulert av annen EU-lovgivning.</li>
+  </ul>
+  <div class="explain">Å tre i kraft (bli gyldig lov) er noe annet enn at pliktene gjelder. Den opprinnelige fristen 2. august 2026 ble utsatt av Digital Omnibus: Anneks 3 fra 2. desember 2027, Anneks 1 fra 2. august 2028. Kredittvurdering står i Anneks 3. Det er Anneks 1-<i>produkter</i> (medisinsk utstyr, leketøy, heiser) som går via annen EU-lovgivning, ikke banker.</div>
+</div>
+
+<div class="quiz" data-multi data-id="15-aiact-omnibus">
+  <p class="q">Hvilke endringer kom med Digital Omnibus i 2026?</p>
+  <ul>
+    <li data-correct>Høyrisikokravene ble utsatt.</li>
+    <li data-correct>Nye forbud mot KI som lager seksualiserte bilder av identifiserbare personer uten samtykke, og mot overgrepsmateriale av barn.</li>
+    <li>Forbudet mot sosial poengberegning ble opphevet.</li>
+    <li data-correct>Kravet til KI-kompetanse hos ansatte (artikkel 4) ble svekket.</li>
+  </ul>
+  <div class="explain">Utsatte høyrisikokrav, nye forbud og svakere kompetansekrav er alle med på listen i notatene. Det samme er artikkel 4a, small mid-caps, mer tilsyn til AI-kontoret, smalere produktområde og senere frist for sandkasser. Ingen eksisterende forbud ble fjernet.</div>
+</div>
+
+<div class="quiz" data-id="15-aiact-norge">
+  <p class="q">Et norsk selskap selger et KI-system for rekruttering til bedrifter i Sverige og Tyskland. Hva er riktig per november 2026?</p>
+  <ul>
+    <li>Selskapet har ingen plikter, fordi AI Act ikke er en del av norsk rett ennå.</li>
+    <li data-correct>Selskapet må følge AI Act i EU, fordi forordningen gjelder alle som plasserer KI-systemer på EU-markedet, uansett hvor de er etablert.</li>
+    <li>Selskapet må bare følge KI-loven, som ble vedtatt av Stortinget i 2026.</li>
+    <li>AI Act gjelder bare selskaper med hovedkontor i et EU-land.</li>
+  </ul>
+  <div class="explain">Artikkel 2: forordningen gjelder alle som tilbyr KI-systemer på EU-markedet. At den ikke er tatt inn i EØS-avtalen eller norsk lov, betyr bare at virksomheter som <i>kun</i> opererer i Norge, ikke har plikter ennå. KI-loven er ikke vedtatt, og lovforslaget er planlagt fremmet våren 2027.</div>
+</div>
+
+<div class="quiz" data-id="15-aiact-6-3">
+  <p class="q">En kommune bruker KI i opptak til videregående skole, men bare til å sortere innkomne søknader alfabetisk og sjekke at alle vedlegg er med. Hva sier artikkel 6(3)?</p>
+  <ul>
+    <li>Systemet er alltid høyrisiko, fordi utdanning står i Anneks 3.</li>
+    <li data-correct>Systemet kan være unntatt fra høyrisiko fordi det bare utfører en snever, prosedyremessig oppgave, men vurderingen må dokumenteres og systemet registreres.</li>
+    <li>Systemet er forbudt, fordi det behandler data om mindreårige.</li>
+    <li>Unntaket gjelder bare hvis systemet også profilerer søkerne.</li>
+  </ul>
+  <div class="explain">Et system i et Anneks 3-område er ikke høyrisiko hvis det ikke utgjør betydelig risiko, for eksempel fordi oppgaven er snever og prosedyremessig. Unntaket gjelder <i>aldri</i> systemer som profilerer enkeltpersoner, altså motsatt av det siste alternativet. Tilbyderen må dokumentere vurderingen og registrere systemet.</div>
+</div>
+
+<div class="quiz" data-id="15-aiact-art14">
+  <p class="q">Artikkel 14 (human oversight) nevner <i>automation bias</i>. Hva er det?</p>
+  <ul>
+    <li>At modellen har lært skjevheter fra historiske data.</li>
+    <li>At automatiserte systemer alltid gir bias i betydningen fra bias–varians.</li>
+    <li data-correct>Tendensen mennesker har til å stole for mye på output fra et automatisert system.</li>
+    <li>At systemet automatisk justerer bias-parameteren $b$ under trening.</li>
+  </ul>
+  <div class="explain">Den som overvåker systemet, skal være bevisst denne tendensen, kunne tolke output riktig, se bort fra eller overstyre det, og stanse systemet. Skjevhet i data er et annet problem (artikkel 10). Ordet «bias» betyr tre ulike ting i kurset: bias-parameteren, bias i bias–varians, og skjevhet. Automation bias er en fjerde, psykologisk betydning.</div>
+</div>
+
+<div class="quiz" data-multi data-id="15-aiact-gpai">
+  <p class="q">Hvilke utsagn om GPAI-modeller er riktige?</p>
+  <ul>
+    <li data-correct>En modell antas å ha systemisk risiko hvis treningen har brukt mer enn $10^{25}$ flyttallsoperasjoner.</li>
+    <li>En GPAI-modell med systemisk risiko er det samme som et høyrisikosystem.</li>
+    <li data-correct>En modell sluppet med åpen kildekode (uten systemisk risiko) slipper dokumentasjonskravene, men ikke kravene knyttet til opphavsrett.</li>
+    <li>GPAI-reglene gjelder først fra 2. desember 2027, sammen med høyrisikokravene.</li>
+  </ul>
+  <div class="explain">Systemisk risiko er en egen kategori for modeller, basert på beregningsmengde og kriteriene i Anneks 13. Høy risiko handler om bruksområdet. Åpen kildekode-unntaket gjelder dokumentasjonen, ikke opphavsrett, og ikke modeller med systemisk risiko. GPAI-reglene har gjeldt siden 2. august 2025, og Kommisjonen kan bøtelegge fra 2. august 2026.</div>
+</div>
+
+<div class="quiz" data-id="15-aiact-brussels">
+  <p class="q">Hva er Brussels-effekten?</p>
+  <ul>
+    <li>At EU-regler blir dyrere å etterleve jo flere land som innfører dem.</li>
+    <li data-correct>At EU-regler sprer seg globalt fordi internasjonale selskaper velger å følge dem overalt, slik det skjedde med GDPR.</li>
+    <li>At selskaper flytter ut av EU for å unngå regulering.</li>
+    <li>At EU-domstolen kan dømme selskaper i land utenfor EU.</li>
+  </ul>
+  <div class="explain">Begrepet kommer fra Anu Bradfords bok (2020). GDPR er hovedeksempelet. Om AI Act får samme effekt, er omdiskutert, og Almada og Radu (2024) advarer om at også svakhetene ved produktreguleringen da eksporteres.</div>
+</div>
+
+<div class="reflect" data-id="15-r-aiact-eks">
+  <p class="q">Oppgavene fra notatene: Gi et eksempel på et eksisterende KI-system (i eller utenfor Europa) som (a) er eller ville vært forbudt i EU, (b) ville vært et høyrisikosystem i EU, og (c) er et GPAI-system.</p>
+  <div class="answer"><b>(a) Forbudt:</b> Clearview AI, som har bygget en ansiktsdatabase ved å samle inn bilder ukritisk fra internett. Sosiale kredittsystemer, som pilotene i Kina, er et annet eksempel. Fra 2. desember 2026 også «nudify»-apper. <b>(b) Høy risiko:</b> automatisk CV-sortering i rekrutteringsverktøy, kredittvurdering av privatpersoner, eksamensovervåking (proctoring) eller KI i medisinsk utstyr som tolker røntgenbilder. <b>(c) GPAI:</b> ChatGPT (bygget på GPT-modellene), Claude, Gemini eller Le Chat fra Mistral. Husk skillet: selve språkmodellen er en GPAI-<i>modell</i>, mens chatboten bygget på den er et GPAI-<i>system</i>, som i tillegg har transparensplikt (artikkel 50).</div>
+</div>
+
 <div class="reflect" data-id="15-r-aiact">
   <p class="q">Hvorfor tror du EU valgte å regulere etter <i>risiko ved bruken</i> i stedet for å regulere bestemte teknologier som «nevrale nettverk»?</p>
   <div class="answer">Fordi skaden kommer fra hva systemet brukes til, ikke fra matematikken inni. Det samme nettet kan sortere spam (ufarlig) eller sortere jobbsøkere (kan diskriminere). Teknologi endrer seg raskt, så en lov som nevner bestemte metoder ville raskt blitt utdatert, mens bruksområder som kreditt, ansettelse og politi er stabile. Risikobasert regulering lar også ufarlige anvendelser slippe byråkrati, slik at innovasjon ikke kveles unødig. Ulempen er at grensene mellom kategoriene kan være uklare og må tolkes.</div>
@@ -3143,9 +3496,9 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
     <li><b>Plott:</b> force plot = ett punkt, rød drar opp, blå drar ned. Beeswarm = mange punkter, øverste rad betyr mest, x = bidrag, farge = feature-verdi. Bidraget er relativt til gjennomsnittet, ikke absolutt, og det globale bildet gjelder bare punktene du forklarte.</li>
     <li><b>Bilder og tekst:</b> én SHAP-verdi per piksel, superpiksel (grupperte spillere) eller ord, per klasse. Bare overordnet forståelse kreves.</li>
     <li><b>Konseptdeteksjon:</b> data processing inequality, $I(X;Z_2) \le I(X;Z_1)$: et lag kan aldri vite mer om input enn lagene før. Konsepter er implisitte og abstrakte, features er eksplisitte. En CAV $v^l_C$ er normalvektoren til en lineær probe som skiller konseptaktiveringer fra tilfeldige. TCAV = andelen inputs i klasse $k$ der $\nabla h_{l,k}(f_l(\mathbf{x}))\cdot v^l_C &gt; 0$. Metoden er modellspesifikk.</li>
-    <li><b>Etikk:</b> velgjørenhet (gjøre godt), ikke-skade, autonomi (mennesket har kontroll, ingen manipulasjon), rettferdighet og forklarbarhet.</li>
+    <li><b>Etikk (Floridi og Cowls, 2019):</b> 47 prinsipper fra seks dokumenter koker ned til fem. Fire fra bioetikken: velgjørenhet (gjøre godt), ikke-skade (også utilsiktet, og ≠ velgjørenhet), autonomi (meta-autonomi: vi bestemmer hva som overlates, og kan trekke det tilbake) og justice (mer enn fairness: rette opp urett, fordele fordelene). Det femte, explicability, er nytt for KI: intelligibility (hvordan virker det?) og accountability (hvem er ansvarlig?), og er en forutsetning for de andre. AI Act gir deler av dem rettslig form (artikkel 14 og 86).</li>
     <li><b>Skjevhet:</b> historisk, representasjon, proxy og tilbakekobling. Å fjerne en sensitiv kolonne er ikke nok.</li>
-    <li><b>AI Act:</b> risikobasert. Uakseptabel = forbudt, høy = regulert (ikke forbudt), begrenset = åpenhet, minimal = ingen krav. Kategoriene er risikonivåer, ikke sektorer.</li>
+    <li><b>AI Act:</b> forordning (EU) 2024/1689, i kraft 1. aug. 2024, gjelder direkte i EU. I Norge må den inn i EØS og gjennomføres som KI-loven (forslag våren 2027), men norske selskaper som tilbyr i EU, må følge den allerede. Risikobasert: uakseptabel = forbudt (fra feb. 2025, nye forbud des. 2026), høy = regulert, ikke forbudt (Anneks 3 fra des. 2027, Anneks 1 fra aug. 2028 etter Digital Omnibus), begrenset = transparens (aug. 2026), minimal = ingen krav. GPAI reguleres for seg (aug. 2025), med ekstra krav ved systemisk risiko ($&gt; 10^{25}$ FLOP). Militær bruk er unntatt. Bøter inntil 35 mill. euro eller 7 %.</li>
   </ul>
 </div>
 
@@ -3178,7 +3531,19 @@ shap.plots.text(shap_values[:, :, <span class="s">"anger"</span>])        <span 
   <div class="card"><div class="front">TCAV-skår</div><div class="back">Andelen inputs i klasse $k$ med positiv konseptsensitivitet $S_{C,k,l} = \nabla h_{l,k}(f_l(\mathbf{x}))\cdot v^l_C$. Bare fortegnet teller.</div></div>
   <div class="card"><div class="front">Velgjørenhet</div><div class="back">KI skal fremme menneskelig velferd og gjøre godt.</div></div>
   <div class="card"><div class="front">Autonomi</div><div class="back">Mennesker skal ha kontroll. Brytes ved manipulasjon og beslutninger uten samtykke.</div></div>
-  <div class="card"><div class="front">AI Act: fire nivåer</div><div class="back">Uakseptabel (forbudt), høy (regulert), begrenset (åpenhet), minimal (ingen krav).</div></div>
+  <div class="card"><div class="front">Ikke-skade vs. velgjørenhet</div><div class="back">Å unnlate å gjøre skade er ikke det samme som å gjøre godt. Ikke-skade gjelder også utilsiktet skade (feil, dårlig sikkerhet).</div></div>
+  <div class="card"><div class="front">Meta-autonomi</div><div class="back">Mennesker bestemmer hvilke beslutninger som overlates til maskinen, og kan trekke overføringen tilbake.</div></div>
+  <div class="card"><div class="front">Justice vs. fairness</div><div class="back">Fairness: matematisk krav om lik behandling (lik feilrate). Justice: i tillegg rette opp urett, fordele fordelene, ikke skape ny urett.</div></div>
+  <div class="card"><div class="front">Explicability: to komponenter</div><div class="back">Intelligibility: hvordan virker det? Accountability: hvem er ansvarlig? Kan oppfylles uavhengig av hverandre.</div></div>
+  <div class="card"><div class="front">AI Act: fire nivåer</div><div class="back">Uakseptabel (forbudt), høy (regulert), begrenset (åpenhet), minimal (ingen krav). Pluss GPAI som egen kategori.</div></div>
+  <div class="card"><div class="front">Trer i kraft vs. gjelder</div><div class="back">I kraft 1. aug. 2024 = gyldig lov. Pliktene gjelder i trinn: forbud feb. 2025, GPAI aug. 2025, transparens aug. 2026, høy risiko des. 2027 / aug. 2028.</div></div>
+  <div class="card"><div class="front">Digital Omnibus</div><div class="back">EU-endringer i 2026 (forordning 2026/1744): utsatte høyrisikokrav, nye forbud (nudify, overgrepsmateriale), svakere kompetansekrav, artikkel 4a, mer tilsyn til AI-kontoret.</div></div>
+  <div class="card"><div class="front">AI Act i Norge</div><div class="back">Ikke norsk rett per nov. 2026. Må inn i EØS-avtalen og gjennomføres som KI-loven (forslag våren 2027). Nkom koordinerer tilsynet. Norske selskaper som tilbyr i EU, må følge den.</div></div>
+  <div class="card"><div class="front">Artikkel 14</div><div class="back">Human oversight: et menneske skal kunne forstå, tolke, overstyre og stanse høyrisikosystemet, og være bevisst automation bias.</div></div>
+  <div class="card"><div class="front">Systemisk risiko</div><div class="back">GPAI-modell trent med mer enn $10^{25}$ FLOP (eller utpekt etter Anneks 13). Krav: adversarial testing, risikoreduksjon, hendelsesrapportering, cybersikkerhet. ≠ høyrisikosystem.</div></div>
+  <div class="card"><div class="front">Åpen kildekode-GPAI</div><div class="back">Unntatt dokumentasjonskravene, men ikke opphavsrettskravene. Unntaket gjelder ikke ved systemisk risiko.</div></div>
+  <div class="card"><div class="front">Bøter i AI Act</div><div class="back">Brudd på forbudene: inntil 35 mill. euro eller 7 % av global omsetning. De fleste andre: 15 mill. euro eller 3 %.</div></div>
+  <div class="card"><div class="front">Brussels-effekten</div><div class="back">EU-regler sprer seg globalt fordi selskaper følger dem overalt (GDPR). Uvisst for AI Act.</div></div>
   <div class="card"><div class="front">Proxy-variabel</div><div class="back">En feature som avslører en sensitiv egenskap (postnummer gir etnisitet). Derfor er det ikke nok å fjerne kolonnen.</div></div>
 </div>
 
@@ -3323,7 +3688,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /* ---------- AI Act-sortering ---------- */
 document.addEventListener("DOMContentLoaded", () => {
-  const CATS = ["velg …", "Uakseptabel (forbudt)", "Høy risiko (regulert)", "Begrenset (åpenhet)", "Minimal"];
+  const CATS = ["velg …", "Uakseptabel (forbudt)", "Høy risiko (regulert)", "Begrenset (åpenhet)", "Minimal", "Utenfor AI Act"];
   const items = [
     ["Et offentlig system som gir innbyggere en «samfunnspoengsum» basert på atferd, og som brukes til å nekte tjenester.", 1, "Sosial poengberegning er uttrykkelig forbudt."],
     ["Et system som sorterer og rangerer CV-er for en arbeidsgiver.", 2, "Ansettelse er et høyrisikoområde: tillatt, men med krav til data, dokumentasjon og menneskelig tilsyn."],
@@ -3336,7 +3701,11 @@ document.addEventListener("DOMContentLoaded", () => {
     ["KI-styrte motstandere i et dataspill.", 4, "Minimal risiko."],
     ["Et leketøy med stemmeassistent som oppmuntrer barn til farlig atferd.", 1, "Manipulasjon som utnytter sårbare grupper (som barn) og kan gi skade, er forbudt."],
     ["Et system som setter karakter på eksamensbesvarelser eller avgjør opptak til studier.", 2, "Utdanning (opptak og vurdering) er et høyrisikoområde."],
-    ["Et anbefalingssystem som foreslår filmer i en strømmetjeneste.", 4, "Normalt minimal risiko. (Svært store plattformer reguleres i tillegg av andre EU-regler, som DSA.)"]
+    ["Et anbefalingssystem som foreslår filmer i en strømmetjeneste.", 4, "Normalt minimal risiko. (Svært store plattformer reguleres i tillegg av andre EU-regler, som DSA.)"],
+    ["En app som lager realistiske nakenbilder av en identifiserbar person ut fra et vanlig bilde, uten personens samtykke.", 1, "Ett av de to nye forbudene fra Digital Omnibus, gjeldende fra 2. desember 2026."],
+    ["Et bildeanalysesystem som utelukkende brukes av det norske forsvaret til å finne militære mål.", 5, "AI Act gjelder ikke systemer som utelukkende brukes til militære formål, forsvar eller nasjonal sikkerhet. Selges det samme systemet til sivil bruk, blir det omfattet."],
+    ["Programvare som overvåker studenter via webkamera under en hjemmeeksamen og flagger mistenkelig oppførsel.", 2, "Overvåking under eksamen står på listen over utdanningsområder i Anneks 3."],
+    ["Et system som predikerer om en person vil begå lovbrudd bare ut fra personlighetstrekk.", 1, "Kriminalitetsprediksjon som bare bygger på profilering eller personlighetstrekk, er forbudt etter artikkel 5."]
   ];
   const host = document.getElementById("sortList");
   host.innerHTML = items.map((it, i) => `<div class="sort-item" id="si${i}"><span>${it[0]}</span><select id="ss${i}">${CATS.map((c, k) => `<option value="${k}">${c}</option>`).join("")}</select><div class="fb" id="sf${i}"></div></div>`).join("");
@@ -3354,6 +3723,39 @@ document.addEventListener("DOMContentLoaded", () => {
     items.forEach((it, i) => { document.getElementById("ss" + i).value = 0; document.getElementById("si" + i).classList.remove("checked", "ok", "bad"); });
     document.getElementById("sortScore").textContent = "";
   };
+});
+
+/* ---------- AI Act-tidslinje ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+  const range = document.getElementById("aiDate");
+  if (!range) return;
+  // Datoer etter endringene i 2026 (notatene 6.2 og 6.5)
+  const T = [
+    ["2024-08-01", "1. aug. 2024", "AI Act trer i kraft (gyldig lov, men ingen plikter ennå)"],
+    ["2025-02-02", "2. feb. 2025", "Forbudene mot uakseptabel risiko (artikkel 5) gjelder"],
+    ["2025-08-02", "2. aug. 2025", "Reglene for GPAI-modeller gjelder (artikkel 53 og 55)"],
+    ["2026-07-27", "27. juli 2026", "Digital Omnibus, forordning (EU) 2026/1744, trer i kraft"],
+    ["2026-08-02", "2. aug. 2026", "Transparenskravene (artikkel 50) gjelder, og Kommisjonen kan bøtelegge GPAI-tilbydere"],
+    ["2026-12-02", "2. des. 2026", "Nye forbud (nudify-apper og overgrepsmateriale) og maskinlesbar merking for generative systemer som var på markedet før 2. aug. 2026"],
+    ["2027-08-02", "2. aug. 2027", "Minst én regulatorisk sandkasse per land, og GPAI-modeller fra før 2. aug. 2025 må oppfylle kravene"],
+    ["2027-12-02", "2. des. 2027", "Høyrisikokravene for Anneks 3-områder gjelder (ansettelse, kreditt, utdanning, politi …)"],
+    ["2028-08-02", "2. aug. 2028", "Høyrisikokravene for produkter i Anneks 1 gjelder (medisinsk utstyr, leketøy, heiser …)"]
+  ];
+  // Valgbare datoer for glidebryteren: hvert milepælpunkt, pluss «i dag»
+  const picks = [
+    ["2024-08-01", "1. aug. 2024"], ["2025-02-02", "2. feb. 2025"], ["2025-08-02", "2. aug. 2025"],
+    ["2026-07-27", "27. juli 2026"], ["2026-08-02", "2. aug. 2026"], ["2026-11-25", "25. nov. 2026 (eksamen)"],
+    ["2026-12-02", "2. des. 2026"], ["2027-08-02", "2. aug. 2027"], ["2027-12-02", "2. des. 2027"], ["2028-08-02", "2. aug. 2028"]
+  ];
+  range.max = picks.length - 1;
+  const host = document.getElementById("aiTl"), out = document.getElementById("aiDateOut");
+  function draw() {
+    const [d, label] = picks[+range.value];
+    out.textContent = label;
+    host.innerHTML = T.map(([t, lab, txt]) => `<li class="${t <= d ? "on" : ""}"><span class="d">${lab}</span><span>${txt}</span></li>`).join("");
+  }
+  range.oninput = draw;
+  draw();
 });
 </script>
 </body>

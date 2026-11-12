@@ -63,7 +63,7 @@
   </ul>
 </div>
 
-<div class="banner">Formelarket følger forelesningsnotatene versjon 10.11.2026. Forsterkningslæring (kapittel 4, likning 115) og forklarbar KI (kapittel 5, likning 116–125: Shapley, SHAP, LIME og konseptdeteksjon) står nå i notatene, se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>. Begreper merket <b>forventet pensum</b> (AI Act, etikk) ble spurt om på eksamen 2024, men står ikke i notatene.</div>
+<div class="banner">Formelarket følger forelesningsnotatene versjon 11.11.2026. Forsterkningslæring (kapittel 4, likning 115) og forklarbar KI (kapittel 5, likning 116–125: Shapley, SHAP, LIME og konseptdeteksjon) står nå i notatene, se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>. AI Act (kapittel 6) og etiske prinsipper (kapittel 7) står i notatene fra versjon 11.11.2026, og begrepene derfra er med i begrepslisten.</div>
 
 <p class="muted small">Vil du øve på å <em>bruke</em> formlene? <a href="18-regneoppgaver.html">Kapittel 18</a> har alle typene regneoppgaver med oppskrift steg for steg.</p>
 
@@ -315,20 +315,24 @@
 <p>139 begreper med norsk og engelsk navn, kort definisjon og lenke til kapittelet der det forklares. Eksamen bruker begge språk om hverandre. Skriv i søkefeltet for å filtrere (søket går i både begrep, engelsk navn og definisjon).</p>
 <div class="gloss-tools">
   <input type="search" id="glossSearch" placeholder="Søk, f.eks. «bias», «varians», «DBSCAN» …" aria-label="Søk i begrepslisten">
-  <span class="readout" id="glossCount">139 begreper</span>
+  <span class="readout" id="glossCount">166 begreper</span>
 </div>
 <div class="gloss-letters"><a href="#g-A">A</a><a href="#g-B">B</a><a href="#g-C">C</a><a href="#g-D">D</a><a href="#g-E">E</a><a href="#g-F">F</a><a href="#g-G">G</a><a href="#g-H">H</a><a href="#g-I">I</a><a href="#g-K">K</a><a href="#g-L">L</a><a href="#g-M">M</a><a href="#g-N">N</a><a href="#g-O">O</a><a href="#g-P">P</a><a href="#g-Q">Q</a><a href="#g-R">R</a><a href="#g-S">S</a><a href="#g-T">T</a><a href="#g-U">U</a><a href="#g-V">V</a><a href="#g-X">X</a></div>
 <div class="gloss" id="gloss">
 <h3 class="letter" id="g-A">A</h3>
 <dl>
+  <div class="g"><dt>Accountability <span class="en">ansvarlighet</span><a href="15-xai-etikk.html#p-expl">kap. 15</a></dt><dd>Den ene komponenten i explicability: hvem er ansvarlig for måten systemet virker på? Kan være oppfylt uten intelligibility.</dd></div>
   <div class="g"><dt>Accuracy / treffsikkerhet <span class="en">accuracy</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Andel riktige prediksjoner, $(TP+TN)/\text{alle}$. Misvisende ved ubalanserte klasser.</dd></div>
   <div class="g"><dt>AdaBoost<a href="08-ensemble.html">kap. 8</a></dt><dd>Boosting-algoritme der hver ny svak modell trenes med økt vekt på punktene de forrige modellene klassifiserte feil. Modellene vektes med $\alpha$ i sluttprediksjonen.</dd></div>
   <div class="g"><dt>Agent<a href="14-forsterkning.html">kap. 14</a></dt><dd>Den som handler i forsterkningslæring: observerer tilstand, velger handling, mottar belønning.</dd></div>
-  <div class="g"><dt>AI Act<a href="15-xai-etikk.html">kap. 15</a></dt><dd>EUs regulering av KI basert på risikonivå (forbudt, høy risiko, begrenset, minimal). Verdens første KI-spesifikke regulering.</dd></div>
+  <div class="g"><dt>AI Act <span class="en">KI-forordningen</span><a href="15-xai-etikk.html#aiact">kap. 15</a></dt><dd>EUs KI-forordning, forordning (EU) 2024/1689. I kraft 1. aug. 2024, gjelder direkte i EU. Risikobasert: uakseptabel (forbudt), høy (regulert), begrenset (transparens), minimal, pluss GPAI som egen kategori. Verdens første omfattende og horisontale KI-regulering. I Norge: må inn i EØS-avtalen og gjennomføres som KI-loven.</dd></div>
+  <div class="g"><dt>AI-kontoret <span class="en">AI Office</span><a href="15-xai-etikk.html#aiact">kap. 15</a></dt><dd>Enhet i EU-kommisjonen med tilsyn med GPAI-modeller og, etter 2026, med KI-systemer bygget på dem og KI i svært store plattformer. Kan ilegge bøter.</dd></div>
   <div class="g"><dt>Aktiveringsfunksjon <span class="en">activation function</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Ikke-lineær funksjon $g$ i hver node (sigmoid, ReLU, softmax, Heaviside). Uten den blir hele nettet én lineær funksjon.</dd></div>
+  <div class="g"><dt>Anneks 1 og Anneks 3 (AI Act)<a href="15-xai-etikk.html#ai-hoy">kap. 15</a></dt><dd>To veier til høy risiko. Anneks 1: KI i produkter regulert av annen EU-lovgivning (medisinsk utstyr, leketøy, heiser), krav fra 2. aug. 2028. Anneks 3: bruksområder (biometri, kritisk infrastruktur, utdanning, arbeidsliv, kreditt, politi, migrasjon, rettspleie og valg), krav fra 2. des. 2027.</dd></div>
   <div class="g"><dt>Anomalideteksjon <span class="en">anomaly / outlier detection</span><a href="13-anomali.html">kap. 13</a></dt><dd>Finne punkter som ikke ligner majoriteten. Vanligvis uveiledet, fordi anomalier er få og ukjente.</dd></div>
   <div class="g"><dt>Arkitektur <span class="en">architecture</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Hvordan nodene i et nevralt nett er satt sammen: antall lag, noder per lag, koblinger og aktiveringer.</dd></div>
   <div class="g"><dt>AUC (ROC AUC) <span class="en">area under the curve</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Arealet under ROC-kurven = sannsynligheten for at en tilfeldig positiv rangeres høyere enn en tilfeldig negativ. 0.5 = myntkast.</dd></div>
+  <div class="g"><dt>Automation bias<a href="15-xai-etikk.html#ai-hoy">kap. 15</a></dt><dd>Tendensen til å stole for mye på output fra et automatisert system. Den som overvåker et høyrisikosystem, skal være bevisst den (artikkel 14).</dd></div>
 </dl>
 <h3 class="letter" id="g-B">B</h3>
 <dl>
@@ -338,10 +342,12 @@
   <div class="g"><dt>Batch size<a href="10-trening-nn.html">kap. 10</a></dt><dd>Antall treningspunkter som brukes til å regne ut én gradient og gjøre én oppdatering. Hyperparameter.</dd></div>
   <div class="g"><dt>Bayes' teorem<a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$P(A|B) = P(B|A)P(A)/P(B)$. Posterior = likelihood × prior / evidens.</dd></div>
   <div class="g"><dt>Bellman-likningen <span class="en">Bellman equation</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Rekursiv sammenheng: verdien nå = belønning + diskontert verdi av neste tilstand. Grunnlaget for Q-learning-oppdateringen.</dd></div>
+  <div class="g"><dt>Beneficence / velgjørenhet<a href="15-xai-etikk.html#p-benef">kap. 15</a></dt><dd>Etisk prinsipp: KI skal gjøre godt, fremme velferd og menneskeverd og bidra til å bevare planeten. Ikke det samme som ikke-skade.</dd></div>
   <div class="g"><dt>Beslutningstre <span class="en">decision tree</span><a href="05-traer.html">kap. 5</a></dt><dd>Modell som splitter dataene med én feature om gangen til løvnoder som gir prediksjonen. Tolkbar, trenger ikke skalering.</dd></div>
   <div class="g"><dt>Bias (i bias–varians) <span class="en">bias</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Systematisk avvik: $E_D[f(\mathbf{x};D)] - F(\mathbf{x})$. Høy bias = for enkel modell, underfit.</dd></div>
   <div class="g"><dt>Bias (i lineær modell) <span class="en">bias / intercept</span><a href="02-logistisk.html">kap. 2</a></dt><dd>Konstantleddet $b$ eller $\beta_0$: prediksjonen når alle features er 0. Har ingenting med bias–varians å gjøre.</dd></div>
   <div class="g"><dt>Bootstrap<a href="08-ensemble.html">kap. 8</a></dt><dd>Trekk $n$ punkter med tilbakelegging fra et datasett med $n$ punkter. Ca. 63 % unike punkter per utvalg.</dd></div>
+  <div class="g"><dt>Brussels-effekten <span class="en">Brussels effect</span><a href="15-xai-etikk.html#ai-formal">kap. 15</a></dt><dd>At EU-regler sprer seg globalt fordi internasjonale selskaper følger dem overalt (som GDPR). Om AI Act får samme effekt, er omdiskutert.</dd></div>
 </dl>
 <h3 class="letter" id="g-C">C</h3>
 <dl>
@@ -356,6 +362,7 @@
 <dl>
   <div class="g"><dt>Data processing inequality<a href="15-xai-etikk.html#dpi">kap. 15</a></dt><dd>$I(X;Z_2) \le I(X;Z_1)$ for en Markov-kjede $X\to Z_1\to Z_2$. Ingen etterbehandling kan øke informasjonen om input.</dd></div>
   <div class="g"><dt>DBSCAN<a href="11-clustering.html">kap. 11</a></dt><dd>Tetthetsbasert clustering med $\epsilon$ og <code>min_samples</code>. Finner kjernepunkter, ikke-kjernepunkter og outliers (label −1). Trenger ikke $k$.</dd></div>
+  <div class="g"><dt>Digital Omnibus<a href="15-xai-etikk.html#ai-innforing">kap. 15</a></dt><dd>EUs endringspakke for det digitale regelverket (forordning (EU) 2026/1744, i kraft 27. juli 2026). For AI Act: utsatte høyrisikokrav, nye forbud, svakere kompetansekrav, artikkel 4a og mer tilsyn til AI-kontoret.</dd></div>
   <div class="g"><dt>Dimensjonsforbannelsen <span class="en">curse of dimensionality</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>Datarommet vokser eksponentielt med antall features ($10^d$ bins), så data blir glisne og avstander konsentreres.</dd></div>
   <div class="g"><dt>Dimensjonsreduksjon <span class="en">dimensionality reduction</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Gå fra $n$ til $n'\lt n$ features og bevare mest mulig informasjon (varians i PCA, nabolag i t-SNE).</dd></div>
   <div class="g"><dt>Diskonteringsfaktor <span class="en">discount factor, $\gamma$</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Hvor mye fremtidige belønninger veier i Q-verdien. $\gamma$ nær 1: langsiktig; nær 0: kortsiktig.</dd></div>
@@ -371,11 +378,13 @@
   <div class="g"><dt>Entropi <span class="en">entropy</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$H = -\sum p\log p$. Usikkerhet i en fordeling. Binær maks 1 bit.</dd></div>
   <div class="g"><dt>Epoke <span class="en">epoch</span><a href="10-trening-nn.html">kap. 10</a></dt><dd>Én gjennomgang av hele treningsdatasettet.</dd></div>
   <div class="g"><dt>Environment (miljø)<a href="14-forsterkning.html">kap. 14</a></dt><dd>Det agenten handler i. Gym-API: <code>env.reset()</code> gir starttilstand, <code>env.step(a)</code> gir ny tilstand, reward, done og info.</dd></div>
+  <div class="g"><dt>Explicability (etisk prinsipp)<a href="15-xai-etikk.html#p-expl">kap. 15</a></dt><dd>Det femte prinsippet hos Floridi og Cowls, det eneste som ikke er fra bioetikken. To komponenter: intelligibility og accountability. En forutsetning for å vurdere de fire andre.</dd></div>
   <div class="g"><dt>Exploration–exploitation tradeoff<a href="14-forsterkning.html">kap. 14</a></dt><dd>Avveiningen mellom å prøve handlinger med ukjent utfall (høy ε) og å utnytte kjente (lav ε). Ingen universell løsning; vanlig strategi er ε-greedy med ε-decay.</dd></div>
   <div class="g"><dt>Evidens <span class="en">evidence</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>$p(\mathbf{x})$ i Bayes: sannsynligheten for dataene uavhengig av klasse. Lik for alle klasser, sikrer at posterior summerer til 1.</dd></div>
 </dl>
 <h3 class="letter" id="g-F">F</h3>
 <dl>
+  <div class="g"><dt>Fairness<a href="15-xai-etikk.html#p-justice">kap. 15</a></dt><dd>I ML-litteraturen: matematisk definerte krav om lik behandling av grupper, f.eks. lik feilrate for kvinner og menn. Smalere enn prinsippet justice.</dd></div>
   <div class="g"><dt>Feature engineering<a href="06-regresjon.html">kap. 6</a></dt><dd>Alt vi gjør med featurene: selection (velge ut), preprocessing (skalere, encode) og extraction (lage nye, f.eks. $x^2$ eller PCA).</dd></div>
   <div class="g"><dt>Feature / variabel<a href="01-grunnlag.html">kap. 1</a></dt><dd>En egenskap ved datapunktene, en kolonne i datasettet. Kan være kvalitativ (kategorisk) eller kvantitativ.</dd></div>
   <div class="g"><dt>Force plot<a href="15-xai-etikk.html">kap. 15</a></dt><dd>SHAP-plott for ett datapunkt: fra gjennomsnittsprediksjonen $\phi_0$ til $f(x^*)$. Rød feature drar opp, blå drar ned.</dd></div>
@@ -388,6 +397,7 @@
   <div class="g"><dt>Generalisering <span class="en">generalization</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Evnen til å gjøre det godt på nye, usette data. Hovedmålet i maskinlæring.</dd></div>
   <div class="g"><dt>Gini-urenhet <span class="en">Gini impurity</span><a href="05-traer.html">kap. 5</a></dt><dd>$1-\sum p_i^2$. Sannsynligheten for å gjette feil klasse ved å gjette etter klassefordelingen. 0 = ren node.</dd></div>
   <div class="g"><dt>Gjensidig informasjon <span class="en">mutual information</span><a href="15-xai-etikk.html#dpi">kap. 15</a></dt><dd>$I(X;Z)$: hvor mye én variabel forteller om en annen.</dd></div>
+  <div class="g"><dt>GPAI-modell <span class="en">general-purpose AI</span><a href="15-xai-etikk.html#ai-gpai">kap. 15</a></dt><dd>General-purpose AI model (artikkel 3(63)): viser betydelig generalitet, kan utføre mange ulike oppgaver og integreres i mange systemer (f.eks. store språkmodeller). Krav om dokumentasjon, opphavsrett og sammendrag av treningsdata. Åpen kildekode slipper dokumentasjonskravene.</dd></div>
   <div class="g"><dt>Gradient<a href="02-logistisk.html">kap. 2</a></dt><dd>Vektoren av partiellderiverte av tapet med hensyn på parametrene. Peker mot brattest økning.</dd></div>
   <div class="g"><dt>Gradient boosting<a href="08-ensemble.html">kap. 8</a></dt><dd>Sekvensielt ensemble der hvert nye tre tilpasses residualene (negativ gradient) til ensemblet så langt.</dd></div>
   <div class="g"><dt>Gradient descent<a href="02-logistisk.html">kap. 2</a></dt><dd>Iterativ minimering: $\theta \leftarrow \theta - \eta\nabla L$. Finner globalt minimum for konvekse funksjoner.</dd></div>
@@ -396,7 +406,9 @@
 <dl>
   <div class="g"><dt>Heaviside-funksjonen <span class="en">step function</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>$H(z) = 1$ hvis $z\ge 0$, ellers 0. Perseptronets aktivering; ikke brukbar med gradient descent.</dd></div>
   <div class="g"><dt>Hovedkomponent <span class="en">principal component</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>Egenvektor av kovariansmatrisen; ny akse som er en lineær kombinasjon av featurene og maksimerer varians, ortogonal på de forrige.</dd></div>
+  <div class="g"><dt>Human oversight <span class="en">menneskelig tilsyn</span><a href="15-xai-etikk.html#ai-hoy">kap. 15</a></dt><dd>Artikkel 14: høyrisikosystemer skal kunne overvåkes effektivt av et menneske som forstår begrensningene, kan tolke, overstyre og stanse systemet.</dd></div>
   <div class="g"><dt>Hyperparameter<a href="02-logistisk.html">kap. 2</a></dt><dd>Styrer læringsprosessen, men er ikke en del av modellen og læres ikke fra data: læringsrate, epoker, batch size, $k$, max_depth, $\epsilon$, perplexity.</dd></div>
+  <div class="g"><dt>Høyrisikosystem (AI Act)<a href="15-xai-etikk.html#ai-hoy">kap. 15</a></dt><dd>KI-system via Anneks 1 eller 3. Tillatt, men med krav i artikkel 9–15: risikostyring, datakvalitet, dokumentasjon, logging, transparens, menneskelig tilsyn, nøyaktighet, robusthet og cybersikkerhet. Ikke det samme som systemisk risiko.</dd></div>
 </dl>
 <h3 class="letter" id="g-I">I</h3>
 <dl>
@@ -405,12 +417,14 @@
   <div class="g"><dt>Inertia<a href="11-clustering.html">kap. 11</a></dt><dd>Sum av kvadrerte avstander fra punkter til sin sentroide. Det k-means minimerer. Synker alltid med større $k$.</dd></div>
   <div class="g"><dt>Inferens <span class="en">inference</span><a href="08-ensemble.html">kap. 8</a></dt><dd>Å bruke en ferdig trent modell til å gjøre prediksjoner.</dd></div>
   <div class="g"><dt>Informasjonsgevinst <span class="en">information gain</span><a href="05-traer.html">kap. 5</a></dt><dd>Entropi før splitt minus vektet entropi etter. Velg splitten med størst gevinst.</dd></div>
+  <div class="g"><dt>Intelligibility <span class="en">forståelighet</span><a href="15-xai-etikk.html#p-expl">kap. 15</a></dt><dd>Den ene komponenten i explicability: hvordan virker systemet? Skal kunne forstås av både lekfolk og fagfolk.</dd></div>
   <div class="g"><dt>Irredusibel støy <span class="en">irreducible error</span><a href="07-generalisering.html">kap. 7</a></dt><dd>$\sigma^2$ i bias–varians-dekomposisjonen: feil fra støy i dataene som ingen modell kan fjerne.</dd></div>
   <div class="g"><dt>Isolation Forest<a href="13-anomali.html">kap. 13</a></dt><dd>Skog av trær med tilfeldige splitter til hvert punkt er isolert. Anomalier isoleres raskt (kort sti fra rot).</dd></div>
 </dl>
 <h3 class="letter" id="g-K">K</h3>
 <dl>
   <div class="g"><dt>k-fold kryssvalidering <span class="en">k-fold cross-validation</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Del data i $k$ ikke-overlappende folder; tren $k$ ganger med hver fold som test én gang; ta snittet.</dd></div>
+  <div class="g"><dt>KI-loven<a href="15-xai-etikk.html#ai-norge">kap. 15</a></dt><dd>Norsk lov som skal gjennomføre AI Act (KI-forordningen). Ikke vedtatt per nov. 2026. Ny høring høsten 2026, lovforslag planlagt våren 2027. Nkom blir koordinerende tilsyn.</dd></div>
   <div class="g"><dt>Kjernepunkt <span class="en">core point</span><a href="11-clustering.html">kap. 11</a></dt><dd>DBSCAN-punkt med minst <code>min_samples</code> naboer innenfor $\epsilon$. Kan utvide klyngen.</dd></div>
   <div class="g"><dt>Klassifiseringsterskel <span class="en">classification threshold</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Verdien over hvilken $y_{pred}$ tolkes som klasse 1 (standard 0.5). Endrer ikke modellen, bare hvordan vi bruker den.</dd></div>
   <div class="g"><dt>KL-divergens <span class="en">Kullback–Leibler divergence</span><a href="12-dimensjonsreduksjon.html">kap. 12</a></dt><dd>$\sum P\log(P/Q)$. Relativ entropi; ≥ 0, ikke symmetrisk. Tapsfunksjonen i (t-)SNE.</dd></div>
@@ -435,6 +449,7 @@
 <dl>
   <div class="g"><dt>Markov-egenskapen <span class="en">Markov property</span><a href="14-forsterkning.html">kap. 14</a></dt><dd>Neste tilstand avhenger bare av nåværende tilstand og handling, ikke av historikken.</dd></div>
   <div class="g"><dt>MDL <span class="en">Minimum Description Length</span><a href="15-xai-etikk.html#dpi">kap. 15</a></dt><dd>Den beste modellen gir den korteste samlede beskrivelsen av dataene. «Comprehension is compression.»</dd></div>
+  <div class="g"><dt>Meta-autonomi<a href="15-xai-etikk.html#p-auto">kap. 15</a></dt><dd>Floridi og Cowls: mennesker skal bestemme hvilke beslutninger som overlates til KI, og kunne trekke overføringen tilbake.</dd></div>
   <div class="g"><dt>Metrikk <span class="en">metric</span><a href="03-evaluering.html">kap. 3</a></dt><dd>Mål på ytelse som skal gi mening for mennesker (precision, recall, AUC …). Trenger ikke være deriverbar, i motsetning til tapet.</dd></div>
   <div class="g"><dt>Mini-batch SGD<a href="10-trening-nn.html">kap. 10</a></dt><dd>Gradient beregnet på en liten tilfeldig batch (f.eks. 32–128 punkter). Det dyplæringsfolk mener med «SGD».</dd></div>
   <div class="g"><dt>MLP <span class="en">multi-layer perceptron</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Fully connected feed-forward nevralt nett med ett eller flere skjulte lag.</dd></div>
@@ -445,6 +460,7 @@
 <dl>
   <div class="g"><dt>Naiv Bayes <span class="en">naïve Bayes</span><a href="04-sannsynlighet.html">kap. 4</a></dt><dd>Bayes-klassifikator som antar betinget uavhengige features: $p(C_k)\prod_i p(x_i|C_k)$.</dd></div>
   <div class="g"><dt>Nevralt nettverk <span class="en">neural network</span><a href="09-nevrale-nett.html">kap. 9</a></dt><dd>Lag av noder som hver gjør en vektet sum og en ikke-lineær aktivering. Lærer sine egne feature-transformasjoner.</dd></div>
+  <div class="g"><dt>Non-maleficence / ikke-skade<a href="15-xai-etikk.html#p-nonmal">kap. 15</a></dt><dd>Etisk prinsipp: KI skal ikke skade, fysisk, psykisk, sosialt eller økonomisk. Gjelder også utilsiktet skade (feil, dårlig sikkerhet).</dd></div>
   <div class="g"><dt>Normalisering / skalering <span class="en">scaling</span><a href="01-grunnlag.html">kap. 1</a></dt><dd>Gi features samme størrelsesorden (MinMaxScaler til [0,1], StandardScaler til snitt 0, std 1). Fit kun på treningsdata.</dd></div>
 </dl>
 <h3 class="letter" id="g-O">O</h3>
@@ -478,8 +494,10 @@
   <div class="g"><dt>Recall / sensitivitet / TPR<a href="03-evaluering.html">kap. 3</a></dt><dd>$TP/(TP+FN)$: andelen faktisk positive vi finner. Viktig når det er farlig å bomme (sykdom).</dd></div>
   <div class="g"><dt>Regresjon <span class="en">regression</span><a href="06-regresjon.html">kap. 6</a></dt><dd>Prediksjon av kontinuerlige verdier.</dd></div>
   <div class="g"><dt>Regresjonstre <span class="en">regression tree</span><a href="07-generalisering.html">kap. 7</a></dt><dd>Beslutningstre som predikerer en konstant (snittet) i hver region; splitter for å minimere varians/MSE.</dd></div>
+  <div class="g"><dt>Regulatorisk sandkasse <span class="en">regulatory sandbox</span><a href="15-xai-etikk.html#ai-formal">kap. 15</a></dt><dd>Miljø der aktører kan teste KI-produkter og få tilbakemelding fra tilsynet før produktet slippes på markedet. Minst én per EU-land innen 2. aug. 2027. I Norge hos KI Norge i Digdir.</dd></div>
   <div class="g"><dt>ReLU<a href="09-nevrale-nett.html">kap. 9</a></dt><dd>$\max(0,x)$. Vanligste aktivering i skjulte lag.</dd></div>
   <div class="g"><dt>Replay buffer<a href="14-forsterkning.html">kap. 14</a></dt><dd>Lager overganger (s, a, r, s′) i DQN; trekker tilfeldige minibatcher for å bryte korrelasjon mellom treningseksempler.</dd></div>
+  <div class="g"><dt>Rettferdighet / justice<a href="15-xai-etikk.html#p-justice">kap. 15</a></dt><dd>Etisk prinsipp: ingen urettmessig forskjellsbehandling, og i tillegg rette opp tidligere urett, fordele fordelene ved KI og ikke skape ny urett. Mer enn fairness.</dd></div>
   <div class="g"><dt>Reward hacking<a href="14-forsterkning.html">kap. 14</a></dt><dd>Agenten finner en uønsket måte å få høy belønning på fordi belønningen er dårlig spesifisert.</dd></div>
   <div class="g"><dt>ROC-kurve<a href="03-evaluering.html">kap. 3</a></dt><dd>TPR mot FPR for alle klassifiseringsterskler. Går fra (0,0) til (1,1).</dd></div>
   <div class="g"><dt>Rotnode <span class="en">root node</span><a href="05-traer.html">kap. 5</a></dt><dd>Øverste node i treet, der alle data kommer inn. Splitter på den viktigste featuren.</dd></div>
@@ -500,6 +518,7 @@
   <div class="g"><dt>Superpiksler <span class="en">superpixels</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Grupper av piksler som behandles som én feature i Image SHAP. Gir færre spillere og mer forståelige forklaringer.</dd></div>
   <div class="g"><dt>Surrogatmodell <span class="en">surrogate model</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>En tolkbar modell som erstatter (etterligner) den svarte boksen, globalt eller lokalt. LIME er kursets eksempel.</dd></div>
   <div class="g"><dt>Symbolsk KI<a href="15-xai-etikk.html">kap. 15</a></dt><dd>KI der mennesker koder kunnskap som eksplisitte regler og symboler (f.eks. ekspertsystemer). Dominerte fra 1956 til ca. 1990.</dd></div>
+  <div class="g"><dt>Systemisk risiko <span class="en">systemic risk</span><a href="15-xai-etikk.html#ai-gpai">kap. 15</a></dt><dd>Kategori for GPAI-modeller trent med mer enn $10^{25}$ FLOP (eller utpekt etter Anneks 13). Ekstra krav: adversarial testing, risikoreduksjon, hendelsesrapportering og cybersikkerhet (artikkel 55).</dd></div>
 </dl>
 <h3 class="letter" id="g-T">T</h3>
 <dl>
@@ -515,6 +534,7 @@
 </dl>
 <h3 class="letter" id="g-U">U</h3>
 <dl>
+  <div class="g"><dt>Uakseptabel risiko<a href="15-xai-etikk.html#ai-uakseptabel">kap. 15</a></dt><dd>Forbudte KI-praksiser (artikkel 5), f.eks. sosial poengberegning, manipulasjon, følelsesgjenkjenning på jobb og i skole, ukritisk innsamling av ansiktsbilder. Fra 2. des. 2026 også nudify-apper og overgrepsmateriale.</dd></div>
   <div class="g"><dt>Underfitting / undertilpasning<a href="07-generalisering.html">kap. 7</a></dt><dd>Modellen er for enkel: høy feil på både trening og validering. Høy bias.</dd></div>
   <div class="g"><dt>Undersampling<a href="03-evaluering.html">kap. 3</a></dt><dd>Trekk like mange fra majoritetsklassen som minoriteten har. Risiko: for lite data, underfitting.</dd></div>
   <div class="g"><dt>Universell funksjonsapproksimator <span class="en">universal function approximator</span><a href="15-xai-etikk.html">kap. 15</a></dt><dd>Med nok nevroner kan et nevralt nett tilnærme enhver kontinuerlig funksjon så nøyaktig vi vil.</dd></div>
@@ -709,6 +729,11 @@ model.save(<span class="s">"modell.keras"</span>);  model = keras.models.load_mo
   <tr><td>Gini / entropi</td><td><b>Gini</b>: $1-\sum p^2$, maks 0.5 (binær), raskere.</td><td><b>Entropi</b>: $-\sum p\log_2 p$, maks 1 (binær), har logaritme. Gir som regel samme splitter.</td></tr>
   <tr><td>Policy / Q-verdi</td><td><b>Policy</b> $\pi(s)$: hvilken handling agenten tar i hver tilstand.</td><td><b>Q-verdi</b> $Q(s,a)$: forventet (diskontert) retur for å ta handling $a$ i $s$.</td></tr>
   <tr><td>LIME / SHAP</td><td><b>LIME</b>: lokal surrogatmodell rundt ett punkt.</td><td><b>SHAP</b>: Shapley-verdier, rettferdig fordeling av prediksjonen; kan aggregeres globalt.</td></tr>
+  <tr><td>Ikke-skade / velgjørenhet</td><td><b>Non-maleficence</b>: ikke påføre skade, heller ikke utilsiktet.</td><td><b>Beneficence</b>: aktivt gjøre godt. Å unnlate å skade er ikke å gjøre godt.</td></tr>
+  <tr><td>Fairness / justice</td><td><b>Fairness</b>: matematisk krav om lik behandling av grupper (lik feilrate).</td><td><b>Justice</b>: i tillegg rette opp urett, fordele fordelene, ikke skape ny urett.</td></tr>
+  <tr><td>Intelligibility / accountability</td><td><b>Intelligibility</b>: hvordan virker det?</td><td><b>Accountability</b>: hvem er ansvarlig? Kan oppfylles uavhengig av hverandre.</td></tr>
+  <tr><td>Høy risiko / systemisk risiko</td><td><b>Høyrisikosystem</b>: avgjøres av <i>bruksområdet</i> (Anneks 1 og 3). Tillatt, men regulert.</td><td><b>Systemisk risiko</b>: GPAI-<i>modell</i> trent med $&gt; 10^{25}$ FLOP. Egne krav (artikkel 55).</td></tr>
+  <tr><td>Trer i kraft / gjelder</td><td><b>Trer i kraft</b>: blir gyldig lov (AI Act: 1. aug. 2024).</td><td><b>Gjelder</b>: pliktene må etterleves (i trinn fra feb. 2025 til aug. 2028).</td></tr>
 </table>
 
 <!-- ===================================================================== -->
@@ -939,7 +964,7 @@ model.save(<span class="s">"modell.keras"</span>);  model = keras.models.load_mo
   <ul>
     <li>Kan du regne ut precision, recall, FPR, Gini, entropi, informasjonsgevinst, et GD-steg, antall parametre, iterasjoner per epoke, kovarians, egenverdier for 2×2, KL, en Q-oppdatering og en Shapley-verdi med enkel kalkulator?</li>
     <li>Kan du forklare <em>hvorfor</em>: sigmoid, log i tapet, minus i GD, validering ved siden av test, bootstrap i random forest, aktiveringsfunksjoner, k-means++, ortogonale PC-er, t-fordeling i t-SNE?</li>
-    <li>Kjenner du fellene: fit på test, bias/bias, precision/recall, accuracy ved ubalanse, AUC ≠ accuracy, t-SNE på nye data?</li>
+    <li>Kjenner du fellene: fit på test, bias/bias, precision/recall, accuracy ved ubalanse, AUC ≠ accuracy, t-SNE på nye data, høy risiko ≠ forbudt, systemisk risiko ≠ høy risiko, og at norske selskaper som tilbyr i EU må følge AI Act?</li>
     <li>Husk poengregelen i 2025: feil svar trekker. Svar når du kan utelukke alternativer.</li>
   </ul>
 </div>

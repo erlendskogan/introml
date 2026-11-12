@@ -79,7 +79,7 @@
     <li><strong>Les ett kapittel om gangen</strong>, og ta kapitteltesten med en gang. Testen dekker alt i kapittelet, ikke bare det som står i kortversjonen.</li>
     <li><strong>Mål: minst 90 % på hver test.</strong> Bommer du, les forklaringen under spørsmålet og følg lenken til det fullstendige kapittelet.</li>
     <li><strong>Svarene lagres</strong> i nettleseren. Oversikten under viser hvor langt du er kommet. «Prøv igjen» på et spørsmål nullstiller bare det spørsmålet.</li>
-    <li>Kompendiet følger forelesningsnotatene versjon 10.11.2026. Etikk og AI Act står ikke i notatene, men kom på eksamen 2024 og er tatt med i kapittel 15.</li>
+    <li>Kompendiet følger forelesningsnotatene versjon 11.11.2026. AI Act (notatene kapittel 6) og etiske prinsipper (kapittel 7) er tatt med i kapittel 15. Notatenes eksempelspørsmål (kapittel 8) ligger som interaktiv prøve i <a href="kapitler/16-eksamen.html#notatene">kapittel 16.7</a>.</li>
   </ul>
 </div>
 
@@ -2808,7 +2808,7 @@ model.predict(x_test)                             <span class="c"># shape (antal
 <!-- ===================================================================== -->
 <section class="komp" id="k15" data-num="15" data-title="Forklarbar KI og etikk" data-part="Del V · Forklarbar KI og etikk">
 <h2 id="kap15"><span class="num">15</span>Forklarbar KI og etikk</h2>
-<p class="komp-meta">Fullt kapittel: <a href="kapitler/15-xai-etikk.html">kapittel 15</a> · Notatene kapittel 5 (likning 116–125) · Etikk og AI Act: forventet pensum</p>
+<p class="komp-meta">Fullt kapittel: <a href="kapitler/15-xai-etikk.html">kapittel 15</a> · Notatene kapittel 5 (likning 116–125), kapittel 6 (AI Act) og kapittel 7 (etiske prinsipper)</p>
 <p class="kort">En modell som treffer godt, men som ingen forstår, er vanskelig å stole på, feilsøke og regulere. Forklarbar KI (XAI) gir metoder for å forstå modeller: SHAP dytter på input, LIME bygger en enkel kopi lokalt, og konseptdeteksjon ser inn i nettverket. Til slutt kommer etiske prinsipper, skjevhet i data og AI Act.</p>
 
 <h3>Dette må du kunne</h3>
@@ -2831,8 +2831,14 @@ model.predict(x_test)                             <span class="c"># shape (antal
   <dt>Bilder og tekst</dt><dd>Superpiksler (grupper av piksler) behandles som én spiller: færre spillere og mer forståelig. For tekst er ordene spillerne.</dd>
   <dt>Data processing inequality</dt><dd>For lagene $X \to Z_1 \to Z_2$ er $I(X;Z_2) \le I(X;Z_1)$. Et lag kan aldri vite mer om input enn lagene før.</dd>
   <dt>Konsept, CAV og TCAV</dt><dd>Konsept: implisitt begrep («stripete»), ikke en feature. CAV: normalvektoren til en lineær probe som skiller konseptaktiveringer fra tilfeldige. TCAV: andelen inputs der konseptet drar prediksjonen opp.</dd>
-  <dt>Etiske prinsipper</dt><dd>Velgjørenhet (gjør godt), ikke-skade, autonomi (mennesket har kontroll, ingen manipulasjon), rettferdighet og forklarbarhet.</dd>
-  <dt>Skjevhet og AI Act</dt><dd>Skjevhet: historisk, representasjon, proxy og tilbakekobling. Å fjerne «kjønn» er ikke nok. AI Act er risikobasert: uakseptabel (forbudt), høy (regulert), begrenset (åpenhet), minimal (ingen krav).</dd>
+  <dt>Fem etiske prinsipper</dt><dd>Floridi og Cowls (2019) kokte 47 prinsipper fra seks rammeverk ned til fem. Fire er fra bioetikken: <b>beneficence</b> (gjør godt), <b>non-maleficence</b> (ikke skad, heller ikke utilsiktet), <b>autonomy</b> og <b>justice</b>. Det femte, <b>explicability</b>, er nytt for KI.</dd>
+  <dt>Nyansene</dt><dd>Ikke-skade ≠ velgjørenhet. Autonomi = <b>meta-autonomi</b>: vi bestemmer hva som overlates til maskinen, og kan trekke det tilbake. Justice er mer enn <b>fairness</b> (matematisk lik behandling): også rette opp urett og fordele fordelene. Explicability = <b>intelligibility</b> (hvordan virker det?) + <b>accountability</b> (hvem er ansvarlig?), og er en forutsetning for de andre.</dd>
+  <dt>Skjevhet</dt><dd>Historisk, representasjon, proxy og tilbakekobling. Å fjerne «kjønn» er ikke nok.</dd>
+  <dt>AI Act rettslig</dt><dd>Forordning (EU) 2024/1689, gjelder direkte i EU. I kraft 1. aug. 2024, men pliktene gjelder i trinn. I Norge må den inn i EØS-avtalen og gjennomføres som <b>KI-loven</b> (forslag våren 2027). Norske selskaper som tilbyr i EU, må følge den allerede (artikkel 2).</dd>
+  <dt>Risikokategoriene</dt><dd>Uakseptabel (forbudt, art. 5), høy (regulert, art. 6–15), begrenset (transparens, art. 50), minimal (ingen krav), pluss <b>GPAI</b> som egen kategori. Kategoriene er risikonivåer etter bruk, ikke sektorer eller teknologi. Rent militær bruk er unntatt.</dd>
+  <dt>Høy risiko</dt><dd>Via Anneks 1 (produkter som medisinsk utstyr) eller Anneks 3 (ansettelse, kreditt, utdanning, politi …). Krav: risikostyring, datakvalitet, dokumentasjon, logging, transparens, <b>menneskelig tilsyn</b> (art. 14, automation bias), nøyaktighet og robusthet. Unntak i art. 6(3) for snevre oppgaver, aldri ved profilering.</dd>
+  <dt>GPAI og systemisk risiko</dt><dd>Alle GPAI-modeller: dokumentasjon, opphavsrett, sammendrag av treningsdata (åpen kildekode slipper dokumentasjonen). Systemisk risiko ved $&gt; 10^{25}$ FLOP: adversarial testing, risikoreduksjon, hendelsesrapportering.</dd>
+  <dt>Digital Omnibus og bøter</dt><dd>Endringene i 2026 utsatte høyrisikokravene (Anneks 3: 2. des. 2027, Anneks 1: 2. aug. 2028) og la til forbud mot nudify-apper og overgrepsmateriale (2. des. 2026). Bøter inntil 35 mill. euro / 7 % (forbud) eller 15 mill. / 3 %.</dd>
 </dl>
 
 <figure class="ill">
@@ -2939,7 +2945,34 @@ model.predict(x_test)                             <span class="c"># shape (antal
     <text x="320" y="218" class="lbl">spamfilter, KI i spill</text>
   </g>
 </svg>
-<figcaption><b>Figur 15.4</b> AI Act deler inn etter <i>risiko ved bruken</i>, ikke etter teknologi eller sektor. Høy risiko er tillatt, men med krav om blant annet datakvalitet, dokumentasjon og menneskelig tilsyn. Bare toppen er forbudt.</figcaption>
+<figcaption><b>Figur 15.4</b> AI Act deler inn etter <i>risiko ved bruken</i>, ikke etter teknologi eller sektor. Høy risiko er tillatt, men med krav om blant annet datakvalitet, dokumentasjon og menneskelig tilsyn. Bare toppen er forbudt. GPAI-modeller reguleres for seg, ved siden av pyramiden.</figcaption>
+</figure>
+
+<figure class="ill">
+<svg viewBox="0 0 640 250" role="img" aria-label="Tidslinje for når reglene i AI Act gjelder etter endringene i 2026">
+  <line x1="30" y1="125" x2="615" y2="125" class="ax"/>
+  <g style="fill:var(--accent)">
+    <circle cx="40" cy="125" r="6"/><circle cx="125" cy="125" r="6"/><circle cx="210" cy="125" r="6"/><circle cx="330" cy="125" r="6"/>
+    <circle cx="390" cy="125" r="6"/><circle cx="470" cy="125" r="6"/><circle cx="540" cy="125" r="6"/><circle cx="605" cy="125" r="6"/>
+  </g>
+  <line x1="372" y1="40" x2="372" y2="210" style="stroke:var(--bad);stroke-width:2;stroke-dasharray:5 4"/>
+  <text x="372" y="230" text-anchor="middle" class="lbl-b" style="fill:var(--bad)">eksamen 25.11.2026</text>
+  <g class="lbl-b" text-anchor="middle">
+    <text x="40" y="100">aug 24</text><text x="125" y="150">feb 25</text><text x="210" y="100">aug 25</text><text x="330" y="150">aug 26</text>
+    <text x="390" y="100">des 26</text><text x="470" y="150">aug 27</text><text x="540" y="100">des 27</text><text x="605" y="150">aug 28</text>
+  </g>
+  <g class="lbl" text-anchor="middle">
+    <text x="40" y="80">i kraft</text>
+    <text x="125" y="170">forbud</text>
+    <text x="210" y="80">GPAI</text>
+    <text x="330" y="170">transparens,</text><text x="330" y="186">GPAI-bøter</text>
+    <text x="390" y="62">nye forbud</text><text x="390" y="80">(nudify)</text>
+    <text x="470" y="170">sandkasser</text>
+    <text x="540" y="62">høy risiko</text><text x="540" y="80">Anneks 3</text>
+    <text x="605" y="170">Anneks 1</text>
+  </g>
+</svg>
+<figcaption><b>Figur 15.5</b> Når pliktene i AI Act gjelder etter Digital Omnibus (2026). Forordningen trådte i kraft 1. august 2024, men pliktene kommer i trinn. På eksamensdagen gjelder forbudene, GPAI-reglene og transparenskravene, men ikke høyrisikokravene.</figcaption>
 </figure>
 
 <div class="callout warn"><span class="label">Typiske feller</span><ul>
@@ -2950,12 +2983,16 @@ model.predict(x_test)                             <span class="c"># shape (antal
   <li>Å si at data processing inequality betyr at informasjonen <i>avtar</i>. Den kan ikke <i>øke</i>, men kan være like stor.</li>
   <li>Å forveksle autonomi med at KI-systemet skal være selvstendig. Det handler om at mennesket beholder kontrollen.</li>
   <li>Å tro at høyrisikosystemer er forbudt i AI Act. De er tillatt, men regulert.</li>
+  <li>Å blande <i>systemisk risiko</i> (GPAI-modeller over $10^{25}$ FLOP) med <i>høy risiko</i> (bruksområdet).</li>
+  <li>Å tro at AI Act ikke angår norske selskaper. Den er ikke norsk lov ennå, men gjelder alle som tilbyr KI i EU.</li>
+  <li>Å tro at åpen kildekode fritar GPAI-modeller fra alt. Opphavsrettskravene og sammendraget av treningsdata gjelder fortsatt.</li>
+  <li>Å si at «ikke skade» er det samme som «gjøre godt», eller at justice bare er fairness.</li>
 </ul></div>
 
 <div class="ktest">
   <h3>Kapitteltest 15</h3>
-  <p class="intro">Dekker begrepene i XAI, LIME, Shapley og SHAP med regning, konseptdeteksjon og TCAV, og etikk, skjevhet og AI Act.</p>
-  <div class="ktest-res"><span>Resultat</span><b>0 / 20</b><span class="bar"><i></i></span><span class="msg"></span></div>
+  <p class="intro">Dekker begrepene i XAI, LIME, Shapley og SHAP med regning, konseptdeteksjon og TCAV, etiske prinsipper og skjevhet, og AI Act (notatene kapittel 6).</p>
+  <div class="ktest-res"><span>Resultat</span><b>0 / 27</b><span class="bar"><i></i></span><span class="msg"></span></div>
 
   <div class="quiz" data-id="komp-15-transparent">
     <p class="q">Hvorfor er et nevralt nettverk ikke tolkbart selv om det er transparent?</p>
@@ -3151,6 +3188,77 @@ model.predict(x_test)                             <span class="c"># shape (antal
       <li>Det er et autonomiproblem, fordi søkerne ikke selv kan velge hvilken modell som brukes.</li>
     </ul>
     <div class="explain">Historisk skjevhet i dataene kan læres via proxyer som hobbyer, ordvalg eller skole (som Amazon-verktøyet som straffet «women's»). Rekruttering er <i>høy risiko</i> i AI Act, altså tillatt, men regulert. Kjernen er urettferdig behandling av grupper, ikke tap av kontroll.</div>
+  </div>
+
+  <div class="quiz" data-id="komp-15-bioetikk">
+    <p class="q">Hvilket av de fem etiske prinsippene hos Floridi og Cowls er <i>ikke</i> hentet fra bioetikken?</p>
+    <ul>
+      <li>Autonomy, fordi KI-systemer selv kan være autonome.</li>
+      <li>Justice, fordi rettferdighet i KI handler om fairness-metrikker.</li>
+      <li data-correct>Explicability, fordi KI-systemer kan være umulige for mennesker å forstå, noe medisinsk etikk ikke har måttet håndtere.</li>
+      <li>Non-maleficence, fordi KI-systemer kan skade uten onde hensikter.</li>
+    </ul>
+    <div class="explain">Beneficence, non-maleficence, autonomy og justice er etablert i bioetikken siden Beauchamp og Childress (1979). Explicability er lagt til for KI og har to komponenter: intelligibility og accountability.</div>
+  </div>
+
+  <div class="quiz" data-id="komp-15-justice">
+    <p class="q">En modell har like høy feilrate for kvinner og menn. Hvilket utsagn er mest presist etter notatene?</p>
+    <ul>
+      <li>Modellen oppfyller dermed prinsippet justice fullt ut.</li>
+      <li data-correct>Modellen oppfyller et fairness-krav, men justice krever mer, for eksempel at fordelene fordeles og at tidligere urett rettes opp.</li>
+      <li>Modellen bryter med explicability, fordi feilrater ikke er forklaringer.</li>
+      <li>Like feilrater er et krav i non-maleficence, ikke i justice.</li>
+    </ul>
+    <div class="explain">Lik feilrate er notatenes eksempel på fairness, et matematisk definert krav. Justice rommer ikke-diskriminering, men også å rette opp tidligere urett, spre fordelene og ikke skape ny urett eller undergrave solidariteten.</div>
+  </div>
+
+  <div class="quiz" data-id="komp-15-ikraft">
+    <p class="q">AI Act trådte i kraft 1. august 2024. Hvilke regler gjelder på eksamensdagen 25. november 2026?</p>
+    <ul>
+      <li>Ingen, fordi alle pliktene ble utsatt av Digital Omnibus.</li>
+      <li>Alle reglene, siden forordningen har vært i kraft i over to år.</li>
+      <li data-correct>Forbudene, GPAI-reglene og transparenskravene, men ikke høyrisikokravene.</li>
+      <li>Bare høyrisikokravene, fordi de er de viktigste.</li>
+    </ul>
+    <div class="explain">Forbud fra 2. feb. 2025, GPAI fra 2. aug. 2025, transparens (artikkel 50) fra 2. aug. 2026. Høyrisikokravene ble utsatt til 2. des. 2027 (Anneks 3) og 2. aug. 2028 (Anneks 1). De nye forbudene mot nudify-apper og overgrepsmateriale kommer 2. des. 2026, en uke etter eksamen.</div>
+  </div>
+
+  <div class="quiz" data-id="komp-15-militaer">
+    <p class="q">Et selskap utvikler et bildeanalysesystem som bare brukes av forsvaret, og selger det senere til et skogbruksselskap. Hva sier AI Act?</p>
+    <ul>
+      <li>Systemet er utenfor AI Act for alltid, fordi det ble utviklet for militære formål.</li>
+      <li>Den militære bruken er omfattet, fordi selskapet er privat.</li>
+      <li data-correct>Den militære bruken er utenfor, men systemet blir omfattet når det tas i bruk til sivile formål.</li>
+      <li>Ingen av bruksområdene er omfattet, fordi skogkartlegging ikke er høy risiko.</li>
+    </ul>
+    <div class="explain">Unntaket gjelder systemer som <i>utelukkende</i> brukes militært, uansett om de utvikles av offentlige eller private aktører. Sivil bruk gjør at systemet omfattes. At et system ikke er høy risiko, betyr bare at det ikke får særskilte krav, ikke at det er utenfor forordningen. Dette er et av eksempelspørsmålene i notatene.</div>
+  </div>
+
+  <div class="quiz" data-id="komp-15-gpai">
+    <p class="q">Et norsk selskap slipper en GPAI-modell med åpen kildekode i EU. Modellen har ikke systemisk risiko. Hvilken plikt har selskapet fortsatt?</p>
+    <ul>
+      <li>Ingen, fordi AI Act ikke er norsk lov ennå.</li>
+      <li>Ingen, fordi åpen kildekode er unntatt fra alle krav.</li>
+      <li>Adversarial testing og rapportering av alvorlige hendelser til AI-kontoret.</li>
+      <li data-correct>Å ha retningslinjer for opphavsrett og publisere et sammendrag av treningsinnholdet.</li>
+    </ul>
+    <div class="explain">Forordningen gjelder alle som tilbyr i EU. Åpen kildekode fritar fra dokumentasjonskravene, men ikke fra opphavsrettskravene (artikkel 53). Adversarial testing og hendelsesrapportering gjelder bare modeller med systemisk risiko (artikkel 55).</div>
+  </div>
+
+  <div class="calc" data-id="komp-15-flop" data-answer="25" data-tol="0">
+    <p class="q">En GPAI-modell antas å ha systemisk risiko hvis den samlede beregningsmengden i treningen overstiger $10^{x}$ flyttallsoperasjoner. Hva er $x$?</p>
+    <div class="solution">Grensen i artikkel 51 er $10^{25}$ FLOP. Kommisjonen kan i tillegg utpeke modeller etter kriteriene i Anneks 13 (antall parametre, datasettstørrelse, evne til oppgaver den ikke er trent til, antall brukere). Husk at systemisk risiko er en kategori for <i>modeller</i>, ikke det samme som et høyrisikosystem.</div>
+  </div>
+
+  <div class="quiz" data-id="komp-15-art14">
+    <p class="q">Hva krever artikkel 14 (human oversight) for høyrisikosystemer?</p>
+    <ul>
+      <li>At et menneske manuelt godkjenner hver eneste prediksjon før den brukes.</li>
+      <li data-correct>At et menneske effektivt kan overvåke systemet: forstå begrensningene, være bevisst automation bias, tolke og overstyre output, og stanse systemet.</li>
+      <li>At systemet logger alle hendelser automatisk gjennom hele levetiden.</li>
+      <li>At treningsdataene er representative og så feilfrie som mulig.</li>
+    </ul>
+    <div class="explain">Logging er artikkel 12, og datakrav er artikkel 10. Artikkel 14 handler om at mennesket skal kunne gripe inn, men krever ikke godkjenning av hver prediksjon. Notatene kobler artikkel 14 til prinsippet om autonomi, sammen med retten til forklaring i artikkel 86.</div>
   </div>
 </div>
 </section>

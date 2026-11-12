@@ -142,7 +142,7 @@
 <header class="chapter-head">
   <div class="kicker">Kapittel 16 · Del VI · Eksamen</div>
   <h1>Eksamenstrening</h1>
-  <p class="lead">Begge de tidligere eksamenene som interaktive prøver med forklaring på hvert eneste alternativ, en helt ny prøveeksamen for 2026, og en strategi for poengreglene som faktisk lønner seg.</p>
+  <p class="lead">Begge de tidligere eksamenene som interaktive prøver med forklaring på hvert eneste alternativ, en helt ny prøveeksamen for 2026, eksempelspørsmålene fra forelesningsnotatene, og en strategi for poengreglene som faktisk lønner seg.</p>
 </header>
 
 <div class="goals">
@@ -151,12 +151,13 @@
     <li>forklare poengreglene (+2.5 / −0.83 / 0 og nullgrense per gruppe) og bruke dem til å bestemme når du skal gjette,</li>
     <li>løse alle oppgavene fra eksamen 2024 og 2025 og forklare hvorfor de fristende feilsvarene er feil,</li>
     <li>gjennomføre en full prøveeksamen på tid og få et karakterestimat,</li>
+    <li>svare på eksempelspørsmålene faglærer har lagt i forelesningsnotatene (kapittel 8),</li>
     <li>kjenne igjen de klassiske fellene som går igjen år etter år.</li>
   </ul>
 </div>
 
 <div class="callout hook"><span class="label">Slik bruker du kapittelet</span>
-<p><b>Uke 1–2 før eksamen:</b> kjør 2024 og 2025 i <i>øvingsmodus</i>. Les forklaringen også når du svarer riktig. Hver forklaring lenker til kapittelet der temaet står. <b>Siste uka:</b> ta prøveeksamen 2026 i <i>eksamensmodus</i> med 4 timers nedtelling, som om det var ekte. <b>Siste kveld:</b> sjekklisten nederst og flashcards i <a href="17-formelark.html">formelarket</a>.</p></div>
+<p><b>Uke 1–2 før eksamen:</b> kjør 2024 og 2025 i <i>øvingsmodus</i>. Les forklaringen også når du svarer riktig. Hver forklaring lenker til kapittelet der temaet står. <b>Siste uka:</b> ta eksempelspørsmålene fra notatene (16.7) og prøveeksamen 2026 i <i>eksamensmodus</i> med 4 timers nedtelling, som om det var ekte. <b>Siste kveld:</b> sjekklisten nederst og flashcards i <a href="17-formelark.html">formelarket</a>.</p></div>
 
 <!-- ======================================================= -->
 <h2 id="format"><span class="sec">16.1</span>Eksamensformatet</h2>
@@ -256,7 +257,7 @@ $$E = \tfrac14\cdot 2.5 \;-\; \tfrac34\cdot 0.83 \;=\; 0.625 - 0.6225 \;\approx\
 <ul>
 <li><b>Evaluering og ubalanse</b> (kap. 3) var det største temaet i 2024, med confusion matrix, ROC, precision/recall og resampling. Regn med regneoppgaver her.</li>
 <li><b>Forsterkningslæring</b> (kap. 14) gikk fra 3 delspørsmål i 2024 til 9 i 2025: to hele grupper om Q-learning og DQN (replay buffer, target network) pluss et kodespørsmål.</li>
-<li><b>XAI og etikk</b> (kap. 15) var stort i 2024 (SHAP, LIME, Shapley-regning, AI Act), men fraværende i 2025. Det kommer trolig tilbake i 2026: Forklarbar KI har fått et eget kapittel i forelesningsnotatene (versjon 10.11.2026) med Shapley-verdier og taxieksempelet, SHAP, LIME og konseptdeteksjon (CAV og TCAV). Regn Shapley-verdier for tre spillere til det sitter, og øv på TCAV-skåren i <a href="18-regneoppgaver.html#r-tcav">kapittel 18</a>.</li>
+<li><b>XAI og etikk</b> (kap. 15) var stort i 2024 (SHAP, LIME, Shapley-regning, AI Act), men fraværende i 2025. Det kommer trolig tilbake i 2026: Forklarbar KI har fått et eget kapittel i forelesningsnotatene med Shapley-verdier og taxieksempelet, SHAP, LIME og konseptdeteksjon (CAV og TCAV), og fra versjon 11.11.2026 har notatene i tillegg egne kapitler om <b>AI Act</b> og <b>etiske prinsipper</b>. To av notatenes elleve eksempelspørsmål (<a href="#notatene">16.7</a>) handler om AI Act. Regn Shapley-verdier for tre spillere til det sitter, øv på TCAV-skåren i <a href="18-regneoppgaver.html#r-tcav">kapittel 18</a>, og les <a href="15-xai-etikk.html#aiact">15.10</a> grundig.</li>
 <li><b>Preprosessering</b> (skalering fit på trening, transform på test) har kommet <i>hvert år</i>, i flere varianter. Det er gratispoeng.</li>
 <li>2025 hadde én gruppe med <b>kodeforståelse</b> (sklearn, numpy, Python). Kjenn igjen <code>fit</code>, <code>transform</code>, <code>predict</code>, <code>train_test_split</code> og shapes.</li>
 </ul></div>
@@ -1305,7 +1306,7 @@ y_pred = 1 / (1 + np.exp(-z))</code></pre>
 <!-- ======================================================= -->
 <h2 id="proveeksamen-2026"><span class="sec">16.6</span>Prøveeksamen 2026</h2>
 <p>En helt ny eksamen i 2025-formatet: ti grupper à fire spørsmål, én gruppe per hovedtema i pensum. Omtrent en tredjedel er regneoppgaver som kan løses med enkel kalkulator (Gini, entropi, precision/recall, oppdateringer per epoke, parametertelling, bootstrap, k-means, kovarians, Q-oppdatering, Shapley). Fem er kodeforståelse. Ta den i eksamensmodus med nedtelling, og les forklaringene etterpå.</p>
-<div class="callout exam"><span class="label">Om spørsmålene</span><p>Spørsmålene er laget fra forelesningsnotatene 2026, prosjektene og mønsteret i tidligere eksamener. Forsterkningslæring og SHAP står nå i notatene (kapittel 4 og 5, se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>). AI Act er tatt med fordi det var på eksamen i 2024, selv om det ikke står i notatene ennå.</p></div>
+<div class="callout exam"><span class="label">Om spørsmålene</span><p>Spørsmålene er laget fra forelesningsnotatene 2026, prosjektene og mønsteret i tidligere eksamener. Forsterkningslæring og SHAP står nå i notatene (kapittel 4 og 5, se <a href="14-forsterkning.html">kapittel 14</a> og <a href="15-xai-etikk.html">15</a>). AI Act og etiske prinsipper står i notatene fra versjon 11.11.2026 (kapittel 6 og 7, se <a href="15-xai-etikk.html#aiact">15.10</a>), og notatenes egne eksempelspørsmål finner du i <a href="#notatene">16.7</a>.</p></div>
 <div class="exam-app" data-exam="2026"></div>
 
 <template id="exam-2026" data-rules="2025" data-title="Prøveeksamen 2026">
@@ -1777,7 +1778,168 @@ outliers  = distances &gt; threshold</code></pre>
 </ul></div></details>
 
 <!-- ======================================================= -->
-<h2 id="feller"><span class="sec">16.7</span>Klassiske feller</h2>
+<h2 id="notatene"><span class="sec">16.7</span>Eksempelspørsmål fra notatene (kapittel 8)</h2>
+<p>Fra versjon 11.11.2026 avslutter forelesningsnotatene med elleve <b>eksempler på eksamensspørsmål</b> (s. 95–96), skrevet av faglærer. De gir det beste bildet av hvordan årets spørsmål kan se ut, og to av dem handler om AI Act, som er nytt i notatene. Spørsmålene er gjengitt ordrett. Notatene oppgir ingen fasit, så fasiten og forklaringene under er laget ut fra notatene.</p>
+<div class="callout exam"><span class="label">Hva du kan lære av eksemplene</span>
+<ul>
+<li>Flere spørsmål tester <b>tolkning</b> fremfor regning: hva diagonalen i ROC betyr, hva en høy KL-divergens betyr, hva en global forklaring er.</li>
+<li>Distraktorene er ofte <b>nesten riktige</b>: «lav ROC AUC betyr lav presisjon», «Markov betyr at bare nåværende belønning teller».</li>
+<li>AI Act-spørsmålene er <b>scenarioer</b> der du må bruke reglene: unntaket for militær bruk og hvilke plikter en åpen GPAI-modell har. Les <a href="15-xai-etikk.html#aiact">15.10</a> før du tar dem.</li>
+<li>Det siste spørsmålet har «Hvilke(t) utsagn er riktig(e)?», altså <b>flere riktige</b> mulig.</li>
+</ul></div>
+<div class="exam-app" data-exam="notater"></div>
+
+<template id="exam-notater" data-rules="2024" data-title="Eksempelspørsmål fra notatene">
+
+<section data-title="Eksempel 1 · ROC-diagonalen">
+<div class="x" data-ch="03">
+<div class="q"><p>Hva representerer diagonalen $(0,0)-(1,1)$ på en ROC-kurve?</p></div>
+<ol>
+<li data-c>En klassifiseringsmodell med samme treffsikkerhet som tilfeldig gjetning.</li>
+<li>En klassifiseringsmodell som i gjennomsnitt predikerer 0.5 for alle dataene brukt til å lage ROC-kurven.</li>
+<li>En klassifiseringsterskel på 0.5.</li>
+<li>Ytelsen til en middels god klassifiseringsmodell, som vi bør ligge over for å ha laget en modell som yter godt.</li>
+</ol>
+<div class="ex"><p>På diagonalen er TPR = FPR for alle terskler: modellen flagger positive og negative i samme takt, akkurat som en mynt (notatenes oppgave «hvordan ser ROC-kurven ut for en modell som kaster mynt?»). AUC er da 0.5. En terskel er ett <i>punkt</i> på kurven, ikke en linje. Gjennomsnittsprediksjonen sier ingenting om rangeringen. Diagonalen er ikke «middels god», den er null skill, så alt over den er bedre enn tilfeldig.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 2 · ROC AUC">
+<div class="x" data-ch="03">
+<div class="q"><p>Hvilket av følgende er <b>ikke</b> en korrekt tolkning av ROC AUC?</p></div>
+<ol>
+<li>En høy ROC AUC indikerer god evne til å skille mellom klasser over ulike terskler.</li>
+<li>ROC AUC gir en sannsynlighet for at modellen vil rangere et positivt eksempel høyere enn et negativt eksempel.</li>
+<li data-c>En lav ROC AUC betyr at modellen har lav presisjon.</li>
+<li>En ROC AUC på 0.5 betyr at modellen gjetter tilfeldig mellom klassene.</li>
+</ol>
+<div class="ex"><p>ROC-kurven bygger på TPR og FPR, ikke på presisjon. Presisjon avhenger av fordelingen mellom klassene og av terskelen, og hører til precision-recall-kurven. En modell kan ha lav AUC og likevel høy presisjon ved én bestemt terskel, eller omvendt. De tre andre utsagnene er korrekte tolkninger. Legg merke til at spørsmålet spør etter det som <i>ikke</i> stemmer.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 3 · Prediksjon">
+<div class="x" data-ch="01">
+<div class="q"><p>Hvilken del av maskinlæringsprosessen er prediksjon?</p></div>
+<ol>
+<li>Iterativ beregning av riktig parameterverdi ved hjelp av en optimaliseringsprosess og den deriverte av tapsfunksjonen.</li>
+<li data-c>Estimat av funksjonsverdi basert på data.</li>
+<li>Evaluering av utvalgte metrikker på usette testdata.</li>
+<li>Sammenlikning av metrikker på usette testdata, med verdiene tidligere beregnet på treningsdataene.</li>
+</ol>
+<div class="ex"><p>Prediksjon er å bruke den trente modellen til å beregne $\hat y = f(x)$ for et datapunkt. Det første alternativet beskriver <b>trening</b> (gradient descent). Det tredje er <b>evaluering</b>, og det fjerde er å sjekke for <b>overtilpasning</b>. Prediksjon er et steg i evalueringen, men ikke det samme.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 4 · Egenvektorer">
+<div class="x" data-ch="12">
+<div class="q"><p>Egenverdiene til følgende matrise
+$$\begin{pmatrix} 5 &amp; 2 \\ 2 &amp; 2 \end{pmatrix}$$
+er $\lambda = 6$ og $\lambda = 1$. Hva er egenvektorene?</p></div>
+<ol>
+<li>$\frac{1}{\sqrt5}(2, 1)$ og $\frac{1}{\sqrt5}(1, 2)$</li>
+<li data-c>$\frac{1}{\sqrt5}(2, 1)$ og $\frac{1}{\sqrt5}(1, -2)$</li>
+<li>$\frac{1}{\sqrt5}(1, 2)$ og $\frac{1}{\sqrt5}(1, -1)$</li>
+<li>$(\frac45, 1)$ og $(1, 0)$</li>
+</ol>
+<div class="ex"><p>For $\lambda = 6$: $(5-6)x + 2y = 0$ gir $y = x/2$, altså retningen $(2, 1)$. For $\lambda = 1$: $(5-1)x + 2y = 0$ gir $y = -2x$, altså $(1, -2)$. Normert med $\sqrt{2^2+1^2} = \sqrt5$.</p>
+<p><b>Rask sjekk uten regning:</b> en symmetrisk matrise (som en kovariansmatrise) har <b>ortogonale</b> egenvektorer. $(2,1)\cdot(1,-2) = 0$, mens $(2,1)\cdot(1,2) = 4$ og $(1,2)\cdot(1,-1) = -1$. Bare alternativ B er ortogonalt. Du kan også gange ut: $\begin{pmatrix}5&amp;2\\2&amp;2\end{pmatrix}\begin{pmatrix}2\\1\end{pmatrix} = \begin{pmatrix}12\\6\end{pmatrix} = 6\begin{pmatrix}2\\1\end{pmatrix}$. Se <a href="18-regneoppgaver.html">kapittel 18</a> for flere PCA-regneoppgaver.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 5 · Liten batch size">
+<div class="x" data-ch="10">
+<div class="q"><p>Hva er typiske konsekvenser av å bruke for liten batch size under trening?</p></div>
+<ol>
+<li data-c>Det blir mer støy i gradientene</li>
+<li>Hver treningsepoke tar mindre tid</li>
+<li>Det blir mindre støy i gradientene</li>
+<li>Modellen overtilpasser</li>
+</ol>
+<div class="ex"><p>Gradienten estimeres fra færre datapunkter, så hvert estimat varierer mer. Med $N$ datapunkter og batch size $B$ blir det $N/B$ oppdateringer per epoke, så en liten $B$ gir <i>flere</i> oppdateringer og mindre parallellisering, og hver epoke tar typisk <i>lengre</i> tid. Støyen virker heller litt regulariserende, så overtilpasning er ikke en typisk følge.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 6 · KL-divergens i t-SNE">
+<div class="x" data-ch="12">
+<div class="q"><p>Hva betyr det hvis KL-divergensen i t-SNE er veldig høy etter mange iterasjoner?</p></div>
+<ol>
+<li>Det betyr at dataene har høy varians og at t-SNE ikke klarer å finne en god lavdimensjonal projisering.</li>
+<li data-c>Det betyr at den lavdimensjonale representasjonen av dataene ikke bevarer sannsynligheten for naboskap sammenliknet med den høydimensjonale representasjonen.</li>
+<li>En høy verdi betyr at t-SNE har funnet den optimale embeddingen fra den høydimensjonale til den lavdimensjonale representasjonen av dataene.</li>
+<li>Det betyr at vi har valgt for lav perplexity-parameter i algoritmen.</li>
+</ol>
+<div class="ex"><p>t-SNE minimerer KL-divergensen mellom naboskapssannsynlighetene $p_{ij}$ i høy dimensjon og $q_{ij}$ i lav dimensjon. Høy KL = fordelingene er ulike = naboskapet er ikke bevart. Optimal embedding ville gitt <i>lav</i> KL. Varians er et PCA-begrep, og t-SNE gjør ingen projisering. Perplexity kan være en mulig årsak, men det er ikke det verdien <i>betyr</i>.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 7 · Anomali">
+<div class="x" data-ch="13">
+<div class="q"><p>Hvilken av disse egenskapene må være oppfylt for at et datapunkt skal være en anomali i datasettet?</p></div>
+<ol>
+<li data-c>Datapunktet er langt unna alle klyngesentre.</li>
+<li>Datapunktet kan plukkes ut ved hjelp av k-means clustering og persentiler.</li>
+<li>Datapunktet markeres som en outlier av DBSCAN.</li>
+</ol>
+<div class="ex"><p>Notatene definerer anomalier som datapunkter som ikke likner majoriteten. Det er en egenskap ved <i>punktet</i>: det ligger langt fra der dataene samler seg, altså langt fra alle klyngesentre (og dermed også fra det nærmeste). De to andre alternativene beskriver <i>metoder</i>, og ingen av dem er et krav: med en lav nok persentil kan k-means plukke ut hvilket som helst punkt, og om DBSCAN merker et punkt som støy, avhenger av $\varepsilon$ og <code>min_samples</code>. Et punkt kan være en anomali uten at en bestemt metode finner det. Merk at spørsmålet bare har tre alternativer.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 8 · Markov-egenskapen">
+<div class="x" data-ch="14">
+<div class="q"><p>Hvordan påvirker Markov-egenskapen verdifunksjonen $V(s)$ i konteksten reinforcement learning?</p></div>
+<ol>
+<li>Verdifunksjonen $V(s)$ avhenger bare av belønningen i den nåværende tilstanden.</li>
+<li>Verdifunksjonen $V(s)$ avhenger av hele sekvensen av tidligere tilstander.</li>
+<li data-c>Verdifunksjonen $V(s)$ avhenger av fremtidige belønninger basert på den nåværende tilstanden og handlingene som følger.</li>
+<li>Verdifunksjonen $V(s)$ er konstant for alle tilstander hvis Markov-egenskapen gjelder.</li>
+</ol>
+<div class="ex"><p>Markov-egenskapen sier at fremtiden bare avhenger av nåværende tilstand, ikke av historien. Derfor kan $V(s)$ skrives som forventet (diskontert) sum av fremtidige belønninger fra $s$ og fremover, gitt handlingene som følger. Det andre alternativet er det motsatte av Markov. Det første glemmer fremtidige belønninger (det ville vært $\gamma = 0$). Det siste har ingen støtte.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 9 · Global XAI">
+<div class="x" data-ch="15">
+<div class="q"><p>Hva gir en global XAI-metode?</p></div>
+<ol>
+<li>En forklaring av hvorfor modellen gjorde en spesifikk prediksjon</li>
+<li data-c>En overordnet forklaring på hvordan modellen tar beslutninger på tvers av datasett</li>
+<li>En forklaring på hvordan en hvilken som helst modell fungerer, uavhengig av modelltype</li>
+<li>En forklaring på modellens oppførsel samt et mål på hvor treffsikker forklaringen er.</li>
+</ol>
+<div class="ex"><p>Global = hele modellen, på tvers av mange datapunkter (for eksempel et beeswarm-plott). Det første alternativet er en <b>lokal</b> forklaring (force plot, LIME). Det tredje beskriver <b>modellagnostisk</b>, som er en annen akse. Det fjerde blander inn treffsikkerhet, som ikke er det som skiller global fra lokal.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 10 · AI Act og militær bruk">
+<div class="x" data-ch="15">
+<div class="q"><p>Et privat selskap i Frankrike har utviklet et AI-system for bildeanalyse som brukes utelukkende av det franske forsvaret. Senere selger selskapet den samme løsningen til et skogbruksselskap i Belgia, som bruker den til å kartlegge skogskader. Hvilket utsagn er riktig?</p></div>
+<ol>
+<li data-c>Den militære bruken faller utenfor AI Act, men systemet blir omfattet når det selges til sivil bruk.</li>
+<li>Systemet faller utenfor AI Act også ved salget til Belgia, fordi det opprinnelig ble utviklet til militære formål</li>
+<li>Den militære bruken er omfattet av AI Act, fordi systemet er utviklet av et privat selskap</li>
+<li>Ingen av bruksområdene er omfattet av AI Act, fordi kartlegging av skogskader ikke er et høyrisikoområde</li>
+</ol>
+<div class="ex"><p>AI Act gjelder ikke systemer som <i>utelukkende</i> brukes til militære formål, forsvar eller nasjonal sikkerhet, <b>uansett om de utvikles av offentlige eller private aktører</b>. Men et slikt system blir omfattet dersom det tas i bruk til sivile formål. Det siste alternativet blander sammen «omfattet» og «høy risiko»: et sivilt system med minimal risiko er fortsatt omfattet av forordningen, det får bare ingen særskilte krav. Se <a href="15-xai-etikk.html#ai-kategorier">15.10</a>.</p></div>
+</div>
+</section>
+
+<section data-title="Eksempel 11 · Åpen GPAI-modell fra Norge">
+<div class="x" data-ch="15" data-multi>
+<div class="q"><p>Et norsk selskap slipper en ny GPAI-modell med åpen kildekode og markedsfører den overfor virksomheter i EU. Modellen har ikke systemisk risiko. Hvilke(t) utsagn er riktig(e)? <i>Velg ett eller flere.</i></p></div>
+<ol>
+<li data-c>Selskapet kan bli bøtelagt av Kommisjonen dersom det ikke oppfyller kravene til GPAI-modeller</li>
+<li data-c>Selskapet må publisere et sammendrag av innholdet som er brukt til å trene modellen</li>
+<li>Selskapet har ingen plikter etter AI Act, fordi forordningen ennå ikke gjelder i Norge</li>
+<li>Modellen er unntatt fra alle krav, fordi den er sluppet med åpen kildekode</li>
+</ol>
+<div class="ex"><p>Forordningen gjelder alle som plasserer GPAI-modeller på EU-markedet, uansett hvor de er etablert (artikkel 2), så at den ikke er norsk rett ennå, hjelper ikke. Åpen kildekode gir unntak fra <b>dokumentasjonskravene</b>, men <b>ikke fra opphavsrettskravene</b>: retningslinjer for opphavsrett og et offentlig sammendrag av treningsinnholdet (artikkel 53). Siden 2. august 2026 kan Kommisjonen (via AI-kontoret, som har tilsyn med GPAI-modeller) ilegge bøter. Se <a href="15-xai-etikk.html#ai-gpai">15.10</a>.</p></div>
+</div>
+</section>
+
+</template>
+
+<!-- ======================================================= -->
+<h2 id="feller"><span class="sec">16.8</span>Klassiske feller</h2>
 <p>Disse fellene går igjen i begge eksamenene, i prosjektene og i de fleste studentbesvarelser. Spørsmålene her teller med i kapittelets poengsum.</p>
 
 <div class="quiz" data-id="16-felle-precision-recall">
@@ -1882,7 +2044,7 @@ outliers  = distances &gt; threshold</code></pre>
 </div>
 
 <!-- ======================================================= -->
-<h2 id="sjekkliste"><span class="sec">16.8</span>Siste-kvelden-sjekkliste</h2>
+<h2 id="sjekkliste"><span class="sec">16.9</span>Siste-kvelden-sjekkliste</h2>
 <p>Huk av etter hvert. Avkrysningene lagres i nettleseren. Alle formlene står i <a href="17-formelark.html">formelarket</a>.</p>
 <ul class="checklist" id="checklist">
 <li><label><input type="checkbox" data-k="sigmoid"><span>Sigmoid $\sigma(z) = \frac{1}{1+e^{-z}}$, $\sigma' = \sigma(1-\sigma)$, og gradienten $(\hat y - y)x_j$ for logistisk regresjon.</span></label></li>
@@ -1903,7 +2065,9 @@ outliers  = distances &gt; threshold</code></pre>
 <li><label><input type="checkbox" data-k="pca"><span>Kovarians med $N-1$, egenverdier som varians og forklart varians $\lambda_1/\sum\lambda$. PCA kan gjenbrukes, t-SNE ikke.</span></label></li>
 <li><label><input type="checkbox" data-k="anom"><span>Anomali: k-means-avstand og persentil, DBSCAN label −1, Isolation Forest (kort sti betyr anomali).</span></label></li>
 <li><label><input type="checkbox" data-k="rl"><span>Q-oppdateringen med tall, rollene til $\alpha$, $\gamma$ og $\varepsilon$, Markov, policy, replay buffer og target network.</span></label></li>
-<li><label><input type="checkbox" data-k="xai"><span>LIME er lokal (surrogatmodell). For SHAP: summen er prediksjon minus base value, bakgrunnsdatasett og uavhengighetsantakelsen, Tree- vs. KernelExplainer, les force plot og beeswarm. Shapley-formelen med vektene 1/3, 1/6, 1/6, 1/3 for $N = 3$ (taxi: 1, 3, 6). Tolkbarhet vs. forklarbarhet. AI Act-nivåene.</span></label></li>
+<li><label><input type="checkbox" data-k="xai"><span>LIME er lokal (surrogatmodell). For SHAP: summen er prediksjon minus base value, bakgrunnsdatasett og uavhengighetsantakelsen, Tree- vs. KernelExplainer, les force plot og beeswarm. Shapley-formelen med vektene 1/3, 1/6, 1/6, 1/3 for $N = 3$ (taxi: 1, 3, 6). Tolkbarhet vs. forklarbarhet.</span></label></li>
+<li><label><input type="checkbox" data-k="etikk"><span>Etikk: de fem prinsippene (fire fra bioetikken + explicability), ikke-skade ≠ velgjørenhet, meta-autonomi, justice ≠ fairness, intelligibility og accountability.</span></label></li>
+<li><label><input type="checkbox" data-k="aiact"><span>AI Act: fire risikonivåer + GPAI, høy risiko er regulert (ikke forbudt), militær bruk er unntatt, norske selskaper som tilbyr i EU må følge den, åpen kildekode-GPAI slipper dokumentasjon men ikke opphavsrett, systemisk risiko ved $10^{25}$ FLOP, og datoene etter Digital Omnibus (Anneks 3 fra 2.12.2027).</span></label></li>
 <li><label><input type="checkbox" data-k="prakt"><span>Praktisk: godkjent kalkulator, legitimasjon, mat og drikke. Sov. Les hvert spørsmål to ganger. Ikke klikk før du har bestemt deg.</span></label></li>
 </ul>
 
@@ -1986,7 +2150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return { id, rules, title: t.dataset.title, groups, qs: groups.flatMap(g => g.qs) };
   }
   const EXAMS = {};
-  ["2024", "2025", "2026"].forEach(id => { const e = parseExam(id); if (e) EXAMS[id] = e; });
+  ["2024", "2025", "2026", "notater"].forEach(id => { const e = parseExam(id); if (e) EXAMS[id] = e; });
 
   /* ---------------- poeng og karakter ---------------- */
   function isCorrect(q, picks) {
@@ -2125,7 +2289,7 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ---- visninger ---- */
     function viewStart() {
       stopTimer();
-      const fmtTxt = is25 ? `${ex.groups.length} grupper à 4 spørsmål. Poeng etter 2025-reglene: +2.5 riktig, −0.83 feil, 0 blankt, nullgrense per gruppe.` : `${ex.groups.length} oppgaver, ${nQ} delspørsmål. 1 poeng per helt riktig delspørsmål, ingen minuspoeng. Karaktergrenser 2024: A ≥ 92 %, B ≥ 82 %.`;
+      const fmtTxt = is25 ? `${ex.groups.length} grupper à 4 spørsmål. Poeng etter 2025-reglene: +2.5 riktig, −0.83 feil, 0 blankt, nullgrense per gruppe.` : `${ex.groups.length} oppgaver, ${nQ} delspørsmål. 1 poeng per helt riktig delspørsmål, ingen minuspoeng.${ex.id === "2024" ? " Karaktergrenser 2024: A ≥ 92 %, B ≥ 82 %." : ""}`;
       host.innerHTML = `
         <p class="xa-info"><b>${ex.title}:</b> ${fmtTxt} Fremdriften lagres i nettleseren din.</p>
         <div class="xa-start">
