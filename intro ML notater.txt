@@ -253,310 +253,266 @@ dimensjonsforbannelsen er bare at det blir ekstremt høye tall når antall kolon
 
 
 
-vi tar bare med antall mulige klasser i beregningen, og sannsynligheten for dem.
+vi skal nå gå fra å predikere klasser til å predikere tall
+fremt il nå har target y vært en kategori og ikke et tall. det  er et resultat esom er konkret og ikke flytende
+dette blir riktig når man skal predikere ting som levetiden til et batteri, eller hvor gammel en person blir. her er et tallestimat bedre enn en klasse
 
-gini er altså høy urenhet og regnes som 1 - summen av pi².
 
+enkleste regresjonsmodellen er en lineær modell
+det er egentlig bare en diger lineærkombinasjon summert som gir et svar
+et konstantledd B0 og resten er features ganget med et parameter Bi
 
-hva er maksimal gini gitt en fast k og en sannsynlighet for hver klasse pi. hvis hver pi er like stor når vi maksimal gini. uttrykket for denne blir da altså:
-1-k*(1/k)²
+vi kaller b ene parametre, så hvis man har n features x, så har man n + 1 parametre. 
+formen er helt lik i logistisk regresjon
+forskjellen er at man bruker ikke sigmoid-funksjonen, fordi da blir det en sannsynlighet, men vi ønsker et tall
+i tilleg bruker vi annen tapsminimering enn når vi har en logistisk regresjonsmodell.
+vi bruker MSE
 
+tapsfunksjonen MSE
+Mean Squared Error
+L = MSE = 1/2N * sum(yi - f(xi))²
 
-1- (0.2)² - (0.3)² - (0.5)² = 0.62
+summen går over alle datapunkter og regner ut avstanden fra prediksjon til faktisk resultat, kvadrerer avstanden, og tar gjennomsnittet.
 
+MSE er liten når prediksjonene ligger nærme fasiten, og stor når prediksjonene ligger langt unna.
 
-vi kan vurdere hvor god en splitt er ved å også vurdere splitten selv- altså urenheten i hver av barnenodene. dette gjør vi med vekting fordi barnenodene heller ikke nødvendigvis splitter 50/50, så det må gjøres opp for ved å vekten den som får flest av barna i noden sin. 
+grunnen til at vi har 1/2 utenfor summen er bare fordi det er praktisk- litt samme som log i log loss. det er lettere å bruke, og det endrer ikke hvilke verdier som oppnår minimum, de er base skalert proposjonalt ned. 
+det er for å gjøre gradienten penere, siden ² kommer ned og kansellerer 1/2
 
-vi skriver det opp som Ginif(D), altså en splitt på feature f i node D.
+det kan komme feller på eksamen som switcher det her opp, så pass opp!
 
-Ginif(D)= n1/n * Gini(D1) + n2/n * Gini(D2)
+i sklearn er den ikke med f.eks.
 
-når man skal vurdere hvilken splitt som er best i et beslutningstre er det ginif man bruker for å regen dette ut.
+grunnen til at vi kvadrerer avstanden:
+den blir alltid positiv
+modellen påvirkes mye av store avstander
+glatt parabel som er deriverbar overalt
 
 
+igjen er MSE følsom for uteliggere- noe som gjør at den kan bli for skjev i noen tilfeller. dette vil si at det kan være bedre å bruke absoluttverdien i noen tilfeller, så man slipper dette, men da bevares ikke alle fordelene igjen da:/
 
-vi regner først ut hva gini til node 1 er.
-1-summen av pi²:
+hvis man antar at all data kommer fra samme f(x), men det legges til en error e som støy i hver oppføring, der vi antar at e er normalfordelt med en forventning 0. kvadratet i MSE er kvadratet i eksponenten til normalfordelingen. 
 
-1 - (0.75)² - (0.25)² = 0.375
 
-1 - (0)² - (1²) = 0
+det er viktig å huske at mse ikke er en lesbar enhet i seg selv, den er bare et mål. om vi tar roten av den er vi tilbake til enhetene vi måler igjen. det kalles root mean squared error, eller RMSE.
 
-(8/12)*0.375 = 0.250
 
+for å finne gradientene vi trenger til gradient descent, så må vi partiellderivere. 
 
-vi er alltid ute etter splitten som gir lavest gini-urenhet etter splitten (vektet).
+gradient descent går igjen med steglengde lik læringsraten.
 
+gradienten for en vekt er alltid prediksjon-fasit ganget med det vekten ganges med. samme form brukes i logistisk regresjon og i nevrale nettverk.
 
 
+positiv gradient betyr at tapet øker når det du deriverer på øker.
 
-som vi skrev tidligere er entropi et mål på hvor blandet en fordeling er på en annen måte. her er entropi et mål på hvor mange ja/nei spørsmål man trenger i snitt for å kunne vite klassen den har havnet i.
 
 
-entropi for en fordeling med k klasser:
--summen av pi log2 pi
 
+f(x)=wx+b
+L = 0.5(4-(4 + 0))²
 
--0.25*log2(0.25) - 0.75*log2(0.75) = 0.811
 
+hvis vi skal regne på gradient descent ønsker vi å justere på parametrene til modellen vår litt i den retningen som gjør at tapet minker
 
-vi kan også regne entropi for splitten, på lik linje som vi gjorde med vektet gini. i motsetning til vektet gini er vi nå ute etter høyest entropi. 
+---------------------------------------------------
 
+f(x) = wx + b
+L = ½(y − f(x))²
+w = 2
+b = 1
+x = 3
+y = 4
+læringsrate = 0.05
 
--(9/14)*log2(9/14) - (5/14)*log2(5/14) = 0.940
+2*3 + 1 = 7, mens y=4
+L = 0.5(-3)² = 4.5
 
+vi regner ut partiellderiverte av L med hensyn på w og b:
+w:
+(y - (wx + b)) -> (y - b - wx)' = -x * (y - f)
+b:
+-1*(y - f)
 
--(4/9)log2(4/9) - (5/9)*log2(5/9) = 0.991
+w:
+-3*(4-7)*0.05 = 9*0.05 = 0.45
+b:
+3*0.05 = 0.15
 
--(1)*log2(1) - 0*log2(0) = 0
+ny w:
+2.45
+ny b:
+1.15
 
-(9/14)*0.991 = 0.637
+L = 0.5(4 - (2.45 * 3 + 1.15))² = 10.125
 
 
-vi har nå tre metoder som vi kan bruke for å velge beste splitt i treet vårt- logloss, entropi og gini. hvilken velger vi da?
+--------------------------------------------
 
+f = b + wx
+b = 1
+w = 2
+L = 0.5(y - f)²
+x = 3
+y = 4
+-------
+L derivert med hensyn på w:
+0.5(y - wx - b)² => x*(f-y) = 3(7-4) = 9
 
-nå kan vi bygge treet:
-splitt basert på det som gir best gini
-og stopp når alle noder er rene
+3*0.1 = 0.3
 
-vi må også stoppe hvis: 
-ingen festures igjen å splitte på
-ingen data igjen å teste
-treet har nådd maksimal dybde. dette er et hyperparameter som velges før treningen
 
 
+når vi skal representere en parabel, men bare har en lineær modell å jobbe med har vi en workaround som kalles feature engineering. den lar oss lage nye ledd i modellen vår ved å kombinere en eller flere features vi allerede har for å lage en ny feature. dette kalles feature engineering. det lar oss gjøre tilpassninger så vi f.eks. kan predikere verdier som arter seg i en parabel på en bedre måte
 
-etter trening vil noen løvnoder ha punkter fra begge klasser. de vanligste valgene er enten å:
-returnere den dominante klassen
-eller
-et tilfeldig trukket label fra den løvnoden
 
+vi kan kalle en funksjon som bruker x² lineær likevel, fordi lineær ikke har noe med grafen å gjøre, men heller formelen for uttrykket. vi skal ha ett konstantledd, og 0 eller flere ledd med en vekt B ganget med en x. denne xen kan være et uttrykk for noe annet igjen, og det er denne workarounden som er feature enigneering.
 
-grådigheten er fin beregningsmessig, men kan skyte oss selv i foten noen ganger fordi i f.eks. et xor mønste rfinner man den perfekte løsningen ved å ikke tenke grådig
 
+Den evige kampen for å generalisere bra- helt fuckings umulig (nesten):
+hvordan kan vi måle om modellen vår generaliserer bra? vi vet hvordan vi kan justere parametre for å nå minst mulig tap på treningsdataen, vi vet hvordan vi kan gjøre feature engineering for å foirbedre modellen vår, vi vet hvordan vi kan bygge et beslutningstre som bestemmer feature-splitting på en god måte, men vi aner ikke om dette vil resultere i en modell som fungerer bra på data vi ikke har sett. vi vet bare at den er god på data vi allerede kan svaret (klassen/verdien) på.
 
 
+vi har to fallgruver når det kommer til å generalisere modellen vår for data. 
+undertilpasssning:
+modellen er for enkelt til å kunne fange opp sammenhengen i dataen. typ en rett linje skal predikere data som kommer i en parabel.
 
+overtilpassning:
+modellen er så kompleks at den ligger ekstremt tett på treningsdataen, støyen inkludert, så den vil være svært dårlig på å generalisere videre.
 
 
+hvordan skal vi vitre om vi går i en av disse fallgruvene mens vi jobber? vi vet jo ikke dataen vi skal testes på, så hvordan kan vi vite om vi fucker opp?
 
+siden vi har treningsdata til å justere modellparametrene vi har satt, og testdataen gjemmes helt til slutten, så trenger vi en siste gruppe for å justere hyperparametre (og early stopping?).
 
 
+early stopping:
+når vi skal interere med modellen vår på dataen vår så er antall iterasjone betegnet som epoker. vi setter ofte epoker på forhånd, uten å vite helt hvor mange vi trenger. dette er egentlig ikke nødvendig, fordi vi kan bare sette en grense på hvor lite tape vårt skal endre seg per iterasjon for å komme frem til når vi har iterert nok. 
 
+da setter vi opp et stoppkriterium som gjør at vi stopper itereringen når vi har nådd dette kriteriet (intuitivt ikke sant?).
 
 
+treningstap:
+loss regnet ut på treningsdataen med MSE eller logloss
 
+valideringstap:
+samme tapsfunksjon regnet ut på valideringsdataen
 
 
 
+kryssvalidering:
+siden vi kan møte på problemet at ulike splitter mellom validering og treningsdata fører til vidt forskjellige modeller, ønsker vi en måte og kunne sørge for at modellen konvergerer mot noe felles, kanskje en generalisering av gjettene våre? det krever jo at hver enkeltmodell trenes på mindre data, men vi kan se om de fleste modellene konvergerer mot noe. 
 
 
+LOOCV - Leave One Out Cross Validation:
 
+hvis man har n datapunkter: ta ut ett punkt- tren på de andre n-1, og test på det ene. Gjenta dette for alle n punktene. Vi får n resultater hvert basert på ett punkt, ogh gjennomsnittet er LOOCV-estimatet. Siden samtlige punkter er blitt brukt til både trening og testing, er dette det beste modellestimatet vi kan få utifra dataen, men modellen må oigså trenes n ganger, som er dyrt. 
 
 
-nå skal vi over til nevrale nettverk:
-hittil har vi bare hatt lineære transformasjoner av data, men ofte ønsker vi ikke-lineære transformasjon i tillegg. dette gjør nevrale nettverk
+k-fold:
+Del dataene i k like store deler. I hver av de k rundene er en fold testdata, og resten treningsdata. dette vil fungere helt likt som loocv, bare at vi bruker fold og ikke enkelte datapunkter. vi har at LOOCV er ekvivalent med k-folds når en fold == et datapunkt.
 
-nevrale nettverk lærer selv hvilke transformasjoner som er best.
 
-perseptronet var en maaskin som skulle lære mens den kjørte. tanken var at den hadde en fotocelle og potensiometre koblet til den, også skulle den lære ting av denne inouten.
+så hvorfor driver vi med CV (kryssvalidering)?
+vi får et mer pålitelig estimat på hvor god modellen vår er på å generalisere. modellen vår er resultat av et gjennomsnittlig modellvalg basert på mange iterasjoner over dataen vår, ikke bare ett forsøk. dette gjør at vi kan være mye sikrere på at vi tar rett enn hvis vi gunna bare ett forsøk.
 
-en node i dette nettverket kalles en beregningsenhet eller en TLU i tidligste modellene. 
-det er en enhet som beregner et eller annet med en funksjon. 
 
-tanken var at diverse input kunne aktivere en node eller ikke, med en aktiveringsfunksjon. her ble det gjort klassifisering som vi har hatt om tidligere, for å bestemme om noden skulle aktiveres eller ikke.
+vi vet jo at både for enkle modeller, men også for vanskelige modeller begge gir dårlig testresultat. bias-varians-dekomposisjonen forklarer oss hvorfor dette skjer. 
 
-for at perseptronet skla kunne utføre god klassifisering, trengte vi at den lærte, her igjennom veiledet læring
 
-Heaviside funksjonen er den aktiveringsfunksjonen det er snakk om. den klassifiserer input, og regner ut om noden skal aktiveres eller ikke.
+bias brukes om hvor langt unna vår modell er fra den helt korrekte modellen bare universet kjenner
 
-problemet med heaviside-funksjonen, fordi den er ulik sigmoid-funksjonen her, er at den ikke kan deriveres, siden den ikke er glatt. 
 
+enkle modeller er gode mot støy (varians) men dårlige på å treffe det riktige bildet (bias), mens altfor kompliserte modeller vil ha mye riktigere bias, men høyere varians, fordi den påvirkes mye mer av støy (varians), men treffer bedre på det riktige bilde (bias).
 
-rosenblatt kom med en løsning:
-vi bare dropper derivering, og bruker en annen formel istedenfor.
 
-man bruker samme prinsippet, men bra en annen utregning. 
 
-perseptronet lærer kun av sine feil, og justerer aldri modellen hvis den tar rett. 
 
 
-z= 2 - 0.2 -0.5 = 1.3
-siden z>0, så er ŷ = 1. feilen er y - ŷ = 0 - 1 = -1
-w2 er da 0.2 + 0.2*(-1)(-1) = 0.4
 
 
 
 
 
-z = 1.2
-siden z > 0, så er ŷ = 1
-feilen er y - ŷ = 1 - 1 = 0
-siden vi har riktig prediksjon, endres ingenting
+ensemble-modeller
+alle modeller har mange fallgrubver de kan havne i, og gjør mange feil. ensemble-modeller går ut påå at man kan kombinere ulike modeller sammen til en ensemble-modell, som forhåpentligvis ikke gjør disse feilene.
+spesielt viktig er det av hver modell gjør ulike feil. da kan snittet irone ut disse feilene
 
+alle modeller har svakheter og antakelser. å kombinere modeller gjør at disse kjente begrensningene kanskje kan fjernes litt i gejnnomsnittet av de
+tanken er at den er lite sannsynlig at alle sammen tar samme feil. 
 
-måten formelen fungerer gjør at den kun flytter seg når den har feilklassifisert et punkt, og flytter seg kun for å klassifisere dette punktet riktig.
 
-siden vi ikke kan representere xor lineært med ett lag, komme motivasjonen for to lag med noder inn. da kan vi representere xor, ved å kombinere to logiske porter
+når vi slår sammen modellene kan vi gjøre det på hovedsaklig 3 måter. 
 
-poenget er at siden vi har noen funksjoner/punkter som ikke kan representeres riktig av ett lag, vil flere lag være ønskerlig- selv om kompleksiteten øker. 
+bagging og random forest tar bare snittet av alle modellene
 
+adaboost og gradient boosting gjør dette sekvensielt. hver modell trenes opp etter forrige var ferdig, og skal prøvbe å rette opp feilene ensemblet har gjort så langt
 
-vi sier at vi tranformerer rommet, og setter den lineære grensen der istedet.
+siste metoder er å bruke en meta-modell som igjen lærer selv hvordan det er best å slå sammen prediksjonene til de ulike modellene.
+dette kalles ofte stacking. 
 
 
-siden perseptronet gjør store utslag for feil, og derfor gjør læring hoppete, ønsker vi at nodene skal returnere kontinuerlige verdier, som igjen kan gjøre tapsfunksjonen glatt, og derfor deriverbar. 
+et paralellt ensemble kan være en sammenslåing av mange typer mengder modeller. man kan f.eks. ha samme hyperparametre, eller samme ish modelltyper, eller ikke i det hele tatt.
 
-vi bytter derfor ut heaviside-funksjonen. her kan vi istedet bruker ReLU eller sigmoid-funksjonen i nodene istedet.
 
-vi har tre kjente aktiveringsfunksjoner:
-sigmoid: får output av en node til å legge seg i intervallet (0, 1)
-softmax: gjør at summen over en mengde sannsynligheter summerer seg til 1
-ReLU: transformerer alle verdier under 0 til 0, og alle verdier over forblir sin opprinnelige verdi. det er også en aktiveringsfunksjon. 
+inferens er å predikere med modellen vår. 
 
 
-hvis vi ikke har en aktiveringsfunksjon som er ikke-lineær så ender vi bare opp med lineær regresjon uansett. 
-derfor er det nødvendig med en aktiveringsfunksjon som er ikke-lineær, som lar oss bøye rommet slik vi ønsker. 
+Hva er bootstrapping?
+hvir man trekke n punkter fra et datasett, med tilbakelegging. altyså etter man har tatt et datapunkt for å trene så kan samme datapunkt trekkes på nytt.
+man gjør like mange trekninger fra datasettet som det er datapunkter, men noen trekkes flere ganger, mens andre trekkes aldri.
 
+dette gjør vi for å få flere datasett å jobbe med.
 
-hvordan kan vi trene nevrale nettverk??
+vi har ikke samlet mer data, men representerer datasettet på flere måter med det vi allerede har
 
-når et nevralt nett gjør en prediksjon så skjer en forward pass. man sendet inputene gjennom nettet og ut gjennom outputsene til modellen. 
+sjansen er 0.632 for at et punkt trekkes i den nye fordelingen
 
+bagging = b(ootstrapping) + agging (aggregering)
 
-backpropagation handler om å regne ut gradienten for alle noder, også de skjulte
+1. lag M bootstrap utvalg av datasettet
+2. tren en modell på hvert utvalg
+3. la alle modellene predikere i paralell, og aggreger prediksjonene
 
-vi har lyst til å planlegge hvilken læringsrate vi skal bruke:
-det som kan skje er at høy læringsrate finner fort ish det globale minimum, men beveger seg for mye til slutt pga støy, og man finner aldri pent minimum i tap. 
-med cosine annealing så kan man endre læringsraten underveis, og vi kan vi justere ned denne raten basert på hvilke ntidsepoke vi er i.
+man kan aggregere disse på flere måter også:
+1. regresjon (snittet av modellene)
+2. klassifisering (flertallet vinner)
+3. vektet avstemning (vektet klassifisering)
 
 
-vanishing gradients er problemet som oppstår når vi bruker f.eks. sigmoid som aktiveringsfunksjon i flere noder på rad. om vi bruke sigmoid bli tallet ekstremt lite. derfor er det vanlig å bruke ReLU der man ha mange noder etter hverandre. 
 
+random forest er et bagging ensemble på beslutningstrær
 
 
 
+hver tre trenes på sitt eget bootstrap utvalg av dataen.
+for hver node skal treet også velge mellom et tilfeldig delsett av features. 
+til slutt aggregeres prediksjonene fra alle trærne (agging)
 
-CLUSTERING WÆÆÆÆÆÆÆ!
-vi skal lese om clustering. dette bruke med uveiledet læring. 
-altså vi vet ikke hva fasit (y) er, men vi vil finne correlasjoner likevel.
+random forest tvinger altså frem ulike trær for å få bredde i modellen
 
 
 
 
+boosting er neste ensemble-metode
+adaboost og vanlig boosting gjør dette:
+de tar mange weak learners i sekvens, og itererer over dem for å få en sterkere modell. 
 
+boosting kommer bare av at de tidligere modellene booster ytelsen til den nåværende.
 
+AdaBoost er adaptive boosting
+den bygger et ensemble av modeller som retter opp hverandres feil gjennom vekting av datapunktene.
+den itererer over data, og øker vekten til de gjettene modellene tok feil på. på denne måten kan modellen prioritere feilene den gjør for å påvirke modellen, og bruke de den tok rett på til å bare forbli sånn den er.
 
 
+gradient boosting:
+denne er også en sekvensiell ensemble-metode, men denne vekter ikke observasjonene. 
+istedet trenes hver ny modell til å predikere forskjellen mellom target og prediksjonen. dette kalles pseudo-residualer, siden det er feilen til modellen foreløpig. 
 
+her trener man opp et tre for å predikere residualene til modellen, så neste gang man kjører så tipper treet feilmarginen.
 
-det virker som dette kappitelet handler om uveiledet læring og hvordan det fungerer. de går igjennom flere metoder for hvordan man utfører noe som heter clustering.
-clustering virker som en metode å samle like datapunkter på, og her er metodene flere. enhver metode har oppsider og nedsider, og varierer i hvordan de putter data i samme clusters (båser). 
+F(X) = F(X) + nh(X), der n er læringsraten
 
-
-
-
-
-
-
-
-vi skal se på metoden clustering, som handler om å kunne gruppere datapunkter sammen i grupper. vi har flere nmetoder for dette, men i dette kappitelet ser vi på k-means og DBSCAN.
- k-means setter ut k punkter (sentroider) og regner ut nærmeste avstand fra hvert punkt til en sentroide. etter dette flytter vi sentroiden til det punktet som minimerer intertia (snittavstanden til alle punkter tilhørende den sentroiden). sånn itererer vi igjennom til alle punkter tilhører en sentroide. det er flere problemer med dette. først antar vi ingen støy. alle punkter vil komme til å ende opp i tilknytning en sentroide, og uteliggere kan forskyve sentroide mye i en retning selv o det kan være støy likevel. 
-dette kan gjøre grupperingene unøyaktige. i tillegg antar k-means at avstanden innad i gruppen er mindre enn mellom grupper. med dette så mener vi at sentroidene alltid skal velge en innad i gruppen, og ikke ha mulighet til å lekke over i andre grupper når den itererer. 
-
-DBSCAN bruker en annen metode. her er intuitiviteten at den bruer en konstant e for å måle om et punkt er i denne gruppen eller ikke. tanken er at alle punkter i en cluster skal kunne nå hverandre med hopp mellom punkter på avstand mindre eller lik e, og ingen andre grupper. 
-dette gjør dbscan til en god metode når man kanskje kan ha clusters i forskjellige former- spesielt former som ikke følger en sirkel (ish).
-
-
-
-i dette faget ser vi på tre typer uveiledet læring:
-clustering
-anomalideteksjon
-dimensjonsreduksjon
-
-
-siden tilfeldig initialisering i kmeans er helt ass må vi gjøre noe med dette.
-en metode er å legge neste sentroide oppå punktet som ligger lengst unna den du nettopp satt ut. 
-
-
-det som er best: k-means++
-
-her legger vi en sannsynlighet til grunns. vi basically gjør det stokastisk hvor neste sentroide legges. 
-
-k-means++ legger en sannsynlighet proposjonal med kvadrert avstand fra nærmeste allerede valgte sentroide
-
-
-når vi skal dobbeltsjekke om vi har lagt et datapunkt i riktig klynge kan vi regne ut silhouette for punktet. den regner ut bare snittavstand til alle punkter i egen klynge, mot snittavstand til alle punkter i nærmeste andre klynge. den trekker b fra a. hvis avstanden b er størst er det lengre til den, og vi har valgt riktig klynge, antakelig. er det motsatt bør vi antageligvis bytte. 
-
-
-
-ny score: calinski harabasz (høy er bra)
-den bruker en formel til å regne ut en score basert på avstanden mellom punktene i en klynge, og avstanden mellom klynger. vi ønsker stor avstand mellom klynger, og liten avstand innad i klynger. 
-
-
-når vi bruker f.eks. k-means nå, så kan vi bruke metrikkene vi har nå, til å vurdere hvor bra start vi har fått (initialisering). 
-
-
-
-ny clustering-metode: DBSCAN
-her bruker vi tetthet som mål for å finne clusters.
-vi har hyperparametrene e og min_samples.
-e er maksimum distanse for at en node skal kunne kalle en annen node en nabonode
-min samples er et antall noder som angir et minimum antall nabonoder for at den aktuelle noden skal kune kalles en kjernenode. 
-vi bruker kjernenoder som oppfyller dette kravet, og intuisjonen er at en kjernenode skal være ish midt i klyngen. 
-
-vi har i tillegg outliers. de har ingen nabonoder, og anses derfor som støy. de blir tildelt verdien -1
-
-
-
-start:
-du velger hyperparametrene min_samples og e.
-deretter finner du alle kjernenoder/kjernepunkter.
-alle noder som blir kjernenoder, legger til nodene rundt i sin klynge. er nen av disse også kjernepunter, smaleter de to klyngene til en og samme klynge. dette fortsetter til alle noder enten er støy eller kantpunkter som ikke kan utvide klyngen noe mer. 
-
-hvis du kan nå en node fra en annen node ved å kun traversere kjernenoder og tilslutt i kantpunkter. 
-
-
-
-
-
-
-
-
-PCA: Principal Component Analysis
-handler om å finne de retningene i rommet for gir mest varians. og deretter de som gir mest varians ortogonalt på de allerede funnede retningene.
-
-vi vil bruke PCA til å redusere antall features(dimensjoner) til dataen vår, så vi kan lettere regne på den og visualisere den. 
-pca fjerner også støy. den kutter ut unødvendige features som kanskje forårsaker mer problemer en noe annet. 
-siste fordel med pca(dimensjonsreduksjon) er feature discovery. 
-vi utforsker altså sammensatte features som vil gi oss mer informasjon en hver feature alene, og finner mønstre som bevarer informasjonen til datasettet vårt så mye som mulig. 
-dette gjør det billigere å analysere
-
-
-
-
-når vi bestemmer hvor mange principle components vi ønsker å beholde så velger vi ofte en terskel på 90-95% bevaring av informasjon. 
-man kan også bruke albuen til å se hvor mye reduksjon so er hensiktsmessig å gjøre før vi nmister for mye informasjon. 
-du kan også ta antall features som du trenger hvis du ønsker en visualisering lens annen grunn
-
-
-
-
-
-
-
-
-perpexity:
-hvor mnage naboer bryr hvert punkt seg om?
-
-
-
-
-
-
-
-
-k-means for anomalideteksjon. regn ut k-means modell på testdata. deretter regn ut avstanden fra punktet du vil sjekke til nærmeste sentroide. er denne over en terskel flagges den som et anomali.
+gradient descent er opphavet til metoden, siden den bruker nåde gradienten og itererer over den på samme måte som gradient descent gjør.
 
 

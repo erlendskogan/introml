@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TDT4172 · Kodekurs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="assets/kodekurs.css?v=1794509378">
+<script>
+  try { const t = localStorage.getItem("kk:tema"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script defer src="assets/kurs.js?v=1794509378"></script>
+<script defer src="assets/data.js?v=1794509378"></script>
+<script defer src="assets/app.js?v=1794509378"></script>
+</head>
+<body>
+<header class="topbar">
+  <button id="meny-knapp" class="ikon-knapp" aria-label="Vis meny" aria-expanded="false">☰</button>
+  <a class="logo" href="#"><span class="merke">py</span><span>Kodekurs <small>TDT4172</small></span></a>
+  <span class="fyll"></span>
+  <span class="py-status" id="py-status" data-s="av" title="Python i nettleseren (Pyodide)"><span class="prikk"></span><span class="tekst">Python: ikke startet</span></span>
+  <span class="total-fremdrift" id="total-fremdrift"><span class="bar"><i></i></span><span class="tall">0 %</span></span>
+  <a class="ikon-knapp" href="../index.html" title="Til teorikurset">Teorikurs</a>
+  <button class="ikon-knapp" id="tema-knapp" title="Bytt mellom lyst og mørkt tema" aria-label="Bytt tema">◐</button>
+</header>
+<nav class="sidebar" id="sidebar" aria-label="Leksjoner">
+  <input class="filter" id="filter" type="search" placeholder="Søk i leksjoner …" aria-label="Søk i leksjoner">
+  <div id="sb-deler"></div>
+</nav>
+<main class="hoved" id="hoved">
+  <div class="leksjon"><p class="laster-tekst">Laster kurset …</p></div>
+</main>
+<noscript><p style="padding:80px 20px">Kurset trenger JavaScript.</p></noscript>
+</body>
+</html>
