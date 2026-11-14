@@ -1,19 +1,12 @@
 === DEL 7 | sklearn | scikit-learn: arbeidsflyten
-scikit-learn gir deg ferdige modeller og forbehandlingssteg som alle bruker det samme mønsteret: `fit`, `predict` og `transform`. Her lærer du mønsteret, og hvordan du skalerer, koder, validerer og velger hyperparametre uten å lekke informasjon fra testdataene.
+Ferdige modeller og forbehandlingssteg med `fit`, `predict` og `transform`, og hvordan du skalerer, koder, validerer og velger hyperparametre uten datalekkasje.
 
 --- LEKSJON 7.1 | monsteret | fit, predict og transform
-I del 5 skrev du din egen `LinearRegression`-klasse med metodene `fit` og `predict`. scikit-learn bruker **nøyaktig det samme mønsteret** for alle modellene sine. Lærer du mønsteret én gang, kan du bruke hundrevis av modeller.
+Alle modeller i scikit-learn følger mønsteret fra del 5: `model = LogisticRegression(max_iter=1000)`, `model.fit(X_train, y_train)` og `y_pred = model.predict(X_test)`. `model.score(X, y)` gir accuracy for klassifikatorer og $R^2$ for regresjonsmodeller.
 
-Mønsteret har tre steg:
-
-1. **Lag objektet** og velg hyperparametre: `model = LogisticRegression()`
-2. **Tren** på treningsdata: `model.fit(X_train, y_train)`
-3. **Bruk** det som er lært: `model.predict(X_test)`
-
-## Estimatorer: modeller som predikerer
-Vi bruker vikingdataene fra prosjekt 2 med noen få numeriske features:
-
-```python
+::: oppgave Tren en klassifikator
+Lag `model = LogisticRegression(max_iter=1000)`, tren den på treningsdataene, og lagre prediksjonene på testdataene i `y_pred` og test-accuracy i `acc`.
+```start
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -25,19 +18,64 @@ X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
 y = df["survived"]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-model = LogisticRegression(max_iter=1000)   # 1. lag modellen
-model.fit(X_train, y_train)                 # 2. tren: lærer vekter og bias
-y_pred = model.predict(X_test)              # 3. prediker klasser
-print(y_pred[:10])
-print("Accuracy:", model.score(X_test, y_test))
+model = ...
+y_pred = ...
+acc = ...
 ```
+```losning
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 
-`max_iter=1000` er en **hyperparameter**: noe du bestemmer før treningen. Her gir den optimeringen nok iterasjoner til å konvergere.
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+acc = model.score(X_test, y_test)
+```
+```test
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+assert isinstance(model, LogisticRegression), "model skal være en LogisticRegression."
+assert hasattr(model, "coef_"), "model er ikke trent. Kall model.fit(X_train, y_train)."
+_f = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+assert np.allclose(model.coef_, _f.coef_, atol=1e-3), "Vektene stemmer ikke. Tren med max_iter=1000 på X_train og y_train (ikke testdataene)."
+assert np.shape(y_pred) == (len(X_test),), f"y_pred skal ha én prediksjon per rad i X_test, men har shape {np.shape(y_pred)}."
+assert np.array_equal(np.asarray(y_pred), model.predict(X_test)), "y_pred skal være model.predict(X_test)."
+assert abs(float(acc) - model.score(X_test, y_test)) < 1e-9, "acc skal være model.score(X_test, y_test)."
+```
+:::
 
 ## predict_proba og lærte attributter
-En klassifikator kan også gi sannsynligheter. `predict_proba` gir én kolonne per klasse, og hver rad summerer til 1. Det modellen har lært, ligger i attributter som slutter på understrek:
+`model.predict_proba(X)` gir én kolonne per klasse (rekkefølgen står i `model.classes_`), og det modellen lærte ligger i attributter med understrek, som `coef_` og `intercept_`. `fit` returnerer modellen selv, så `LogisticRegression().fit(X, y)` går på én linje.
 
-```python
+::: oppgave Sannsynligheter og vekter
+Lagre `proba = model.predict_proba(X_test)`, sannsynligheten for klasse 1 i `p_overlever`, vektene i `w` (`coef_[0]`) og biasen i `b` (`intercept_[0]`).
+```start
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+
+proba = ...
+p_overlever = ...
+w = ...
+b = ...
+```
+```losning
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -51,83 +89,71 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 model = LogisticRegression(max_iter=1000).fit(X_train, y_train)
 
 proba = model.predict_proba(X_test)
-print("Klasser:", model.classes_)
-print(proba[:3].round(3))
-print("P(overlever) for de tre første:", proba[:3, 1].round(3))
-print("Vekter w:", model.coef_[0].round(3).tolist())
-print("Bias b:", model.intercept_[0].round(3))
+p_overlever = proba[:, 1]
+w = model.coef_[0]
+b = model.intercept_[0]
 ```
-
-`coef_` og `intercept_` er $w$ og $b$ fra del 5. Du finner dem også i variabelpanelet: klikk på `model`, så står alt den lærte under «Lært under fit» (`classes_`, `coef_`, `intercept_` …). `predict` gir klasse 1 når `proba[:, 1]` er over 0.5. Legg også merke til at `fit` returnerer modellen selv, så du kan skrive `LogisticRegression().fit(X, y)` på én linje.
-
-| Metode | Hva den gjør |
-|---|---|
-| `fit(X, y)` | lærer parametrene fra treningsdata |
-| `predict(X)` | klasse (klassifisering) eller tall (regresjon) for hver rad |
-| `predict_proba(X)` | sannsynlighet for hver klasse (bare klassifikatorer) |
-| `score(X, y)` | accuracy for klassifikatorer, $R^2$ for regresjonsmodeller |
-
-## Det samme for regresjon
-`LinearRegression` fra scikit-learn løser prosjekt 1, problem 1 på tre linjer. Den bruker en eksakt formel i stedet for gradient descent, men mønsteret er det samme:
-
-```python
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-
-data = pd.read_csv("regression.csv")
-X = data[["Net_Activity"]]   # 2D, selv med én feature
-y = data["Energy"]
-reg = LinearRegression().fit(X, y)
-print(f"Energy = {reg.coef_[0]:.3f} * Net_Activity + {reg.intercept_:.3f}")
-print("R^2:", reg.score(X, y))
-```
-
-## Transformere: forbehandling
-En **transformer** endrer dataene i stedet for å predikere. Den har `fit` og `transform`. `StandardScaler` er den vanligste:
-
-```python
+```test
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-
-X_train = np.array([[1.0, 100.0],
-                    [2.0, 200.0],
-                    [3.0, 600.0]])
-print("Før:")
-display(X_train)
-scaler = StandardScaler()
-scaler.fit(X_train)                  # lærer snitt og standardavvik per kolonne
-print("mean_:", scaler.mean_)
-print("scale_:", scaler.scale_)
-print("Etter transform:")
-display(scaler.transform(X_train))   # bruker dem: (x - snitt) / std
-print(scaler.fit_transform(X_train)) # fit + transform i ett steg
+assert np.shape(proba) == (len(X_test), 2), f"proba skal ha shape ({len(X_test)}, 2): én rad per testpunkt og én kolonne per klasse. Du har {np.shape(proba)}."
+assert np.allclose(proba, model.predict_proba(X_test)), "proba skal være model.predict_proba(X_test)."
+assert np.shape(p_overlever) == (len(X_test),) and np.allclose(p_overlever, proba[:, 1]), "p_overlever skal være kolonnen for klasse 1: proba[:, 1]."
+assert np.shape(w) == (5,) and np.allclose(w, model.coef_[0]), "w skal være model.coef_[0] (fem vekter, én per feature)."
+assert np.ndim(b) == 0 and abs(float(b) - model.intercept_[0]) < 1e-12, "b skal være ett tall: model.intercept_[0]."
 ```
-
-Før skaleringen er den andre kolonnen hundre ganger større enn den første. Etterpå er begge kolonnene på samme skala, med snitt 0. `scaler` dukker også opp i variabelpanelet med `mean_` og `scale_` under «Lært under fit».
-
-::: husk fit betyr to forskjellige ting
-- `fit` på en **scaler** (eller annen transformer) **regner ut statistikk** fra dataene, for eksempel snitt og standardavvik. Den trenger ingen `y`.
-- `fit` på en **modell** **trener** den: den finner vekter som gjør at prediksjonene passer med `y`.
-
-I begge tilfeller er det `fit` som lærer noe fra dataene. Derfor skal `fit` bare se treningsdataene.
 :::
 
-Bruker du et objekt før det er tilpasset, får du en tydelig feilmelding:
-
-```python feil
+::: oppgave Regn ut sannsynligheten selv
+Bruk sigmoid-formelen fra del 5 med `w` og `b` til å lage `p_selv` for alle rader i `X_test`, og lag `y_selv` som er 1 der `p_selv > 0.5` og ellers 0.
+```start
+import numpy as np
+import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 
-model = LogisticRegression()
-model.predict([[1, 25, 0, 2, 10.0]])
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+w, b = model.coef_[0], model.intercept_[0]
+
+p_selv = ...
+y_selv = ...
 ```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+w, b = model.coef_[0], model.intercept_[0]
+
+p_selv = 1 / (1 + np.exp(-(X_test.values @ w + b)))
+y_selv = (p_selv > 0.5).astype(int)
+```
+```test
+import numpy as np
+assert np.shape(p_selv) == (len(X_test),), f"p_selv skal ha én verdi per rad i X_test, men har shape {np.shape(p_selv)}."
+assert np.allclose(np.asarray(p_selv, dtype=float), model.predict_proba(X_test)[:, 1]), "p_selv skal være 1 / (1 + np.exp(-(X_test @ w + b))), som er det samme som predict_proba(X_test)[:, 1]."
+assert np.array_equal(np.asarray(y_selv).astype(int), model.predict(X_test)), "y_selv skal være 1 der p_selv > 0.5 og 0 ellers, og blir da lik model.predict(X_test)."
+```
+:::
+
+## Regresjon
+`LinearRegression().fit(X, y)` har det samme mønsteret, men `X` må være 2D også med én feature: `data[["Net_Activity"]]`, ikke `data["Net_Activity"]`.
 
 ::: oppgave Energiformelen med scikit-learn
-Tren en `LinearRegression` på `regression.csv` med `Net_Activity` som eneste feature og `Energy` som target. Lagre:
-
-- `reg`: den trente modellen
-- `a`: stigningstallet (et tall, ikke et array)
-- `b`: konstantleddet
-- `r2`: $R^2$ på de samme dataene (bruk `score`)
+Tren `reg = LinearRegression()` på `regression.csv` med `Net_Activity` som feature og `Energy` som target, og lagre stigningstallet i `a` (et tall), konstantleddet i `b` og $R^2$ på de samme dataene i `r2`.
 ```start
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -152,53 +178,124 @@ b = reg.intercept_
 r2 = reg.score(X, y)
 ```
 ```test
+import numpy as np
 from sklearn.linear_model import LinearRegression
 assert isinstance(reg, LinearRegression), "reg skal være en LinearRegression-modell."
-assert hasattr(reg, "coef_"), "reg er ikke trent ennå. Kall reg.fit(X, y)."
-assert abs(float(a) - 3.00869655) < 1e-4, f"a skal være stigningstallet reg.coef_[0] (ca. 3.009), men er {a}"
+assert hasattr(reg, "coef_"), "reg er ikke trent ennå. Kall reg.fit(X, y) med X = data[['Net_Activity']]."
+assert np.size(a) == 1, "a skal være ett tall: reg.coef_[0]."
+assert abs(float(np.ravel(a)[0]) - 3.00869655) < 1e-4, f"a skal være stigningstallet reg.coef_[0] (ca. 3.009), men er {a}"
 assert abs(float(b) - 4.8917048) < 1e-3, f"b skal være reg.intercept_ (ca. 4.892), men er {b}"
 assert abs(float(r2) - 0.98683800) < 1e-4, f"r2 skal være reg.score(X, y) (ca. 0.987), men er {r2}"
 ```
 :::
 
-::: quiz
-En klassifikator er trent på data med tre klasser. Hva er shape til `proba`?
-```kode
-proba = model.predict_proba(X_test)   # X_test har 10 rader
+## Transformere
+En transformer som `StandardScaler()` har `fit` (lærer `mean_` og `scale_` per kolonne), `transform` (regner `(x - mean_) / scale_`) og `fit_transform` (begge). `fit` på en scaler regner altså ut statistikk uten `y`, mens `fit` på en modell trener den.
+
+::: oppgave Din første scaler
+Lag `scaler = StandardScaler()`, tilpass den på `X_train`, lagre `snitt = scaler.mean_` og de skalerte dataene i `X_s`.
+```start
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+X_train = np.array([[1.0, 100.0],
+                    [2.0, 200.0],
+                    [3.0, 600.0]])
+
+scaler = ...
+snitt = ...
+X_s = ...
 ```
-- [ ] `(10,)`
-- [ ] `(3,)`
-- [x] `(10, 3)`
-- [ ] `(3, 10)`
-? `predict_proba` gir én rad per datapunkt og én kolonne per klasse. Hver rad summerer til 1.
+```losning
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+X_train = np.array([[1.0, 100.0],
+                    [2.0, 200.0],
+                    [3.0, 600.0]])
+
+scaler = StandardScaler()
+scaler.fit(X_train)
+snitt = scaler.mean_
+X_s = scaler.transform(X_train)
+```
+```test
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+assert isinstance(scaler, StandardScaler), "scaler skal være en StandardScaler()."
+assert hasattr(scaler, "mean_"), "scaler er ikke tilpasset. Kall scaler.fit(X_train)."
+assert np.allclose(snitt, [2.0, 300.0]), f"snitt skal være scaler.mean_ ([2, 300]), men er {snitt}"
+assert np.shape(X_s) == (3, 2), f"X_s skal ha shape (3, 2), men har {np.shape(X_s)}"
+assert np.allclose(np.mean(X_s, axis=0), 0) and np.allclose(np.std(X_s, axis=0), 1), "Hver kolonne i X_s skal ha snitt 0 og std 1. Bruk scaler.transform(X_train) eller scaler.fit_transform(X_train)."
+```
 :::
 
-::: quiz
-Hva gjør `scaler.fit(X_train)` når `scaler = StandardScaler()`?
-- [ ] Trener vekter slik at scaleren kan predikere `y`
-- [x] Regner ut og lagrer snitt og standardavvik for hver kolonne i `X_train`
-- [ ] Skalerer `X_train` og returnerer de skalerte dataene
-- [ ] Ingenting, all regningen skjer først i `transform`
-? `fit` på en transformer lærer statistikken (`mean_` og `scale_`). Selve skaleringen skjer i `transform`, og `fit_transform` gjør begge deler.
-:::
+::: oppgave Utrent modell
+Kall `predict` på en utrent `LogisticRegression()` inni `try`, fang `NotFittedError` og lagre feilmeldingen `str(e)` i `melding`.
+```start
+from sklearn.exceptions import NotFittedError
+from sklearn.linear_model import LogisticRegression
 
-::: oppsummering
-- Alle modeller: `model = Modell(hyperparametre)`, `model.fit(X_train, y_train)`, `model.predict(X_test)`.
-- `predict_proba` gir sannsynlighet per klasse, `score` gir accuracy (klassifisering) eller $R^2$ (regresjon).
-- Lærte verdier slutter på understrek: `coef_`, `intercept_`, `mean_`, `classes_`.
-- Transformere har `fit` (lær statistikk), `transform` (bruk den) og `fit_transform` (begge).
-- `fit` på en scaler regner ut statistikk. `fit` på en modell trener den.
+model = LogisticRegression()
+melding = ""
+```
+```losning
+from sklearn.exceptions import NotFittedError
+from sklearn.linear_model import LogisticRegression
+
+model = LogisticRegression()
+melding = ""
+try:
+    model.predict([[1, 25, 0, 2, 10.0]])
+except NotFittedError as e:
+    melding = str(e)
+```
+```test
+assert isinstance(melding, str) and "not fitted" in melding, "melding skal være teksten fra NotFittedError. Kall model.predict(...) i try og skriv except NotFittedError as e: melding = str(e)."
+assert not hasattr(model, "coef_"), "model skal være utrent: ikke kall fit."
+```
 :::
 
 --- LEKSJON 7.2 | skalering | Skalering uten datalekkasje
-Features på helt ulike skalaer gjør gradient descent tregt og ustabilt (del 5.9), og metoder som bruker avstander (k-means, k-nærmeste naboer) lar den største featuren dominere. Løsningen er å skalere. Beslutningstrær trenger ikke skalering, fordi de bare sammenligner én feature med en terskel om gangen.
+`StandardScaler` gir $(x - \mu)/\sigma$ (snitt 0 og std 1, ikke begrenset), og `MinMaxScaler` gir $(x - \min)/(\max - \min)$ (mellom 0 og 1 på dataene den ble tilpasset på). Gradient descent og avstandsbaserte metoder trenger skalering, beslutningstrær gjør det ikke.
 
-De to vanligste skalererne er:
+::: oppgave To skalerere
+Lag `std` med `StandardScaler().fit_transform(X)` og `mm` med `MinMaxScaler().fit_transform(X)`, og lagre største verdi i første kolonne av `std` i `std_maks`.
+```start
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-- **StandardScaler**: $z = \dfrac{x - \mu}{\sigma}$. Gir snitt 0 og standardavvik 1. Verdiene havner **ikke** i et fast intervall.
-- **MinMaxScaler**: $x' = \dfrac{x - \min}{\max - \min}$. Gir verdier mellom 0 og 1 for dataene den ble tilpasset på.
+df = pd.read_csv("problem2.csv")
+X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
 
-```python
+std = ...
+mm = ...
+std_maks = ...
+```
+```losning
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+df = pd.read_csv("problem2.csv")
+X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
+
+std = StandardScaler().fit_transform(X)
+mm = MinMaxScaler().fit_transform(X)
+std_maks = std[:, 0].max()
+```
+```test
+import numpy as np
+assert np.shape(std) == (500, 3) and np.shape(mm) == (500, 3), "std og mm skal begge ha shape (500, 3)."
+assert np.allclose(np.mean(std, axis=0), 0) and np.allclose(np.std(std, axis=0), 1), "std skal ha snitt 0 og std 1 i hver kolonne (StandardScaler)."
+assert np.allclose(np.min(mm, axis=0), 0) and np.allclose(np.max(mm, axis=0), 1), "mm skal ha min 0 og maks 1 i hver kolonne (MinMaxScaler)."
+assert abs(float(std_maks) - np.asarray(std)[:, 0].max()) < 1e-9, "std_maks skal være std[:, 0].max()."
+assert std_maks > 8, "std_maks skal være over 8: StandardScaler begrenser ikke verdiene."
+```
+:::
+
+::: oppgave Skaler for hånd
+Lag `std_hand` med formelen `(X - X.mean()) / X.std(ddof=0)` og `mm_hand` med `(X - X.min()) / (X.max() - X.min())`, og sjekk i variabelpanelet at de er like `std` og `mm`.
+```start
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
@@ -206,90 +303,32 @@ df = pd.read_csv("problem2.csv")
 X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
 std = StandardScaler().fit_transform(X)
 mm = MinMaxScaler().fit_transform(X)
-print("Før:      snitt", X.mean().round(2).values, " maks", X.max().values)
-print("Standard: snitt", std.mean(axis=0).round(2), " std", std.std(axis=0).round(2), " maks", std.max(axis=0).round(2))
-print("MinMax:   min", mm.min(axis=0), " maks", mm.max(axis=0))
 
-print("Før (fem første rader):")
-display(X.head())
-print("Etter StandardScaler:")
-display(std[:5].round(2))
-print("Etter MinMaxScaler:")
-display(mm[:5].round(2))
+std_hand = ...
+mm_hand = ...
 ```
-
-Sammenlign de tre tabellene rad for rad: samme vikinger, men nye tall. Legg også merke til at resultatet av `fit_transform` er et numpy-array uten kolonnenavn. Se på `provisions_kg` etter StandardScaler: maks er over 8, langt over 1. Ekstreme verdier (uteliggere) er et problem for MinMaxScaler: én viking med 320 kg proviant gjør at nesten alle de andre havner nær 0.
-
-## Riktig mønster: fit på train, transform på begge
-Scaleren skal lære snitt og standardavvik **bare fra treningsdataene**. Deretter bruker du de samme tallene på testdataene:
-
-```python
-import numpy as np
+```losning
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 df = pd.read_csv("problem2.csv")
 X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
-X_train, X_test = train_test_split(X, test_size=0.2, random_state=0)
+std = StandardScaler().fit_transform(X)
+mm = MinMaxScaler().fit_transform(X)
 
-scaler = StandardScaler()
-scaler.fit(X_train)                    # KUN treningsdata
-X_train_s = scaler.transform(X_train)
-X_test_s = scaler.transform(X_test)    # samme snitt og std som train
-
-print("mean_: ", scaler.mean_.round(3))
-print("scale_:", scaler.scale_.round(3))
-manuelt = (X_test - scaler.mean_) / scaler.scale_
-print("Samme som for hånd:", np.allclose(manuelt, X_test_s))
-print("Snitt av X_test_s:", X_test_s.mean(axis=0).round(2))
+std_hand = (X - X.mean()) / X.std(ddof=0)
+mm_hand = (X - X.min()) / (X.max() - X.min())
 ```
-
-Klikk på `scaler` i variabelpanelet for å se de lærte tallene `mean_` og `scale_`, og på `X_test_s` for å se de skalerte testdataene. Snittet av de skalerte testdataene er ikke nøyaktig 0. Det er helt riktig: testdataene skal skaleres med treningsdataenes tall, ikke sine egne.
-
-`MinMaxScaler` følger samme mønster. De lærte tallene heter `data_min_` og `data_max_`, og testverdier kan havne utenfor [0, 1]:
-
-```python
+```test
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-
-alder_train = np.array([[20.0], [35.0], [60.0]])
-alder_test = np.array([[40.0], [70.0]])
-mm = MinMaxScaler().fit(alder_train)
-print("data_min_:", mm.data_min_, " data_max_:", mm.data_max_)
-print(mm.transform(alder_test).ravel())   # (x - 20) / (60 - 20)
+assert np.shape(std_hand) == (500, 3) and np.shape(mm_hand) == (500, 3), "std_hand og mm_hand skal ha shape (500, 3)."
+assert np.allclose(np.asarray(std_hand, dtype=float), std), "std_hand skal være (X - X.mean()) / X.std(ddof=0). StandardScaler bruker ddof=0."
+assert np.allclose(np.asarray(mm_hand, dtype=float), mm), "mm_hand skal være (X - X.min()) / (X.max() - X.min())."
 ```
-
-## Hva er datalekkasje?
-**Datalekkasje** betyr at informasjon fra testdataene påvirker treningen. Da blir testresultatet for optimistisk, fordi testdataene ikke lenger er «usette». Tilpasser du scaleren på alle dataene, har snittet og standardavviket sett testdataene:
-
-```python
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-
-df = pd.read_csv("problem2.csv")
-X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
-X_train, X_test = train_test_split(X, test_size=0.2, random_state=0)
-
-scaler_alle = StandardScaler().fit(X)          # FEIL: har sett testdataene
-scaler_train = StandardScaler().fit(X_train)   # RIKTIG
-print("Snitt med lekkasje:", scaler_alle.mean_.round(3))
-print("Snitt fra train:   ", scaler_train.mean_.round(3))
-
-# Enda verre: egen scaler på testdataene
-ny_viking = X_test.iloc[[0]]
-print("Det nye punktet:")
-display(ny_viking)
-print("fit_transform på ett nytt punkt:", StandardScaler().fit_transform(ny_viking))
-print("Riktig transform:              ", scaler_train.transform(ny_viking).round(3))
-```
-
-Den siste linjen viser hvorfor du aldri skal tilpasse en ny scaler på testdataene. Når modellen tas i bruk, kommer nye datapunkter ett og ett. En scaler tilpasset på ett punkt gjør det alltid om til bare nuller, og modellen får se noe helt annet enn den ble trent på.
-
-::: eksamen Eksamen 2025
-Eksamen 2025 hadde et kodelesingsspørsmål om nøyaktig dette: gitt `scaler = StandardScaler()`, `scaler.fit(X_train)` og `X_train_scaled = scaler.transform(X_train)`, hvilken linje bruker samme skalering på testdataene? Se quizen under.
 :::
+
+## Fit på train, transform på begge
+`scaler.fit(X_train)` lærer tallene bare fra treningsdataene, og `scaler.transform(X_test)` bruker de samme tallene på testdataene.
 
 ::: oppgave Skaler vikingdataene riktig
 Lag en `StandardScaler` som heter `scaler`, tilpass den på `X_train`, og lag `X_train_s` og `X_test_s` med den.
@@ -333,156 +372,207 @@ assert np.allclose(X_test_s, (X_test.values - _mu) / _sd), "X_test_s skal skaler
 ```
 :::
 
-::: quiz
-Du har trent en modell med koden under og vil nå evaluere den på `X_test`. Hvilken kodelinje bruker samme skalering på testdataene?
-```kode
-from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
-scaler.fit(X_train)
-X_train_scaled = scaler.transform(X_train)
+::: oppgave MinMaxScaler på nye verdier
+Tilpass `mm = MinMaxScaler()` på `alder_train`, lagre de lærte tallene `mm.data_min_` og `mm.data_max_` i `lav` og `hoy`, og lag `alder_test_s` med `transform` (se at 70 havner utenfor [0, 1]).
+```start
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+
+alder_train = np.array([[20.0], [35.0], [60.0]])
+alder_test = np.array([[40.0], [70.0]])
+
+mm = ...
+lav = ...
+hoy = ...
+alder_test_s = ...
 ```
-- [ ] `X_test_scaled = StandardScaler().fit_transform(X_test)`
-- [ ] `X_test_scaled = X_test / X_train.mean(axis=0)`
-- [x] `X_test_scaled = scaler.transform(X_test)`
-- [ ] `X_test_scaled = scaler.fit(X_test)`
-? `scaler.transform(X_test)` bruker snittet og standardavviket fra treningsdataene. Det første alternativet tilpasser en ny scaler på testdataene (annen skalering, og lekkasje). Det andre deler bare på snittet og trekker ikke fra noe. Det fjerde tilpasser scaleren på nytt og returnerer selve scaler-objektet, ikke data.
+```losning
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+
+alder_train = np.array([[20.0], [35.0], [60.0]])
+alder_test = np.array([[40.0], [70.0]])
+
+mm = MinMaxScaler().fit(alder_train)
+lav = mm.data_min_
+hoy = mm.data_max_
+alder_test_s = mm.transform(alder_test)
+```
+```test
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+assert isinstance(mm, MinMaxScaler) and hasattr(mm, "data_min_"), "mm skal være en MinMaxScaler tilpasset på alder_train."
+assert np.allclose(lav, 20) and np.allclose(hoy, 60), f"lav og hoy skal være mm.data_min_ (20) og mm.data_max_ (60), men er {lav} og {hoy}. Tilpasset du på alder_train?"
+assert np.allclose(np.ravel(alder_test_s), [0.5, 1.25]), f"alder_test_s skal være [0.5, 1.25]: (x - 20) / (60 - 20). Du har {np.ravel(alder_test_s)}."
+```
 :::
 
-::: quiz
-Featuren *alder* har snitt 40 og standardavvik 8 i treningsdataene, og snitt 45 og standardavvik 10 i testdataene. Du kjører `scaler = StandardScaler().fit(X_train)` og `scaler.transform(X_test)`. Hvilken verdi får en testperson på 52 år?
-- [x] 1.5
-- [ ] 0.7
-- [ ] 0.1875
-- [ ] 1.3
-? Scaleren bruker treningsdataenes tall: (52 − 40) / 8 = 1.5. 0.7 er (52 − 45) / 10 med testdataenes tall, 0.1875 er 12 / 64 (delt på variansen), og 1.3 er 52 / 40.
+::: oppgave Hvilke tall bruker transform?
+Alder har snitt 40 og std 8 i treningsdataene, og snitt 45 og std 10 i testdataene. Regn ut `z`: verdien `StandardScaler().fit(X_train)` og så `transform` gir en testperson på 52 år.
+```start
+snitt_train, std_train = 40, 8
+snitt_test, std_test = 45, 10
+
+z = ...
+```
+```losning
+snitt_train, std_train = 40, 8
+snitt_test, std_test = 45, 10
+
+z = (52 - snitt_train) / std_train
+```
+```test
+assert z is not ..., "Regn ut z."
+assert abs(z - 0.7) > 1e-9, "Du brukte testdataenes tall. Scaleren er tilpasset på X_train, så den bruker snitt 40 og std 8."
+assert abs(z - 1.5) < 1e-9, f"z skal være (52 - 40) / 8 = 1.5, men er {z}"
+```
 :::
 
-::: quiz
-`MinMaxScaler` tilpasses på treningsdata der minste verdi er 10 og største er 50. Hva gir `scaler.transform` for en testverdi på 60?
-- [ ] 1.0
-- [x] 1.25
-- [ ] 1.2
-- [ ] 0.83
-? (60 − 10) / (50 − 10) = 50 / 40 = 1.25. MinMaxScaler klipper ikke, så testverdier kan havne utenfor [0, 1].
-:::
+## Datalekkasje
+Datalekkasje betyr at testdataene påvirker treningen, for eksempel med `StandardScaler().fit(X)` på alle data før splitting, eller en ny scaler tilpasset på testdataene.
 
-::: oppsummering
-- **StandardScaler**: $(x - \mu)/\sigma$, snitt 0 og std 1, ikke begrenset til [0, 1]. Lærer `mean_` og `scale_`.
-- **MinMaxScaler**: $(x - \min)/(\max - \min)$, [0, 1] på treningsdataene. Lærer `data_min_` og `data_max_`. Følsom for uteliggere.
-- `scaler.fit(X_train)`, deretter `scaler.transform(X_train)` og `scaler.transform(X_test)`.
-- **Aldri** `fit` på testdata eller på hele datasettet før splitting: det er datalekkasje.
-- Trær trenger ikke skalering. Gradient descent, nevrale nett og avstandsbaserte metoder gjør det.
+::: oppgave Ett nytt datapunkt
+Lag `scaler_alle` tilpasset på hele `X` (feil) og `scaler_train` tilpasset på `X_train` (riktig). Skaler så `ny_viking` på to måter: `feil = StandardScaler().fit_transform(ny_viking)` og `riktig` med `scaler_train`.
+```start
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+df = pd.read_csv("problem2.csv")
+X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
+X_train, X_test = train_test_split(X, test_size=0.2, random_state=0)
+ny_viking = X_test.iloc[[0]]
+
+scaler_alle = ...
+scaler_train = ...
+feil = ...
+riktig = ...
+```
+```losning
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+df = pd.read_csv("problem2.csv")
+X = df[["provisions_kg", "prior_voyages", "family_aboard"]]
+X_train, X_test = train_test_split(X, test_size=0.2, random_state=0)
+ny_viking = X_test.iloc[[0]]
+
+scaler_alle = StandardScaler().fit(X)
+scaler_train = StandardScaler().fit(X_train)
+feil = StandardScaler().fit_transform(ny_viking)
+riktig = scaler_train.transform(ny_viking)
+```
+```test
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+assert isinstance(scaler_alle, StandardScaler) and hasattr(scaler_alle, "mean_"), "scaler_alle skal være StandardScaler().fit(X)."
+assert np.allclose(scaler_alle.mean_, X.mean().values), "scaler_alle skal tilpasses på hele X."
+assert isinstance(scaler_train, StandardScaler) and hasattr(scaler_train, "mean_"), "scaler_train skal være StandardScaler().fit(X_train)."
+assert np.allclose(scaler_train.mean_, X_train.mean().values), "scaler_train skal tilpasses på X_train."
+assert not np.allclose(scaler_alle.mean_, scaler_train.mean_), "De to scalerne skal ha ulike snitt."
+assert np.shape(feil) == (1, 3) and np.allclose(feil, 0), "feil skal være StandardScaler().fit_transform(ny_viking): en scaler tilpasset på ett punkt gjør det til bare nuller."
+assert np.shape(riktig) == (1, 3) and np.allclose(riktig, (ny_viking.values - X_train.mean().values) / X_train.std(ddof=0).values), "riktig skal være scaler_train.transform(ny_viking)."
+```
 :::
 
 --- LEKSJON 7.3 | encoding | LabelEncoder og OneHotEncoder
-I leksjon 3.8 kodet du kategorier med `map` og `pd.get_dummies`. scikit-learn har transformere for det samme. Fordelen er at de **husker** kodingen fra `fit`, slik at train og test garantert kodes likt.
+Encoderne i `sklearn.preprocessing` husker kodingen fra `fit`, så train og test kodes likt, i motsetning til `map` og `pd.get_dummies` fra del 3.
 
 ## LabelEncoder
-`LabelEncoder` gir hver kategori et heltall, **sortert alfabetisk**. Forelesningsnotatene bruker den slik:
+`le = LabelEncoder()` og `le.fit_transform(kolonne)` gir hver kategori et heltall i alfabetisk rekkefølge, `le.classes_` viser rekkefølgen, og `le.inverse_transform([0, 1])` går tilbake til tekst.
 
-```python
+::: oppgave Kod kjønn
+Lag `le = LabelEncoder()`, lagre `le.fit_transform(df["sex"])` i den nye kolonnen `df["sex_kode"]`, og gjør kodene `[0, 1, 1]` tilbake til tekst i `tilbake`.
+```start
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 df = pd.read_csv("problem2.csv")
+
+le = ...
+tilbake = ...
+```
+```losning
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+df = pd.read_csv("problem2.csv")
+
 le = LabelEncoder()
 df["sex_kode"] = le.fit_transform(df["sex"])
-print("classes_:", le.classes_)          # indeks i lista = koden
-display(df[["sex", "sex_kode"]].head())  # tekst og kode side om side
-print(le.inverse_transform([0, 1, 1]))   # fra kode tilbake til tekst
+tilbake = le.inverse_transform([0, 1, 1])
 ```
+```test
+from sklearn.preprocessing import LabelEncoder
+assert isinstance(le, LabelEncoder) and hasattr(le, "classes_"), "le skal være en LabelEncoder tilpasset på df['sex']."
+assert list(le.classes_) == ["Female", "Male"], f"le.classes_ skal være ['Female', 'Male'], men er {list(le.classes_)}."
+assert "sex_kode" in df.columns, "Lag kolonnen df['sex_kode']."
+assert (df["sex_kode"] == (df["sex"] == "Male").astype(int)).all(), "df['sex_kode'] skal være 0 for Female og 1 for Male (alfabetisk)."
+assert list(tilbake) == ["Female", "Male", "Male"], f"tilbake skal være le.inverse_transform([0, 1, 1]), men er {list(tilbake)}."
+```
+:::
 
-`Female` blir 0 og `Male` blir 1 fordi F kommer før M. `inverse_transform` går motsatt vei.
+::: oppgave Gjett kodene
+Lagre `LabelEncoder().fit_transform(["Thrall", "Jarl", "Karl", "Jarl"])` i `koder`, men skriv først ned hva du tror den gir.
+```start
+from sklearn.preprocessing import LabelEncoder
 
-## Problemet: falsk rekkefølge
-For to kategorier er LabelEncoder helt greit. For flere kategorier lager den en rekkefølge som ikke betyr noe:
+koder = ...
+```
+```losning
+from sklearn.preprocessing import LabelEncoder
 
-```python
+koder = LabelEncoder().fit_transform(["Thrall", "Jarl", "Karl", "Jarl"])
+```
+```test
+import numpy as np
+assert np.ndim(koder) == 1 and len(koder) == 4, "koder skal ha fire tall, ett per element i lista."
+assert list(np.asarray(koder)) == [2, 0, 1, 0], f"koder skal være [2, 0, 1, 0]: alfabetisk er Jarl = 0, Karl = 1 og Thrall = 2. Du har {list(koder)}."
+```
+:::
+
+## Falsk rekkefølge
+Med flere kategorier lager LabelEncoder en rekkefølge som ikke finnes, og en lineær modell får én vekt for hele featuren. Bruk den til target `y` (og eventuelt for trær), ikke til nominelle features i lineære modeller eller nevrale nett.
+
+::: oppgave Overlevelse per rollekode
+Kod `role` med en ny `LabelEncoder` i `df["role_kode"]`, og lag `rate = df.groupby("role_kode")["survived"].mean()`. Lagre `monoton = rate.is_monotonic_increasing or rate.is_monotonic_decreasing`.
+```start
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 df = pd.read_csv("problem2.csv")
-le = LabelEncoder()
-df["role_kode"] = le.fit_transform(df["role"])
-print(dict(zip(le.classes_, range(len(le.classes_)))))
-print(df.groupby("role_kode")["survived"].mean().round(3))
+
+rate = ...
+monoton = ...
 ```
+```losning
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 
-Alfabetisk blir Hirdman 0, Jarl 1, Karl 2 og Thrall 3. Overlevelsesraten går da opp, så ned, så ned igjen. En lineær modell (eller et nevralt nett) får **én** vekt for featuren og antar at forskjellen mellom kode 0 og 1 er like stor som mellom 2 og 3. For nominelle features som `ship` finnes det ingen rekkefølge i det hele tatt.
+df = pd.read_csv("problem2.csv")
 
-For **beslutningstrær** er label encoding ofte greit nok: treet kan splitte flere ganger på samme feature og plukke ut grupper av koder. Én enkelt splitt kan likevel bare skille sammenhengende koder (for eksempel {0, 1} fra {2, 3}). LabelEncoder er egentlig laget for **target** `y`, for eksempel å gjøre klassenavn om til 0, 1, 2.
+df["role_kode"] = LabelEncoder().fit_transform(df["role"])
+rate = df.groupby("role_kode")["survived"].mean()
+monoton = rate.is_monotonic_increasing or rate.is_monotonic_decreasing
+```
+```test
+import numpy as np
+assert "role_kode" in df.columns, "Lag kolonnen df['role_kode'] med LabelEncoder().fit_transform(df['role'])."
+_k = {"Hirdman": 0, "Jarl": 1, "Karl": 2, "Thrall": 3}
+assert (df["role_kode"] == df["role"].map(_k)).all(), "role_kode skal være alfabetisk: Hirdman 0, Jarl 1, Karl 2, Thrall 3."
+assert len(rate) == 4, "rate skal ha én verdi per rollekode (4)."
+assert np.allclose(np.asarray(rate), df.groupby(df["role"].map(_k))["survived"].mean().values), "rate skal være df.groupby('role_kode')['survived'].mean()."
+assert monoton is False or monoton == False, "monoton skal bli False: overlevelsen går ikke jevnt opp eller ned med koden."
+assert monoton is not ..., "Regn ut monoton."
+```
+:::
 
 ## OneHotEncoder
-`OneHotEncoder` gjør det samme som `pd.get_dummies`, men som en transformer med `fit` og `transform`:
-
-```python
-import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
-
-df = pd.read_csv("problem2.csv")
-train, test = df.iloc[:400], df.iloc[400:]
-
-ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-ohe.fit(train[["ship", "destination"]])
-print(ohe.categories_)
-print(ohe.get_feature_names_out())
-X_test_oh = ohe.transform(test[["ship", "destination"]])
-print(X_test_oh.shape)
-print("Før: to tekstkolonner")
-display(test[["ship", "destination"]].head(3))
-print("Etter: én 0/1-kolonne per kategori")
-display(pd.DataFrame(X_test_oh[:3], columns=ohe.get_feature_names_out()))
-```
-
-`transform` gir et numpy-array uten kolonnenavn. Med `pd.DataFrame(..., columns=ohe.get_feature_names_out())` får du navnene tilbake, så du ser hvilken kolonne som betyr hva. Hver rad har nøyaktig én ener for `ship` og én for `destination`.
-
-- `sparse_output=False` gir et vanlig numpy-array (standard er en «sparse» matrise som sparer minne).
-- `handle_unknown="ignore"` gjør at en kategori som ikke fantes i treningsdataene, får bare nuller i stedet for å krasje.
-- `drop="first"` tilsvarer `drop_first=True` i `get_dummies`.
-
-```python
-import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
-
-df = pd.read_csv("problem2.csv")
-ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False).fit(df[["ship"]])
-ny = pd.DataFrame({"ship": ["Bison", "Nytt skip"]})
-print(ohe.get_feature_names_out())
-print(ohe.transform(ny))
-display(pd.DataFrame(ohe.transform(ny), columns=ohe.get_feature_names_out(), index=ny["ship"]))
-```
-
-Raden for `Nytt skip` har bare nuller.
-
-| | `pd.get_dummies` | `OneHotEncoder` |
-|---|---|---|
-| Husker kategoriene | nei, ser bare dataene du gir den | ja, fra `fit` |
-| Ukjent kategori i test | gir andre kolonner | nuller med `handle_unknown="ignore"` |
-| Passer i en Pipeline | nei | ja (leksjon 7.7) |
-| Best til | rask utforsking | modeller som skal evalueres og brukes |
-
-## Side om side: LabelEncoder og OneHotEncoder
-Her er de samme rollene kodet på begge måter. LabelEncoder gir **én** kolonne med tallene 0 til 3, mens OneHotEncoder gir **fire** kolonner med 0 og 1:
-
-```python
-import pandas as pd
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-roller = pd.DataFrame({"role": ["Thrall", "Jarl", "Karl", "Hirdman", "Karl"]})
-
-print("LabelEncoder: én kolonne, alfabetisk rekkefølge")
-kode = LabelEncoder().fit_transform(roller["role"])
-display(pd.DataFrame({"role": roller["role"], "kode": kode}))
-
-print("OneHotEncoder: én kolonne per rolle")
-ohe = OneHotEncoder(sparse_output=False).fit(roller)
-display(pd.DataFrame(ohe.transform(roller), columns=ohe.get_feature_names_out()))
-```
-
-`pd.get_dummies(roller, dtype=int)` gir de samme fire kolonnene som OneHotEncoder.
+`OneHotEncoder(handle_unknown="ignore", sparse_output=False)` gir én 0/1-kolonne per kategori som et numpy-array, og `ohe.get_feature_names_out()` gir kolonnenavnene. Med `handle_unknown="ignore"` blir en ukjent kategori bare nuller, og `drop="first"` tilsvarer `drop_first=True` i `get_dummies`.
 
 ::: oppgave One-hot med fit på train
-Lag en `OneHotEncoder` som heter `ohe` med `handle_unknown="ignore"` og `sparse_output=False`. Tilpass den på kolonnene `role` og `ship` i `train`, og lag `X_train_oh` og `X_test_oh`.
+Lag `ohe` med `handle_unknown="ignore"` og `sparse_output=False`, tilpass den på kolonnene `role` og `ship` i `train`, og lag `X_train_oh` og `X_test_oh`.
 ```start
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
@@ -519,103 +609,77 @@ assert np.allclose(X_test_oh.sum(axis=1), 2), "Hver rad skal ha nøyaktig to ene
 ```
 :::
 
-::: quiz
-Hva skriver koden ut?
-```kode
-from sklearn.preprocessing import LabelEncoder
-print(LabelEncoder().fit_transform(["Thrall", "Jarl", "Karl", "Jarl"]))
+::: oppgave Et skip vi aldri har sett
+Tilpass `ohe` (med `handle_unknown="ignore"` og `sparse_output=False`) på `df[["ship"]]`, lagre kolonnenavnene i `navn` og `ohe.transform(ny)` i `ny_oh`.
+```start
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
+
+df = pd.read_csv("problem2.csv")
+ny = pd.DataFrame({"ship": ["Bison", "Nytt skip"]})
+
+ohe = ...
+navn = ...
+ny_oh = ...
 ```
-- [ ] `[0 1 2 1]`
-- [x] `[2 0 1 0]`
-- [ ] `[3 1 2 1]`
-- [ ] `[1 0 2 0]`
-? LabelEncoder sorterer kategoriene alfabetisk: Jarl = 0, Karl = 1, Thrall = 2. Rekkefølgen i lista spiller ingen rolle for kodene.
+```losning
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
+
+df = pd.read_csv("problem2.csv")
+ny = pd.DataFrame({"ship": ["Bison", "Nytt skip"]})
+
+ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False).fit(df[["ship"]])
+navn = ohe.get_feature_names_out()
+ny_oh = ohe.transform(ny)
+```
+```test
+import numpy as np
+from sklearn.preprocessing import OneHotEncoder
+assert isinstance(ohe, OneHotEncoder) and hasattr(ohe, "categories_"), "ohe skal være en OneHotEncoder tilpasset på df[['ship']]."
+assert ohe.handle_unknown == "ignore", 'Bruk handle_unknown="ignore", ellers krasjer transform på «Nytt skip».'
+assert len(navn) == 5 and "ship_Bison" in list(navn), f"navn skal være ohe.get_feature_names_out() med fem skip, som 'ship_Bison'. Du har {list(navn)}."
+_ny = np.asarray(ny_oh.toarray() if hasattr(ny_oh, "toarray") else ny_oh)
+assert _ny.shape == (2, 5), f"ny_oh skal ha shape (2, 5), men har {_ny.shape}."
+assert _ny[0, list(navn).index("ship_Bison")] == 1 and _ny[0].sum() == 1, "Første rad (Bison) skal ha én ener i kolonnen ship_Bison."
+assert _ny[1].sum() == 0, "Andre rad (Nytt skip) skal bare ha nuller."
+```
 :::
 
-::: quiz
-Featuren *Region* har fem verdier uten naturlig rekkefølge. Du koder den med `LabelEncoder` til 0 til 4 og bruker den som én feature i logistisk regresjon. Hvilket utsagn er riktig?
-- [x] Modellen får én vekt for Region og tolker avstanden mellom kodene som meningsfull
-- [ ] Kodingen er uproblematisk hvis kodene skaleres til [0, 1] med MinMaxScaler først
-- [ ] Kodingen er tilstrekkelig, siden logistisk regresjon bare krever numeriske features
-- [ ] LabelEncoder lager automatisk én kolonne per region
-? Med én vekt blir effekten av region 4 nødvendigvis fire ganger effekten av region 1, sammenlignet med region 0. Skalering endrer ikke rekkefølgen. One-hot-koding gir hver region sin egen vekt.
-:::
+::: oppgave drop="first" og get_dummies
+Kod `roller` med `OneHotEncoder(drop="first", sparse_output=False)` til `oh_drop`, og lag `dummies = pd.get_dummies(roller, drop_first=True, dtype=int)`.
+```start
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
 
-::: oppsummering
-- `LabelEncoder`: alfabetiske heltall, `classes_` viser rekkefølgen, `inverse_transform` går tilbake. Laget for target `y`.
-- Label encoding av nominelle features gir en **falsk rekkefølge**. Dårlig for lineære modeller og nevrale nett, ofte greit for trær.
-- `OneHotEncoder(handle_unknown="ignore", sparse_output=False)`: `fit` på train, `transform` på train og test.
-- OneHotEncoder husker kategoriene, så train og test får alltid de samme kolonnene.
+roller = pd.DataFrame({"role": ["Thrall", "Jarl", "Karl", "Hirdman", "Karl"]})
+
+oh_drop = ...
+dummies = ...
+```
+```losning
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
+
+roller = pd.DataFrame({"role": ["Thrall", "Jarl", "Karl", "Hirdman", "Karl"]})
+
+oh_drop = OneHotEncoder(drop="first", sparse_output=False).fit_transform(roller)
+dummies = pd.get_dummies(roller, drop_first=True, dtype=int)
+```
+```test
+import numpy as np
+import pandas as pd
+assert np.shape(oh_drop) == (5, 3), f"oh_drop skal ha shape (5, 3): fire roller minus den første. Du har {np.shape(oh_drop)}."
+assert isinstance(dummies, pd.DataFrame) and dummies.shape == (5, 3), "dummies skal være pd.get_dummies(roller, drop_first=True, dtype=int) med tre kolonner."
+assert np.allclose(np.asarray(oh_drop, dtype=float), dummies.values.astype(float)), "oh_drop og dummies skal inneholde de samme 0/1-verdiene."
+```
 :::
 
 --- LEKSJON 7.4 | imputering | Imputering med SimpleImputer
-I leksjon 3.5 fylte du manglende alder med `df["age"].fillna(df["age"].median())`. Medianen ble da regnet ut fra **alle** radene, også testdataene. `SimpleImputer` gjør det samme som en transformer, med det kjente mønsteret: `fit` på train, `transform` på begge.
-
-```python
-import numpy as np
-import pandas as pd
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
-
-df = pd.read_csv("problem2.csv")
-train, test = train_test_split(df, test_size=0.2, random_state=0)
-
-imp = SimpleImputer(strategy="median")
-imp.fit(train[["age", "provisions_kg"]])
-print("Medianer fra train:", imp.statistics_)
-X_test_imp = imp.transform(test[["age", "provisions_kg"]])
-print("Mangler i test før:", test["age"].isna().sum(), " etter:", np.isnan(X_test_imp).sum())
-
-print("Før: siste rad mangler alder")
-display(test[["age", "provisions_kg"]].head(8))
-print("Etter transform:")
-display(X_test_imp[:8])
-```
-
-`statistics_` er det imputeren lærte: én verdi per kolonne (se også `imp` i variabelpanelet). Alle hull i testdataene fylles med treningsdataenes median: den røde cellen før er fylt etterpå.
-
-## Strategier
-
-| `strategy` | Fyller med | Passer for |
-|---|---|---|
-| `"mean"` | gjennomsnitt (standard) | tall uten store uteliggere |
-| `"median"` | median | tall med uteliggere |
-| `"most_frequent"` | vanligste verdi | kategorier (tekst) og heltall |
-| `"constant"` | `fill_value` | når manglende betyr noe bestemt |
-
-```python
-import pandas as pd
-from sklearn.impute import SimpleImputer
-
-df = pd.read_csv("problem2.csv")
-klan = SimpleImputer(strategy="most_frequent").fit(df[["clan_origin"]])
-print("Vanligste klan:", klan.statistics_)
-
-rustning = SimpleImputer(strategy="constant", fill_value="None")
-print(rustning.fit_transform(df[["armor"]])[:5].ravel())
-```
-
-`median` og `mean` virker bare på tall. For tekstkolonner må du bruke `most_frequent` eller `constant`.
-
-## Manglende som informasjon
-Med `add_indicator=True` får du en ekstra kolonne som er 1 der verdien manglet. Da kan modellen selv lære om «alder ukjent» betyr noe:
-
-```python
-import pandas as pd
-from sklearn.impute import SimpleImputer
-
-df = pd.read_csv("problem2.csv")
-imp = SimpleImputer(strategy="median", add_indicator=True)
-ut = imp.fit_transform(df[["age"]])
-print(df["age"].head(8).tolist())
-print(ut[:8])
-display(pd.DataFrame(ut[:8], columns=imp.get_feature_names_out()))
-```
-
-Rad 7 manglet alder. Den har fått medianen i `age` og 1 i den nye kolonnen `missingindicator_age`.
+`SimpleImputer(strategy="median")` fyller hull med medianen den lærte i `fit` (lagret i `statistics_`), så `fit` skjer på train og `transform` på begge.
 
 ::: oppgave Imputer alder og proviant
-Lag en `SimpleImputer` som heter `imp` med medianstrategi. Tilpass den på kolonnene `age` og `provisions_kg` i `train`, og lag `X_train_imp` og `X_test_imp`.
+Lag `imp` med medianstrategi, tilpass den på `kolonner` i `train`, og lag `X_train_imp` og `X_test_imp`.
 ```start
 import pandas as pd
 from sklearn.impute import SimpleImputer
@@ -657,46 +721,122 @@ assert np.allclose(np.asarray(X_test_imp, dtype=float)[_m, 0], train["age"].medi
 ```
 :::
 
-::: quiz
-Hvilken verdi får de manglende verdiene i `X_test` etter koden under?
-```kode
-imp = SimpleImputer(strategy="median")
-imp.fit(X_train)
-X_test_imp = imp.transform(X_test)
+## Strategier for tekst
+`strategy` kan være `"mean"` (standard), `"median"`, `"most_frequent"` eller `"constant"` med `fill_value=...`, og bare de to siste virker på tekstkolonner.
+
+::: oppgave Median på tekst
+Prøv `SimpleImputer(strategy="median").fit(df[["clan_origin"]])` inni `try`, og sett `median_feilet = True` i `except ValueError`.
+```start
+import pandas as pd
+from sklearn.impute import SimpleImputer
+
+df = pd.read_csv("problem2.csv")
+median_feilet = False
 ```
-- [ ] Medianen av hver kolonne i `X_test`
-- [x] Medianen av hver kolonne i `X_train`
-- [ ] Gjennomsnittet av hver kolonne i `X_train`
-- [ ] 0
-? Imputeren lærte medianene fra `X_train` i `fit` (de ligger i `imp.statistics_`), og `transform` bruker dem på alle data den får.
+```losning
+import pandas as pd
+from sklearn.impute import SimpleImputer
+
+df = pd.read_csv("problem2.csv")
+median_feilet = False
+try:
+    SimpleImputer(strategy="median").fit(df[["clan_origin"]])
+except ValueError:
+    median_feilet = True
+```
+```test
+assert median_feilet is True, "median_feilet skal bli True: median kan ikke regnes ut for tekst, så fit kaster ValueError."
+```
 :::
 
-::: quiz
-Kolonnen `clan_origin` inneholder tekst (Nidaros, Borg, Kaupang) og har noen manglende verdier. Hvilken imputering virker?
-- [ ] `SimpleImputer(strategy="median")`
-- [ ] `SimpleImputer(strategy="mean")`
-- [x] `SimpleImputer(strategy="most_frequent")`
-- [ ] Ingen, tekstkolonner kan ikke imputeres
-? Median og gjennomsnitt kan bare regnes ut for tall. `most_frequent` fyller med den vanligste kategorien, og `constant` med en verdi du velger.
+::: oppgave Vanligste klan og ingen rustning
+Lag `klan` med `strategy="most_frequent"` tilpasset på `df[["clan_origin"]]` og lagre den lærte verdien i `vanligste`. Fyll så `armor` med `strategy="constant", fill_value="None"` og lagre resultatet av `fit_transform` i `armor_fylt`.
+```start
+import pandas as pd
+from sklearn.impute import SimpleImputer
+
+df = pd.read_csv("problem2.csv")
+
+klan = ...
+vanligste = ...
+armor_fylt = ...
+```
+```losning
+import pandas as pd
+from sklearn.impute import SimpleImputer
+
+df = pd.read_csv("problem2.csv")
+
+klan = SimpleImputer(strategy="most_frequent").fit(df[["clan_origin"]])
+vanligste = klan.statistics_[0]
+armor_fylt = SimpleImputer(strategy="constant", fill_value="None").fit_transform(df[["armor"]])
+```
+```test
+import numpy as np
+from sklearn.impute import SimpleImputer
+assert isinstance(klan, SimpleImputer) and klan.strategy == "most_frequent", 'klan skal være SimpleImputer(strategy="most_frequent").'
+assert hasattr(klan, "statistics_"), "klan er ikke tilpasset. Kall klan.fit(df[['clan_origin']])."
+assert vanligste == "Nidaros", f"vanligste skal være klan.statistics_[0] (Nidaros), men er {vanligste!r}."
+_a = np.asarray(armor_fylt).ravel()
+assert len(_a) == 500, f"armor_fylt skal ha 500 verdier, men har {len(_a)}."
+assert (_a == "None").sum() == 324, f"De 324 manglende rustningene skal fylles med 'None'. Du har {(_a == 'None').sum()}."
+```
 :::
 
-::: oppsummering
-- `SimpleImputer(strategy=...)` fyller hull: `"mean"`, `"median"`, `"most_frequent"` eller `"constant"` med `fill_value`.
-- Samme mønster som scalere: `fit` på train, `transform` på train og test. Lærte verdier ligger i `statistics_`.
-- `add_indicator=True` legger til en 0/1-kolonne som sier om verdien manglet.
-- Bruk `most_frequent` eller `constant` for tekstkolonner.
+## Manglende som informasjon
+`SimpleImputer(strategy="median", add_indicator=True)` legger til en 0/1-kolonne som er 1 der verdien manglet.
+
+::: oppgave Alder ukjent
+Lag `imp` med medianstrategi og `add_indicator=True`, lagre `imp.fit_transform(df[["age"]])` i `ut` og kolonnenavnene i `navn`.
+```start
+import pandas as pd
+from sklearn.impute import SimpleImputer
+
+df = pd.read_csv("problem2.csv")
+
+imp = ...
+ut = ...
+navn = ...
+```
+```losning
+import pandas as pd
+from sklearn.impute import SimpleImputer
+
+df = pd.read_csv("problem2.csv")
+
+imp = SimpleImputer(strategy="median", add_indicator=True)
+ut = imp.fit_transform(df[["age"]])
+navn = imp.get_feature_names_out()
+```
+```test
+import numpy as np
+from sklearn.impute import SimpleImputer
+assert isinstance(imp, SimpleImputer) and imp.add_indicator, "imp skal være SimpleImputer(strategy='median', add_indicator=True)."
+assert np.shape(ut) == (500, 2), f"ut skal ha shape (500, 2): alder og indikatorkolonnen. Du har {np.shape(ut)}."
+assert np.allclose(np.asarray(ut)[:, 1], df["age"].isna().astype(float)), "Andre kolonne skal være 1 der alder manglet."
+assert np.allclose(np.asarray(ut)[df["age"].isna().values, 0], df["age"].median()), "Manglende alder skal fylles med medianen."
+assert list(navn) == ["age", "missingindicator_age"], f"navn skal være imp.get_feature_names_out(), men er {list(navn)}."
+```
 :::
 
 --- LEKSJON 7.5 | kryssvalidering | Validering og kryssvalidering
-Testdataene skal bare brukes én gang, helt til slutt. Men underveis må du sammenligne modeller og velge hyperparametre. Til det trenger du **valideringsdata**. Forelesningsnotatene deler dataene i tre:
+Treningsdata brukes av `fit`, valideringsdata til å velge modell og hyperparametre, og testdata bare én gang helt til slutt. Med `train_test_split` to ganger får du tre deler: først 20 % til test, så `test_size=0.25` av resten til validering.
 
-- **Treningsdata**: brukes av `fit` til å lære parametrene.
-- **Valideringsdata**: brukes til å sammenligne modeller og velge hyperparametre.
-- **Testdata**: brukes bare til å rapportere ytelsen til den endelige modellen.
+::: oppgave Tre deler
+Del `X` og `y` i `X_train`, `X_val`, `X_test` (og tilsvarende `y_train`, `y_val`, `y_test`) med 300, 100 og 100 rader.
+```start
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
-## Tre deler med train_test_split to ganger
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
 
-```python
+X_train = X_val = X_test = y_train = y_val = y_test = ...
+```
+```losning
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -708,15 +848,20 @@ y = df["survived"]
 
 X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.25, random_state=0)
-print(len(X_train), len(X_val), len(X_test))
 ```
+```test
+_d = {"X_train": X_train, "X_val": X_val, "X_test": X_test, "y_train": y_train, "y_val": y_val, "y_test": y_test}
+for _n, _v in _d.items():
+    assert hasattr(_v, "index"), f"{_n} skal være en DataFrame eller Series fra train_test_split."
+assert (len(X_train), len(X_val), len(X_test)) == (300, 100, 100), f"Størrelsene skal være 300, 100 og 100, men er {len(X_train)}, {len(X_val)} og {len(X_test)}. Bruk test_size=0.2 og så test_size=0.25."
+assert list(X_train.index) == list(y_train.index) and list(X_val.index) == list(y_val.index) and list(X_test.index) == list(y_test.index), "X og y må deles sammen, så radene hører sammen."
+assert len(set(X_train.index) | set(X_val.index) | set(X_test.index)) == 500, "De tre delene skal ikke overlappe og til sammen dekke alle 500 radene."
+```
+:::
 
-Første split tar 20 % til test. Andre split tar 25 % av de resterende 80 %, altså 20 % av alt, til validering. I variabelpanelet ser du formene direkte: `X_train` er 300×5, `X_val` og `X_test` er 100×5, og `y_train`, `y_val` og `y_test` er Series med like mange rader som X-en sin.
-
-## Ett valideringssett er usikkert
-Med bare 100 rader i valideringssettet avhenger resultatet mye av hvilke rader som havnet der:
-
-```python
+::: oppgave Ett valideringssett er usikkert
+For hver `seed` i `range(5)`: del `X_temp` med `test_size=0.25, random_state=seed`, tren `LogisticRegression(max_iter=1000)` og legg validerings-accuracy i lista `val_acc`. Lagre `spredning = max(val_acc) - min(val_acc)`.
+```start
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -728,91 +873,47 @@ X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
 y = df["survived"]
 X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
+val_acc = []
+spredning = ...
+```
+```losning
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+val_acc = []
 for seed in range(5):
     X_tr, X_va, y_tr, y_va = train_test_split(X_temp, y_temp, test_size=0.25, random_state=seed)
     model = LogisticRegression(max_iter=1000).fit(X_tr, y_tr)
-    print(f"seed {seed}: val accuracy {model.score(X_va, y_va):.3f}")
+    val_acc.append(model.score(X_va, y_va))
+spredning = max(val_acc) - min(val_acc)
 ```
+```test
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+assert len(val_acc) == 5, f"val_acc skal ha fem verdier (én per seed), men har {len(val_acc)}."
+_f = []
+for _s in range(5):
+    _a, _b, _c, _d = train_test_split(X_temp, y_temp, test_size=0.25, random_state=_s)
+    _f.append(LogisticRegression(max_iter=1000).fit(_a, _c).score(_b, _d))
+assert np.allclose(val_acc, _f, atol=1e-6), "val_acc stemmer ikke. Del X_temp og y_temp med random_state=seed og mål score på valideringsdelen."
+assert abs(spredning - (max(_f) - min(_f))) < 1e-6, "spredning skal være max(val_acc) - min(val_acc)."
+```
+:::
 
 ## Kryssvalidering
-**k-fold kryssvalidering** løser dette. Treningsdataene deles i k like store deler (folds). Modellen trenes k ganger, hver gang på k − 1 folds, og valideres på den siste. Hver rad brukes til validering nøyaktig én gang, og du får k resultater:
+`cross_val_score(model, X_train, y_train, cv=5)` deler treningsdataene i 5 folds og trener 5 kopier, hver på 4 folds og validert på den femte. `model` selv er like utrent etterpå, så du må kalle `model.fit` før du tester.
 
-```python
-import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score, train_test_split
-
-df = pd.read_csv("problem2.csv")
-df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
-df["age"] = df["age"].fillna(df["age"].median())
-X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
-y = df["survived"]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-model = LogisticRegression(max_iter=1000)
-cv_scores = cross_val_score(model, X_train, y_train, cv=5)
-print(cv_scores.round(3))
-print(f"CV Accuracy: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
-
-model.fit(X_train, y_train)   # cross_val_score trener kopier, ikke model selv
-print(f"Test accuracy: {model.score(X_test, y_test):.4f}")
-```
-
-Åpne `cv_scores` i variabelpanelet: det er et array med fem tall, ett per fold. Snittet er et mer pålitelig estimat enn ett valideringssett, og standardavviket sier hvor mye resultatet varierer. Kryssvalideringen kjøres bare på treningsdataene. Testdataene holdes utenfor.
-
-::: advarsel
-`cross_val_score` trener **kopier** av modellen. Objektet `model` er like utrent etterpå. Du må kalle `model.fit(X_train, y_train)` før du kan predikere på testdataene.
-:::
-
-::: prosjekt Prosjekt 2, problem 2
-Treningscellen skal ende med `print(f"CV Accuracy: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")` og `print(f"Test accuracy: {a:.4f}")`. Spørsmålet «What is the purpose of cross validation?» besvares av avsnittet over.
-:::
-
-## KFold og StratifiedKFold
-`KFold` deler radene i rekkefølge (eller tilfeldig med `shuffle=True`). `StratifiedKFold` sørger for at hver fold har samme klassefordeling som hele datasettet:
-
-```python
-import numpy as np
-from sklearn.model_selection import KFold, StratifiedKFold
-
-X = np.arange(10).reshape(-1, 1)
-y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
-
-for train_idx, val_idx in KFold(n_splits=5).split(X):
-    print("KFold      val:", val_idx, "klasser:", y[val_idx])
-for train_idx, val_idx in StratifiedKFold(n_splits=5).split(X, y):
-    print("Stratified val:", val_idx, "klasser:", y[val_idx])
-```
-
-Med `KFold` uten stokking består noen valideringsfolds bare av én klasse. For klassifikatorer bruker `cross_val_score(..., cv=5)` automatisk `StratifiedKFold`. Vil du stokke, gir du et objekt: `cv=KFold(n_splits=5, shuffle=True, random_state=0)`.
-
-## cross_validate: flere metrikker
-`cross_validate` gir en dict med flere metrikker, og med `return_train_score=True` også resultatet på treningsfoldene. Stor avstand mellom train og validering tyder på overtilpasning:
-
-```python
-import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_validate
-
-df = pd.read_csv("problem2.csv")
-df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
-df["age"] = df["age"].fillna(df["age"].median())
-X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
-y = df["survived"]
-
-res = cross_validate(LogisticRegression(max_iter=1000), X, y, cv=5,
-                     scoring=["accuracy", "f1"], return_train_score=True)
-print(sorted(res.keys()))
-print("val accuracy:  ", res["test_accuracy"].mean().round(3))
-print("train accuracy:", res["train_accuracy"].mean().round(3))
-print("val F1:        ", res["test_f1"].mean().round(3))
-display(pd.DataFrame(res).round(3))   # én rad per fold
-```
-
-Nøklene heter `test_...`, men det er valideringsfoldene det er snakk om. Gjør du dicten om til en DataFrame, får du én rad per fold og én kolonne per metrikk.
-
-::: oppgave Kryssvalider modellen
-Bruk `cross_val_score` med 5 folds på `X_train` og `y_train` med modellen `LogisticRegression(max_iter=1000)`. Lagre resultatet i `cv_scores` og snittet i `cv_mean`.
+::: oppgave Kryssvalider, tren og test
+Lagre `cross_val_score(model, X_train, y_train, cv=5)` i `cv_scores`, snittet i `cv_mean` og standardavviket i `cv_std`. Tren så `model` på treningsdataene og lagre test-accuracy i `test_acc`.
 ```start
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -824,10 +925,14 @@ df["age"] = df["age"].fillna(df["age"].median())
 X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
 y = df["survived"]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = LogisticRegression(max_iter=1000)
 
 cv_scores = ...
 cv_mean = ...
-print(f"CV Accuracy: {cv_mean:.3f}")
+cv_std = ...
+test_acc = ...
+print(f"CV Accuracy: {cv_mean:.3f} ± {cv_std:.3f}")
+print(f"Test accuracy: {test_acc:.4f}")
 ```
 ```losning
 import pandas as pd
@@ -840,10 +945,15 @@ df["age"] = df["age"].fillna(df["age"].median())
 X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
 y = df["survived"]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = LogisticRegression(max_iter=1000)
 
-cv_scores = cross_val_score(LogisticRegression(max_iter=1000), X_train, y_train, cv=5)
+cv_scores = cross_val_score(model, X_train, y_train, cv=5)
 cv_mean = cv_scores.mean()
-print(f"CV Accuracy: {cv_mean:.3f}")
+cv_std = cv_scores.std()
+model.fit(X_train, y_train)
+test_acc = model.score(X_test, y_test)
+print(f"CV Accuracy: {cv_mean:.3f} ± {cv_std:.3f}")
+print(f"Test accuracy: {test_acc:.4f}")
 ```
 ```test
 import numpy as np
@@ -853,46 +963,152 @@ _fasit = cross_val_score(LogisticRegression(max_iter=1000), X_train, y_train, cv
 assert np.shape(cv_scores) == (5,), f"cv_scores skal ha 5 verdier (cv=5), men har shape {np.shape(cv_scores)}"
 assert np.allclose(cv_scores, _fasit), "cv_scores stemmer ikke. Bruker du X_train og y_train (ikke hele X eller testdataene)?"
 assert abs(cv_mean - _fasit.mean()) < 1e-9, "cv_mean skal være cv_scores.mean()."
+assert abs(cv_std - _fasit.std()) < 1e-9, "cv_std skal være cv_scores.std()."
+assert hasattr(model, "coef_"), "model er fortsatt utrent: cross_val_score trener bare kopier. Kall model.fit(X_train, y_train)."
+assert abs(test_acc - LogisticRegression(max_iter=1000).fit(X_train, y_train).score(X_test, y_test)) < 1e-9, "test_acc skal være model.score(X_test, y_test) etter model.fit(X_train, y_train)."
 ```
 :::
 
-::: quiz
-Hvor mange ganger trenes en modell når denne linjen kjøres?
-```kode
-scores = cross_val_score(model, X_train, y_train, cv=5)
+## KFold og StratifiedKFold
+`for train_idx, val_idx in KFold(n_splits=5).split(X):` gir indeksene for hver fold i rekkefølge, og `StratifiedKFold(n_splits=5).split(X, y)` gir hver fold samme klassefordeling (standard i `cross_val_score` for klassifikatorer). `cv=KFold(n_splits=5, shuffle=True, random_state=0)` stokker først.
+
+::: oppgave Klassene i hver fold
+Lag lista `kf_klasser` med `y[val_idx]` for hver fold fra `KFold(n_splits=5)`, og lista `skf_klasser` på samme måte med `StratifiedKFold(n_splits=5)`.
+```start
+import numpy as np
+from sklearn.model_selection import KFold, StratifiedKFold
+
+X = np.arange(10).reshape(-1, 1)
+y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+
+kf_klasser = []
+skf_klasser = []
 ```
-- [ ] 1
-- [ ] 4
-- [x] 5
-- [ ] 6
-? Én gang per fold: fem ganger, hver gang på fire femdeler av dataene. `cross_val_score` trener ikke en endelig modell i tillegg, så `model` er fortsatt utrent etterpå.
+```losning
+import numpy as np
+from sklearn.model_selection import KFold, StratifiedKFold
+
+X = np.arange(10).reshape(-1, 1)
+y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+
+kf_klasser = []
+for train_idx, val_idx in KFold(n_splits=5).split(X):
+    kf_klasser.append(y[val_idx])
+skf_klasser = []
+for train_idx, val_idx in StratifiedKFold(n_splits=5).split(X, y):
+    skf_klasser.append(y[val_idx])
+```
+```test
+import numpy as np
+assert len(kf_klasser) == 5 and len(skf_klasser) == 5, "Begge listene skal ha fem elementer, ett per fold."
+assert [np.ravel(k).tolist() for k in kf_klasser] == [[0, 0], [0, 0], [0, 1], [1, 1], [1, 1]], "KFold uten stokking tar radene i rekkefølge, så fire av foldene har bare én klasse. Bruk KFold(n_splits=5).split(X) og y[val_idx]."
+assert all(sorted(np.ravel(k).tolist()) == [0, 1] for k in skf_klasser), "Med StratifiedKFold skal hver valideringsfold ha én 0 og én 1. Husk .split(X, y)."
+```
 :::
 
-::: quiz
-Du bruker `KFold(n_splits=4)` på et treningssett med 100 rader. Hvor mange rader trenes og valideres modellen på i hver runde?
-- [ ] Trener på 25, validerer på 75
-- [x] Trener på 75, validerer på 25
-- [ ] Trener på 100, validerer på 25
-- [ ] Trener på 80, validerer på 20
-? Dataene deles i fire folds med 25 rader. Hver runde valideres det på én fold og trenes på de tre andre (75 rader).
+::: oppgave Stokket KFold
+Lag `cv = KFold(n_splits=4, shuffle=True, random_state=0)`, lagre antall trenings- og valideringsrader i første runde av `cv.split(X)` i `n_train` og `n_val`, og kryssvalider `LogisticRegression()` med `cv=cv` til `scores`.
+```start
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import KFold, cross_val_score
+
+rng = np.random.default_rng(0)
+X = rng.normal(size=(100, 3))
+y = (X[:, 0] + X[:, 1] > 0).astype(int)
+
+cv = ...
+n_train = ...
+n_val = ...
+scores = ...
+```
+```losning
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import KFold, cross_val_score
+
+rng = np.random.default_rng(0)
+X = rng.normal(size=(100, 3))
+y = (X[:, 0] + X[:, 1] > 0).astype(int)
+
+cv = KFold(n_splits=4, shuffle=True, random_state=0)
+train_idx, val_idx = next(iter(cv.split(X)))
+n_train = len(train_idx)
+n_val = len(val_idx)
+scores = cross_val_score(LogisticRegression(), X, y, cv=cv)
+```
+```test
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import KFold, cross_val_score
+assert isinstance(cv, KFold) and cv.n_splits == 4 and cv.shuffle, "cv skal være KFold(n_splits=4, shuffle=True, random_state=0)."
+assert (n_train, n_val) == (75, 25), f"Med 4 folds og 100 rader trenes det på 75 og valideres på 25, men du har {n_train} og {n_val}."
+assert np.shape(scores) == (4,), f"scores skal ha fire verdier (én per fold), men har shape {np.shape(scores)}."
+assert np.allclose(scores, cross_val_score(LogisticRegression(), X, y, cv=KFold(n_splits=4, shuffle=True, random_state=0))), "scores skal være cross_val_score(LogisticRegression(), X, y, cv=cv)."
+```
 :::
 
-::: oppsummering
-- Tre deler: train (lære parametre), validering (velge modell og hyperparametre), test (rapportere til slutt).
-- `train_test_split` to ganger gir tre deler.
-- `cross_val_score(model, X_train, y_train, cv=5)` gir 5 valideringsresultater. Rapporter `mean() ± std()`.
-- Modellen trenes én gang per fold, på kopier. Kall `fit` selv før du tester.
-- `StratifiedKFold` bevarer klassefordelingen (standard for klassifikatorer). `cross_validate` gir flere metrikker og treningsresultater.
+## cross_validate
+`cross_validate(model, X, y, cv=5, scoring=["accuracy", "f1"], return_train_score=True)` gir en dict med arrays som `res["test_accuracy"]`, `res["train_accuracy"]` og `res["test_f1"]`, der `test_` betyr valideringsfoldene. Stor avstand mellom train og validering tyder på overtilpasning.
+
+::: oppgave Flere metrikker
+Kjør `cross_validate` som over på `X` og `y` med `LogisticRegression(max_iter=1000)`, lagre dicten i `res` og snittene i `val_acc`, `train_acc` og `val_f1`.
+```start
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_validate
+
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+
+res = ...
+val_acc = ...
+train_acc = ...
+val_f1 = ...
+```
+```losning
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_validate
+
+df = pd.read_csv("problem2.csv")
+df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
+df["age"] = df["age"].fillna(df["age"].median())
+X = df[["sex", "age", "family_aboard", "prior_voyages", "provisions_kg"]]
+y = df["survived"]
+
+res = cross_validate(LogisticRegression(max_iter=1000), X, y, cv=5,
+                     scoring=["accuracy", "f1"], return_train_score=True)
+val_acc = res["test_accuracy"].mean()
+train_acc = res["train_accuracy"].mean()
+val_f1 = res["test_f1"].mean()
+```
+```test
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_validate
+assert isinstance(res, dict), "res skal være dicten fra cross_validate."
+for _k in ["test_accuracy", "train_accuracy", "test_f1"]:
+    assert _k in res, f"res mangler nøkkelen {_k!r}. Bruk scoring=['accuracy', 'f1'] og return_train_score=True."
+_f = cross_validate(LogisticRegression(max_iter=1000), X, y, cv=5, scoring=["accuracy", "f1"], return_train_score=True)
+assert abs(val_acc - _f["test_accuracy"].mean()) < 1e-9, "val_acc skal være res['test_accuracy'].mean()."
+assert abs(train_acc - _f["train_accuracy"].mean()) < 1e-9, "train_acc skal være res['train_accuracy'].mean()."
+assert abs(val_f1 - _f["test_f1"].mean()) < 1e-9, "val_f1 skal være res['test_f1'].mean()."
+```
 :::
 
 --- LEKSJON 7.6 | hyperparametre | Hyperparametersøk
-**Parametre** lærer modellen selv i `fit` (vekter, bias, terskler i et tre). **Hyperparametre** velger du før treningen: `C` i logistisk regresjon, `max_depth` i et tre, graden til et polynom, læringsraten. Hyperparametre velges ved å prøve flere verdier og sammenligne på **valideringsdata**.
-
-I `LogisticRegression` styrer `C` regulariseringen: liten `C` gir sterk regularisering (enklere modell), stor `C` gir svak. Vi bruker brystkreftdatasettet som følger med scikit-learn, der forskjellene er tydelige.
+Parametre (vekter, bias) lærer modellen i `fit`, mens hyperparametre som `C` i `LogisticRegression(C=0.1)` (liten `C` gir sterk regularisering), `max_depth` og læringsraten velger du selv. Velg dem på valideringsdata eller med kryssvalidering, aldri på testdataene.
 
 ## Søk med en løkke
+`max(resultater, key=resultater.get)` gir nøkkelen med størst verdi i en dict.
 
-```python
+::: oppgave Velg C på valideringsdata
+For hver `C` i `[0.001, 0.01, 0.1, 1, 10, 100]`: tren `LogisticRegression(C=C)` på `X_train_s` og lagre validerings-accuracy i `resultater[C]`. Lagre beste verdi i `beste_C`, og tren så den endelige modellen med `beste_C` på `X_train_s` og lagre test-accuracy i `test_acc`.
+```start
 from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -902,88 +1118,47 @@ X, y = load_breast_cancer(return_X_y=True)
 X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.25, random_state=0)
 scaler = StandardScaler().fit(X_train)
-X_train_s, X_val_s = scaler.transform(X_train), scaler.transform(X_val)
+X_train_s, X_val_s, X_test_s = scaler.transform(X_train), scaler.transform(X_val), scaler.transform(X_test)
+
+resultater = {}
+beste_C = ...
+test_acc = ...
+```
+```losning
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.25, random_state=0)
+scaler = StandardScaler().fit(X_train)
+X_train_s, X_val_s, X_test_s = scaler.transform(X_train), scaler.transform(X_val), scaler.transform(X_test)
 
 resultater = {}
 for C in [0.001, 0.01, 0.1, 1, 10, 100]:
     model = LogisticRegression(C=C).fit(X_train_s, y_train)
     resultater[C] = model.score(X_val_s, y_val)
-    print(f"C = {C:<6} val accuracy = {resultater[C]:.3f}")
-
 beste_C = max(resultater, key=resultater.get)
-print("Beste C:", beste_C)
+test_acc = LogisticRegression(C=beste_C).fit(X_train_s, y_train).score(X_test_s, y_test)
 ```
-
-Dicten `resultater` vises som en tabell i variabelpanelet, med én rad per `C`. `max(resultater, key=resultater.get)` gir nøkkelen med størst verdi. Først **etter** at `C` er valgt, evaluerer du den endelige modellen på testdataene, én gang.
-
-::: advarsel Ikke velg på testdataene
-Prøver du mange verdier og velger den som er best **på testdataene**, har du brukt testdataene til å tilpasse modellen. Testresultatet blir da for optimistisk, og du har ingen usette data igjen å rapportere på. Forelesningsnotatene: «Testdataene skal ikke brukes til noen som helst justering.»
+```test
+from sklearn.linear_model import LogisticRegression
+_Cs = [0.001, 0.01, 0.1, 1, 10, 100]
+assert sorted(resultater.keys()) == _Cs, f"resultater skal ha nøklene {_Cs}, men har {sorted(resultater.keys())}."
+_f = {C: LogisticRegression(C=C).fit(X_train_s, y_train).score(X_val_s, y_val) for C in _Cs}
+assert all(abs(resultater[C] - _f[C]) < 1e-9 for C in _Cs), "Noen verdier i resultater stemmer ikke. Tren på X_train_s og mål score på X_val_s (ikke testdataene)."
+assert beste_C == max(_f, key=_f.get), f"beste_C skal være C-en med best validerings-accuracy: max(resultater, key=resultater.get). Du har {beste_C}."
+assert abs(test_acc - LogisticRegression(C=beste_C).fit(X_train_s, y_train).score(X_test_s, y_test)) < 1e-9, "test_acc skal være test-accuracy for LogisticRegression(C=beste_C) trent på X_train_s."
+```
 :::
 
 ## GridSearchCV
-`GridSearchCV` gjør løkka for deg, med kryssvalidering i stedet for ett valideringssett. Du gir den en modell og en dict med verdier å prøve:
-
-```python
-import pandas as pd
-from sklearn.datasets import load_breast_cancer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.preprocessing import StandardScaler
-
-X, y = load_breast_cancer(return_X_y=True)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-scaler = StandardScaler().fit(X_train)
-X_train_s, X_test_s = scaler.transform(X_train), scaler.transform(X_test)
-
-grid = GridSearchCV(LogisticRegression(), param_grid={"C": [0.001, 0.01, 0.1, 1, 10, 100]}, cv=5)
-grid.fit(X_train_s, y_train)
-print("best_params_:", grid.best_params_)
-print("best_score_: ", round(grid.best_score_, 3))
-print("Test accuracy:", round(grid.score(X_test_s, y_test), 3))
-
-resultater = pd.DataFrame(grid.cv_results_)
-display(resultater[["param_C", "mean_test_score", "std_test_score", "rank_test_score"]].round(3))
-```
-
-`cv_results_` er en dict med resultatet for hver verdi av `C`. Som DataFrame får du én rad per verdi, og raden med `rank_test_score` lik 1 er den som ble valgt.
-
-- `best_params_`: hyperparametrene med best snitt i kryssvalideringen.
-- `best_score_`: dette snittet (validering, ikke test).
-- Etter søket trener `GridSearchCV` en ny modell med de beste verdiene på **alle** treningsdataene (`best_estimator_`). `grid.predict` og `grid.score` bruker den.
-
-## Flere hyperparametre
-Med flere hyperparametre prøves **alle kombinasjoner**. `cv_results_` inneholder resultatet for hver av dem:
-
-```python
-import pandas as pd
-from sklearn.datasets import load_breast_cancer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import StandardScaler
-
-X, y = load_breast_cancer(return_X_y=True)
-X_s = StandardScaler().fit_transform(X)
-grid = GridSearchCV(LogisticRegression(),
-                    param_grid={"C": [0.01, 0.1, 1], "class_weight": [None, "balanced"]},
-                    cv=5)
-grid.fit(X_s, y)
-tabell = pd.DataFrame(grid.cv_results_)[["param_C", "param_class_weight", "mean_test_score"]]
-print(len(tabell), "kombinasjoner")
-tabell
-```
-
-3 verdier for `C` ganger 2 for `class_weight` gir 6 kombinasjoner, og med `cv=5` blir det 30 treninger. Store rutenett blir fort trege.
-
-::: hvorfor Litt lekkasje er det fortsatt
-I eksemplene over ble scaleren tilpasset på hele treningssettet før kryssvalideringen. Da har hver valideringsfold vært med på å bestemme snittet og standardavviket. I neste leksjon løser vi det med en `Pipeline`.
-:::
+`grid = GridSearchCV(LogisticRegression(), param_grid={"C": [0.1, 1]}, cv=5).fit(X_train, y_train)` prøver alle verdier med kryssvalidering og gir `best_params_`, `best_score_` (snittet i kryssvalideringen) og `best_estimator_`, trent på nytt på alle treningsdataene og brukt av `grid.score`. Alle kombinasjoner prøves, så antall treninger er antall kombinasjoner ganger antall folds.
 
 ::: oppgave Finn beste C
-Bruk `GridSearchCV` med `LogisticRegression()`, verdiene `[0.01, 0.1, 1, 10]` for `C` og `cv=5`. Tilpass søket på `X_train_s` og `y_train`, og lagre:
-
-- `grid`: søket
-- `beste_C`: den beste verdien for `C` (et tall)
-- `test_acc`: accuracy på testdataene med den beste modellen
+Lag `grid` med `LogisticRegression()`, `C` i `[0.01, 0.1, 1, 10]` og `cv=5`, og tilpass det på `X_train_s` og `y_train`. Lagre `beste_C`, `cv_snitt` (`best_score_`) og `test_acc` på testdataene.
 ```start
 from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LogisticRegression
@@ -997,6 +1172,7 @@ X_train_s, X_test_s = scaler.transform(X_train), scaler.transform(X_test)
 
 grid = ...
 beste_C = ...
+cv_snitt = ...
 test_acc = ...
 ```
 ```losning
@@ -1013,6 +1189,7 @@ X_train_s, X_test_s = scaler.transform(X_train), scaler.transform(X_test)
 grid = GridSearchCV(LogisticRegression(), param_grid={"C": [0.01, 0.1, 1, 10]}, cv=5)
 grid.fit(X_train_s, y_train)
 beste_C = grid.best_params_["C"]
+cv_snitt = grid.best_score_
 test_acc = grid.score(X_test_s, y_test)
 ```
 ```test
@@ -1023,166 +1200,58 @@ assert hasattr(grid, "best_params_"), "grid er ikke tilpasset. Kall grid.fit(X_t
 assert sorted(grid.param_grid["C"]) == [0.01, 0.1, 1, 10], "Prøv nøyaktig C-verdiene [0.01, 0.1, 1, 10]."
 _g = GridSearchCV(LogisticRegression(), param_grid={"C": [0.01, 0.1, 1, 10]}, cv=5).fit(X_train_s, y_train)
 assert beste_C == _g.best_params_["C"], f"beste_C skal hentes fra grid.best_params_['C'], men er {beste_C}"
+assert abs(cv_snitt - _g.best_score_) < 1e-9, "cv_snitt skal være grid.best_score_. Tilpasset du på X_train_s og y_train?"
 assert abs(test_acc - _g.score(X_test_s, y_test)) < 1e-9, "test_acc skal være grid.score(X_test_s, y_test)."
 ```
 :::
 
-::: quiz
-Hvor mange kombinasjoner prøves, og hvor mange ganger trenes en modell i selve kryssvalideringen?
-```kode
-grid = GridSearchCV(model,
-                    param_grid={"C": [0.01, 0.1, 1],
-                                "max_iter": [100, 200, 500, 1000]},
-                    cv=5)
-grid.fit(X_train, y_train)
+::: oppgave To hyperparametre
+Søk over `C` i `[0.01, 0.1, 1]` og `class_weight` i `[None, "balanced"]` med `cv=5` og lagre søket i `grid`. Lag `tabell = pd.DataFrame(grid.cv_results_)`, og lagre `antall_komb = len(tabell)` og `antall_treninger` (i kryssvalideringen).
+```start
+import pandas as pd
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_s = StandardScaler().fit_transform(X)
+
+grid = ...
+tabell = ...
+antall_komb = ...
+antall_treninger = ...
 ```
-- [ ] 7 kombinasjoner, 35 treninger
-- [x] 12 kombinasjoner, 60 treninger
-- [ ] 12 kombinasjoner, 12 treninger
-- [ ] 60 kombinasjoner, 300 treninger
-? Alle kombinasjoner prøves: 3 · 4 = 12. Hver kombinasjon kryssvalideres med 5 folds: 12 · 5 = 60 treninger. (Til slutt kommer én ekstra trening av den beste modellen på alle treningsdataene.)
-:::
+```losning
+import pandas as pd
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import StandardScaler
 
-::: quiz
-Du har train-, validerings- og testdata og vil velge læringsraten til en modell. Hvilken fremgangsmåte er riktig?
-- [ ] Velg læringsraten som gir lavest tap på treningsdataene
-- [x] Velg læringsraten som gir best resultat på valideringsdataene, og rapporter testresultatet for den
-- [ ] Velg læringsraten som gir best resultat på testdataene, og rapporter det resultatet
-- [ ] Slå sammen validerings- og testdataene og velg den som er best der
-? Treningstapet belønner overtilpasning, og testdataene skal ikke brukes til noen tilpasning. Valideringsdataene (eller kryssvalidering på treningsdataene) er laget for å velge hyperparametre.
-:::
+X, y = load_breast_cancer(return_X_y=True)
+X_s = StandardScaler().fit_transform(X)
 
-::: oppsummering
-- **Parametre** læres i `fit`. **Hyperparametre** (`C`, `max_depth`, grad, læringsrate) velger du.
-- Velg hyperparametre på valideringsdata eller med kryssvalidering, **aldri** på testdataene.
-- `GridSearchCV(model, param_grid={...}, cv=5).fit(X_train, y_train)` prøver alle kombinasjoner.
-- `best_params_`, `best_score_` (snitt i kryssvalideringen) og `best_estimator_` (trent på nytt på all treningsdata).
-- Antall treninger = antall kombinasjoner · antall folds.
+grid = GridSearchCV(LogisticRegression(),
+                    param_grid={"C": [0.01, 0.1, 1], "class_weight": [None, "balanced"]},
+                    cv=5)
+grid.fit(X_s, y)
+tabell = pd.DataFrame(grid.cv_results_)
+antall_komb = len(tabell)
+antall_treninger = antall_komb * 5
+```
+```test
+import pandas as pd
+from sklearn.model_selection import GridSearchCV
+assert isinstance(grid, GridSearchCV) and hasattr(grid, "cv_results_"), "grid skal være et GridSearchCV som er tilpasset med grid.fit(X_s, y)."
+assert isinstance(tabell, pd.DataFrame) and "mean_test_score" in tabell.columns, "tabell skal være pd.DataFrame(grid.cv_results_)."
+assert antall_komb == 6, f"antall_komb skal være 3 · 2 = 6, men er {antall_komb}."
+assert antall_treninger == 30, f"antall_treninger skal være 6 kombinasjoner · 5 folds = 30, men er {antall_treninger}."
+```
 :::
 
 --- LEKSJON 7.7 | pipeline | Pipeline
-En **Pipeline** setter flere steg sammen til én modell: for eksempel en scaler etterfulgt av logistisk regresjon. Hele kjeden har `fit`, `predict` og `score`, akkurat som en vanlig modell.
-
-```python
-from sklearn.datasets import load_breast_cancer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
-X, y = load_breast_cancer(return_X_y=True)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-modell = make_pipeline(StandardScaler(), LogisticRegression())
-modell.fit(X_train, y_train)
-print("Test accuracy:", round(modell.score(X_test, y_test), 3))
-print(modell.named_steps.keys())
-print("Snitt lært av scaleren:", modell.named_steps["standardscaler"].mean_[:3].round(2))
-
-for navn, steg in modell.named_steps.items():
-    print("Steg:", navn)
-    display(steg)   # det steget lærte under fit
-```
-
-Hvert steg i pipelinen er et vanlig, trent objekt: scaleren har lært `mean_` og `scale_`, og den logistiske regresjonen har lært `coef_` og `intercept_`.
-
-Dette skjer inni pipelinen:
-
-| Du kaller | Pipelinen gjør |
-|---|---|
-| `modell.fit(X_train, y_train)` | `scaler.fit_transform(X_train)`, deretter `logreg.fit(...)` på de skalerte dataene |
-| `modell.predict(X_test)` | `scaler.transform(X_test)`, deretter `logreg.predict(...)` |
-
-Du kan altså ikke glemme å skalere testdataene, og du kan ikke ved et uhell kalle `fit` på dem. `make_pipeline` gir stegene navn automatisk (klassenavnet med små bokstaver). Vil du velge navnene selv, bruker du `Pipeline([("scaler", StandardScaler()), ("model", LogisticRegression())])`.
-
-## Hvorfor Pipeline hindrer lekkasje i kryssvalidering
-Gir du en pipeline til `cross_val_score`, tilpasses **hele** pipelinen på nytt i hver fold. Scaleren ser da bare de fire treningsfoldene, aldri valideringsfolden.
-
-For en scaler er lekkasjen liten. For steg som bruker `y` i `fit`, kan den bli enorm. `SelectKBest(k=20)` velger de 20 featurene som henger mest sammen med `y`. Under er dataene **ren støy**, så ærlig accuracy er rundt 50 %:
-
-```python
-import numpy as np
-from sklearn.feature_selection import SelectKBest
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
-from sklearn.pipeline import make_pipeline
-
-rng = np.random.default_rng(1)
-X = rng.normal(size=(200, 2000))     # 2000 features med ren støy
-y = rng.integers(0, 2, size=200)     # tilfeldige klasser
-
-# FEIL: velg features med ALLE data, kryssvalider etterpå
-X_valgt = SelectKBest(k=20).fit_transform(X, y)
-print("Med lekkasje: ", cross_val_score(LogisticRegression(), X_valgt, y, cv=5).mean())
-
-# RIKTIG: utvalget gjøres på nytt inni hver fold
-pipe = make_pipeline(SelectKBest(k=20), LogisticRegression())
-print("Med pipeline: ", cross_val_score(pipe, X, y, cv=5).mean())
-```
-
-Uten pipeline ser modellen ut til å klare nesten 80 % på tilfeldige data. Utvalget av features hadde allerede «sett» valideringsfoldene.
-
-## GridSearchCV med pipeline
-Hyperparametre i et steg får navnet `stegnavn__parameter`, med **to** understreker:
-
-```python
-from sklearn.datasets import load_breast_cancer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
-X, y = load_breast_cancer(return_X_y=True)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-pipe = make_pipeline(StandardScaler(), LogisticRegression())
-grid = GridSearchCV(pipe, param_grid={"logisticregression__C": [0.01, 0.1, 1, 10]}, cv=5)
-grid.fit(X_train, y_train)
-print(grid.best_params_, round(grid.best_score_, 3))
-print("Test:", round(grid.score(X_test, y_test), 3))
-```
-
-Nå er både skaleringen og valget av `C` gjort uten at noen valideringsfold har lekket inn.
-
-## Hele vikingløpet i én pipeline
-Ekte data har både tall og tekst. `make_column_transformer` bruker ulike steg på ulike kolonner. Her blir alt fra del 3 og denne delen én modell:
-
-```python
-import pandas as pd
-from sklearn.compose import make_column_transformer
-from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
-df = pd.read_csv("problem2.csv")
-X = df.drop(columns=["survived", "passenger_id", "name"])
-y = df["survived"]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-tall = ["age", "provisions_kg", "family_aboard", "prior_voyages"]
-tekst = ["sex", "role", "ship", "destination", "clan_origin", "armor"]
-forbehandling = make_column_transformer(
-    (make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), tall),
-    (make_pipeline(SimpleImputer(strategy="constant", fill_value="None"),
-                   OneHotEncoder(handle_unknown="ignore")), tekst),
-)
-modell = make_pipeline(forbehandling, LogisticRegression(max_iter=1000))
-
-cv_scores = cross_val_score(modell, X_train, y_train, cv=5)
-print(f"CV Accuracy: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}")
-modell.fit(X_train, y_train)
-print(f"Test accuracy: {modell.score(X_test, y_test):.4f}")
-
-print("Rådata inn i pipelinen:")
-display(X_test.head(3))
-print("Etter forbehandlingen (dette er det LogisticRegression ser):")
-display(pd.DataFrame(forbehandling.transform(X_test.head(3)),
-                     columns=forbehandling.get_feature_names_out()))
-```
-
-Før forbehandlingen har `X_test` tekst og røde `NaN`-celler. Etterpå er alt tall: tallkolonnene er fylt inn og skalert (`pipeline-1__...`), og tekstkolonnene er blitt 0/1-kolonner (`pipeline-2__...`). Medianer, snitt, standardavvik og kategorier læres bare fra treningsdelen i hver fold. Med alle features slår modellen klart de fem numeriske featurene vi brukte i leksjon 7.5.
+`make_pipeline(StandardScaler(), LogisticRegression())` setter stegene sammen til én modell: `fit` kjører `fit_transform` på scaleren og `fit` på modellen, og `predict` kjører `transform` og så `predict`.
 
 ::: oppgave Din første pipeline
 Lag `modell` som en pipeline med `StandardScaler()` og `LogisticRegression()`. Kryssvalider den med 5 folds på treningsdataene (lagre i `cv_scores`), tren den på treningsdataene og lagre test-accuracy i `test_acc`.
@@ -1232,63 +1301,279 @@ assert abs(test_acc - modell.score(X_test, y_test)) < 1e-9, "test_acc skal være
 ```
 :::
 
-::: quiz
-Hvilken kode gir et kryssvalideringsresultat uten datalekkasje?
-- [ ] `X_s = StandardScaler().fit_transform(X)` og så `cross_val_score(LogisticRegression(), X_s, y, cv=5)`
-- [x] `cross_val_score(make_pipeline(StandardScaler(), LogisticRegression()), X, y, cv=5)`
-- [ ] `cross_val_score(LogisticRegression(), StandardScaler().fit(X), y, cv=5)`
-- [ ] `X_s = StandardScaler().fit_transform(X_test)` og så `cross_val_score(LogisticRegression(), X_s, y_test, cv=5)`
-? Med pipeline tilpasses scaleren på nytt i hver fold, bare på treningsfoldene. I det første alternativet har scaleren sett alle foldene. Det tredje sender et scaler-objekt i stedet for data, og det fjerde bruker testdataene til kryssvalidering.
+## Navn på stegene
+`make_pipeline` kaller stegene `standardscaler` og `logisticregression`, mens `Pipeline([("scaler", StandardScaler()), ("model", LogisticRegression())])` lar deg velge navn selv. `pipe.named_steps["scaler"]` henter et trent steg.
+
+::: oppgave Egne stegnavn
+Lag `pipe` med `Pipeline` og stegnavnene `"scaler"` og `"model"`, tren den på treningsdataene, og hent `snitt` (scalerens `mean_`) og `vekter` (modellens `coef_`) via `named_steps`.
+```start
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+pipe = ...
+snitt = ...
+vekter = ...
+```
+```losning
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+pipe = Pipeline([("scaler", StandardScaler()), ("model", LogisticRegression())])
+pipe.fit(X_train, y_train)
+snitt = pipe.named_steps["scaler"].mean_
+vekter = pipe.named_steps["model"].coef_
+```
+```test
+import numpy as np
+from sklearn.pipeline import Pipeline
+assert isinstance(pipe, Pipeline), "pipe skal være en Pipeline([...])."
+assert list(pipe.named_steps) == ["scaler", "model"], f"Stegene skal hete 'scaler' og 'model', men heter {list(pipe.named_steps)}."
+assert hasattr(pipe.named_steps["model"], "coef_"), "pipe er ikke trent. Kall pipe.fit(X_train, y_train)."
+assert np.allclose(snitt, X_train.mean(axis=0)), "snitt skal være pipe.named_steps['scaler'].mean_, lært fra X_train."
+assert np.shape(vekter) == (1, 30) and np.allclose(vekter, pipe.named_steps["model"].coef_), "vekter skal være pipe.named_steps['model'].coef_."
+```
 :::
 
-::: quiz
-Du lager `pipe = make_pipeline(StandardScaler(), LogisticRegression())` og vil søke over `C` med `GridSearchCV(pipe, param_grid=...)`. Hvilken nøkkel må du bruke i `param_grid`?
-- [ ] `"C"`
-- [x] `"logisticregression__C"`
-- [ ] `"LogisticRegression.C"`
-- [ ] `"model__C"`
-? `make_pipeline` kaller steget `logisticregression`, og parametre i et steg skrives `stegnavn__parameter` med to understreker. `"model__C"` ville bare virket om du selv hadde kalt steget `"model"` med `Pipeline([...])`.
+## Lekkasje i kryssvalidering
+I `cross_val_score` tilpasses hele pipelinen på nytt i hver fold, så et steg som `SelectKBest(k=20)` (velger de 20 featurene som henger mest sammen med `y`) aldri ser valideringsfolden.
+
+::: oppgave Ren støy
+Dataene er tilfeldige, så ærlig accuracy er rundt 0.5. Lagre CV-snittet (`cv=5`) når du først lager `X_valgt = SelectKBest(k=20).fit_transform(X, y)` i `med_lekkasje`, og CV-snittet for `make_pipeline(SelectKBest(k=20), LogisticRegression())` på `X` i `med_pipeline`.
+```start
+import numpy as np
+from sklearn.feature_selection import SelectKBest
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import make_pipeline
+
+rng = np.random.default_rng(1)
+X = rng.normal(size=(200, 2000))
+y = rng.integers(0, 2, size=200)
+
+med_lekkasje = ...
+med_pipeline = ...
+```
+```losning
+import numpy as np
+from sklearn.feature_selection import SelectKBest
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import make_pipeline
+
+rng = np.random.default_rng(1)
+X = rng.normal(size=(200, 2000))
+y = rng.integers(0, 2, size=200)
+
+X_valgt = SelectKBest(k=20).fit_transform(X, y)
+med_lekkasje = cross_val_score(LogisticRegression(), X_valgt, y, cv=5).mean()
+pipe = make_pipeline(SelectKBest(k=20), LogisticRegression())
+med_pipeline = cross_val_score(pipe, X, y, cv=5).mean()
+```
+```test
+from sklearn.feature_selection import SelectKBest
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import make_pipeline
+_l = cross_val_score(LogisticRegression(), SelectKBest(k=20).fit_transform(X, y), y, cv=5).mean()
+_p = cross_val_score(make_pipeline(SelectKBest(k=20), LogisticRegression()), X, y, cv=5).mean()
+assert abs(float(med_lekkasje) - _l) < 1e-9, f"med_lekkasje skal være CV-snittet på X_valgt (ca. {_l:.2f}), men er {med_lekkasje}."
+assert abs(float(med_pipeline) - _p) < 1e-9, f"med_pipeline skal være CV-snittet for pipelinen på hele X (ca. {_p:.2f}), men er {med_pipeline}."
+```
 :::
 
-::: oppsummering
-- `make_pipeline(StandardScaler(), LogisticRegression())` lager én modell av flere steg.
-- `fit` kjører `fit_transform` på hvert forbehandlingssteg og `fit` på modellen. `predict` kjører `transform` og så `predict`.
-- I `cross_val_score` og `GridSearchCV` tilpasses hele pipelinen på nytt i hver fold: **ingen lekkasje**.
-- Hyperparametre i et steg: `"stegnavn__parameter"`, for eksempel `"logisticregression__C"`.
-- `make_column_transformer` bruker ulike steg på tall- og tekstkolonner.
+## GridSearchCV med pipeline
+Hyperparametre i et steg heter `stegnavn__parameter` med to understreker, for eksempel `"logisticregression__C"`.
+
+::: oppgave Søk over C i pipelinen
+Lag `grid = GridSearchCV(pipe, param_grid=..., cv=5)` med `C` i `[0.01, 0.1, 1, 10]` for logistisk regresjon, tilpass det på `X_train` og `y_train`, og lagre `beste_C` og `test_acc`.
+```start
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+pipe = make_pipeline(StandardScaler(), LogisticRegression())
+
+grid = ...
+beste_C = ...
+test_acc = ...
+```
+```losning
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_breast_cancer(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+pipe = make_pipeline(StandardScaler(), LogisticRegression())
+
+grid = GridSearchCV(pipe, param_grid={"logisticregression__C": [0.01, 0.1, 1, 10]}, cv=5)
+grid.fit(X_train, y_train)
+beste_C = grid.best_params_["logisticregression__C"]
+test_acc = grid.score(X_test, y_test)
+```
+```test
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+assert isinstance(grid, GridSearchCV) and isinstance(grid.estimator, Pipeline), "grid skal være GridSearchCV(pipe, ...) med pipelinen som modell."
+assert hasattr(grid, "best_params_"), "grid er ikke tilpasset. Kall grid.fit(X_train, y_train)."
+assert list(grid.param_grid) == ["logisticregression__C"], 'Nøkkelen i param_grid skal være "logisticregression__C" (to understreker).'
+_g = GridSearchCV(make_pipeline(StandardScaler(), LogisticRegression()), param_grid={"logisticregression__C": [0.01, 0.1, 1, 10]}, cv=5).fit(X_train, y_train)
+assert beste_C == _g.best_params_["logisticregression__C"], f"beste_C skal være grid.best_params_['logisticregression__C'], men er {beste_C}."
+assert abs(test_acc - _g.score(X_test, y_test)) < 1e-9, "test_acc skal være grid.score(X_test, y_test)."
+```
+:::
+
+## Tall og tekst i samme pipeline
+`make_column_transformer((steg, tallkolonner), (steg, tekstkolonner))` bruker ulike steg på ulike kolonner, og hvert steg kan selv være en `make_pipeline(...)`.
+
+::: oppgave Hele vikingløpet
+Lag `forbehandling` med median-imputering og `StandardScaler()` for `tall`, og `SimpleImputer(strategy="constant", fill_value="None")` og `OneHotEncoder(handle_unknown="ignore")` for `tekst`. Sett den foran `LogisticRegression(max_iter=1000)` i `modell`, lagre `cv_scores` (`cv=5` på treningsdataene), tren og lagre `test_acc`.
+```start
+import pandas as pd
+from sklearn.compose import make_column_transformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+df = pd.read_csv("problem2.csv")
+X = df.drop(columns=["survived", "passenger_id", "name"])
+y = df["survived"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+tall = ["age", "provisions_kg", "family_aboard", "prior_voyages"]
+tekst = ["sex", "role", "ship", "destination", "clan_origin", "armor"]
+
+forbehandling = ...
+modell = ...
+cv_scores = ...
+test_acc = ...
+```
+```losning
+import pandas as pd
+from sklearn.compose import make_column_transformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+df = pd.read_csv("problem2.csv")
+X = df.drop(columns=["survived", "passenger_id", "name"])
+y = df["survived"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+tall = ["age", "provisions_kg", "family_aboard", "prior_voyages"]
+tekst = ["sex", "role", "ship", "destination", "clan_origin", "armor"]
+
+forbehandling = make_column_transformer(
+    (make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), tall),
+    (make_pipeline(SimpleImputer(strategy="constant", fill_value="None"),
+                   OneHotEncoder(handle_unknown="ignore")), tekst),
+)
+modell = make_pipeline(forbehandling, LogisticRegression(max_iter=1000))
+cv_scores = cross_val_score(modell, X_train, y_train, cv=5)
+modell.fit(X_train, y_train)
+test_acc = modell.score(X_test, y_test)
+```
+```test
+import numpy as np
+from sklearn.compose import ColumnTransformer, make_column_transformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+assert isinstance(forbehandling, ColumnTransformer), "forbehandling skal lages med make_column_transformer(...)."
+assert isinstance(modell, Pipeline) and isinstance(modell.steps[-1][1], LogisticRegression), "modell skal være make_pipeline(forbehandling, LogisticRegression(max_iter=1000))."
+assert hasattr(modell.steps[-1][1], "coef_"), "modell er ikke trent. Kall modell.fit(X_train, y_train)."
+_ft = make_column_transformer(
+    (make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), tall),
+    (make_pipeline(SimpleImputer(strategy="constant", fill_value="None"), OneHotEncoder(handle_unknown="ignore")), tekst),
+)
+_cv = cross_val_score(make_pipeline(_ft, LogisticRegression(max_iter=1000)), X_train, y_train, cv=5)
+assert np.shape(cv_scores) == (5,), f"cv_scores skal ha 5 verdier, men har shape {np.shape(cv_scores)}."
+assert np.allclose(cv_scores, _cv, atol=1e-3), "cv_scores stemmer ikke. Sjekk stegene for tall og tekst, og at du kryssvaliderer på X_train og y_train."
+assert abs(test_acc - modell.score(X_test, y_test)) < 1e-9, "test_acc skal være modell.score(X_test, y_test)."
+```
 :::
 
 --- LEKSJON 7.8 | polynom-sgd | Polynomfeatures, SGDRegressor og overtilpasning
-Lineær regresjon kan bare tegne rette linjer. Lager du nye features som $x^2$ og $x^3$, kan den samme lineære modellen tilpasse kurver. Forelesningsnotatene kaller dette **feature engineering** og bruker `PolynomialFeatures` fra scikit-learn.
+`PolynomialFeatures(degree=3, include_bias=False).fit_transform(x)` lager $x, x^2, x^3$ (med flere features også produkter som $x_0 x_1$), så en lineær modell kan tilpasse kurver. Uten `include_bias=False` kommer en ekstra kolonne med bare enere.
 
-## PolynomialFeatures
-
-```python
+::: oppgave Polynomfeatures
+Lag `X_poly` med grad 3 og `include_bias=False` fra `x`, og `X2_poly` med grad 2 og `include_bias=False` fra `X2`. Lagre kolonnenavnene for `X2_poly` med `get_feature_names_out(["x0", "x1"])` i `navn`.
+```start
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
 
 x = np.array([[2.0], [3.0]])
-poly = PolynomialFeatures(degree=3, include_bias=False)
-print(poly.fit_transform(x))                         # x, x², x³
-
 X2 = np.array([[2.0, 3.0]])
-poly2 = PolynomialFeatures(degree=2, include_bias=False)
-print(poly2.fit_transform(X2))
-print(poly2.get_feature_names_out(["x0", "x1"]))
 
-print("Før: to features")
-display(pd.DataFrame(X2, columns=["x0", "x1"]))
-print("Etter: fem features, med navn")
-display(pd.DataFrame(poly2.fit_transform(X2), columns=poly2.get_feature_names_out(["x0", "x1"])))
+X_poly = ...
+X2_poly = ...
+navn = ...
 ```
+```losning
+import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
 
-Med to features og grad 2 får du $x_0$, $x_1$, $x_0^2$, $x_0 x_1$ og $x_1^2$. Uten `include_bias=False` kommer en ekstra kolonne med bare enere. Modellen er fortsatt lineær regresjon, bare med flere features: $y = \beta_0 + \beta_1 x + \beta_2 x^2 + \dots$
+x = np.array([[2.0], [3.0]])
+X2 = np.array([[2.0, 3.0]])
+
+X_poly = PolynomialFeatures(degree=3, include_bias=False).fit_transform(x)
+poly2 = PolynomialFeatures(degree=2, include_bias=False)
+X2_poly = poly2.fit_transform(X2)
+navn = poly2.get_feature_names_out(["x0", "x1"])
+```
+```test
+import numpy as np
+assert np.shape(X_poly) == (2, 3), f"X_poly skal ha shape (2, 3): x, x² og x³. Du har {np.shape(X_poly)}. Husk include_bias=False."
+assert np.allclose(X_poly, [[2, 4, 8], [3, 9, 27]]), "X_poly skal være [[2, 4, 8], [3, 9, 27]]."
+assert np.shape(X2_poly) == (1, 5), f"X2_poly skal ha shape (1, 5): x0, x1, x0², x0·x1 og x1². Du har {np.shape(X2_poly)}."
+assert np.allclose(X2_poly, [[2, 3, 4, 6, 9]]), "X2_poly skal være [[2, 3, 4, 6, 9]]."
+assert list(navn) == ["x0", "x1", "x0^2", "x0 x1", "x1^2"], f"navn skal være poly2.get_feature_names_out(['x0', 'x1']), men er {list(navn)}."
+```
+:::
 
 ## XOR-problemet på nytt
-I prosjekt 1 klarte ikke logistisk regresjon `classification.csv`, fordi klassene er fordelt som XOR. Produktet $x_0 x_1$ er nøkkelfeaturen (leksjon 5.8), og den lager `PolynomialFeatures(2)` automatisk:
+Klassene i `classification.csv` er fordelt som XOR, og produktet `x0 x1` fra `PolynomialFeatures(degree=2)` er featuren som løser det.
 
-```python
+::: oppgave Løs XOR med en pipeline
+Tren `LogisticRegression()` på `train[["x0", "x1"]]` og lagre test-accuracy i `acc_lineaer`. Gjør det samme med `make_pipeline(PolynomialFeatures(degree=2), LogisticRegression())` og lagre i `acc_poly`.
+```start
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+
+data = pd.read_csv("classification.csv")
+train = data[data["split"] == "train"]
+test = data[data["split"] == "test"]
+
+acc_lineaer = ...
+acc_poly = ...
+```
+```losning
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
@@ -1299,25 +1584,28 @@ train = data[data["split"] == "train"]
 test = data[data["split"] == "test"]
 
 lineaer = LogisticRegression().fit(train[["x0", "x1"]], train["y"])
+acc_lineaer = lineaer.score(test[["x0", "x1"]], test["y"])
 poly = make_pipeline(PolynomialFeatures(degree=2), LogisticRegression()).fit(train[["x0", "x1"]], train["y"])
-print("Uten polynomfeatures:", lineaer.score(test[["x0", "x1"]], test["y"]))
-print("Med grad 2:          ", poly.score(test[["x0", "x1"]], test["y"]))
-
-# Hva ser LogisticRegression etter PolynomialFeatures?
-pf = PolynomialFeatures(degree=2)
-Xp = pd.DataFrame(pf.fit_transform(train[["x0", "x1"]]), columns=pf.get_feature_names_out())
-Xp["y"] = train["y"].values
-display(Xp.head(6))
+acc_poly = poly.score(test[["x0", "x1"]], test["y"])
 ```
-
-Se på kolonnene `x0 x1` og `y` i tabellen: i de første radene er `y` 1 nøyaktig der produktet er negativt. Kolonnen `1` er bias-kolonnen, siden `include_bias=False` ikke er gitt her.
-
-`PolynomialFeatures` er en transformer, så den følger samme regel som scalere: `fit` på treningsdata, `transform` på testdata. I en pipeline skjer det automatisk.
+```test
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+_Xtr, _Xte = train[["x0", "x1"]], test[["x0", "x1"]]
+_l = LogisticRegression().fit(_Xtr, train["y"]).score(_Xte, test["y"])
+_p = make_pipeline(PolynomialFeatures(degree=2), LogisticRegression()).fit(_Xtr, train["y"]).score(_Xte, test["y"])
+assert abs(float(acc_lineaer) - _l) < 1e-9, f"acc_lineaer skal være test-accuracy for LogisticRegression() trent på train (ca. {_l:.2f})."
+assert abs(float(acc_poly) - _p) < 1e-9, f"acc_poly skal være test-accuracy for pipelinen med PolynomialFeatures(degree=2) (ca. {_p:.2f})."
+```
+:::
 
 ## Over- og undertilpasning
-Hvilken grad skal du velge? For lav grad gir **undertilpasning**: modellen er for enkel og bommer både på train og test. For høy grad gir **overtilpasning**: modellen følger støyen i treningsdataene og bommer på nye data.
+For lav grad gir undertilpasning (høy feil både på train og test), og for høy grad gir overtilpasning (lav train-MSE, høy test-MSE). Graden er altså en hyperparameter som velges på valideringsdata.
 
-```python
+::: oppgave Train- og test-MSE
+For hver `grad` i `[1, 5, 12]`: tren `make_pipeline(PolynomialFeatures(grad), LinearRegression())` på `x_train` og lagre MSE på treningsdataene i `train_mse[grad]` og på testdataene i `test_mse[grad]`.
+```start
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -1330,19 +1618,13 @@ x = rng.uniform(0, 1, 30).reshape(-1, 1)
 y = np.sin(2 * np.pi * x.ravel()) + rng.normal(0, 0.3, 30)
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=0)
 
-for grad in [1, 3, 5, 9, 12]:
-    modell = make_pipeline(PolynomialFeatures(grad), LinearRegression()).fit(x_train, y_train)
-    mse_train = mean_squared_error(y_train, modell.predict(x_train))
-    mse_test = mean_squared_error(y_test, modell.predict(x_test))
-    print(f"grad {grad:2d}: train MSE {mse_train:.3f}   test MSE {mse_test:.3f}")
+train_mse = {}
+test_mse = {}
 ```
-
-Train-MSE synker når graden øker, men test-MSE er lavest rundt grad 5 og eksploderer for grad 12. Slik ser det ut:
-
-```python
-import matplotlib.pyplot as plt
+```losning
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures
@@ -1351,72 +1633,30 @@ rng = np.random.default_rng(0)
 x = rng.uniform(0, 1, 30).reshape(-1, 1)
 y = np.sin(2 * np.pi * x.ravel()) + rng.normal(0, 0.3, 30)
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=0)
-x_plot = np.linspace(0, 1, 200).reshape(-1, 1)
 
-fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
-for ax, grad in zip(axes, [1, 5, 12]):
+train_mse = {}
+test_mse = {}
+for grad in [1, 5, 12]:
     modell = make_pipeline(PolynomialFeatures(grad), LinearRegression()).fit(x_train, y_train)
-    ax.scatter(x_train, y_train, label="train")
-    ax.scatter(x_test, y_test, marker="x", label="test")
-    ax.plot(x_plot, modell.predict(x_plot), color="black")
-    ax.set_ylim(-2, 2)
-    ax.set_title(f"grad {grad}")
-axes[0].legend()
-plt.show()
+    train_mse[grad] = mean_squared_error(y_train, modell.predict(x_train))
+    test_mse[grad] = mean_squared_error(y_test, modell.predict(x_test))
 ```
-
-Graden er en **hyperparameter**: den velges med valideringsdata eller kryssvalidering, akkurat som `C` i leksjon 7.6.
-
-## SGDRegressor og tapskurver
-`SGDRegressor` er lineær regresjon trent med stokastisk gradient descent, slik du skrev selv i del 5. `partial_fit` kjører **én epoke** (én runde gjennom dataene) og fortsetter fra vektene den har. Da kan du måle tapet etter hver epoke. Koden er hentet fra forelesningsnotatene:
-
-```python
-import matplotlib.pyplot as plt
-import pandas as pd
-from sklearn.linear_model import SGDRegressor
+```test
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-
-data = pd.read_csv("regression.csv")
-X = data[["Net_Activity"]].values
-y = data["Energy"].values
-X_train, X_val, y_train, y_val = train_test_split(X, y, train_size=100, test_size=100, random_state=0)
-scaler = StandardScaler().fit(X_train)            # SGD trenger skalerte features
-X_train, X_val = scaler.transform(X_train), scaler.transform(X_val)
-
-model = SGDRegressor(learning_rate="constant", eta0=0.01, random_state=0)
-train_losses, val_losses = [], []
-n_epochs = 30
-for epoch in range(n_epochs):
-    model.partial_fit(X_train, y_train)
-    # Monitor training loss
-    train_losses.append(mean_squared_error(y_train, model.predict(X_train)))
-    # Monitor validation loss
-    val_losses.append(mean_squared_error(y_val, model.predict(X_val)))
-
-plt.plot(train_losses, label="train")
-plt.plot(val_losses, label="validering")
-plt.yscale("log")
-plt.xlabel("epoke")
-plt.ylabel("MSE")
-plt.legend()
-plt.show()
-print("Vekt og bias:", model.coef_, model.intercept_)
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+assert sorted(train_mse) == [1, 5, 12] and sorted(test_mse) == [1, 5, 12], "train_mse og test_mse skal ha nøklene 1, 5 og 12."
+for _g in [1, 5, 12]:
+    _m = make_pipeline(PolynomialFeatures(_g), LinearRegression()).fit(x_train, y_train)
+    assert abs(train_mse[_g] - mean_squared_error(y_train, _m.predict(x_train))) < 1e-6, f"train_mse[{_g}] stemmer ikke. Mål MSE på x_train og y_train."
+    assert abs(test_mse[_g] - mean_squared_error(y_test, _m.predict(x_test))) < 1e-6, f"test_mse[{_g}] stemmer ikke. Mål MSE på x_test og y_test."
+assert train_mse[12] < train_mse[5] < train_mse[1] and test_mse[12] > test_mse[5], "Train-MSE skal synke med graden, mens test-MSE skal øke fra grad 5 til 12 (overtilpasning)."
 ```
-
-`learning_rate="constant"` og `eta0=0.01` betyr fast læringsrate 0.01. Vi bruker bare 100 treningsrader så kurvene får noen epoker på seg. `fit` ville i stedet startet på nytt og kjørt mange epoker til den konvergerte.
-
-Slik leser du tapskurvene (figur 14 i notatene):
-
-| Kurvene | Tolkning |
-|---|---|
-| Begge synker og flater ut på omtrent samme nivå | god tilpasning |
-| Train fortsetter å synke, validering flater ut eller stiger | overtilpasning (for kompleks modell) |
-| Begge flater ut på et høyt nivå | undertilpasning (for enkel modell) |
+:::
 
 ::: oppgave Velg grad med valideringsdata
-Prøv gradene 1 til 10 med `make_pipeline(PolynomialFeatures(grad), LinearRegression())`. Tren på `x_train`, mål MSE på `x_val`, og lagre resultatene i dicten `val_mse` (nøkkel: grad, verdi: validerings-MSE). Lagre graden med lavest validerings-MSE i `beste_grad`.
+Prøv gradene 1 til 10, tren på `x_train`, og lagre validerings-MSE i dicten `val_mse` (nøkkel: grad). Lagre graden med lavest validerings-MSE i `beste_grad`.
 ```start
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -1468,37 +1708,75 @@ assert beste_grad == min(_f, key=_f.get), f"beste_grad skal være graden med lav
 ```
 :::
 
-::: quiz
-Er graden til polynomet vi lager features til en modellparameter, en hyperparameter eller en feature?
-- [ ] En modellparameter, fordi den lærer seg i `fit`
-- [x] En hyperparameter, fordi vi velger den før treningen
-- [ ] En feature, fordi den lager nye kolonner
-- [ ] Ingen av delene, den har ingen effekt på modellen
-? Graden bestemmes før `fit` og påvirker hvor kompleks modellen blir. Den velges med valideringsdata, som andre hyperparametre. Vektene $\beta$ er modellparametrene.
-:::
+## SGDRegressor og tapskurver
+`SGDRegressor(learning_rate="constant", eta0=0.01)` er lineær regresjon trent med SGD, og `model.partial_fit(X, y)` kjører én epoke videre fra vektene den har (mens `fit` starter på nytt). Synker train-tapet mens valideringstapet stiger, er det overtilpasning, og flater begge ut høyt, er det undertilpasning.
 
-::: quiz
-Når du øker graden fra 5 til 12, synker trenings-MSE fra 0.016 til 0.015, mens validerings-MSE øker fra 0.09 til 4.5. Hva er den beste forklaringen?
-- [ ] Undertilpasning: modellen er for enkel
-- [x] Overtilpasning: modellen følger støyen i treningsdataene
-- [ ] Læringsraten er for høy
-- [ ] Valideringsdataene er feil skalert
-? Lavt treningstap og høyt valideringstap er kjennetegnet på overtilpasning. Polynomet av grad 12 svinger voldsomt mellom treningspunktene.
-:::
+::: oppgave Logg tapet per epoke
+Kjør `model.partial_fit(X_train, y_train)` i 30 epoker, og legg MSE på treningsdataene i `train_losses` og på valideringsdataene i `val_losses` etter hver epoke. Plott begge kurvene på `ax`.
+```start
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.linear_model import SGDRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-::: quiz
-Hva skjer når du kaller `model.partial_fit(X_train, y_train)` på en `SGDRegressor` i en løkke?
-- [ ] Modellen starter på nytt med tilfeldige vekter hver gang
-- [x] Hvert kall kjører én epoke med SGD og fortsetter fra vektene modellen allerede har
-- [ ] Hvert kall trener til modellen har konvergert
-- [ ] Bare det første kallet trener, de neste gjør ingenting
-? `partial_fit` gjør én runde gjennom dataene og beholder vektene mellom kallene. Derfor kan du måle tapet etter hver epoke. `fit` starter på nytt hver gang.
-:::
+data = pd.read_csv("regression.csv")
+X = data[["Net_Activity"]].values
+y = data["Energy"].values
+X_train, X_val, y_train, y_val = train_test_split(X, y, train_size=100, test_size=100, random_state=0)
+scaler = StandardScaler().fit(X_train)
+X_train, X_val = scaler.transform(X_train), scaler.transform(X_val)
 
-::: oppsummering
-- `PolynomialFeatures(degree=d)` lager $x, x^2, \dots, x^d$ og alle produkter. `include_bias=False` dropper enerkolonnen.
-- Lineær regresjon med polynomfeatures er fortsatt en lineær modell, men kan tilpasse kurver (og løse XOR med $x_0 x_1$).
-- Lav grad: undertilpasning. Høy grad: lav trenings-MSE, høy test-MSE, altså overtilpasning. Graden er en hyperparameter.
-- `SGDRegressor(learning_rate="constant", eta0=0.01)` med `partial_fit` i en løkke gir én epoke per kall, og du kan logge train- og valideringstap.
-- Begge kurver lave og flate: bra. Train synker, validering stiger: overtilpasning. Begge høye: undertilpasning.
+model = SGDRegressor(learning_rate="constant", eta0=0.01, random_state=0)
+train_losses, val_losses = [], []
+# løkke over 30 epoker her
+
+fig, ax = plt.subplots()
+# plott kurvene her
+ax.set_yscale("log")
+```
+```losning
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.linear_model import SGDRegressor
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+data = pd.read_csv("regression.csv")
+X = data[["Net_Activity"]].values
+y = data["Energy"].values
+X_train, X_val, y_train, y_val = train_test_split(X, y, train_size=100, test_size=100, random_state=0)
+scaler = StandardScaler().fit(X_train)
+X_train, X_val = scaler.transform(X_train), scaler.transform(X_val)
+
+model = SGDRegressor(learning_rate="constant", eta0=0.01, random_state=0)
+train_losses, val_losses = [], []
+for epoch in range(30):
+    model.partial_fit(X_train, y_train)
+    train_losses.append(mean_squared_error(y_train, model.predict(X_train)))
+    val_losses.append(mean_squared_error(y_val, model.predict(X_val)))
+
+fig, ax = plt.subplots()
+ax.plot(train_losses, label="train")
+ax.plot(val_losses, label="validering")
+ax.set_yscale("log")
+ax.legend()
+```
+```test
+import numpy as np
+from sklearn.linear_model import SGDRegressor
+from sklearn.metrics import mean_squared_error
+assert len(train_losses) == 30 and len(val_losses) == 30, f"Begge listene skal ha 30 verdier (én per epoke), men har {len(train_losses)} og {len(val_losses)}."
+_m = SGDRegressor(learning_rate="constant", eta0=0.01, random_state=0)
+_tr, _va = [], []
+for _e in range(30):
+    _m.partial_fit(X_train, y_train)
+    _tr.append(mean_squared_error(y_train, _m.predict(X_train)))
+    _va.append(mean_squared_error(y_val, _m.predict(X_val)))
+assert np.allclose(train_losses, _tr, rtol=1e-6), "train_losses stemmer ikke. Kall model.partial_fit(X_train, y_train) én gang per epoke (ikke fit) og mål MSE på X_train."
+assert np.allclose(val_losses, _va, rtol=1e-6), "val_losses stemmer ikke. Mål MSE på X_val og y_val etter hver epoke."
+assert len(ax.lines) == 2, f"Plott både train_losses og val_losses på ax (to linjer), men ax har {len(ax.lines)}."
+```
 :::

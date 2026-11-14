@@ -1,22 +1,16 @@
 === DEL 13 | eksamen | Eksamenstrening: les og forstå kode
-Siste del er ren eksamenstrening. Eksamen er flervalg uten hjelpemidler, og eksamen 2025 hadde en egen del der du skulle lese kode. Her øver du på akkurat det: hva skrives ut, hvor er feilen, hva gjør funksjonen og hvilken linje mangler.
+Flervalgsspørsmål i eksamensstil der du leser kode uten å kjøre den.
 
 --- LEKSJON 13.1 | slik-ser-de-ut | Slik ser kodespørsmålene ut
-På eksamen har du ingen datamaskin. Du må «kjøre» koden i hodet. Eksamen 2025 hadde en egen del (Part 10) med fire korte kodespørsmål: noen få linjer kode og fire alternativer. Spørsmålene var ikke vanskelige hvis du har skrevet koden i prosjektene selv, men distraktorene er laget for å fange deg som har lest koden for raskt.
-
-I denne leksjonen går vi gjennom alle fire spørsmålene fra 2025, med forklaring av hvorfor hvert feil alternativ er feil. Så lærer du en fast strategi som du bruker resten av delen.
+Eksamen 2025 hadde fire korte kodespørsmål med fire alternativer hver, og du må «kjøre» koden i hodet.
 
 ## Strategi: fem spørsmål du stiller til koden
 
-1. **Hva er shape?** Skriv shape i margen ved hver linje. `X` er `(n, d)`, `w` er `(d,)`, så `X @ w` blir `(n,)`. Mange spørsmål avgjøres av shape alene.
-2. **Hvor kalles `fit`?** Bare på treningsdata. Alt annet (validering, test, nye data) skal bare gjennom `transform` eller `predict`.
-3. **Hva returneres?** Logits, sannsynligheter eller klasser? Et array, en liste, et objekt eller `None`? `scaler.fit(X)` returnerer selve scaleren, ikke et array.
-4. **Finnes funksjonen?** Distraktorer bruker ofte navn som høres riktige ut, men som ikke finnes (`np.random.separate`, `pandas.Series.split_dataset`).
-5. **Les hvert alternativ som kode.** Kjør alternativet i hodet og stryk det hvis det krasjer, lekker data eller gir feil type.
-
-::: tips
-Lag en liten tabell på kladdearket: én rad per kodelinje, kolonner for variabelnavn, verdi og shape. Det tar 30 sekunder og fjerner nesten alle slurvefeil.
-:::
+1. Hvilken shape har hver variabel?
+2. Kalles `fit` bare på treningsdata?
+3. Hva returneres: array, objekt eller `None`?
+4. Finnes funksjonen i det hele tatt?
+5. Krasjer, lekker eller gir hvert alternativ feil type?
 
 ## De fire spørsmålene fra eksamen 2025
 
@@ -32,8 +26,7 @@ X_train_scaled = scaler.transform(X_train)
 - [ ] `X_test_scaled = X_test / X_train.mean(axis=0)`
 - [ ] `X_test_scaled = scaler.fit(X_test)`
 - [x] `X_test_scaled = scaler.transform(X_test)`
-? `scaler` har lært gjennomsnitt og standardavvik fra `X_train`. `scaler.transform(X_test)` bruker nøyaktig de samme tallene på testdataene.
-? A lager en ny scaler som lærer gjennomsnitt og standardavvik fra testdataene. Det er en annen skalering (og lekkasje). B deler bare på gjennomsnittet og trekker ikke fra noe, så det er ikke standardisering. C tilpasser scaleren på nytt til testdataene, og `fit` returnerer dessuten scaler-objektet, ikke et array.
+? `scaler` har lært gjennomsnitt og standardavvik fra `X_train`, og `transform` bruker de samme tallene på testdataene (A og C tilpasser på nytt til testdata, B er ikke standardisering).
 :::
 
 ::: quiz
@@ -47,8 +40,7 @@ y_pred = 1 / (1 + np.exp(-z))
 - [x] Predikerte sannsynligheter i intervallet (0, 1) for hvert sample
 - [ ] Logaritmen av de predikerte sannsynlighetene for hvert sample
 - [ ] Klasselabels 0 eller 1 for hvert sample
-? `z` er den lineære scoren (logit), én per sample. `1 / (1 + np.exp(-z))` er sigmoid, som klemmer hvert tall inn i (0, 1). Resultatet er sannsynligheter.
-? A beskriver `z`, ikke `y_pred`. D krever et ekstra steg med terskel, for eksempel `(y_pred >= 0.5).astype(int)`. Ingen logaritme regnes ut, så C er feil.
+? `z` er logits, og sigmoid `1 / (1 + np.exp(-z))` klemmer hver verdi inn i (0, 1), så `y_pred` er sannsynligheter.
 :::
 
 ::: quiz
@@ -57,8 +49,7 @@ y_pred = 1 / (1 + np.exp(-z))
 - [ ] `numpy.random.separate(X, y)`
 - [ ] `pandas.Series.split_dataset(X, y)`
 - [ ] `matplotlib.pyplot.partition(X, y)`
-? `train_test_split` ligger i `sklearn.model_selection` og returnerer `X_train, X_test, y_train, y_test` i den rekkefølgen.
-? De tre andre funksjonene finnes ikke. Dette er typisk for eksamen: navnene høres riktige ut, så du må kjenne de ekte navnene.
+? `train_test_split` ligger i `sklearn.model_selection`, og de tre andre funksjonene finnes ikke.
 :::
 
 ::: quiz
@@ -67,46 +58,13 @@ y_pred = 1 / (1 + np.exp(-z))
 - [ ] `buffer.sort()`
 - [x] `random.sample(buffer, k=32)`
 - [ ] `buffer[:32]`
-? `random.sample(liste, k=32)` trekker 32 *ulike* elementer tilfeldig, uten tilbakelegging. Det er nettopp en tilfeldig minibatch.
-? `np.take(buffer, 32)` henter elementet med indeks 32, altså én overgang og ikke tilfeldig. `buffer.sort()` sorterer listen på stedet og returnerer `None`. `buffer[:32]` er de 32 eldste overgangene, ikke tilfeldige. (På selve eksamen sto `np.take` to ganger blant alternativene.)
+? `random.sample(buffer, k=32)` trekker 32 ulike overganger tilfeldig, mens `np.take` gir én bestemt overgang, `sort()` returnerer `None` og `buffer[:32]` er de eldste.
 :::
 
-## Sjekk svarene ved å kjøre koden
-
-Kjør koden under. Legg merke til at feil skalering gjør testpunktene 5 og 6 om til -1 og 1, som om de lå midt i datasettet. Med riktig skalering havner de over gjennomsnittet til treningsdataene, der de hører hjemme.
-
-```python
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-
-X_train = np.array([[1.0], [2.0], [3.0], [4.0], [5.0]])
-X_test = np.array([[5.0], [6.0]])
-
-scaler = StandardScaler().fit(X_train)
-print("Riktig:", scaler.transform(X_test).ravel())
-print("Feil:  ", StandardScaler().fit_transform(X_test).ravel())
-print("Hva fit returnerer:", type(StandardScaler().fit(X_test)).__name__)
-```
-
-Og spørsmål 2, med tall du kan regne for hånd:
-
-```python
-import numpy as np
-
-X = np.array([[1.0, 2.0],
-              [0.0, 0.0],
-              [-3.0, 1.0]])
-w = np.array([0.5, -1.0])
-
-z = np.matmul(X, w)
-y_pred = 1 / (1 + np.exp(-z))
-print("z:", z, "shape:", z.shape)
-print("y_pred:", y_pred.round(3))
-print("klasser:", (y_pred >= 0.5).astype(int))
-```
+## Øv: riktig skalering
 
 ::: oppgave Skaler testdataene riktig
-Koden skalerer testdataene med en ny scaler. Rett den siste linjen slik at `X_test_scaled` får **samme** skalering som treningsdataene.
+Rett siste linje slik at `X_test_scaled` får **samme** skalering som treningsdataene.
 ```start
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -151,8 +109,7 @@ y_pred = 1 / (1 + np.exp(-z))
 - [ ] `(100, 3)`
 - [x] `(100,)`
 - [ ] `(1, 100)`
-? Matrise `(100, 3)` ganger vektor `(3,)` gir én verdi per rad: `(100,)`. Sigmoid virker elementvis og endrer ikke shape.
-? `(100, 3)` ville vært resultatet av elementvis `X * w` (broadcasting), ikke matrisemultiplikasjon.
+? `(100, 3)` ganger `(3,)` gir én verdi per rad, og sigmoid virker elementvis, så shape blir `(100,)`.
 :::
 
 ::: quiz
@@ -161,8 +118,7 @@ En medstudent skriver `X_test_scaled = scaler.fit(X_test)` og får en merkelig f
 - [ ] Et array med testdataene skalert med test-gjennomsnittet
 - [ ] `None`, fordi `fit` ikke returnerer noe
 - [ ] Et array med testdataene skalert med trenings-gjennomsnittet
-? I sklearn returnerer `fit` alltid `self`. Det er derfor `StandardScaler().fit(X_train)` kan lenkes, men det betyr også at `fit` aldri gir deg transformerte data. Modellen får et scaler-objekt i stedet for et array og krasjer.
-? Vil du både tilpasse og transformere i ett kall, er det `fit_transform` du skal bruke, og bare på treningsdata.
+? `fit` returnerer alltid `self` i sklearn, så `X_test_scaled` blir scaler-objektet og ikke et array.
 :::
 
 ::: quiz
@@ -171,49 +127,11 @@ Hvorfor trekker DQN en **tilfeldig** minibatch fra replay-bufferen i stedet for 
 - [x] Overganger som kommer rett etter hverandre er sterkt korrelerte. Tilfeldig trekning bryter korrelasjonen og gjør treningen mer stabil
 - [ ] Fordi de siste overgangene alltid har reward 0
 - [ ] Fordi target-nettverket bare kan brukes på tilfeldige data
-? Påfølgende steg i samme episode ligner hverandre. Trener nettet bare på de siste stegene, overtilpasser det seg til det som nettopp skjedde og kan glemme det det lærte tidligere. Tilfeldige utvalg fra en stor buffer gir mer uavhengige treningseksempler.
-:::
-
-::: oppsummering
-- Eksamen 2025 testet `scaler.transform(X_test)`, sigmoid av `np.matmul(X, w)`, `train_test_split` og `random.sample(buffer, k=32)`.
-- Still fem spørsmål: shape, hvor `fit` kalles, hva som returneres, om funksjonen finnes, og hva hvert alternativ faktisk gjør.
-- `fit` returnerer objektet selv. `transform` og `predict` returnerer arrays.
-- Distraktorer bruker ofte funksjonsnavn som ikke finnes.
+? Påfølgende overganger er sterkt korrelerte, og tilfeldig trekning gir mer uavhengige treningseksempler og stabilere trening.
 :::
 
 --- LEKSJON 13.2 | hva-skrives-ut | Hva skrives ut?
-«Hva skrives ut?» er den vanligste typen kodespørsmål. Teknikken er alltid den samme: gå gjennom koden linje for linje, og skriv ned verdien og shape til hver variabel. Ikke gjett ut fra hva koden «sannsynligvis skal gjøre». Svar på hva den faktisk gjør.
-
-Her er et eksempel på sporing. Les koden, fyll inn tabellen i hodet, og kjør den for å sjekke.
-
-```python
-import numpy as np
-
-X = np.arange(12).reshape(4, 3)   # 4 rader, 3 kolonner
-display(X)
-kolonne = X[:, 1]                 # andre kolonne
-print("X[:, 1]:", kolonne, kolonne.shape)
-snitt = X.mean(axis=0)            # ett snitt per kolonne
-print("mean(axis=0):", snitt, snitt.shape)
-maske = X[:, 0] > 3               # rader der første kolonne er over 3
-print("maske:", maske, "->", X[maske].shape)
-display(X[maske])                 # radene der masken er True
-```
-
-Under resultatet ser du `X` og `X[maske]` som rutenett, og i variabelpanelet kan du åpne `maske` (grønn = `True`) og `snitt` for å sjekke shape og verdi for hver rad i tabellen.
-
-| Linje | Variabel | Verdi | Shape |
-|---|---|---|---|
-| 3 | `X` | 0 til 11 i 4 rader | `(4, 3)` |
-| 5 | `kolonne` | `[1 4 7 10]` | `(4,)` |
-| 7 | `snitt` | `[4.5 5.5 6.5]` | `(3,)` |
-| 9 | `maske` | `[False False True True]` (første kolonne er 0, 3, 6, 9) | `(4,)` |
-
-::: husk
-- `axis=0` slår sammen radene (ett svar per kolonne). `axis=1` slår sammen kolonnene (ett svar per rad).
-- Slicing av en Python-liste lager en kopi. Slicing av et NumPy-array lager et *view* som deler data med originalen. Boolsk indeksering (`a[a > 0]`) lager en kopi.
-- `b = a` kopierer aldri noe. Begge navnene peker på samme objekt.
-:::
+Gå gjennom koden linje for linje og noter verdi og shape for hver variabel.
 
 ## Øv på shapes og NumPy
 
@@ -230,7 +148,7 @@ print(b.shape, c.shape)
 - [ ] `(1, 6) (2, 3)`
 - [ ] `(6, 1) (3, 2)`
 - [ ] `(6,) (2, 3)`
-? `-1` betyr «regn ut selv». `reshape(-1, 1)` gir én kolonne med 6 rader. `reshape(2, -1)` gir 2 rader, og da må det bli 3 kolonner.
+? `-1` betyr «regn ut selv»: `reshape(-1, 1)` gir `(6, 1)` og `reshape(2, -1)` gir `(2, 3)`.
 :::
 
 ::: quiz
@@ -247,7 +165,7 @@ print(out.shape, out[0, 0])
 - [x] `(5, 2) 4.0`
 - [ ] `(3, 2) 4.0`
 - [ ] `ValueError` fordi `b` har feil shape
-? `(5, 3) @ (3, 2)` gir `(5, 2)`. Hvert element er en sum av tre produkter `1 * 1`, altså 3, og så legges bias 1 til: 4.0. `b` med shape `(2,)` broadcastes til alle 5 radene.
+? `(5, 3) @ (3, 2)` gir `(5, 2)` der hvert element er 1 + 1 + 1 = 3, og bias 1 broadcastes på alle rader, så 4.0.
 :::
 
 ::: quiz
@@ -262,7 +180,7 @@ print(M.sum(axis=0), M.sum(axis=1))
 - [ ] `21` og `21`
 - [x] `[5 7 9]` og `[6 15]`
 - [ ] `[1 4]` og `[1 2 3]`
-? `axis=0` summerer nedover radene, så du får ett tall per kolonne: 1+4, 2+5, 3+6. `axis=1` summerer bortover, ett tall per rad: 1+2+3 og 4+5+6.
+? `axis=0` summerer nedover (ett tall per kolonne), og `axis=1` summerer bortover (ett tall per rad).
 :::
 
 ::: quiz
@@ -278,8 +196,7 @@ print(np.argmax(probs, axis=1))
 - [ ] `[0.7 0.4 0.8]`
 - [ ] `[1 0 0]`
 - [x] `[1 2 0]`
-? `argmax(axis=1)` gir *indeksen* til største verdi i hver rad, altså predikert klasse per datapunkt: 0.7 står på plass 1, 0.4 på plass 2 og 0.8 på plass 0.
-? `[2 0 1]` er `axis=0` (største per kolonne), og `[0.7 0.4 0.8]` er `np.max`, som gir verdiene og ikke indeksene.
+? `argmax(axis=1)` gir indeksen til største verdi i hver rad, altså predikert klasse per datapunkt.
 :::
 
 ::: quiz
@@ -295,8 +212,7 @@ print(diff.shape, np.mean(diff ** 2) > 0)
 - [ ] `(3,) False`
 - [ ] `(3, 1) False`
 - [ ] `ValueError`, fordi shapene ikke passer
-? Broadcasting: `(3,)` behandles som `(1, 3)`, og `(1, 3) - (3, 1)` blir `(3, 3)`. Hvert testpunkt trekkes fra hver prediksjon, så MSE blir større enn 0 selv om prediksjonene er perfekte. Rett feilen med `y_pred.ravel()` eller `y_pred[:, 0]`.
-? Ingen feilmelding kommer, og det er det som gjør denne feilen farlig.
+? `(3,) - (3, 1)` broadcastes til `(3, 3)` uten feilmelding, så MSE blir større enn 0 selv med perfekte prediksjoner.
 :::
 
 ::: quiz
@@ -310,7 +226,7 @@ print(a[a > 0].sum(), (a < 0).mean())
 - [x] `12 0.4`
 - [ ] `9 0.4`
 - [ ] `3 0.4`
-? `a[a > 0]` er `[3 4 5]`, summen 12. `a < 0` er et array av `True`/`False`, og gjennomsnittet av det er andelen `True`: 2 av 5 = 0.4.
+? `a[a > 0]` er `[3 4 5]` med sum 12, og snittet av masken `a < 0` er andelen `True`, 2/5 = 0.4.
 :::
 
 ::: quiz
@@ -325,10 +241,12 @@ print(starts, len(starts))
 - [ ] `[32, 64, 96] 3`
 - [x] `[0, 32, 64, 96] 4`
 - [ ] `[0, 32, 64, 96, 128] 5`
-? `range(0, 100, 32)` starter på 0 og stopper *før* 100. Den siste batchen, `perm[96:128]`, inneholder bare de 4 siste punktene. Slik er løkka i `train_net` i prosjekt 3.
+? `range(0, 100, 32)` starter på 0 og stopper før 100, så det blir 4 batcher der den siste bare har 4 punkter.
 :::
 
 ## Lister, kopier og views
+
+`b = a` kopierer aldri, et NumPy-slice er et view, og boolsk indeksering lager en kopi.
 
 ::: quiz
 Hva skriver koden med `b = a` og `a.copy()` ut?
@@ -343,7 +261,7 @@ print(len(a), len(c))
 - [x] `4 3`
 - [ ] `3 4`
 - [ ] `4 4`
-? `b = a` lager ikke en ny liste. `a` og `b` er to navn på samme liste, så `append` via `b` endrer `a`. `c` er en ekte kopi og påvirkes ikke.
+? `b = a` er samme liste, så `append` via `b` endrer `a`, mens `c` er en ekte kopi.
 :::
 
 ::: quiz
@@ -359,7 +277,7 @@ print(a)
 - [ ] `[99 1 2 3 4]`
 - [ ] `[0 99 99 3 4]`
 - [x] `[0 99 2 3 4]`
-? Et NumPy-slice er et *view*: `b` deler minne med `a`. `b[0]` er det samme elementet som `a[1]`, så `a` endres. (Med en Python-liste ville slicing laget en kopi, og `a` vært uendret.)
+? Et NumPy-slice er et view, så `b[0]` er det samme elementet som `a[1]`.
 :::
 
 ::: quiz
@@ -377,7 +295,7 @@ print(a)
 - [ ] `[-1 0 2 8]`
 - [ ] `[1 0 2 8]`
 - [ ] `[1 5 2 8]`
-? Boolsk indeksering lager en **kopi**, så `b[0] = 0` endrer ikke `a`. Men `c = a` er bare et nytt navn på samme array, så `c[0] = -1` endrer `a`.
+? Boolsk indeksering lager en kopi, så `b[0] = 0` endrer ikke `a`, men `c = a` er samme array.
 :::
 
 ::: quiz
@@ -395,7 +313,7 @@ print(resultat, v)
 - [ ] `[1.0, 2.0] [1.0, 2.0]`
 - [x] `None [1.0, 2.0]`
 - [ ] `None [10, 20]`
-? Funksjonen har ingen `return`, så den returnerer `None`. Men den endrer listen den fikk inn, og det er den samme listen som `v`. Derfor er `v` endret.
+? Uten `return` gir funksjonen `None`, men den endrer listen `v` på stedet.
 :::
 
 ## pandas og formatering
@@ -413,7 +331,7 @@ print(round(rate["k"], 2), round(rate["m"], 2))
 - [ ] `0.5 0.67`
 - [ ] `2 1`
 - [ ] `0.6 0.4`
-? Gruppen `"k"` har verdiene 1, 1, 0 med snitt 2/3. Gruppen `"m"` har 0 og 1 med snitt 0.5. `2 1` er antall overlevende (det `sum()` ville gitt), ikke andelen.
+? Gruppen `"k"` har snitt 2/3 og `"m"` har snitt 1/2 (`2 1` ville vært `sum()`).
 :::
 
 ::: quiz
@@ -428,7 +346,7 @@ print(andel["nei"], andel.index[0])
 - [ ] `0.75 ja`
 - [x] `0.75 nei`
 - [ ] `0.25 ja`
-? `normalize=True` gir andeler i stedet for antall: 6 av 8 er 0.75. `value_counts` sorterer fra flest til færrest, så første indeks er `"nei"`. En modell som alltid sier «nei» får altså 75 % accuracy her.
+? `normalize=True` gir andeler (6/8 = 0.75) sortert fra størst til minst, så første indeks er `"nei"`.
 :::
 
 ::: quiz
@@ -442,7 +360,7 @@ print(df.loc[1, "x"], df.iloc[1, 0])
 - [x] `30 20`
 - [ ] `20 30`
 - [ ] `30 30`
-? `loc` bruker indeks-*etiketten*: raden med etikett 1 er den tredje raden, med x = 30. `iloc` bruker *posisjon*: posisjon 1 er andre rad, x = 20. Etter filtrering og `train_test_split` har DataFrames ofte en indeks som ikke er 0, 1, 2, ...
+? `loc` bruker etiketten (etikett 1 har x = 30), mens `iloc` bruker posisjonen (posisjon 1 har x = 20).
 :::
 
 ::: quiz
@@ -456,7 +374,7 @@ print(f"Accuracy: {acc:.2f}, rate: {rate:.1%}")
 - [x] `Accuracy: 0.88, rate: 12.3%`
 - [ ] `Accuracy: 0.88, rate: 0.12%`
 - [ ] `Accuracy: 87.65, rate: 12.3%`
-? `:.2f` runder til to desimaler (0.87654 blir 0.88). `:.1%` ganger med 100, runder til én desimal og legger til prosenttegn. Prosjekt 2 skriver ut overlevelsesraten med `{rate_female:.1%}`.
+? `:.2f` runder til to desimaler, og `:.1%` ganger med 100, runder til én desimal og legger til prosenttegn.
 :::
 
 ::: quiz
@@ -471,7 +389,7 @@ print(np.mean(y_true == y_pred), np.mean(np.array(y_true) == np.array(y_pred)))
 - [ ] `0.75 0.75`
 - [ ] `0.75 0.0`
 - [ ] `False 0.75`
-? `==` mellom to Python-*lister* sammenligner hele listene og gir én `bool`: `False`. Gjennomsnittet av `False` er 0.0. Mellom to arrays er `==` elementvis, og snittet blir 3/4 = 0.75.
+? `==` mellom to lister gir én `bool` (`False`, snitt 0.0), mens mellom to arrays er det elementvis (3/4 = 0.75).
 :::
 
 ::: quiz
@@ -486,11 +404,11 @@ print(teller)
 - [ ] `KeyError: 'ja'`
 - [ ] `{'ja': 3, 'nei': 1, 'ja': 3}`
 - [x] `{'ja': 3, 'nei': 1}`
-? `teller.get(ord_, 0)` gir 0 første gang et ord dukker opp, så det blir ingen `KeyError`. En dictionary har hver nøkkel bare én gang.
+? `teller.get(ord_, 0)` gir 0 første gang et ord dukker opp, så det blir ingen `KeyError`, og hver nøkkel finnes bare én gang.
 :::
 
 ::: oppgave Rett MSE-feilen
-Modellen returnerer prediksjoner med shape `(4, 1)`, mens `y_test` har shape `(4,)`. Rett linjen som regner ut `mse`, slik at den blir det riktige gjennomsnittet av kvadrerte feil (0.125).
+`y_pred` har shape `(4, 1)` og `y_test` shape `(4,)`. Rett linjen slik at `mse` blir 0.125.
 ```start
 import numpy as np
 y_test = np.array([3.0, 5.0, 4.0, 6.0])
@@ -511,56 +429,49 @@ assert abs(mse - 0.125) < 1e-9, f"mse ble {float(mse):.4f}, men skal være 0.125
 ```
 :::
 
-::: oppsummering
-- Spor koden linje for linje med verdi og shape. Svar på hva koden *gjør*.
-- `reshape(-1, 1)` gir én kolonne. `@` gir `(n, d) @ (d, k) = (n, k)`.
-- `axis=0` gir ett svar per kolonne, `axis=1` ett svar per rad.
-- `(n,) - (n, 1)` blir `(n, n)` uten feilmelding.
-- NumPy-slice er et view, boolsk indeksering er en kopi, `b = a` er samme objekt.
-- `loc` bruker etiketter, `iloc` bruker posisjoner. `value_counts(normalize=True)` gir andeler sortert synkende.
-:::
-
 --- LEKSJON 13.3 | finn-feilen | Finn feilen
-I «finn feilen»-spørsmål kjører koden ofte helt fint. Feilen er metodisk: modellen lærer noe den ikke skal, eller evalueres på feil data. Gå gjennom denne sjekklisten hver gang:
-
-| Sjekk | Typisk feil |
-|---|---|
-| Hvor kalles `fit` / `fit_transform`? | Scaler, imputer, PCA eller feature-utvalg tilpasset på hele datasettet eller på testdata |
-| Hva evalueres modellen på? | Accuracy på treningsdata, eller testdata brukt til å velge hyperparametre |
-| PyTorch-rekkefølgen | Mangler `zero_grad`, `backward` eller `step`, eller de står i feil rekkefølge |
-| Output og tapsfunksjon | Sigmoid før `BCEWithLogitsLoss`, float-labels til `CrossEntropyLoss` |
-| Evaluering av nett | Glemt `model.eval()` og `torch.no_grad()` |
-| RL-oppdateringen | `state` i stedet for `next_state`, glemt `terminated`, ε-testen snudd |
-| Skala og koding | KMeans uten skalering, `LabelEncoder` på nominelle features til lineær modell |
-| Fortegn | `w = w + lr * grad` går *opp* bakken |
+Koden kjører ofte fint, men lærer av feil data, evalueres på feil data eller oppdaterer i feil retning.
 
 ## Lekkasje du kan se
 
-Datalekkasje er vanskelig å oppdage fordi resultatet bare blir *for bra*. Koden under har ren støy som features og tilfeldige labels, så den ærlige accuracyen er rundt 0.5. Men hvis vi velger features basert på korrelasjon med `y` på **hele** datasettet før kryssvalideringen, ser modellen plutselig ut til å fungere.
+Alt som lærer fra data (scaler, imputer, feature-utvalg, hyperparametre) skal bare lære fra treningsdelen.
 
-```python
+::: oppgave Rett lekkasjen
+Koden skalerer før splitten. Skriv den om slik at `scaler` bare tilpasses `X_train`, og lag `X_train_scaled` og `X_test_scaled` (behold `random_state=0`).
+```start
 import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-rng = np.random.default_rng(0)
-X = rng.normal(size=(60, 2000))      # ren støy
-y = rng.integers(0, 2, size=60)      # tilfeldige labels: ingenting å lære!
+rng = np.random.default_rng(1)
+X = rng.normal(5, 3, size=(100, 2))
+y = rng.integers(0, 2, size=100)
 
-# FEIL: velg de 10 featurene som korrelerer mest med y, brukt på HELE datasettet
-Xs = (X - X.mean(axis=0)) / X.std(axis=0)
-ys = (y - y.mean()) / y.std()
-korr = np.abs(Xs.T @ ys) / len(y)
-beste = np.argsort(korr)[-10:]
-med_lekkasje = cross_val_score(LogisticRegression(), X[:, beste], y, cv=5).mean()
-
-# Ærlig: ti features valgt uten å se på y
-uten_lekkasje = cross_val_score(LogisticRegression(), X[:, :10], y, cv=5).mean()
-print(f"Med lekkasje: {med_lekkasje:.2f}   Uten lekkasje: {uten_lekkasje:.2f}")
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)   # rett lekkasjen
+X_train_scaled, X_test_scaled, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=0)
 ```
+```losning
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-::: advarsel
-Regelen er enkel: **alt som lærer noe fra data** (scaler, imputer, encoder, PCA, feature-utvalg, hyperparametre) skal bare lære fra treningsdelen. Bruk `Pipeline` sammen med `cross_val_score` eller `GridSearchCV`, så skjer det automatisk i hver fold.
+rng = np.random.default_rng(1)
+X = rng.normal(5, 3, size=(100, 2))
+y = rng.integers(0, 2, size=100)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+```
+```test
+_Xtr, _Xte, _, _ = train_test_split(X, y, test_size=0.2, random_state=0)
+assert np.shape(X_train_scaled) == (80, 2) and np.shape(X_test_scaled) == (20, 2), "X_train_scaled skal ha shape (80, 2) og X_test_scaled (20, 2)."
+_mu, _sd = _Xtr.mean(axis=0), _Xtr.std(axis=0)
+assert np.allclose(X_train_scaled, (_Xtr - _mu) / _sd), "X_train_scaled skal skaleres med gjennomsnitt og standardavvik fra X_train alene. Splitt først (med random_state=0), så fit_transform på X_train."
+assert np.allclose(X_test_scaled, (_Xte - _mu) / _sd), "X_test_scaled skal bruke scaleren som er tilpasset X_train: scaler.transform(X_test)."
+```
 :::
 
 ## Lekkasje og evaluering
@@ -578,8 +489,7 @@ print(model.score(X_test, y_test))
 - [x] Scaleren har regnet gjennomsnitt og standardavvik med testradene, så testresultatet er påvirket av testdataene
 - [ ] `train_test_split` må alltid ha `stratify=y`
 - [ ] Logistisk regresjon tåler ikke skalerte data
-? Skaleringen skjer *før* splitten, så testdataene har vært med på å bestemme skalaen. Riktig: split først, så `scaler.fit_transform(X_train)` og `scaler.transform(X_test)`.
-? `fit_transform` er helt greit på treningsdata. Problemet er hvilke data den brukes på.
+? Skaleringen skjer før splitten, så testradene har vært med på å bestemme gjennomsnitt og standardavvik.
 :::
 
 ::: quiz
@@ -593,7 +503,7 @@ X_test = imp.fit_transform(X_test)
 - [ ] `strategy="mean"` er ulovlig, det må være `"median"`
 - [ ] Ingenting, begge datasettene får fylt inn hull
 - [x] Hullene i testdataene fylles med test-gjennomsnittet. Siste linje skal være `imp.transform(X_test)`
-? Imputeren er en «modell» som lærer gjennomsnittet. Den skal lære fra treningsdata og så brukes uendret på testdata, akkurat som en scaler.
+? Imputeren skal lære gjennomsnittet fra treningsdata, så siste linje skal bruke `imp.transform(X_test)`.
 :::
 
 ::: quiz
@@ -609,8 +519,7 @@ print(model.score(X_test, y_test))
 - [ ] `korr.index[1:21]` gir bare 19 features
 - [ ] `df.corr()` kan ikke brukes på målvariabelen
 - [ ] `LinearRegression` krever at featurene er skalert
-? Feature-utvalg er også en form for læring. Når utvalget bruker `y` for testradene, har testdataene påvirket modellen. Velg features på treningsdelen etter splitten.
-? `[1:21]` gir indeks 1 til og med 20, altså 20 features.
+? Feature-utvalget har brukt `y` for testradene, så features må velges på treningsdelen etter splitten (`[1:21]` gir 20 features).
 :::
 
 ::: quiz
@@ -624,8 +533,7 @@ print("Forventet ytelse på nye data:", accuracy_score(y_train, y_pred))
 - [ ] `DecisionTreeClassifier` må ha `max_depth` for å kunne predikere
 - [x] Modellen evalueres på dataene den er trent på. Et tre uten dybdebegrensning får nesten 1.0 der, uansett hvor godt det generaliserer
 - [ ] `predict` må erstattes med `predict_proba`
-? Treningsaccuracy sier lite om nye data, særlig for et tre som kan pugge hvert punkt. Bruk `clf.predict(X_test)` og `y_test`.
-? Accuracy er symmetrisk, så rekkefølgen spiller ingen rolle her (det gjør den derimot for `precision_score` og `recall_score`).
+? Et tre uten dybdebegrensning kan pugge treningsdataene, så evalueringen må bruke `X_test` og `y_test`.
 :::
 
 ::: quiz
@@ -642,7 +550,7 @@ print("Testnøyaktighet for valgt modell:", beste[0])
 - [ ] Løkka trener bare én modell
 - [ ] `beste[0]` er dybden, ikke accuracy
 - [x] Testdataene brukes til å velge hyperparameter, så den rapporterte testnøyaktigheten er for optimistisk
-? Når testsettet er brukt til å velge, er det ikke lenger «usett». Bruk et valideringssett eller `cross_val_score`/`GridSearchCV` på treningsdataene, og rør testsettet bare én gang til slutt.
+? Testsettet er brukt til å velge `max_depth` og er derfor ikke lenger usett (bruk et valideringssett eller `GridSearchCV`).
 :::
 
 ## PyTorch
@@ -660,8 +568,7 @@ for epoch in range(100):
 - [x] `optimizer.zero_grad()`, så gradientene akkumuleres fra batch til batch
 - [ ] `loss.item()` etter `backward`
 - [ ] `torch.no_grad()` rundt `loss.backward()`
-? PyTorch *legger til* nye gradienter i `.grad` hver gang `backward` kalles. Uten `zero_grad` blir hvert steg summen av alle tidligere gradienter. Riktig rekkefølge: `zero_grad`, forward, loss, `backward`, `step`.
-? `torch.no_grad()` rundt `backward` ville gjort at ingenting læres.
+? `backward` legger nye gradienter til i `.grad`, så uten `optimizer.zero_grad()` hoper de seg opp fra batch til batch.
 :::
 
 ::: quiz
@@ -675,8 +582,7 @@ loss = loss_fn(model(X).squeeze(1), y)
 - [ ] Output-laget må ha 2 noder for to klasser
 - [ ] `squeeze(1)` fjerner batch-dimensjonen
 - [x] `BCEWithLogitsLoss` bruker sigmoid selv, så her brukes sigmoid to ganger
-? `BCEWithLogitsLoss` forventer *logits* (rå output). Med `nn.Sigmoid()` til slutt blir output i (0, 1), og tapet tar sigmoid av det igjen. Fjern `nn.Sigmoid()` (eller bruk `nn.BCELoss`, men det er mindre numerisk stabilt).
-? `squeeze(1)` fjerner kolonne-dimensjonen: `(n, 1)` blir `(n,)`, slik at shape matcher `y`.
+? `BCEWithLogitsLoss` forventer logits og tar sigmoid selv, så `nn.Sigmoid()` til slutt skal fjernes.
 :::
 
 ::: quiz
@@ -690,8 +596,7 @@ loss = nn.CrossEntropyLoss()(logits, y_batch)
 - [x] Klasse-labels til `CrossEntropyLoss` skal være heltall: `dtype=torch.long`
 - [ ] `CrossEntropyLoss` kan bare brukes med to klasser
 - [ ] `logits` må ha shape `(32,)`
-? Med labels av shape `(32,)` tolker `CrossEntropyLoss` dem som klasseindekser, og de må være `long`. Prosjekt 4 gjør nettopp `torch.tensor(y_train.astype(int), dtype=torch.long)`.
-? Softmax skal *ikke* brukes først: `CrossEntropyLoss` tar logits og gjør log-softmax selv.
+? Labels med shape `(32,)` til `CrossEntropyLoss` er klasseindekser og må være `torch.long`, og softmax skal ikke brukes først.
 :::
 
 ::: quiz
@@ -706,7 +611,7 @@ acc = (logits.argmax(dim=1) == y_test).float().mean()
 - [ ] `argmax(dim=1)` velger tilfeldig når to logits er like
 - [ ] `float().mean()` er ikke deterministisk på CPU
 - [ ] `nn.Dropout` endrer vektene permanent hver gang modellen kalles
-? I treningsmodus nuller dropout tilfeldig ut halvparten av nodene ved hvert kall. `model.eval()` slår av dropout. `torch.no_grad()` slår i tillegg av gradientsporing, som sparer minne og tid.
+? Uten `model.eval()` står dropout fortsatt på og nuller tilfeldige noder ved hvert kall.
 :::
 
 ## Reinforcement learning
@@ -725,8 +630,7 @@ state = next_state
 - [ ] `np.max` skal være `np.argmax`
 - [x] Fremtidig verdi skal hentes fra `q_table[next_state]`, ikke `q_table[state]`
 - [ ] `state = next_state` skal stå før oppdateringen
-? Q-læring: $Q(s,a) \leftarrow Q(s,a) + \alpha\,(r + \gamma \max_{a'} Q(s', a') - Q(s,a))$. Den beste verdien skal komme fra tilstanden du *havnet i*. I tillegg bør målet være bare `reward` når `terminated` er `True`.
-? `np.argmax` gir indeksen til beste handling, ikke verdien. Vi trenger verdien.
+? Fremtidig verdi skal hentes fra tilstanden agenten havnet i, `q_table[next_state]`, og `np.argmax` ville gitt en indeks i stedet for en verdi.
 :::
 
 ::: quiz
@@ -741,8 +645,7 @@ def velg_handling(q_table, state, epsilon):
 - [ ] `np.argmax` må ha `axis=1`
 - [ ] ε skal øke, ikke synke, i løpet av treningen
 - [x] Sammenligningen er snudd: med `>` utforsker agenten med sannsynlighet 1 - ε i stedet for ε
-? Med ε = 1.0 er `random() > 1.0` aldri sann, så agenten er grådig hele tiden i starten. Med ε = 0.01 er den nesten alltid sann, så agenten blir tilfeldig. Riktig: `if np.random.random() < epsilon:` utforsk.
-? `np.random.randint(4)` gir 0, 1, 2 eller 3. Øvre grense er ikke med.
+? Med `>` utforsker agenten med sannsynlighet 1 - ε, så riktig test er `if np.random.random() < epsilon:`.
 :::
 
 ::: quiz
@@ -756,7 +659,7 @@ q[s, a] += ALPHA * (r + GAMMA * np.max(q[s_next]) - q[s, a])
 - [ ] α = 0.1 er for lavt til at noe læres
 - [ ] `np.max(q[s_next])` skal være `np.min(q[s_next])`
 - [ ] Belønningen 10 er for stor, den må være 1
-? Leddet `GAMMA * np.max(q[s_next])` er det som sender verdi bakover fra målet. Med γ = 0 forsvinner det, og bare steget som gir belønning direkte får en verdi. I prosjekt 4 var γ = 0 et av eksperimentene.
+? Det er leddet `GAMMA * np.max(q[s_next])` som sender verdi bakover fra målet, og med γ = 0 forsvinner det.
 :::
 
 ## Skala og koding
@@ -771,7 +674,7 @@ labels = KMeans(n_clusters=3, n_init=10, random_state=0).fit_predict(df)
 - [ ] `n_init=10` gjør at bare første kolonne brukes
 - [x] KMeans bruker euklidsk avstand, og inntekt har tusenvis av ganger større skala enn alder. Skaler først (for eksempel `StandardScaler`)
 - [ ] Alder er en kategorisk variabel og ignoreres
-? En forskjell på 10 000 kr dominerer fullstendig over en forskjell på 40 år i avstandsberegningen. Etter standardisering teller begge features like mye.
+? KMeans bruker euklidsk avstand, så inntekt dominerer alder fullstendig til featurene er skalert.
 :::
 
 ::: quiz
@@ -784,7 +687,7 @@ model = LinearRegression().fit(df[["by", "areal"]], df["pris"])
 - [ ] Lineær regresjon krever at alle features er mellom 0 og 1
 - [ ] `areal` må også label-encodes
 - [x] By er nominell, men koden gjør den til et tall med rekkefølge og like avstander. Modellen tror Oslo ligger «midt mellom» Bergen og Trondheim. Bruk one-hot-koding
-? En lineær modell får én koeffisient for `by` og antar at prisen endres like mye fra 0 til 1 som fra 1 til 2. Med `pd.get_dummies` eller `OneHotEncoder` får hver by sin egen kolonne og sin egen koeffisient. (For beslutningstrær er label encoding mindre skadelig.)
+? Label encoding gir byene rekkefølge og like avstander, så en lineær modell trenger one-hot-koding (`pd.get_dummies` eller `OneHotEncoder`).
 :::
 
 ::: quiz
@@ -801,12 +704,11 @@ for _ in range(1000):
 - [x] Parametrene skal oppdateres *mot* gradienten: `w = w - lr * grad_w` og `b = b - lr * grad_b`
 - [ ] `X.T @ (y_pred - y)` skal være `X @ (y_pred - y)`
 - [ ] Læringsraten må økes
-? Gradienten peker i retningen der tapet øker mest. Gradient *descent* går motsatt vei, derfor minus.
-? `X.T @ (y_pred - y)` er riktig: `(d, n) @ (n,)` gir én gradient per vekt, shape `(d,)`. `X @ (y_pred - y)` ville gitt `ValueError` når `d` er ulik `n`.
+? Gradienten peker dit tapet øker, så gradient descent må trekke fra: `w = w - lr * grad_w`.
 :::
 
 ::: oppgave Rett Q-oppdateringen
-Funksjonen `q_oppdatering` har to feil: den henter fremtidig verdi fra feil tilstand, og den legger til fremtidig verdi også når episoden er ferdig (`terminated=True`). Rett begge. Funksjonen skal returnere den oppdaterte tabellen.
+Rett `q_oppdatering` slik at den bruker `q_table[next_state]` og bare `reward` når `terminated` er `True`, og returnerer tabellen.
 ```start
 import numpy as np
 
@@ -840,28 +742,10 @@ assert abs(q2[1, 1] - 10.0) < 1e-9, f"Når terminated er True skal target være 
 ```
 :::
 
-::: oppsummering
-- Alt som lærer fra data (scaler, imputer, feature-utvalg, hyperparametre) skal bare lære fra treningsdelen.
-- Evaluer aldri på treningsdata, og velg aldri hyperparametre med testsettet.
-- PyTorch: `zero_grad`, forward, loss, `backward`, `step`. Ingen sigmoid før `BCEWithLogitsLoss`. `long`-labels til `CrossEntropyLoss`. `model.eval()` og `torch.no_grad()` ved evaluering.
-- Q-læring: `next_state` i målet, bare `reward` ved terminal tilstand, utforsk når `random() < epsilon`, γ = 0 gir kortsynt agent.
-- Skaler før KMeans. One-hot-kod nominelle features til lineære modeller. Gradient descent bruker minus.
-:::
-
 --- LEKSJON 13.4 | hva-gjor-funksjonen | Hva gjør denne funksjonen?
-Noen eksamensspørsmål viser en lengre funksjon og spør om én linje. Da lønner det seg å lese i tre runder:
-
-1. **Signaturen og `return`.** Hva går inn, hva kommer ut? Returnerer funksjonen i det hele tatt noe?
-2. **Løkkene.** Hva gjentas, og hvor mange ganger? Hva samles opp i lister underveis?
-3. **Linjen spørsmålet handler om.** Sett inn konkrete shapes eller tall og regn.
-
-Alle funksjonene i denne leksjonen er hentet fra forelesningsnotatene eller prosjektene. Du har sett dem før, men nå skal du kunne forklare dem uten å kjøre dem.
+Les signaturen og `return` først, så løkkene, og sett til slutt inn konkrete tall i linjen spørsmålet gjelder.
 
 ## Logistisk regresjon fra notatene
-
-::: prosjekt Prosjekt 1
-Dette er `fit`-metoden fra forelesningsnotatene (kapittel 1). Den ligner mye på det du skrev i `linear_models.py` i prosjekt 1.
-:::
 
 ::: quiz
 I `fit` fra notatene har `x` shape `(200, 3)`. Hvilken shape har `lin_model`?
@@ -883,7 +767,7 @@ def fit(self, x, y):
 - [ ] `(200, 3)`
 - [x] `(200,)`
 - [ ] `(3, 200)`
-? `self.weights` har shape `(3,)` og `x.transpose()` har shape `(3, 200)`. `(3,) @ (3, 200)` gir `(200,)`: én lineær score per datapunkt. Det er det samme som `np.matmul(x, self.weights)` i `predict`.
+? `(3,) @ (3, 200)` gir én lineær score per datapunkt, altså shape `(200,)`.
 :::
 
 ::: quiz
@@ -901,7 +785,7 @@ for _ in range(self.epochs):
 - [ ] 30 tall beregnet på testdataene
 - [ ] Ett tall per datapunkt i `x`
 - [x] 30 tall, ett per epoke, beregnet på treningsdataene
-? `append` kalles én gang per runde i løkka, altså 30 ganger. `x` og `y` er dataene som ble gitt til `fit`, altså treningsdata. Det er disse tallene notatene plotter som tapskurve.
+? `append` kalles én gang per epoke med treningsdataene som ble gitt til `fit`, så det blir 30 tall.
 :::
 
 ::: quiz
@@ -916,7 +800,7 @@ def predict(self, x):
 - [ ] Et NumPy-array med sannsynligheter
 - [ ] Ett tall: andelen datapunkter i klasse 1
 - [ ] Et NumPy-array med logits
-? List comprehension lager en *liste*. Hver sannsynlighet over 0.5 blir 1, ellers 0. Siden det er en liste og ikke et array, må du passe på når du sammenligner med `==`: sammenlign med et NumPy-array (`y_test` som array), ikke en annen liste.
+? List comprehension lager en Python-liste der hver sannsynlighet over 0.5 blir 1 og resten 0.
 :::
 
 ## Q-læring fra prosjekt 4
@@ -935,7 +819,7 @@ print(update_explore_rate(0, 0.01, 500), round(update_explore_rate(500, 0.01, 50
 - [x] `1.0 0.017`
 - [ ] `1.0 0.0`
 - [ ] `0.99 0.01`
-? I episode 0 er `np.exp(0) = 1`, så resultatet er `0.01 + 0.99 = 1.0`: helt tilfeldig. I siste episode er `np.exp(-5)` omtrent 0.0067, så ε blir `0.01 + 0.99 * 0.0067`, omtrent 0.017. ε nærmer seg `epsilon_min`, men når den aldri helt.
+? I episode 0 er `np.exp(0) = 1`, så ε = 1.0, og i siste episode er ε = 0.01 + 0.99 · `np.exp(-5)`, omtrent 0.017.
 :::
 
 ::: quiz
@@ -950,7 +834,7 @@ def update_action(env, state, explore_rate, q_table):
 - [ ] 2, fordi `argmax` velger den siste av like verdier
 - [x] Alltid 1
 - [ ] En tilfeldig handling mellom 0 og 3
-? Med `explore_rate = 0` er `random() < 0` aldri sann, så agenten utnytter alltid. `np.argmax` returnerer den *første* indeksen med høyest verdi ved likhet, altså 1. Dette er grunnen til at en agent med bare nuller i Q-tabellen alltid velger handling 0.
+? Med `explore_rate = 0` utnytter agenten alltid, og `np.argmax` velger den første indeksen ved likhet, altså 1.
 :::
 
 ::: quiz
@@ -963,7 +847,7 @@ q_table[state, action] += learning_rate * (target - q_table[state, action])
 - [ ] Fordi `np.max` krasjer på en terminal tilstand
 - [ ] For å straffe agenten for å avslutte episoden
 - [x] Etter en terminal tilstand kommer ingen flere belønninger, så fremtidig verdi er 0
-? Når agenten har nådd målet (eller druknet), er episoden over. Q-verdiene til terminaltilstanden blir aldri oppdatert og betyr ingenting, så de skal ikke brukes. Det er det samme som `torch.where(dones, 0, ...)` gjør i DQN.
+? Etter en terminal tilstand kommer ingen flere belønninger, så fremtidig verdi skal være 0.
 :::
 
 ::: quiz
@@ -980,49 +864,10 @@ def get_state_id(self):
 - [ ] 17
 - [ ] 60
 - [ ] 7
-? Rad for rad: hver hele rad er 12 ruter, så rad 2 starter på 2 * 12 = 24, og kolonne 5 gir 24 + 5 = 29. Dette er samme nummerering som `reshape` bruker, og grunnen til at Q-tabellen har `rows * cols` rader.
+? Rad 2 starter på 2 · 12 = 24, og kolonne 5 gir 24 + 5 = 29.
 :::
 
 ## DQN fra notatene
-
-`learn` fra DQN-agenten i notatene, litt forkortet:
-
-```python statisk
-def learn(self):
-    states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
-    with torch.no_grad():
-        next_target_q_value = self.target_network(next_states).max(dim=1, keepdim=True).values
-        next_target_q_value = torch.where(dones, torch.zeros_like(next_target_q_value), next_target_q_value)
-    y_train = rewards + (self.discount * next_target_q_value)
-    predicted_q = self.q_network(states)
-    y_pred = torch.gather(predicted_q, 1, actions)
-    self.optimizer.zero_grad()
-    loss = self.criterion(y_train, y_pred)
-    loss.backward()
-    self.optimizer.step()
-```
-
-Her er `torch.gather` og `torch.where` med små tall, slik at du ser hva de gjør:
-
-```python statisk
-import torch
-predicted_q = torch.tensor([[1.0, 5.0, 2.0, 0.0],
-                            [3.0, 1.0, 4.0, 2.0]])   # 2 overganger, 4 handlinger
-actions = torch.tensor([[0], [2]])                   # handlingen som ble valgt
-print(torch.gather(predicted_q, 1, actions))
-
-next_q = torch.tensor([[2.0], [7.0]])
-dones = torch.tensor([[True], [False]])
-rewards = torch.tensor([[1.0], [0.0]])
-next_q = torch.where(dones, torch.zeros_like(next_q), next_q)
-print(rewards + 0.9 * next_q)
-```
-```output
-tensor([[1.],
-        [4.]])
-tensor([[1.0000],
-        [6.3000]])
-```
 
 ::: quiz
 I `learn` har `predicted_q` shape `(32, 4)` og `actions` shape `(32, 1)`. Hva er `y_pred = torch.gather(predicted_q, 1, actions)`?
@@ -1034,8 +879,7 @@ y_pred = torch.gather(predicted_q, 1, actions)
 - [x] Q-verdien for handlingen som faktisk ble valgt i hver overgang, shape `(32, 1)`
 - [ ] Indeksen til beste handling i hver rad, shape `(32,)`
 - [ ] Alle Q-verdiene, shape `(32, 4)`
-? `gather` langs dimensjon 1 plukker ut, for hver rad, elementet i kolonnen som `actions` peker på. Vi har bare et mål (target) for handlingen som ble utført, så tapet skal bare regnes på den.
-? Den høyeste verdien i hver rad er det target-nettverket regner ut for *neste* tilstand med `.max(dim=1, keepdim=True)`.
+? `gather` langs dimensjon 1 plukker ut Q-verdien i kolonnen som `actions` peker på, én per rad.
 :::
 
 ::: quiz
@@ -1050,8 +894,7 @@ y_train = rewards + (self.discount * next_target_q_value)
 - [ ] For at target-nettverket skal oppdateres oftere
 - [ ] Fordi `torch.where` ikke virker med gradienter
 - [ ] For å slå av dropout i Q-nettverket
-? Med `no_grad` blir `y_train` en konstant, akkurat som `y` i veiledet læring. Target-nettverket oppdateres bare ved at vektene kopieres fra Q-nettverket med jevne mellomrom.
-? `no_grad` slår ikke av dropout. Det er `eval()` som gjør det.
+? Med `no_grad` blir `y_train` en fast fasit, så gradienten går bare gjennom `q_network`.
 :::
 
 ::: quiz
@@ -1064,7 +907,7 @@ y_train = rewards + (self.discount * next_target_q_value)
 - [ ] 2.0
 - [x] 1.0
 - [ ] 0.0
-? `torch.where(dones, 0, ...)` setter fremtidig verdi til 0 for terminale overganger. Da blir `y_train = 1.0 + 0.9 * 0 = 1.0`. Uten `torch.where` hadde svaret blitt 1.0 + 0.9 * 2.0 = 2.8.
+? `torch.where(dones, 0, ...)` setter fremtidig verdi til 0, så `y_train` blir 1.0 + 0.9 · 0 = 1.0.
 :::
 
 ## Nevrale nett fra prosjekt 3
@@ -1086,8 +929,7 @@ print(len(net), sum(p.numel() for p in net.parameters()))
 - [ ] `5 305`
 - [x] `5 337`
 - [ ] `4 320`
-? Løkka legger til `Linear` + `Tanh` to ganger, og så kommer et siste `Linear`: 5 moduler. Parametre: `2*16 + 16 = 48`, `16*16 + 16 = 272` og `16*1 + 1 = 17`, til sammen 337. Aktiveringsfunksjoner har ingen parametre.
-? 305 er det du får hvis du glemmer de 33 bias-leddene (16 + 16 + 1).
+? Løkka gir `Linear` + `Tanh` to ganger pluss et siste `Linear` (5 moduler), og parametrene er 48 + 272 + 17 = 337.
 :::
 
 ::: quiz
@@ -1106,7 +948,7 @@ net.load_state_dict(best[1])
 - [ ] Vektene fra epoken med lavest *trenings*tap
 - [ ] Vektene fra epoke 0
 - [x] Vektene fra epoken med lavest valideringstap
-? `best` oppdateres bare når valideringstapet er lavere enn før, og lagrer en kopi av vektene. Til slutt lastes de vektene inn igjen. Det er early stopping med «checkpoint».
+? `best` lagrer en kopi av vektene bare når valideringstapet blir lavere, og de vektene lastes inn til slutt.
 :::
 
 ::: quiz
@@ -1118,7 +960,7 @@ best = (history["val"][-1], {k: v.clone() for k, v in net.state_dict().items()},
 - [x] Uten `clone` ville ordboka peke på de samme tensorene som fortsetter å endres under treningen, så «beste» vekter ville blitt overskrevet
 - [ ] For å fjerne gradientene fra vektene
 - [ ] Fordi `load_state_dict` bare godtar klonede tensorer
-? `state_dict()` gir referanser til modellens egne tensorer, akkurat som `b = a` for lister. `clone()` lager en ekte kopi som ikke endres når optimizeren oppdaterer nettet videre.
+? `state_dict()` gir referanser til tensorer som fortsetter å endres, så `clone()` trengs for å få en ekte kopi.
 :::
 
 ::: quiz
@@ -1130,7 +972,7 @@ val_acc = ((net(Xc_train[c_val_idx]).squeeze(1) > 0).numpy() == yc_train[c_val_i
 - [ ] Fordi `squeeze(1)` trekker fra 0.5
 - [x] Nettet gir logits, og logit 0 tilsvarer sannsynlighet sigmoid(0) = 0.5
 - [ ] Det er en feil, terskelen skal være 0.5
-? Det er ingen sigmoid i nettet, fordi `BCEWithLogitsLoss` tar seg av den. `logit > 0` er nøyaktig det samme som `sigmoid(logit) > 0.5`, så vi slipper å regne ut sigmoid.
+? Nettet gir logits, og `logit > 0` er det samme som `sigmoid(logit) > 0.5`.
 :::
 
 ## Klynger, Bayes og beslutningsgrenser
@@ -1151,8 +993,7 @@ print(calculate_clustering_accuracy(np.array([0, 1, 2, 0, 1, 2]),
 - [ ] 0.333
 - [ ] 0.5
 - [x] 1.0
-? Klyngenumre er vilkårlige. Funksjonen finner den beste koblingen mellom klynger og klasser (klynge 1 = klasse 0, klynge 2 = klasse 1, klynge 0 = klasse 2) og teller hvor mange som stemmer da: alle 6.
-? 0.0 er det du får med en naiv `np.mean(true_labels == cluster_labels)`.
+? Funksjonen finner den beste koblingen mellom klynger og klasser, og da stemmer alle 6 (naiv `==` ville gitt 0.0).
 :::
 
 ::: quiz
@@ -1164,7 +1005,7 @@ row_ind, col_ind = scipy.optimize.linear_sum_assignment(-contingency)
 - [ ] For å bytte om rader og kolonner
 - [ ] Minus snur rekkefølgen på klyngene
 - [x] `linear_sum_assignment` *minimerer* totalkostnad. Vi vil *maksimere* antall treff, og det er det samme som å minimere minus antall treff
-? Et vanlig triks: å maksimere f er det samme som å minimere -f.
+? `linear_sum_assignment` minimerer kostnad, og å maksimere antall treff er det samme som å minimere minus antall treff.
 :::
 
 ::: quiz
@@ -1186,8 +1027,7 @@ print(round(prior("ja") * p_gitt_klasse("sol", "ja"), 3))
 - [ ] 0.5
 - [ ] 0.667
 - [ ] 0.75
-? `prior("ja")` = 3/6 = 0.5. Blant de tre «ja»-radene er to «sol», så `p_gitt_klasse("sol", "ja")` = 2/3. Produktet er 1/3. Dette er telleren i Bayes' teorem, P(sol | ja) P(ja).
-? 0.667 er bare likelihooden 2/3, uten prior.
+? `prior("ja")` er 3/6 og P(sol | ja) er 2/3, så produktet er 1/3.
 :::
 
 ::: quiz
@@ -1202,7 +1042,7 @@ Z = Z.reshape(xx0.shape)
 - [x] `(12, 2)` og `(3, 4)`
 - [ ] `(2, 12)` og `(3, 4)`
 - [ ] `(7, 2)` og `(12,)`
-? `np.arange(-1, 1, 0.5)` har 4 verdier og `np.arange(0, 3, 1.0)` har 3. `meshgrid` gir arrays med shape `(3, 4)`: én rad per x1-verdi. `ravel` gjør dem til 12 punkter, så `grid` er `(12, 2)`. `predict` gir 12 klasser, og `reshape(xx0.shape)` gjør dem til `(3, 4)` igjen, slik `contourf` trenger.
+? `meshgrid` gir shape `(3, 4)`, `ravel` gir 12 punkter i `grid`, og `reshape(xx0.shape)` gjør `Z` til `(3, 4)` igjen.
 :::
 
 ::: quiz
@@ -1217,7 +1057,7 @@ print(perceptron.coef_.shape, perceptron.intercept_.shape)
 - [ ] `(2,) (1,)`
 - [ ] `(3, 2) (1,)`
 - [x] `(3, 2) (3,)`
-? Med tre klasser har sklearn én lineær modell per klasse (én-mot-resten): 3 rader med 2 vekter, og 3 bias-ledd. Notatene sier det samme: to input-noder koblet til tre output-noder gir seks vekter og tre bias-verdier.
+? Med tre klasser har sklearn én lineær modell per klasse: 3 rader med 2 vekter og 3 bias-ledd.
 :::
 
 ::: quiz
@@ -1229,11 +1069,11 @@ importance = np.abs(shap_values.values).mean(axis=0)
 - [ ] Gjennomsnittlig prediksjon per testpunkt, shape `(4128,)`
 - [ ] Gjennomsnittlig SHAP-verdi per feature, der positive og negative bidrag kansellerer hverandre
 - [ ] Baseverdien til explaineren
-? Rader er testpunkter og kolonner er features. `mean(axis=0)` gir ett tall per kolonne. Absoluttverdien hindrer at store positive og negative bidrag kansellerer hverandre. Dette er tallet `shap.plots.bar` viser.
+? `mean(axis=0)` gir ett tall per feature, og absoluttverdien hindrer at positive og negative bidrag kansellerer hverandre.
 :::
 
 ::: oppgave Rett get_state_id
-Funksjonen skal gi hver rute i et rutenett et unikt nummer, rad for rad (slik `get_state_id` i prosjekt 4 gjør). Den virker på kvadratiske kart, men gir feil (og like) numre når antall rader og kolonner er forskjellig. Rett feilen.
+`get_state_id` gir feil numre når antall rader og kolonner er ulikt. Rett feilen slik at rutene nummereres rad for rad.
 ```start
 import numpy as np
 
@@ -1265,61 +1105,8 @@ assert ider == set(range(15)), "Alle 15 rutene skal få hvert sitt nummer fra 0 
 ```
 :::
 
-::: oppsummering
-- Les i tre runder: signatur og `return`, løkkene, så den ene linjen.
-- `np.matmul(w, x.T)` og `np.matmul(x, w)` gir begge én score per datapunkt.
-- `np.argmax` velger første indeks ved likhet. `get_state_id` er `rad * cols + kol`.
-- DQN: `gather` henter Q for valgt handling, `torch.where(dones, 0, ...)` fjerner fremtiden ved terminal, `no_grad` gjør target til en konstant.
-- `make_mlp(2, 16, 2, ...)` har 5 moduler og 337 parametre. Early stopping laster inn vektene med lavest valideringstap, og `clone()` er nødvendig.
-- Klyngenøyaktighet bruker beste kobling mellom klynger og klasser.
-:::
-
 --- LEKSJON 13.5 | velg-riktig-linje | Velg riktig kodelinje
-Den siste spørsmålstypen er fyll-inn-hull: en linje mangler, og du skal velge den som får koden til å virke. Lag deg en vane:
-
-1. Se hva som finnes **før** hullet. Hvilke variabler er laget, og hvilken shape har de?
-2. Se hva som brukes **etter** hullet. Hullet må lage nøyaktig det neste linje bruker.
-3. Stryk alternativer som bruker feil variabel, feil retning (pluss/minus, trening/test) eller en metode som ikke finnes.
-
-Her er en hel logistisk regresjon som du har sett bitene av. Kjør den. Alle hullene i quizene under kommer fra kode av denne typen.
-
-```python
-import numpy as np
-
-class LogisticRegression:
-    def __init__(self, lr=0.1, n_iterations=2000):
-        self.lr = lr
-        self.n_iterations = n_iterations
-
-    def sigmoid(self, z):
-        return 1 / (1 + np.exp(-z))
-
-    def fit(self, X, y):
-        self.weights = np.zeros(X.shape[1])
-        self.bias = 0.0
-        for _ in range(self.n_iterations):
-            p = self.sigmoid(X @ self.weights + self.bias)
-            grad_w = X.T @ (p - y) / len(y)
-            grad_b = np.mean(p - y)
-            self.weights -= self.lr * grad_w
-            self.bias -= self.lr * grad_b
-
-    def predict_proba(self, X):
-        return self.sigmoid(X @ self.weights + self.bias)
-
-    def predict(self, X, threshold=0.5):
-        return (self.predict_proba(X) >= threshold).astype(int)
-
-X = np.array([[0.0], [1.0], [2.0], [3.0], [4.0], [5.0]])
-y = np.array([0, 0, 0, 1, 1, 1])
-model = LogisticRegression()
-model.fit(X, y)
-print("vekt:", model.weights.round(2), "bias:", round(model.bias, 2))
-print("sannsynligheter:", model.predict_proba(X).round(2))
-print("klasser:", model.predict(X))
-```
-
-Åpne `model` i variabelpanelet: der ligger `self.lr`, `self.n_iterations`, `self.weights` og `self.bias`. Attributtene som lages i `fit`, finnes først etter at `fit` er kalt.
+Se hva som finnes før hullet og hva som brukes etter: hullet må lage nøyaktig det neste linje trenger.
 
 ## ML fra bunnen
 
@@ -1334,7 +1121,7 @@ def predict_proba(self, X):
 - [ ] `return (z > 0).astype(int)`
 - [x] `return 1 / (1 + np.exp(-z))`
 - [ ] `return 1 / (1 - np.exp(z))`
-? Sigmoid er $\sigma(z) = 1/(1 + e^{-z})$. A er $e^{-z}/(1+e^{-z}) = 1 - \sigma(z)$, altså sannsynligheten for feil klasse. B gir klasser, ikke sannsynligheter. D har feil fortegn og kan gi negative tall og deling på null.
+? Sigmoid er `1 / (1 + np.exp(-z))`, mens A gir 1 - σ(z), B gir klasser og D har feil fortegn.
 :::
 
 ::: quiz
@@ -1348,8 +1135,7 @@ def predict(self, X, threshold=0.5):
 - [ ] `return p[p >= threshold]`
 - [ ] `return np.argmax(p)`
 - [ ] `return np.round(p, threshold)`
-? `p >= threshold` gir et boolsk array med én verdi per datapunkt, og `astype(int)` gjør `True`/`False` om til 1/0.
-? `p[p >= threshold]` *filtrerer* og gir bare sannsynlighetene over terskelen, så lengden blir feil. `np.argmax(p)` gir ett tall for hele arrayet.
+? `p >= threshold` gir én boolsk verdi per datapunkt, og `astype(int)` gjør dem om til 1 og 0.
 :::
 
 ::: quiz
@@ -1367,7 +1153,7 @@ for _ in range(self.n_iterations):
 - [ ] `self.weights += self.lr * grad_w`
 - [ ] `self.weights = grad_w`
 - [ ] `self.weights -= self.lr * grad_b`
-? Vektene skal flyttes et lite steg *mot* gradienten, akkurat som bias-linjen under. `+=` går oppover bakken. D bruker gradienten for bias på vektene.
+? Vektene skal flyttes mot gradienten med `-=`, akkurat som bias-linjen under.
 :::
 
 ## Evaluering og sklearn
@@ -1382,8 +1168,7 @@ precision = # ??? (manglende uttrykk)
 - [ ] `(tp + tn) / (tn + fp + fn + tp)`
 - [ ] `fp / (fp + tn)`
 - [x] `tp / (tp + fp)`
-? Precision: av alle som ble *predikert* positive, hvor mange var positive? Det er TP / (TP + FP). A er recall (TPR), B er accuracy og C er false positive rate.
-? Husk rekkefølgen fra `ravel()`: `tn, fp, fn, tp`.
+? Precision er TP / (TP + FP), mens A er recall, B er accuracy og C er false positive rate.
 :::
 
 ::: quiz
@@ -1397,8 +1182,7 @@ print(scores.mean())
 - [x] `make_pipeline(StandardScaler(), LogisticRegression())`
 - [ ] `LogisticRegression().fit(StandardScaler().fit_transform(X_train), y_train)`
 - [ ] `StandardScaler().fit(X_train)`
-? En pipeline tilpasser scaleren på nytt i hver fold, bare på treningsdelen av folden. Rekkefølgen er transformasjoner først og modellen sist.
-? A krasjer fordi `LogisticRegression` ikke har `transform`, og bare siste steg kan mangle det. C gir en ferdig trent modell, men `cross_val_score` ser da `X_train` uskalert. D er ingen modell.
+? En pipeline tilpasser scaleren på nytt i hver fold, og transformasjonene skal stå før modellen.
 :::
 
 ::: quiz
@@ -1412,8 +1196,7 @@ print(X.shape)
 - [ ] `df["by"].value_counts()`
 - [x] `pd.get_dummies(df, columns=["by"])`
 - [ ] `pd.get_dummies(df["areal"])`
-? `get_dummies` erstatter `by` med én kolonne per by: `areal`, `by_Bergen`, `by_Oslo`. Tre rader og tre kolonner.
-? `LabelEncoder` gir shape `(3,)`, og `value_counts` gir `(2,)`. `get_dummies(df["areal"])` lager en kolonne per arealverdi, som er meningsløst.
+? `get_dummies` erstatter `by` med `by_Bergen` og `by_Oslo`, så sammen med `areal` blir det `(3, 3)`.
 :::
 
 ::: quiz
@@ -1427,7 +1210,7 @@ n_noise = # ??? (manglende uttrykk)
 - [ ] `len(labels) - n_clusters`
 - [ ] `(labels == 0).sum()`
 - [x] `(labels == -1).sum()`
-? DBSCAN gir label -1 til støy. `labels == -1` er et boolsk array, og `sum()` teller `True`. `labels.min()` er bare -1 (hvis det finnes støy), og `labels == 0` er størrelsen på første klynge.
+? DBSCAN gir label -1 til støy, og `sum()` teller antall `True` i det boolske arrayet.
 :::
 
 ## PyTorch og Keras
@@ -1445,7 +1228,7 @@ for X_batch, y_batch in loader:
 - [ ] `loss.step()`
 - [ ] `model.backward(loss)`
 - [x] `loss.backward()`
-? `loss.backward()` regner ut gradientene og legger dem i `.grad` for hver parameter. `optimizer.step()` bruker dem. Det er tapet som har `backward`, og optimizeren som har `step`.
+? `loss.backward()` regner ut gradientene som `optimizer.step()` så bruker.
 :::
 
 ::: quiz
@@ -1460,7 +1243,7 @@ model.eval()
 - [ ] `model.train()`
 - [ ] `optimizer.zero_grad()`
 - [ ] `for epoch in range(epochs):`
-? De to linjene under er innrykket, så hullet må være en blokk. `with torch.no_grad():` slår av gradientsporing under evaluering. `model.train()` ville slått dropout på igjen.
+? Linjene under er innrykket, så hullet må være blokken `with torch.no_grad():`.
 :::
 
 ::: quiz
@@ -1477,7 +1260,7 @@ model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics=
 - [ ] `layers.Dense(10, activation="relu")`
 - [x] `layers.Dense(10, activation="softmax")`
 - [ ] `layers.Dense(784, activation="softmax")`
-? Output må ha én node per klasse, og softmax gjør dem til sannsynligheter som summerer til 1. `sparse_categorical_crossentropy` tar heltallslabels direkte. Sigmoid med én node er for binær klassifisering.
+? Output trenger én node per klasse med softmax, og `sparse_categorical_crossentropy` tar heltallslabels direkte.
 :::
 
 ## RL og XAI
@@ -1495,7 +1278,7 @@ state = next_state
 - [ ] `q_table[state, action] += alpha * (reward + gamma * np.max(q_table[state]) - q_table[state, action])`
 - [ ] `q_table[state, action] = np.argmax(q_table[next_state])`
 - [x] `q_table[state, action] += alpha * (reward + gamma * np.max(q_table[next_state]) - q_table[state, action])`
-? Det er cellen for paret (tilstand, handling) vi var i som oppdateres, og målet er belønning pluss diskontert beste verdi i *neste* tilstand. B bruker feil tilstand. A oppdaterer feil celle. C lagrer en handlingsindeks i stedet for en verdi.
+? Cellen `q_table[state, action]` skal oppdateres mot belønning pluss diskontert beste verdi i `next_state`.
 :::
 
 ::: quiz
@@ -1509,7 +1292,7 @@ print(len(states), len(rewards))   # 32 32
 - [x] `states, actions, rewards, next_states, dones = zip(*batch)`
 - [ ] `states, actions, rewards, next_states, dones = batch[0]`
 - [ ] `states, actions, rewards, next_states, dones = np.take(batch, 5)`
-? `zip(*batch)` «transponerer»: fra 32 tupler med 5 elementer til 5 tupler med 32 elementer. A krasjer fordi 32 elementer ikke kan pakkes ut i 5 variabler. C gir bare den første overgangen, så `states` blir én tilstand.
+? `zip(*batch)` transponerer 32 tupler med 5 elementer til 5 tupler med 32 elementer.
 :::
 
 ::: quiz
@@ -1522,7 +1305,7 @@ if total_steps % agent.target_update_frequency == 0:
 - [ ] `agent.q_network.load_state_dict(agent.target_network.state_dict())`
 - [x] `agent.target_network.load_state_dict(agent.q_network.state_dict())`
 - [ ] `agent.target_network.train()`
-? Vektene kopieres *fra* Q-nettverket *til* target-nettverket. B går motsatt vei og visker ut det Q-nettverket har lært. A gjør at begge navnene peker på samme nett, så target er ikke lenger en stabil kopi.
+? Vektene kopieres fra Q-nettverket til target-nettverket, og `=` ville bare gitt to navn på samme nett.
 :::
 
 ::: quiz
@@ -1537,11 +1320,11 @@ shap.plots.beeswarm(shap_values)
 - [ ] `shap.DeepExplainer(model, X_train)`
 - [ ] `shap.TreeExplainer(X_test)`
 - [ ] `shap.plots.waterfall(model)`
-? `TreeExplainer` regner eksakte SHAP-verdier for trebaserte modeller, og tar modellen som argument. `DeepExplainer` er for nevrale nett (PyTorch-nettet i prosjekt 4). En explainer lages fra modellen, ikke fra dataene.
+? `TreeExplainer` er laget for trebaserte modeller og tar modellen som argument.
 :::
 
 ::: oppgave Fyll inn oppdateringene
-`fit` mangler de to linjene som oppdaterer `self.weights` og `self.bias`. Fyll dem inn, slik at modellen lærer sammenhengen `y = 3x + 2`.
+Fyll inn de to linjene som oppdaterer `self.weights` og `self.bias`, slik at modellen lærer `y = 3x + 2`.
 ```start
 import numpy as np
 
@@ -1605,29 +1388,8 @@ assert abs(model.bias - 2) < 0.05, f"Bias ble {model.bias:.3f}, men skal være n
 ```
 :::
 
-::: oppsummering
-- Se på hva som finnes før hullet og hva som brukes etter. Hullet må lage nøyaktig det.
-- Sigmoid: `1 / (1 + np.exp(-z))`. Klasser: `(p >= threshold).astype(int)`. Oppdatering: `-= lr * grad`.
-- Precision `tp / (tp + fp)`, recall `tp / (tp + fn)`. `ravel()` gir `tn, fp, fn, tp`.
-- Pipeline: transformasjoner først, modell sist. `get_dummies` for one-hot. DBSCAN-støy er `labels == -1`.
-- PyTorch: `loss.backward()` mellom `zero_grad` og `step`. Evaluering i `with torch.no_grad():`.
-- DQN: `zip(*batch)` pakker ut minibatchen. Target-nett får vekter *fra* Q-nettet med `load_state_dict`.
-:::
-
 --- LEKSJON 13.6 | blandet-prove | Blandet prøve
-Dette er en prøve på tvers av hele kurset, i tilfeldig rekkefølge, slik som på eksamen. Ta den uten å kjøre koden. Bruk kladdeark og strategien fra 13.1: shape, hvor `fit` kalles, hva som returneres. Les forklaringen på alle spørsmålene, også de du svarte riktig på.
-
-Vil du sjekke et svar ved å kjøre det, kan du lime koden inn her (alt unntatt PyTorch, SHAP og gymnasium kjører i nettleseren):
-
-```python
-import numpy as np
-from sklearn.metrics import confusion_matrix
-
-y_true = [0, 0, 0, 1, 1, 1, 1]
-y_pred = [0, 1, 1, 1, 0, 1, 1]
-display(confusion_matrix(y_true, y_pred))   # rad = sann klasse, kolonne = predikert
-print(confusion_matrix(y_true, y_pred).ravel())
-```
+Spørsmål fra hele kurset i tilfeldig rekkefølge: svar uten å kjøre koden.
 
 ::: quiz
 **1.** Forvirringsmatrise med `ravel`. Hva skrives ut?
@@ -1642,7 +1404,7 @@ print(fp, fn)
 - [x] `2 1`
 - [ ] `1 3`
 - [ ] `2 3`
-? FP er sanne 0-er predikert som 1: posisjon 1 og 2, altså 2. FN er sanne 1-ere predikert som 0: posisjon 4, altså 1. I matrisen er rader sanne klasser og kolonner predikerte, så `ravel()` gir `tn, fp, fn, tp` = `1, 2, 1, 3`.
+? FP er sanne 0-er predikert som 1 (to stykker), og FN er sanne 1-ere predikert som 0 (én).
 :::
 
 ::: quiz
@@ -1656,7 +1418,7 @@ print(layer(x).shape, layer.weight.shape)
 - [ ] `torch.Size([8, 4]) torch.Size([3, 4])`
 - [ ] `torch.Size([3, 8]) torch.Size([3, 4])`
 - [x] `torch.Size([8, 3]) torch.Size([3, 4])`
-? 8 datapunkter med 4 features inn, 3 verdier ut per datapunkt: `(8, 3)`. PyTorch lagrer vektene som `(out_features, in_features)`, altså `(3, 4)`, og regner `x @ weight.T + bias`.
+? Output får shape `(8, 3)`, og PyTorch lagrer vektene som `(out_features, in_features)`, altså `(3, 4)`.
 :::
 
 ::: quiz
@@ -1671,7 +1433,7 @@ print(X_train.shape, y_test.shape)
 - [ ] `(40, 2) (40,)`
 - [ ] `(10, 2) (10,)`
 - [ ] `(40,) (10,)`
-? 20 % av 50 er 10 testrader, og 40 blir igjen til trening. Antall kolonner endres ikke. Rekkefølgen på returverdiene er `X_train, X_test, y_train, y_test`.
+? 20 % av 50 er 10 testrader, og antall kolonner endres ikke.
 :::
 
 ::: quiz
@@ -1687,7 +1449,7 @@ print(gini([5, 5]), gini([10, 0]))
 - [ ] `0.0 0.5`
 - [x] `0.5 0.0`
 - [ ] `0.5 1.0`
-? `[5, 5]` gir p = [0.5, 0.5] og 1 - (0.25 + 0.25) = 0.5, som er maksimal urenhet for to klasser. `[10, 0]` er en ren node: 1 - 1 = 0. Entropi ville gitt 1.0 for den jevne fordelingen.
+? `[5, 5]` gir 1 - (0.25 + 0.25) = 0.5, og en ren node gir 1 - 1 = 0.
 :::
 
 ::: quiz
@@ -1704,7 +1466,7 @@ print(steg, eps)
 - [x] `4 0.0625`
 - [ ] `4 0.1`
 - [ ] `5 0.03125`
-? ε blir 0.5, 0.25, 0.125 og så 0.0625. Etter fjerde steg er ε ikke lenger over 0.1, så løkka stopper. Legg merke til at ε havner *under* `eps_min`, fordi testen skjer før multiplikasjonen.
+? ε blir 0.5, 0.25, 0.125 og 0.0625, og først etter fjerde steg er den ikke lenger over 0.1.
 :::
 
 ::: quiz
@@ -1718,7 +1480,7 @@ print(labels)
 - [ ] `[1 1 1 2 2 -1]`
 - [ ] `[0 0 0 0 0 -1]`
 - [x] `[0 0 0 1 1 -1]`
-? De tre første punktene ligger tett og blir klynge 0, de to ved (5, 5) blir klynge 1. Punktet (20, 20) har ingen naboer innenfor 0.5 og blir støy, -1. DBSCAN nummererer klynger fra 0.
+? De tre tette punktene blir klynge 0, de to ved (5, 5) blir klynge 1, og (20, 20) uten naboer blir støy, -1.
 :::
 
 ::: quiz
@@ -1732,7 +1494,7 @@ print(k)
 - [ ] 2
 - [ ] 4
 - [ ] 1
-? `np.cumsum(r)` er `[0.55, 0.80, 0.92, 0.97, 1.00]`. Første indeks der summen er minst 0.90 er 2, og `+ 1` gjør indeksen om til et antall: 3 komponenter.
+? `np.cumsum(r)` er `[0.55, 0.80, 0.92, 0.97, 1.00]`, så indeks 2 er den første over 0.90, og `+ 1` gir 3.
 :::
 
 ::: quiz
@@ -1746,7 +1508,7 @@ print(round(p.sum().item(), 4), p.argmax(dim=1).item())
 - [x] `1.0 0`
 - [ ] `1.0 2`
 - [ ] `1.0 2.0`
-? Softmax gjør logits om til sannsynligheter som summerer til 1. Den bevarer rekkefølgen, så største logit (2.0, indeks 0) gir største sannsynlighet. `item()` gjør en tensor med ett element om til et vanlig Python-tall.
+? Softmax gir sannsynligheter som summerer til 1 og bevarer rekkefølgen, så største logit (indeks 0) vinner.
 :::
 
 ::: quiz
@@ -1759,7 +1521,7 @@ print(PolynomialFeatures(degree=2).fit_transform(X))
 - [ ] `[[1. 2. 3. 4. 9.]]`
 - [ ] `[[2. 3. 4. 6. 9.]]`
 - [x] `[[1. 2. 3. 4. 6. 9.]]`
-? Med to features a og b gir grad 2 kolonnene 1, a, b, a², ab, b². Med a = 2 og b = 3 blir det 1, 2, 3, 4, 6, 9. Konstantleddet 1 er med som standard (`include_bias=True`), og kryssleddet ab glemmes lett.
+? Grad 2 med a = 2 og b = 3 gir kolonnene 1, a, b, a², ab, b², altså 1, 2, 3, 4, 6, 9.
 :::
 
 ::: quiz
@@ -1772,7 +1534,7 @@ print(le.fit_transform(["katt", "hund", "fugl", "hund"]))
 - [x] `[2 1 0 1]`
 - [ ] `[1 2 3 2]`
 - [ ] `[2 1 0 2]`
-? `LabelEncoder` sorterer klassene alfabetisk: fugl = 0, hund = 1, katt = 2. Den nummererer *ikke* i rekkefølgen verdiene dukker opp.
+? `LabelEncoder` sorterer klassene alfabetisk: fugl = 0, hund = 1, katt = 2.
 :::
 
 ::: quiz
@@ -1787,7 +1549,7 @@ print(state, next_state, terminated)
 - [ ] `0 4 False`
 - [ ] `1 2 False`
 - [ ] `(0, {}) 1 False`
-? Agenten starter i rute 0 øverst til venstre. Rutene nummereres rad for rad, så ett steg til høyre gir rute 1 (ett steg ned ville gitt 4). `reset` returnerer `(state, info)`, som pakkes ut. `step` returnerer fem verdier i gymnasium.
+? Rutene nummereres rad for rad fra 0, så ett steg til høyre fra rute 0 gir rute 1.
 :::
 
 ::: quiz
@@ -1802,7 +1564,7 @@ print(round(G, 2))
 - [ ] 9.0
 - [x] 8.1
 - [ ] 7.29
-? Belønningen 10 kommer i steg t = 2, så den diskonteres med 0.9² = 0.81: G = 8.1. 7.29 er 0.9³ · 10, som du får hvis du begynner å telle på t = 1.
+? Belønningen kommer i steg t = 2, så G = 0.9² · 10 = 8.1.
 :::
 
 ::: quiz
@@ -1817,7 +1579,7 @@ print(s.transform(X_test))
 - [x] `[[2.]]`
 - [ ] `[[0.]]`
 - [ ] `ValueError`
-? Scaleren har lært min 0 og maks 10 fra treningsdataene. (20 - 0) / (10 - 0) = 2. MinMaxScaler klipper ikke, så testdata kan havne utenfor [0, 1]. Det er helt riktig oppførsel.
+? Scaleren lærte min 0 og maks 10 og klipper ikke, så (20 - 0) / (10 - 0) = 2.
 :::
 
 ::: quiz
@@ -1832,7 +1594,7 @@ print(imp.transform(X_test))
 - [ ] `[[1.33]]`
 - [ ] `[[0.]]`
 - [x] `[[2.]]`
-? Gjennomsnittet regnes av verdiene som finnes i treningsdataene: (1 + 3) / 2 = 2. Hullet i testdataene fylles med dette tallet.
+? Gjennomsnittet av verdiene som finnes i treningsdataene er (1 + 3) / 2 = 2.
 :::
 
 ::: quiz
@@ -1847,7 +1609,7 @@ grid.fit(X_train, y_train)
 - [ ] 30
 - [x] 31
 - [ ] 11
-? 3 dybder ganger 2 kriterier gir 6 kombinasjoner. Hver kryssvalideres med 5 folder: 30 modeller. Til slutt trenes den beste kombinasjonen én gang til på hele `X_train`: 31.
+? 6 kombinasjoner ganger 5 folder gir 30 modeller, pluss én endelig refit på hele `X_train`: 31.
 :::
 
 ::: quiz
@@ -1861,7 +1623,7 @@ print(best_epoch)
 - [x] 3
 - [ ] 5
 - [ ] 0.55
-? `np.argmin` gir indeksen til minste verdi, 2 (verdien 0.55). Epoker telles fra 1, derfor `+ 1`: epoke 3. Glemmer du `+ 1`, blir svaret én epoke for tidlig.
+? `np.argmin` gir indeks 2, og `+ 1` gjør den om til epoke 3.
 :::
 
 ::: quiz
@@ -1875,7 +1637,7 @@ print(round(model_mill.coef_[0] / model_kr.coef_[0]))
 - [ ] 1
 - [ ] 0
 - [ ] Det avhenger av dataene
-? Når featuren deles på en million, må koeffisienten ganges med en million for å gi samme prediksjon. Prediksjonene er identiske, men koeffisienten ser «viktigere» ut. Derfor kan du ikke lese viktighet direkte av `coef_` når featurene har ulik skala, noe prosjekt 4 viser.
+? Når featuren deles på en million, må koeffisienten ganges med en million for å gi samme prediksjon.
 :::
 
 ::: quiz
@@ -1890,7 +1652,7 @@ drop = base - accuracy_score(y_val, model.predict(X_perm))
 - [ ] Koeffisienten til feature 2
 - [x] Permutation importance for feature 2: hvor mye accuracy faller når sammenhengen mellom feature 2 og målet ødelegges
 - [ ] Korrelasjonen mellom feature 2 og målet
-? Å stokke én kolonne bevarer fordelingen, men bryter koblingen til `y`. Faller accuracyen mye, brukte modellen featuren mye. `copy()` sørger for at `X_val` ikke endres.
+? Å stokke kolonne 2 bryter koblingen til `y`, så fallet i accuracy er permutation importance for feature 2.
 :::
 
 ::: quiz
@@ -1903,7 +1665,7 @@ pred = iso.predict(X_new)
 - [x] Bare 1 og -1, der -1 er anomali
 - [ ] Klyngenumre 0, 1, 2, ...
 - [ ] Anomaliscorer mellom 0 og 1
-? `IsolationForest.predict` gir 1 for normale punkter og -1 for avvik, akkurat som `LocalOutlierFactor.fit_predict`. Vil du ha en kontinuerlig score, bruker du `score_samples` eller `decision_function`.
+? `IsolationForest.predict` gir 1 for normale punkter og -1 for avvik.
 :::
 
 ::: quiz
@@ -1917,7 +1679,7 @@ print(round(base_value + shap_vals.sum(), 2))
 - [ ] 3.2
 - [x] 2.6
 - [ ] 0.6
-? SHAP-verdier er additive: baseverdien (gjennomsnittlig prediksjon) pluss summen av bidragene er modellens prediksjon for akkurat dette huset. 2.0 + 0.8 - 0.3 + 0.1 = 2.6. 3.2 får du hvis du legger til absoluttverdiene.
+? SHAP-verdier er additive: 2.0 + 0.8 - 0.3 + 0.1 = 2.6.
 :::
 
 ::: quiz
@@ -1931,7 +1693,7 @@ print(r2_score(y_true, y_pred), round(mean_squared_error(y_true, y_pred), 3))
 - [ ] `1.0 0.667`
 - [ ] `0.0 0.0`
 - [ ] `-1.0 2.0`
-? En modell som alltid gir gjennomsnittet av `y_true` har R² = 0 per definisjon. MSE = (1 + 0 + 1) / 3 = 0.667. R² kan bli negativ for modeller som er dårligere enn gjennomsnittet.
+? Å alltid predikere gjennomsnittet gir R² = 0, og MSE = (1 + 0 + 1) / 3 ≈ 0.667.
 :::
 
 ::: quiz
@@ -1945,7 +1707,7 @@ loss = loss_fn(out, y_batch)  # y_batch har shape (32,)
 - [ ] Tapet regnes ut via broadcasting til `(32, 32)`
 - [x] `ValueError` om at target og input må ha samme størrelse
 - [ ] `RuntimeError` om at labels må være `long`
-? `BCEWithLogitsLoss` krever samme shape på input og target. Derfor bruker prosjekt 3 `net(X).squeeze(1)`, som gjør `(32, 1)` om til `(32,)`. (Med `nn.MSELoss` hadde du bare fått en advarsel og et feil tall på grunn av broadcasting, som er verre.)
+? `BCEWithLogitsLoss` krever samme shape på input og target, og derfor bruker prosjekt 3 `squeeze(1)`.
 :::
 
 ::: quiz
@@ -1959,7 +1721,7 @@ print(len(loader))
 - [ ] 32
 - [ ] 100
 - [x] 4
-? `len(loader)` er antall batcher per epoke: 32 + 32 + 32 + 4, altså 4. Siste batch er mindre (med mindre du setter `drop_last=True`).
+? 100 punkter i batcher på 32 gir 32 + 32 + 32 + 4, altså 4 batcher.
 :::
 
 ::: quiz
@@ -1976,7 +1738,7 @@ print((a == b).all(), (a == c).all())
 - [ ] `True True`
 - [ ] `False False`
 - [ ] `False True`
-? Samme seed gir samme tall, så `a` og `b` er like. `c` trekkes etter `b` uten ny seed, så den fortsetter sekvensen og får andre tall.
+? Samme seed gir samme tall, mens `c` fortsetter sekvensen etter `b`.
 :::
 
 ::: quiz
@@ -1993,7 +1755,7 @@ class Net(nn.Module):
 - [ ] Nettet lages, men har 0 parametre
 - [ ] `TypeError` fordi `forward` mangler `self`
 - [x] `AttributeError`, fordi et lag ikke kan registreres før `nn.Module.__init__()` er kalt
-? `nn.Module.__init__` setter opp systemet som holder styr på lag og parametre. Uten det krasjer allerede `self.fc = ...` med «cannot assign module before Module.__init__() call». Derfor starter alle nett i prosjektene med `super().__init__()`.
+? Uten `super().__init__()` krasjer allerede `self.fc = ...`, fordi `nn.Module` ikke er satt opp.
 :::
 
 ::: quiz
@@ -2006,12 +1768,5 @@ print(type(scores).__name__, scores.shape)
 - [x] `ndarray (5,)`
 - [ ] `list (5,)`
 - [ ] `ndarray (5, 2)`
-? Du får ett tall per fold i et NumPy-array. Prosjekt 2 rapporterer `cv_scores.mean()` og `cv_scores.std()`, altså snitt og spredning over foldene.
-:::
-
-::: oppsummering
-- Du har nå øvd på alle fire spørsmålstypene: eksamensspørsmålene fra 2025, «hva skrives ut», «finn feilen», «hva gjør funksjonen» og «velg riktig linje».
-- Gå tilbake til spørsmålene du bommet på, og finn ut hvilken av de fem strategispørsmålene som ville reddet deg.
-- De viktigste fellene: `fit` på feil data, shape-broadcasting, `ravel`-rekkefølgen `tn, fp, fn, tp`, logits vs sannsynligheter, `next_state` i Q-læring og `-1` som støy i DBSCAN.
-- Lykke til på eksamen 25. november!
+? `cross_val_score` gir ett tall per fold i et NumPy-array med shape `(5,)`.
 :::

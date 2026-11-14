@@ -1,98 +1,15 @@
 === DEL 12 | xai | Forklarbar KI (prosjekt 4)
-Koden bak forklaringene i prosjekt 4: koeffisienter og permutation importance, Shapley-verdier regnet for hånd, shap-biblioteket med Explainer, TreeExplainer og DeepExplainer, LIME som lokal surrogatmodell, og konseptdeteksjon med CAV og TCAV.
+Du skriver koden bak forklaringene i prosjekt 4 selv: koeffisienter, permutation importance, Shapley-verdier, SHAP, LIME og CAV/TCAV.
 
 --- LEKSJON 12.1 | koeffisienter | Koeffisienter og permutation importance
-En modell er trent og gir gode prediksjoner. Men **hvilke features bruker den**, og hvor mye? Det er spørsmålet forklarbar KI (XAI) prøver å svare på. Vi starter med de enkleste verktøyene: koeffisientene til en lineær modell, og permutation importance.
+`linear_model.coef_` er endringen i prediksjonen når en feature øker med **én enhet**, så koeffisientene kan bare sammenlignes når featurene har samme skala. Sammenlign derfor $|\beta_i| \cdot \text{std}(x_i)$, eller tren på standardiserte features med `make_pipeline(StandardScaler(), LinearRegression())`.
 
-Prosjekt 4 bruker California housing, som må lastes ned. Vi lager i stedet et lite datasett med samme type features: inntekt i området, husets alder, soverom per bolig, befolkning og avstand til sentrum. Funksjonen `lag_boligdata` kommer igjen i resten av delen. Prisen er i enheter av 100 000 USD, som i prosjektet.
-
-```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-
-def lag_boligdata(n=1000, seed=0):
-    rng = np.random.default_rng(seed)
-    X = pd.DataFrame({
-        "Inntekt": rng.gamma(4, 1.0, n),         # medianinntekt i området (10 000 USD)
-        "Alder": rng.integers(1, 53, n),         # husets alder i år
-        "Soverom": rng.normal(1.05, 0.05, n),    # snitt soverom per bolig
-        "Befolkning": rng.gamma(2, 700, n),      # innbyggere i området
-        "Avstand": rng.uniform(0, 30, n),        # km til sentrum
-    })
-    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
-         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
-         + rng.normal(0, 0.3, n))
-    return X, y
-
-X, y = lag_boligdata()
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-linear_model = LinearRegression().fit(X_train, y_train)
-print(f"R2 på testdata: {linear_model.score(X_test, y_test):.3f}")
-
-plt.bar(X.columns, linear_model.coef_)
-plt.ylabel("Koeffisient")
-plt.title("Feature importance by coefficients?")
-plt.show()
-pd.Series(linear_model.coef_, index=X.columns).round(5)
-```
-
-Ifølge plottet er **Soverom** klart viktigst (koeffisient 2.5), og Befolkning ser helt ubrukelig ut. Stemmer det?
-
-## Koeffisienten avhenger av skalaen
-En koeffisient er endringen i prediksjonen når featuren øker med **én enhet**. Én ekstra soverom per bolig er enormt (nesten alle verdier ligger mellom 1.0 og 1.1), mens én ekstra innbygger er ingenting. For å sammenligne må vi ta hensyn til hvor mye featuren faktisk varierer: $|\beta_i| \cdot \text{std}(x_i)$. Det samme får du ved å **standardisere** featurene før du trener:
-
-```python
+::: oppgave Koeffisientene
+`lag_boligdata()` lager boligdata som ligner California housing fra prosjekt 4 (pris i 100 000 USD). Tren `linear_model = LinearRegression()` på treningsdataene, lag en Series `koef` med `coef_` og featurenavnene som indeks, og lagre featuren med størst |koeffisient| i `storst_koef`.
+```start
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
-def lag_boligdata(n=1000, seed=0):
-    rng = np.random.default_rng(seed)
-    X = pd.DataFrame({
-        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
-        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
-        "Avstand": rng.uniform(0, 30, n)})
-    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
-         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
-         + rng.normal(0, 0.3, n))
-    return X, y
-
-X, y = lag_boligdata()
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-linear_model = LinearRegression().fit(X_train, y_train)
-
-# Samme modell, men på standardiserte features (snitt 0, std 1)
-scaled_model = make_pipeline(StandardScaler(), LinearRegression()).fit(X_train, y_train)
-
-pd.DataFrame({
-    "coef": linear_model.coef_,
-    "std": X_train.std(),
-    "|coef| * std": np.abs(linear_model.coef_) * X_train.std(),
-    "standardisert coef": scaled_model[-1].coef_,
-}, index=X.columns).round(4)
-```
-
-Nå er bildet helt annerledes: **Inntekt** er viktigst, så **Avstand**, mens Soverom havner nesten nederst. Den standardiserte koeffisienten er (nesten) lik coef · std. Den lille forskjellen kommer av at `StandardScaler` deler på std med $n$ i nevneren, mens pandas bruker $n - 1$.
-
-::: prosjekt Prosjekt 4, problem 1
-Spørsmålet «The coefficient plot and SHAP disagree on which features are important. Why?» har akkurat dette svaret. I California housing har AveBedrms den største koeffisienten (0.59), men nesten alle verdier ligger nær 1, så den betyr lite. Population har en bitteliten koeffisient, men varierer over tusenvis. Prosjektets løsning lager samme tabell med kolonnene `coefficient`, `std of feature` og `|coef| * std` og sammenligner med SHAP (leksjon 12.3).
-:::
-
-## Permutation importance
-Koeffisienter finnes bare for lineære modeller. **Permutation importance** virker for alle modeller: stokk om verdiene i én kolonne i testdataene, og mål hvor mye scoren faller. Bruker modellen featuren mye, faller scoren mye. Stokkingen bevarer fordelingen til featuren, men bryter koblingen til target.
-
-```python
-import numpy as np
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 
 def lag_boligdata(n=1000, seed=0):
@@ -108,28 +25,51 @@ def lag_boligdata(n=1000, seed=0):
 
 X, y = lag_boligdata()
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-linear_model = LinearRegression().fit(X_train, y_train)
-boosting_model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X_train, y_train)
 
-resultat = {}
-for navn, modell in [("lineær", linear_model), ("boosting", boosting_model)]:
-    pi = permutation_importance(modell, X_test, y_test, n_repeats=10, random_state=0)
-    resultat[navn] = pi.importances_mean           # snittfall i R2 over 10 stokkinger
-    print(f"{navn}: R2 = {modell.score(X_test, y_test):.3f}")
-
-print("Boosting: fallet i R2 for hver av de 10 stokkingene (pi.importances):")
-display(pd.DataFrame(pi.importances, index=X.columns).round(3))
-pd.DataFrame(resultat, index=X.columns).round(3)
+linear_model = ...
+koef = ...
+storst_koef = ...
 ```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
 
-`pi.importances` har én rad per feature og én kolonne per stokking. Fallet varierer litt fra stokking til stokking, og `importances_mean` er snittfallet i R² over de `n_repeats` stokkingene. Boosting-modellen bruker **Avstand** mer enn den lineære, fordi sammenhengen er en topp (prisene er høyest rundt 5 km fra sentrum), og en rett linje fanger ikke det.
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
 
-::: advarsel
-**Korrelerte features** lurer begge metodene. To features som nesten er like (for eksempel latitude og longitude i California) kan dele en effekt mellom seg på tilfeldige måter, få store koeffisienter med motsatt fortegn, eller få lav permutation importance fordi modellen kan bruke den andre i stedet. Stokking lager i tillegg kombinasjoner som ikke finnes i virkeligheten (et hus med ekstremt mange rom og få soverom). Det samme problemet dukker opp for SHAP.
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+linear_model = LinearRegression().fit(X_train, y_train)
+koef = pd.Series(linear_model.coef_, index=X_train.columns)
+storst_koef = koef.abs().idxmax()
+```
+```test
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+assert hasattr(linear_model, "coef_"), "linear_model skal være en trent LinearRegression: LinearRegression().fit(X_train, y_train)."
+_fasit = LinearRegression().fit(X_train, y_train).coef_
+assert np.allclose(linear_model.coef_, _fasit), "Tren modellen på X_train og y_train (ikke testdataene)."
+assert isinstance(koef, pd.Series), "koef skal være en pandas Series."
+assert list(koef.index) == list(X_train.columns), "Indeksen til koef skal være featurenavnene (X_train.columns)."
+assert np.allclose(koef.values, _fasit), "Verdiene i koef skal være linear_model.coef_."
+assert storst_koef == "Soverom", f"Soverom har størst |koeffisient| (rundt 2.5), ikke {storst_koef}. Tips: koef.abs().idxmax()."
+```
 :::
 
 ::: oppgave Rangér med |coef| · std
-Bruk `linear_model.coef_` og `X_train.std()` til å lage en pandas Series `viktighet` med $|\beta_i| \cdot \text{std}(x_i)$ for hver feature (indeks = featurenavnene), og lagre navnet på den viktigste featuren i `viktigst`.
+Lag en Series `viktighet` med $|\beta_i| \cdot \text{std}(x_i)$ for hver feature (bruk `linear_model.coef_` og `X_train.std()`), og lagre navnet på den viktigste featuren i `viktigst`.
 ```start
 import numpy as np
 import pandas as pd
@@ -189,11 +129,75 @@ assert viktigst == "Inntekt", f"Den viktigste featuren skal være Inntekt, ikke 
 ```
 :::
 
+::: oppgave Standardiserte koeffisienter
+Tren `scaled_model = make_pipeline(StandardScaler(), LinearRegression())`, lagre koeffisientene til siste steg (`scaled_model[-1].coef_`) i `std_koef`, og featuren med størst |koeffisient| i `viktigst_std`.
+```start
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+scaled_model = ...
+std_koef = ...
+viktigst_std = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+scaled_model = make_pipeline(StandardScaler(), LinearRegression()).fit(X_train, y_train)
+std_koef = scaled_model[-1].coef_
+viktigst_std = X_train.columns[np.argmax(np.abs(std_koef))]
+```
+```test
+import numpy as np
+from sklearn.linear_model import LinearRegression
+_c = LinearRegression().fit(X_train, y_train).coef_ * X_train.std(ddof=0).values
+assert np.asarray(std_koef).shape == (5,), "std_koef skal ha én koeffisient per feature. Husk .fit(X_train, y_train) og scaled_model[-1].coef_."
+assert np.allclose(std_koef, _c), "De standardiserte koeffisientene skal være coef * std. Tren pipelinen på X_train og y_train."
+assert viktigst_std == "Inntekt", f"Etter standardisering er Inntekt viktigst, ikke {viktigst_std}. Tips: X_train.columns[np.argmax(np.abs(std_koef))]."
+```
+:::
+
+## Permutation importance
+`permutation_importance(modell, X_test, y_test, n_repeats=10, random_state=0)` stokker én kolonne om gangen og måler fallet i score (`.importances_mean`, og `.importances` med én kolonne per stokking), så den virker for alle modeller. Den forklarer **modellen**, ikke virkeligheten, og korrelerte features kan dele effekten mellom seg.
+
 ::: oppgave Permutation importance for hånd
-Regn ut permutation importance for **Inntekt** uten `permutation_importance`:
-1. Regn ut `r2_original`, R² for `linear_model` på `X_test`.
-2. Lag en kopi `X_perm` av `X_test` der kolonnen `"Inntekt"` er stokket om (bruk `rng.permutation`).
-3. Lagre fallet i R² i `fall`.
+Regn ut `r2_original` (R² for `linear_model` på `X_test`), lag en kopi `X_perm` av `X_test` der kolonnen `"Inntekt"` er stokket med `rng.permutation`, og lagre fallet i R² i `fall`.
 ```start
 import numpy as np
 import pandas as pd
@@ -262,200 +266,171 @@ assert 0.7 < fall < 1.7, f"Fallet i R2 skal være rundt 1 for Inntekt, du fikk {
 ```
 :::
 
-::: quiz
-En lineær modell for boligpriser har koeffisientene og standardavvikene under. Hvilken feature påvirker prediksjonene mest?
+::: oppgave Lineær modell mot boosting
+Lagre `importances_mean` fra `permutation_importance` (på testdataene, `n_repeats=10`) for `linear_model` i `pi_lin` og for `boosting_model` i `pi_boost`, og lagre featuren boosting-modellen bruker nest mest i `nest_boost`.
+```start
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
 
-| Feature | Koeffisient | Std |
-|---|---|---|
-| Rom | 0.80 | 0.2 |
-| Alder | 0.01 | 12 |
-| Inntekt | 0.40 | 2.0 |
-| Befolkning | 0.0001 | 1000 |
-- [ ] Rom, fordi den har størst koeffisient
-- [ ] Befolkning, fordi den har størst standardavvik
-- [x] Inntekt, fordi |koeffisient| · std er størst (0.8)
-- [ ] Alle er like viktige, fordi alle koeffisientene er positive
-? |coef| · std: Rom 0.16, Alder 0.12, Inntekt 0.80, Befolkning 0.10. Koeffisienten alene sier hvor mye én enhet betyr, men ikke hvor mye featuren faktisk varierer i dataene.
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+linear_model = LinearRegression().fit(X_train, y_train)
+boosting_model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X_train, y_train)
+
+pi_lin = ...
+pi_boost = ...
+nest_boost = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+linear_model = LinearRegression().fit(X_train, y_train)
+boosting_model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X_train, y_train)
+
+pi_lin = permutation_importance(linear_model, X_test, y_test, n_repeats=10, random_state=0).importances_mean
+pi_boost = permutation_importance(boosting_model, X_test, y_test, n_repeats=10, random_state=0).importances_mean
+nest_boost = X_test.columns[np.argsort(pi_boost)[-2]]
+```
+```test
+import numpy as np
+assert np.asarray(pi_lin).shape == (5,) and np.asarray(pi_boost).shape == (5,), "pi_lin og pi_boost skal ha én verdi per feature (bruk .importances_mean)."
+assert np.argmax(pi_lin) == 0 and np.argmax(pi_boost) == 0, "Inntekt skal være viktigst for begge modellene. Bruk X_test og y_test i permutation_importance."
+assert 0.8 < pi_lin[0] < 1.5, f"pi_lin for Inntekt skal være rundt 1.16, fikk {pi_lin[0]:.3f}. Har du brukt testdataene?"
+assert pi_boost[4] > pi_lin[4] + 0.08, "Boosting-modellen skal bruke Avstand mer enn den lineære (toppen rundt 5 km). Sjekk at pi_boost kommer fra boosting_model."
+assert nest_boost == "Avstand", f"Nest viktigst for boosting er Avstand, ikke {nest_boost}."
+```
 :::
 
-::: quiz
-Permutation importance for featuren *Region* er 0.00 på testdataene. Hva er den beste tolkningen?
-- [ ] Region har ingen sammenheng med target i virkeligheten
-- [x] Modellens score endres ikke når Region stokkes, så modellen bruker den lite (eller kan bruke en korrelert feature i stedet)
-- [ ] Region har så liten skala at koeffisienten blir 0
-- [ ] Permutation importance kan bare brukes på lineære modeller, så resultatet er ugyldig
-? Permutation importance forklarer **modellen**, ikke virkeligheten. Er Region sterkt korrelert med en annen feature, kan modellen hente samme informasjon derfra. Metoden virker for alle modeller, fordi den bare trenger `predict`.
-:::
+::: oppgave Korrelerte features
+Lag `X2_train` og `X2_test` med en ekstra kolonne `"Inntekt2"` = Inntekt + `rng.normal(0, 0.1, ...)`, tren `model2 = LinearRegression()` på dem, og lagre permutation importance for Inntekt (`n_repeats=5`) for `linear_model` i `imp_uten` og for `model2` i `imp_med`.
+```start
+import numpy as np
+import pandas as pd
+from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
 
-::: oppsummering
-- `linear_model.coef_` er endringen per **én enhet**. Koeffisientene kan bare sammenlignes når featurene har samme skala.
-- Sammenlign med $|\beta_i| \cdot \text{std}(x_i)$, eller tren på standardiserte features (`StandardScaler`).
-- **Permutation importance** (`sklearn.inspection.permutation_importance`): stokk én kolonne, mål fallet i score. Modellagnostisk og global.
-- Korrelerte features gjør alle disse målene vanskelige å tolke.
-- Alle metodene forklarer **modellen**, ikke sammenhengen i virkeligheten.
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+linear_model = LinearRegression().fit(X_train, y_train)
+rng = np.random.default_rng(1)
+
+X2_train = ...
+X2_test = ...
+model2 = ...
+imp_uten = ...
+imp_med = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+linear_model = LinearRegression().fit(X_train, y_train)
+rng = np.random.default_rng(1)
+
+X2_train = X_train.copy()
+X2_train["Inntekt2"] = X2_train["Inntekt"] + rng.normal(0, 0.1, len(X2_train))
+X2_test = X_test.copy()
+X2_test["Inntekt2"] = X2_test["Inntekt"] + rng.normal(0, 0.1, len(X2_test))
+model2 = LinearRegression().fit(X2_train, y_train)
+imp_uten = permutation_importance(linear_model, X_test, y_test, n_repeats=5, random_state=0).importances_mean[0]
+imp_med = permutation_importance(model2, X2_test, y_test, n_repeats=5, random_state=0).importances_mean[0]
+```
+```test
+import numpy as np
+assert "Inntekt2" in X2_train.columns and "Inntekt2" in X2_test.columns, "Både X2_train og X2_test skal ha kolonnen Inntekt2."
+assert np.corrcoef(X2_train["Inntekt"], X2_train["Inntekt2"])[0, 1] > 0.99, "Inntekt2 skal være Inntekt pluss litt støy (std 0.1)."
+assert len(model2.coef_) == 6, "model2 skal trenes på X2_train (6 features)."
+assert 0.8 < imp_uten < 1.5, f"imp_uten skal være rundt 1.16 (Inntekt for linear_model på X_test), fikk {imp_uten:.3f}."
+assert imp_med < 0.5 * imp_uten, f"Med en nesten lik kopi deler modellen effekten, så imp_med ({imp_med:.3f}) skal være mye lavere enn imp_uten. Bruk model2 og X2_test."
+```
 :::
 
 --- LEKSJON 12.2 | shapley | Shapley-verdier for hånd
-**SHAP** er den mest brukte forklaringsmetoden, og den bygger på **Shapley-verdier** fra spillteori: hvordan skal gevinsten (eller kostnaden) i et samarbeid fordeles rettferdig mellom spillerne? Formelen er
+Shapley-verdien er et vektet snitt av spillerens marginale bidrag: $\phi_i = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|!\,(n - |S| - 1)!}{n!} \big( v(S \cup \{i\}) - v(S) \big)$. I Python lagrer vi $v$ som en dict med `frozenset` som nøkler, og `combinations(andre, k)` gir alle koalisjoner med `k` av de andre spillerne.
 
-$$\phi_i = \sum_{S \subseteq N \setminus \{i\}} \frac{|S|!\,(|N| - |S| - 1)!}{|N|!} \big( v(S \cup \{i\}) - v(S) \big)$$
+::: oppgave To spillere
+Med to spillere har begge koalisjonene vekt ½. Regn ut `phi1` og `phi2` fra `v` med formelen.
+```start
+v = {frozenset(): 0, frozenset({1}): 4, frozenset({2}): 2, frozenset({1, 2}): 10}
 
-Summen går over alle **koalisjoner** $S$ som ikke inneholder spiller $i$. Parentesen er spillerens **marginale bidrag**: hvor mye verdien endres når $i$ blir med. Vekten foran gjør summen til et gjennomsnitt. Før vi bruker dette på modeller, regner vi det ut med kode.
-
-## Taxieksempelet fra notatene
-Tre venner deler taxi. Passasjer 1 skal 3 km, passasjer 2 skal 7 km og passasjer 3 skal 10 km, langs samme rute. Kostnaden for en koalisjon er lengden på den lengste turen. En `frozenset` er en mengde som ikke kan endres, og derfor kan brukes som nøkkel i en dictionary. `combinations(andre, k)` gir alle delmengder med `k` elementer.
-
-```python
-from itertools import combinations
-from math import factorial
-
-v = {
-    frozenset(): 0,
-    frozenset({1}): 3, frozenset({2}): 7, frozenset({3}): 10,
-    frozenset({1, 2}): 7, frozenset({1, 3}): 10, frozenset({2, 3}): 10,
-    frozenset({1, 2, 3}): 10,
-}
-
-def shapley(v, spillere):
-    n = len(spillere)
-    phi = {}
-    for i in spillere:
-        andre = [p for p in spillere if p != i]
-        total = 0
-        for k in range(len(andre) + 1):                # koalisjoner med 0, 1, ..., n-1 andre
-            for S in combinations(andre, k):
-                S = frozenset(S)
-                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
-                total += vekt * (v[S | {i}] - v[S])    # vektet marginalt bidrag
-        phi[i] = total
-    return phi
-
-print("Kostnaden v(S) for hver koalisjon:")
-display({str(sorted(S)): kost for S, kost in v.items()})
-
-phi = shapley(v, [1, 2, 3])
-print({i: round(p, 3) for i, p in phi.items()})
-print("Sum:", sum(phi.values()), "= v(alle) =", v[frozenset({1, 2, 3})])
+phi1 = ...
+phi2 = ...
 ```
+```losning
+v = {frozenset(): 0, frozenset({1}): 4, frozenset({2}): 2, frozenset({1, 2}): 10}
 
-Passasjer 1 betaler for 1 km, passasjer 2 for 3 km og passasjer 3 for 6 km. De første 3 km deles på tre (1 km hver), de neste 4 deles på to (2 km hver), og de siste 3 betaler passasjer 3 alene. Summen er hele kostnaden: det er **effektivitetsaksiomet**. De andre aksiomene er **symmetri** (like bidrag gir lik verdi), **nullspiller** (bidrar du aldri, får du 0) og **additivitet**.
-
-## En modell som spill
-Nå er spillerne **features**, og «verdien» av en koalisjon er modellens prediksjon når bare de featurene er kjent. Men en modell trenger alltid alle features. SHAP løser det slik notatene beskriver: features som ikke er med i $S$, byttes ut med verdier fra et **bakgrunnsdatasett**, og vi tar snittet av prediksjonene:
-
-$$v(S) \approx \frac{1}{|B|} \sum_{b \in B} f(x^*_S, \, b_{\bar S})$$
-
-```python
-import numpy as np
-import pandas as pd
-from itertools import combinations
-from math import factorial
-
-def shapley(v, spillere):
-    n = len(spillere)
-    phi = {}
-    for i in spillere:
-        andre = [p for p in spillere if p != i]
-        total = 0
-        for k in range(len(andre) + 1):
-            for S in combinations(andre, k):
-                S = frozenset(S)
-                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
-                total += vekt * (v[S | {i}] - v[S])
-        phi[i] = total
-    return phi
-
-def f(X):                                   # "modellen": lineær i x0, samspill mellom x1 og x2
-    return 3 * X[:, 0] + 2 * X[:, 1] * X[:, 2]
-
-rng = np.random.default_rng(0)
-background = rng.normal(0, 1, size=(100, 3))     # bakgrunnsdatasettet
-x = np.array([1.0, 2.0, 1.5])                    # punktet vi vil forklare
-
-def v_modell(S):
-    X_mix = background.copy()
-    for j in S:
-        X_mix[:, j] = x[j]                       # features i S får verdien fra x
-    return f(X_mix).mean()                       # resten kommer fra bakgrunnen
-
-# v for alle 2^3 = 8 koalisjoner
-v = {frozenset(S): v_modell(S) for k in range(4) for S in combinations(range(3), k)}
-phi = shapley(v, [0, 1, 2])
-print("v(S) for alle 8 koalisjoner:")
-display({str(sorted(S)): round(float(verdi), 3) for S, verdi in v.items()})
-print("Shapley-verdiene:")
-display(pd.DataFrame({"feature": ["x0", "x1", "x2"], "verdi i x": x,
-                      "φ": [round(float(phi[j]), 3) for j in range(3)]}))
-
-baseline = v[frozenset()]                        # E[f(X)] over bakgrunnen
-print("baseline:", round(baseline, 3))
-print("phi:", {j: round(float(p), 3) for j, p in phi.items()})
-print("baseline + sum(phi) =", round(baseline + sum(phi.values()), 3), "  f(x) =", f(x[None, :])[0])
+phi1 = 0.5 * (v[frozenset({1})] - v[frozenset()]) + 0.5 * (v[frozenset({1, 2})] - v[frozenset({2})])
+phi2 = 0.5 * (v[frozenset({2})] - v[frozenset()]) + 0.5 * (v[frozenset({1, 2})] - v[frozenset({1})])
 ```
-
-I koalisjonstabellen er `[]` den tomme koalisjonen (bare bakgrunn) og `[0, 1, 2]` er alle features fra $x$, altså $f(x)$. Shapley-verdiene er et vektet snitt av hoppene mellom radene.
-
-To ting å legge merke til:
-- **Baseline** $\phi_0 = v(\varnothing)$ er modellens **snittprediksjon over bakgrunnen**. SHAP forklarer hvor mye hver feature trekker prediksjonen bort fra dette snittet.
-- **Additivitet**: baseline + summen av SHAP-verdiene er nøyaktig $f(x)$. Samspillet $2 x_1 x_2$ deles mellom feature 1 og 2.
-
-## Lineær modell: en snarvei
-For en lineær modell $f(x) = b + \sum_i \beta_i x_i$ (og uavhengige features) gir hele maskineriet over et enkelt svar: $\phi_i = \beta_i \, (x_i - \text{E}[x_i])$, der snittet tas over bakgrunnen. Vi sjekker:
-
-```python
-import numpy as np
-from itertools import combinations
-from math import factorial
-
-def shapley(v, spillere):
-    n = len(spillere)
-    phi = {}
-    for i in spillere:
-        andre = [p for p in spillere if p != i]
-        total = 0
-        for k in range(len(andre) + 1):
-            for S in combinations(andre, k):
-                S = frozenset(S)
-                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
-                total += vekt * (v[S | {i}] - v[S])
-        phi[i] = total
-    return phi
-
-beta, b = np.array([0.5, -2.0, 1.0]), 4.0
-def f(X):
-    return b + X @ beta
-
-rng = np.random.default_rng(1)
-background = rng.normal([3, 1, 10], [1, 0.5, 4], size=(200, 3))
-x = np.array([5.0, 0.5, 6.0])
-
-def v_modell(S):
-    X_mix = background.copy()
-    for j in S:
-        X_mix[:, j] = x[j]
-    return f(X_mix).mean()
-
-v = {frozenset(S): v_modell(S) for k in range(4) for S in combinations(range(3), k)}
-phi = shapley(v, [0, 1, 2])
-print("Via koalisjoner:", np.round([phi[j] for j in range(3)], 4))
-print("Via formelen:   ", np.round(beta * (x - background.mean(axis=0)), 4))
+```test
+assert abs(phi1 - 6) < 1e-9, f"phi1 skal være ½(4 - 0) + ½(10 - 2) = 6, ikke {phi1}."
+assert abs(phi2 - 4) < 1e-9, f"phi2 skal være ½(2 - 0) + ½(10 - 4) = 4, ikke {phi2}."
 ```
-
-Stor koeffisient er altså ikke nok for stor SHAP-verdi. Featureverdien må også ligge langt fra snittet. Det er grunnen til at SHAP og koeffisientene var uenige i leksjon 12.1.
-
-## Hvorfor SHAP må tilnærme
-For å regne ut alle Shapley-verdiene trenger vi $v$ for **alle** $2^M$ koalisjoner av $M$ features:
-
-```python
-for M in [3, 8, 10, 20, 30]:
-    print(f"{M:4d} features: {2 ** M:,} koalisjoner")
-print(f" 784 features (MNIST): et tall med {len(str(2 ** 784))} sifre")
-```
-
-Med 3 features er det 8, med 30 er det over en milliard, og et MNIST-bilde har 784 piksler. Derfor beregner shap-biblioteket Shapley-verdiene eksakt bare i spesialtilfeller (lineære modeller, trær), og tilnærmer dem ellers. For bilder grupperes piksler i **superpiksler** som behandles som én feature.
+:::
 
 ::: oppgave Shapley-funksjonen
-Fullfør `shapley(v, spillere)` ved å fylle inn vekten og det vektede marginale bidraget. Testen sjekker taxieksempelet og katteoppgaven fra notatene (tre katter som fanger mus alene, i par og alle sammen).
+Fullfør `shapley(v, spillere)` ved å fylle inn vekten og det vektede marginale bidraget. Testen sjekker taxieksempelet fra notatene (1, 3 og 6 km) og katteoppgaven.
 ```start
 from itertools import combinations
 from math import factorial
@@ -519,8 +494,155 @@ assert abs(phi_katter[2] - 1.0) < 1e-9 and abs(phi_katter[3] - 1.5) < 1e-9, "Kat
 ```
 :::
 
+## Aksiomene
+Shapley-verdiene oppfyller **effektivitet** ($\sum_i \phi_i = v(N)$), **symmetri** (like bidrag gir lik verdi), **nullspiller** (bidrar du aldri, får du 0) og **additivitet**.
+
+::: oppgave Sjekk aksiomene
+Lag `v` for tre spillere der en koalisjon er verdt 6 hvis spiller 1 eller 2 er med og ellers 0 (spiller 3 bidrar aldri), og lagre `phi = shapley(v, [1, 2, 3])`.
+```start
+from itertools import combinations
+from math import factorial
+
+def shapley(v, spillere):
+    n = len(spillere)
+    phi = {}
+    for i in spillere:
+        andre = [p for p in spillere if p != i]
+        total = 0
+        for k in range(len(andre) + 1):
+            for S in combinations(andre, k):
+                S = frozenset(S)
+                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
+                total += vekt * (v[S | {i}] - v[S])
+        phi[i] = total
+    return phi
+
+v = ...
+phi = ...
+```
+```losning
+from itertools import combinations
+from math import factorial
+
+def shapley(v, spillere):
+    n = len(spillere)
+    phi = {}
+    for i in spillere:
+        andre = [p for p in spillere if p != i]
+        total = 0
+        for k in range(len(andre) + 1):
+            for S in combinations(andre, k):
+                S = frozenset(S)
+                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
+                total += vekt * (v[S | {i}] - v[S])
+        phi[i] = total
+    return phi
+
+v = {frozenset(S): (6 if (1 in S or 2 in S) else 0)
+     for k in range(4) for S in combinations([1, 2, 3], k)}
+phi = shapley(v, [1, 2, 3])
+```
+```test
+assert isinstance(v, dict) and len(v) == 8, "v skal være en dict med alle 2^3 = 8 koalisjoner (frozenset som nøkler)."
+assert v[frozenset()] == 0 and v[frozenset({3})] == 0 and v[frozenset({1, 3})] == 6, "v(S) skal være 6 når 1 eller 2 er med, ellers 0."
+assert abs(phi[3]) < 1e-9, f"Nullspiller: spiller 3 skal få 0, fikk {phi[3]}."
+assert abs(phi[1] - phi[2]) < 1e-9, "Symmetri: spiller 1 og 2 bidrar likt og skal få lik verdi."
+assert abs(phi[1] + phi[2] + phi[3] - 6) < 1e-9, "Effektivitet: summen skal være v({1,2,3}) = 6."
+```
+:::
+
+## En modell som spill
+Med features som spillere er $v(S)$ snittet av `f(X_mix)`, der `X_mix` er bakgrunnsdataene med kolonnene i $S$ byttet ut med verdiene fra punktet `x`. Baseline er $\phi_0 = v(\varnothing)$ (snittprediksjonen over bakgrunnen), og $\phi_0 + \sum_j \phi_j = f(x)$.
+
+::: oppgave Koalisjonsverdier fra en modell
+Fullfør `v_modell(S)` slik at kolonnene `j` i `S` får verdien `x[j]` og resten kommer fra `background`, og lagre `baseline` $= v(\varnothing)$.
+```start
+import numpy as np
+from itertools import combinations
+from math import factorial
+
+def shapley(v, spillere):
+    n = len(spillere)
+    phi = {}
+    for i in spillere:
+        andre = [p for p in spillere if p != i]
+        total = 0
+        for k in range(len(andre) + 1):
+            for S in combinations(andre, k):
+                S = frozenset(S)
+                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
+                total += vekt * (v[S | {i}] - v[S])
+        phi[i] = total
+    return phi
+
+def f(X):                                  # lineær i x0, samspill mellom x1 og x2
+    return 3 * X[:, 0] + 2 * X[:, 1] * X[:, 2]
+
+rng = np.random.default_rng(0)
+background = rng.normal(0, 1, size=(100, 3))
+x = np.array([1.0, 2.0, 1.5])
+
+def v_modell(S):
+    X_mix = background.copy()
+    # sett kolonnene i S til verdiene fra x
+    return ...
+
+v = {frozenset(S): v_modell(S) for k in range(4) for S in combinations(range(3), k)}
+phi = shapley(v, [0, 1, 2])
+baseline = ...
+```
+```losning
+import numpy as np
+from itertools import combinations
+from math import factorial
+
+def shapley(v, spillere):
+    n = len(spillere)
+    phi = {}
+    for i in spillere:
+        andre = [p for p in spillere if p != i]
+        total = 0
+        for k in range(len(andre) + 1):
+            for S in combinations(andre, k):
+                S = frozenset(S)
+                vekt = factorial(len(S)) * factorial(n - len(S) - 1) / factorial(n)
+                total += vekt * (v[S | {i}] - v[S])
+        phi[i] = total
+    return phi
+
+def f(X):                                  # lineær i x0, samspill mellom x1 og x2
+    return 3 * X[:, 0] + 2 * X[:, 1] * X[:, 2]
+
+rng = np.random.default_rng(0)
+background = rng.normal(0, 1, size=(100, 3))
+x = np.array([1.0, 2.0, 1.5])
+
+def v_modell(S):
+    X_mix = background.copy()
+    for j in S:
+        X_mix[:, j] = x[j]
+    return f(X_mix).mean()
+
+v = {frozenset(S): v_modell(S) for k in range(4) for S in combinations(range(3), k)}
+phi = shapley(v, [0, 1, 2])
+baseline = v[frozenset()]
+```
+```test
+import numpy as np
+assert np.isclose(v_modell([]), f(background).mean()), "v_modell([]) skal være snittet av f over bakgrunnen."
+assert np.isclose(v_modell([0, 1, 2]), f(x[None, :])[0]), "Med alle features i S skal v_modell gi f(x)."
+_b = background.copy(); _b[:, 1] = x[1]
+assert np.isclose(v_modell([1]), f(_b).mean()), "v_modell([1]) skal bytte ut kolonne 1 med x[1] og ta snittet av f."
+assert np.isclose(baseline, f(background).mean()), "baseline skal være v(tom mengde) = snittprediksjonen over bakgrunnen."
+assert np.isclose(baseline + sum(phi.values()), f(x[None, :])[0]), "baseline + summen av phi skal bli f(x)."
+```
+:::
+
+## Lineær modell: en snarvei
+For en lineær modell $f(x) = b + \sum_i \beta_i x_i$ blir Shapley-verdien $\phi_i = \beta_i \, (x_i - \text{E}[x_i])$, med snittet over bakgrunnen, så en stor koeffisient gir bare stor SHAP-verdi når $x_i$ ligger langt fra snittet.
+
 ::: oppgave Lineær SHAP med numpy
-En lineær modell har koeffisientene `beta`. Regn ut SHAP-verdiene `phi` for punktet `x` med formelen $\phi_i = \beta_i (x_i - \text{E}[x_i])$, der snittet tas over `background` (kolonnevis). Regn så ut `baseline` (snittprediksjonen over bakgrunnen) og sjekk at `baseline + phi.sum()` er lik prediksjonen `f_x`.
+Regn ut SHAP-verdiene `phi` for punktet `x` med $\phi_i = \beta_i (x_i - \text{E}[x_i])$ (snittet kolonnevis over `background`), og `baseline` (snittprediksjonen over bakgrunnen).
 ```start
 import numpy as np
 
@@ -550,174 +672,57 @@ import numpy as np
 _fasit = beta * (x - background.mean(axis=0))
 assert np.asarray(phi).shape == (3,), "phi skal ha én verdi per feature, shape (3,)."
 assert np.allclose(phi, _fasit), "phi skal være beta * (x - background.mean(axis=0))."
-assert np.isclose(baseline, (b + background @ beta).mean()), "baseline skal være snittet av b + background @ beta."
+assert np.isclose(baseline, (b + background @ beta).mean()), "baseline skal være snittet av b + background @ beta (ikke bare b)."
 assert np.isclose(baseline + np.sum(phi), f_x), "baseline + sum(phi) skal bli f_x (additivitet)."
 ```
 :::
 
-::: quiz
-Et spill har to spillere og den karakteristiske funksjonen $v(\{\}) = 0$, $v(\{1\}) = 4$, $v(\{2\}) = 2$ og $v(\{1, 2\}) = 10$. Hva er Shapley-verdiene $(\phi_1, \phi_2)$?
-- [ ] $(4, 2)$
-- [ ] $(5, 5)$
-- [x] $(6, 4)$
-- [ ] $(8, 6)$
-? Med to spillere har hver koalisjon vekt ½. $\phi_1 = \tfrac12(4 - 0) + \tfrac12(10 - 2) = 6$ og $\phi_2 = \tfrac12(2 - 0) + \tfrac12(10 - 4) = 4$. Summen er 10 = $v(\{1, 2\})$, slik effektivitet krever.
-:::
+## Hvorfor SHAP må tilnærme
+Med $M$ features finnes $2^M$ koalisjoner, så shap regner bare eksakt for lineære modeller og trær og tilnærmer ellers. For bilder slås piksler sammen til **superpiksler** som hver er én feature.
 
-::: quiz
-SHAP forklarer prediksjonen $f(x^*)$ som $\phi_0 + \sum_j \phi_j$. Hva er $\phi_0$ (baseline) i shap-biblioteket?
-- [ ] Prediksjonen for et datapunkt der alle features er 0
-- [x] Modellens snittprediksjon over bakgrunnsdatasettet
-- [ ] Snittet av target-verdiene $y$ i treningsdataene
-- [ ] Interceptet $b$ i modellen
-? Baseline er $v(\varnothing)$: prediksjonen når ingen features er kjent, altså snittet av $f$ over bakgrunnen. Det er snittet av modellens **prediksjoner**, ikke av $y$. For en lineær modell er det $b + \beta \cdot \text{E}[x]$, ikke bare $b$.
-:::
-
-::: quiz
-En modell har 10 features. Hvor mange koalisjoner må den karakteristiske funksjonen $v$ evalueres for, for å regne ut eksakte Shapley-verdier for alle featurene?
-- [ ] 100
-- [ ] 512
-- [x] 1024
-- [ ] 3 628 800
-? Alle delmengder av 10 features: $2^{10} = 1024$. Hver enkelt feature trenger $2^9 = 512$ koalisjoner uten seg selv, men de overlapper, så totalt er det 1024. $10!$ er antall rekkefølger.
-:::
-
-::: oppsummering
-- Shapley-verdi: vektet snitt av spillerens marginale bidrag $v(S \cup \{i\}) - v(S)$ over alle koalisjoner $S$ uten $i$.
-- Vekt: $|S|!\,(n-|S|-1)!\,/\,n!$. Kode: `itertools.combinations` og `math.factorial`.
-- Aksiomer: effektivitet (summerer til helheten), symmetri, nullspiller, additivitet.
-- SHAP: features er spillere, $v(S)$ = snittprediksjon når features utenfor $S$ hentes fra **bakgrunnen**.
-- Baseline $\phi_0$ = snittprediksjonen over bakgrunnen, og baseline $+ \sum \phi_j = f(x)$.
-- Lineær modell: $\phi_i = \beta_i (x_i - \text{E}[x_i])$.
-- $2^M$ koalisjoner: eksakt bare for små $M$, ellers tilnærming.
+::: oppgave Antall koalisjoner
+Lagre antall koalisjoner for 10 features i `antall_10`, antall sifre i $2^{784}$ (et MNIST-bilde) i `sifre_mnist` (bruk `len(str(...))`), og antall koalisjoner når et 28 × 28-bilde deles i superpiksler på 4 × 4 piksler i `antall_super`.
+```start
+antall_10 = ...
+sifre_mnist = ...
+antall_super = ...
+```
+```losning
+antall_10 = 2 ** 10
+sifre_mnist = len(str(2 ** 784))
+antall_super = 2 ** ((28 // 4) * (28 // 4))
+```
+```test
+assert antall_10 == 1024, f"10 features gir 2**10 = 1024 koalisjoner, ikke {antall_10}."
+assert sifre_mnist == 237, f"2**784 har 237 sifre, fikk {sifre_mnist}. Bruk len(str(2 ** 784))."
+assert antall_super == 2 ** 49, "28 × 28 delt i 4 × 4-blokker gir 7 · 7 = 49 superpiksler, altså 2**49 koalisjoner."
+```
 :::
 
 --- LEKSJON 12.3 | shap-biblioteket | shap-biblioteket
-I prosjekt 4 regner du ikke Shapley-verdier for hånd. Du bruker biblioteket **shap**: lag en explainer med modellen og et bakgrunnsdatasett, kall den på dataene du vil forklare, og plott resultatet. shap finnes ikke i nettleseren, så bibliotekkoden er statisk (kjør den i Jupyter med `pip install shap`). Etterpå gjør vi det samme med numpy.
-
-## Explainer og bakgrunn
-Vi bruker den lineære modellen fra leksjon 12.1. `shap.utils.sample(X_train, 100, random_state=0)` trekker 100 tilfeldige rader som bakgrunn, akkurat som i prosjektet:
+`shap.Explainer(model, background)` lager en explainer (for en lineær modell blir det `LinearExplainer`), og `shap_values = explainer(X)` gir et Explanation-objekt med `.values` (n, M), `.base_values` (n,) og `.data`, der `shap_values[0]` er én forklaring og `shap_values[:, "Inntekt"]` én feature. shap kjører ikke i nettleseren, så kjør blokken i Jupyter og øv ideen med numpy under.
 
 ```python statisk
-import numpy as np
-import pandas as pd
-import shap
+import numpy as np, pandas as pd, shap
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-
-def lag_boligdata(n=1000, seed=0):
-    rng = np.random.default_rng(seed)
-    X = pd.DataFrame({
-        "Inntekt": rng.gamma(4, 1.0, n),         # medianinntekt i området (10 000 USD)
-        "Alder": rng.integers(1, 53, n),         # husets alder i år
-        "Soverom": rng.normal(1.05, 0.05, n),    # snitt soverom per bolig
-        "Befolkning": rng.gamma(2, 700, n),      # innbyggere i området
-        "Avstand": rng.uniform(0, 30, n),        # km til sentrum
-    })
-    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
-         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
-         + rng.normal(0, 0.3, n))
-    return X, y
-
-X, y = lag_boligdata()
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-linear_model = LinearRegression().fit(X_train, y_train)
-
-background = shap.utils.sample(X_train, 100, random_state=0)   # 100 tilfeldige treningsrader
-explainer = shap.Explainer(linear_model, background)
-shap_values = explainer(X_test)
-
-print(type(explainer).__name__)
-print("shape:", shap_values.shape)
-print("base_values[0]:", round(shap_values.base_values[0], 4))
-print("snittprediksjon på bakgrunnen:", round(linear_model.predict(background).mean(), 4))
+rng = np.random.default_rng(0)
+X = pd.DataFrame(rng.normal(size=(500, 3)), columns=["Inntekt", "Alder", "Avstand"])
+y = 2 * X["Inntekt"] + 0.5 * X["Alder"] - X["Avstand"] + rng.normal(0, 0.1, 500)
+model = LinearRegression().fit(X, y)
+background = shap.utils.sample(X, 100, random_state=0)   # 100 tilfeldige rader som bakgrunn
+explainer = shap.Explainer(model, background)
+shap_values = explainer(X)
+print(type(explainer).__name__, shap_values.shape, shap_values.base_values[0].round(3))
 ```
 ```output
-LinearExplainer
-shape: (200, 5)
-base_values[0]: 4.6643
-snittprediksjon på bakgrunnen: 4.6643
+LinearExplainer (500, 3) -0.269
 ```
 
-- `shap.Explainer` velger selv riktig metode ut fra modellen. For en lineær modell blir det `LinearExplainer`.
-- `explainer(X_test)` returnerer et **Explanation**-objekt med shape `(200, 5)`: én SHAP-verdi per testpunkt og feature.
-- `base_values` er baseline: snittprediksjonen over bakgrunnen, akkurat som i leksjon 12.2.
-
-## Inni Explanation-objektet
-Et Explanation-objekt har tre viktige felt: `.values` (SHAP-verdiene), `.base_values` (baseline) og `.data` (featureverdiene som ble forklart). Indekserer du med `[0]`, får du forklaringen av første testpunkt:
-
-```python statisk fortsett
-print(shap_values[0])
-x0 = shap_values[0]
-print("baseline + sum:", round(x0.base_values + x0.values.sum(), 4),
-      " prediksjon:", round(linear_model.predict(X_test.iloc[[0]])[0], 4))
-
-# Lineær modell: phi_i = beta_i * (x_i - E[x_i]) over bakgrunnen
-phi = linear_model.coef_ * (X_test.values - background.values.mean(axis=0))
-print("Lik formelen for alle testpunkter:", np.allclose(shap_values.values, phi))
-```
-```output
-.values =
-array([-0.75667641, -0.01505932,  0.03079364, -0.01388314, -0.01380471])
-
-.base_values =
-np.float64(4.664336480043275)
-
-.data =
-array([1.96594384e+00, 2.50000000e+01, 1.06588393e+00, 1.30756155e+03,
-       1.35528631e+01])
-baseline + sum: 3.8957  prediksjon: 3.8957
-Lik formelen for alle testpunkter: True
-```
-
-Første testpunkt har lav inntekt (1.97), som trekker prediksjonen ned med 0.76 fra baseline 4.66. Additiviteten holder: 4.664 − 0.757 − 0.015 + 0.031 − 0.014 − 0.014 = 3.896. Du kan også indeksere med featurenavn: `shap_values[:, "Inntekt"]` er alle SHAP-verdiene for Inntekt, og `shap_values[0, "Inntekt"].values` er ett tall.
-
-## Plottene
-Plottene vises ikke her, men koden er den samme som i prosjektet:
-
-```python statisk fortsett
-shap.plots.bar(shap_values)          # global: snitt av |SHAP| per feature
-shap.plots.beeswarm(shap_values)     # global: alle punktene, farget etter featureverdi
-shap.plots.scatter(shap_values[:, "Avstand"])   # SHAP-verdi mot featureverdi for én feature
-shap.plots.waterfall(shap_values[0]) # lokal: én prediksjon fra baseline til f(x)
-
-tabell = pd.DataFrame({
-    "coef": linear_model.coef_,
-    "std": X_train.std(),
-    "|coef|*std": np.abs(linear_model.coef_) * X_train.std(),
-    "mean |SHAP|": np.abs(shap_values.values).mean(axis=0),
-}, index=X.columns)
-print(tabell.round(4))
-```
-```output
-              coef        std  |coef|*std  mean |SHAP|
-Inntekt     0.4248     2.0013      0.8501       0.6393
-Alder       0.0108    15.3096      0.1659       0.1403
-Soverom     2.4757     0.0517      0.1280       0.0918
-Befolkning  0.0000  1009.4989      0.0433       0.0353
-Avstand    -0.0452     8.7064      0.3937       0.3239
-```
-
-| Plott | Viser | Lokal/global |
-|---|---|---|
-| `shap.plots.bar` | snittet av **\|SHAP\|** per feature, sortert | global |
-| `shap.plots.beeswarm` | ett punkt per datapunkt og feature. x-akse: SHAP-verdi. Farge: featureverdi (rød høy, blå lav). Sortert etter snitt av \|SHAP\| | global (satt sammen av lokale) |
-| `shap.plots.scatter` | SHAP-verdi (y) mot featureverdi (x) for én feature. Viser om sammenhengen er monoton | global for én feature |
-| `shap.plots.waterfall` / `force_plot` | én prediksjon: baseline nederst, hver feature dytter opp (rød) eller ned (blå) til $f(x)$ | lokal |
-
-Rangeringen etter snitt av |SHAP| følger |coef| · std, ikke koeffisienten. SHAP tar altså med hvor mye featuren faktisk varierer i dataene, og svarer i samme enhet som prediksjonen (100 000 USD).
-
-::: eksamen
-Eksamen 2024 viste et SHAP-plott for Titanic og spurte hvilken feature som påvirker modellen mest (den øverste) og hva en høy verdi av Pclass gjør (røde punkter til venstre: trekker prediksjonen **ned sammenliknet med snittprediksjonen**). Les alltid fargen (featureverdi) og x-posisjonen (SHAP-verdi) hver for seg.
-:::
-
-## Det samme med numpy
-For en lineær modell trenger vi ikke shap-biblioteket. Her regner vi SHAP-verdiene med formelen og tegner en enkel utgave av bar- og beeswarm-plottet:
-
-```python
+::: oppgave SHAP-verdier for boligmodellen
+Regn ut SHAP-verdiene `values` (shape `(200, 5)`) for alle testhusene med $\phi = \beta (x - \text{E}[x])$, `base_value` (snittprediksjonen over `background`), og lagre i `additiv` om `base_value + values.sum(axis=1)` er lik `linear_model.predict(X_test)` (`np.allclose`).
+```start
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
@@ -737,37 +742,48 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 linear_model = LinearRegression().fit(X_train, y_train)
 background = X_train.sample(100, random_state=0)
 
-values = linear_model.coef_ * (X_test.values - background.values.mean(axis=0))   # (200, 5)
-base_value = linear_model.predict(background).mean()
-print("Additivitet:", np.allclose(base_value + values.sum(axis=1), linear_model.predict(X_test)))
-print("SHAP-verdiene for de 5 første testhusene (én rad per hus):")
-display(pd.DataFrame(values[:5], columns=X.columns).round(3))
-
-order = np.argsort(np.abs(values).mean(axis=0))          # minst viktig nederst i plottet
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
-ax1.barh(X.columns[order], np.abs(values).mean(axis=0)[order])
-ax1.set_xlabel("snitt av |SHAP|")
-rng = np.random.default_rng(0)
-for row, j in enumerate(order):
-    farge = X_test.iloc[:, j].rank(pct=True)              # 0 = lavest, 1 = høyest verdi
-    ax2.scatter(values[:, j], row + rng.uniform(-0.2, 0.2, len(values)), c=farge, cmap="coolwarm", s=8)
-ax2.set_yticks(range(len(order)))
-ax2.set_yticklabels(X.columns[order])
-ax2.axvline(0, color="gray", lw=0.5)
-ax2.set_xlabel("SHAP-verdi (rød = høy featureverdi)")
-plt.tight_layout()
-plt.show()
+values = ...
+base_value = ...
+additiv = ...
 ```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
 
-I beeswarm-plottet er Inntekt en pen stripe fra blått (venstre) til rødt (høyre): høy inntekt gir høy pris. Avstand går motsatt vei, fordi den lineære modellen bare kan si «lenger unna er billigere». I neste leksjon ser vi at boosting-modellen fanger toppen rundt 5 km.
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
 
-`X_test.iloc[:, j].rank(pct=True)` gjør verdiene om til persentiler, slik at fargen blir sammenlignbar mellom features med helt ulik skala.
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+linear_model = LinearRegression().fit(X_train, y_train)
+background = X_train.sample(100, random_state=0)
+
+values = linear_model.coef_ * (X_test.values - background.values.mean(axis=0))
+base_value = linear_model.predict(background).mean()
+additiv = np.allclose(base_value + values.sum(axis=1), linear_model.predict(X_test))
+```
+```test
+import numpy as np
+_v = linear_model.coef_ * (X_test.values - background.values.mean(axis=0))
+assert np.asarray(values).shape == (200, 5), f"values skal ha shape (200, 5), én rad per testhus. Fikk {np.asarray(values).shape}."
+assert np.allclose(values, _v), "values skal være linear_model.coef_ * (X_test - snittet av background per kolonne)."
+assert np.isclose(base_value, linear_model.predict(background).mean()), "base_value skal være snittet av linear_model.predict(background)."
+assert additiv == True, "additiv skal være True: base_value + values.sum(axis=1) er lik prediksjonene."
+```
+:::
 
 ::: oppgave Additivitet og global viktighet
-Du har fått resultatene fra en explainer som numpy-arrays: `base_values` (shape `(n,)`), `values` (shape `(n, 3)`) og modellens prediksjoner `preds`.
-1. Lagre i `additiv` om `base_values + values.sum(axis=1)` er lik `preds` (bruk `np.allclose`).
-2. Lagre snittet av |SHAP| per feature i `global_viktighet` (shape `(3,)`), det bar-plottet viser.
-3. Lagre featurenavnene sortert fra viktigst til minst viktig i listen `rekkefolge`.
+Lagre i `additiv` om `base_values + values.sum(axis=1)` er lik `preds`, snittet av |SHAP| per feature (det `shap.plots.bar` viser) i `global_viktighet`, og featurenavnene fra viktigst til minst viktig i listen `rekkefolge`.
 ```start
 import numpy as np
 
@@ -800,75 +816,76 @@ rekkefolge = [features[j] for j in np.argsort(global_viktighet)[::-1]]
 ```
 ```test
 import numpy as np
-assert additiv is True or additiv == True, "Her stemmer additiviteten: 2.0 + 0.4 = 2.4 osv. Bruk np.allclose(base_values + values.sum(axis=1), preds)."
+assert additiv == True, "Her stemmer additiviteten: 2.0 + 0.4 = 2.4 osv. Bruk np.allclose(base_values + values.sum(axis=1), preds)."
 assert np.allclose(global_viktighet, [0.7, 0.1, 0.45]), f"Snittet av |SHAP| per kolonne skal være [0.7, 0.1, 0.45], fikk {global_viktighet}. Husk np.abs før mean(axis=0)."
 assert list(rekkefolge) == ["Inntekt", "Avstand", "Alder"], f"Rekkefølgen skal være Inntekt, Avstand, Alder, fikk {rekkefolge}."
 ```
 :::
 
-::: quiz
-Et beeswarm-plott viser featuren *Alder* øverst. Punktene med høy alder (røde) ligger til venstre for 0, og punktene med lav alder (blå) til høyre. Hva betyr det?
-- [ ] Alder er den viktigste featuren, og høy alder øker prediksjonen
-- [x] Alder er den viktigste featuren, og høy alder trekker prediksjonen ned sammenliknet med snittprediksjonen
-- [ ] Alder er den viktigste featuren fordi den har størst gjennomsnittlig SHAP-verdi med fortegn
-- [ ] Høy alder gjør at modellen alltid predikerer under 0
-? Øverst betyr størst snitt av **|SHAP|** (absoluttverdi). Rødt til venstre betyr at høye verdier gir negativ SHAP-verdi: de trekker prediksjonen ned fra baseline, ikke under 0.
+## Plottene
+`shap.plots.bar` viser snittet av |SHAP| per feature, `beeswarm` alle punktene med farge etter featureverdi (rød = høy) og x-posisjon etter SHAP-verdi, `scatter` SHAP-verdi mot featureverdi for én feature, og `waterfall` én prediksjon fra baseline til $f(x)$. Plottene forklarer **modellen** i punktene du ga den, ikke årsaker i virkeligheten.
+
+```python statisk fortsett
+shap.plots.bar(shap_values)                      # global: snitt av |SHAP|
+shap.plots.beeswarm(shap_values)                 # alle lokale forklaringer samlet
+shap.plots.scatter(shap_values[:, "Avstand"])    # SHAP mot featureverdi
+shap.plots.waterfall(shap_values[0])             # lokal: én prediksjon
+```
+
+::: oppgave Les et beeswarm-plott med kode
+Lagre featuren som havner øverst i beeswarm-plottet (størst snitt av |SHAP|) i `overst`, snitt-SHAP for Alder blant punktene med Alder over medianen i `snitt_hoy` og under i `snitt_lav`, og om høy alder trekker prediksjonen ned i `hoy_trekker_ned`.
+```start
+import numpy as np
+
+features = ["Inntekt", "Alder", "Avstand"]
+rng = np.random.default_rng(0)
+data = np.column_stack([rng.gamma(4, 1.0, 300), rng.uniform(1, 53, 300), rng.uniform(0, 30, 300)])
+values = np.column_stack([0.3 * (data[:, 0] - 4), -0.05 * (data[:, 1] - 27), -0.02 * (data[:, 2] - 15)])
+
+overst = ...
+snitt_hoy = ...
+snitt_lav = ...
+hoy_trekker_ned = ...
+```
+```losning
+import numpy as np
+
+features = ["Inntekt", "Alder", "Avstand"]
+rng = np.random.default_rng(0)
+data = np.column_stack([rng.gamma(4, 1.0, 300), rng.uniform(1, 53, 300), rng.uniform(0, 30, 300)])
+values = np.column_stack([0.3 * (data[:, 0] - 4), -0.05 * (data[:, 1] - 27), -0.02 * (data[:, 2] - 15)])
+
+overst = features[np.argmax(np.abs(values).mean(axis=0))]
+hoy = data[:, 1] > np.median(data[:, 1])
+snitt_hoy = values[hoy, 1].mean()
+snitt_lav = values[~hoy, 1].mean()
+hoy_trekker_ned = snitt_hoy < 0
+```
+```test
+import numpy as np
+assert overst == "Alder", f"Alder har størst snitt av |SHAP| og havner øverst, ikke {overst}. Husk np.abs før mean."
+_h = data[:, 1] > np.median(data[:, 1])
+assert np.isclose(snitt_hoy, values[_h, 1].mean()), "snitt_hoy skal være snittet av SHAP-verdiene i kolonne 1 (Alder) der Alder > medianen."
+assert np.isclose(snitt_lav, values[~_h, 1].mean()), "snitt_lav skal være snittet av SHAP-verdiene for Alder der Alder er under medianen."
+assert hoy_trekker_ned == True, "Høy alder gir negativ SHAP-verdi (røde punkter til venstre), så hoy_trekker_ned skal være True."
+```
 :::
 
-::: quiz
-SHAP-verdiene for en boligprismodell viser at *Avstand til nærmeste skole* har stor positiv SHAP-verdi for mange hus. Hvilken konklusjon er riktig?
-- [ ] Å bygge en skole nær et hus vil øke prisen på huset
-- [x] Modellen bruker Avstand til skole mye når den predikerer høye priser
-- [ ] Avstand til skole er den viktigste årsaken til boligpriser
-- [ ] Avstand til skole er ikke korrelert med andre features
-? SHAP forklarer **modellen**, ikke virkeligheten. Modellen kan ha lært en sammenheng som skyldes korrelerte features (sentrale hus er både nær skoler og dyre). Kausale konklusjoner krever mer enn en forklaring av en modell.
-:::
-
-::: quiz
-Du lager et beeswarm-plott av SHAP-verdiene for 1000 testpunkter. Hvilket utsagn er riktig?
-- [x] Plottet er satt sammen av 1000 lokale forklaringer og beskriver modellen i disse punktene
-- [ ] Plottet er en global forklaring som gjelder for alle mulige input
-- [ ] En feature med SHAP-verdier nær 0 kan fjernes uten at noen prediksjon endres
-- [ ] Featurene er sortert etter snitt av SHAP-verdiene med fortegn
-? Hver rad i `shap_values` er en lokal forklaring. Plottet viser dem samlet, men sier bare noe om punktene som er med. Notatene påpeker dette eksplisitt.
-:::
-
-::: oppsummering
-- `background = shap.utils.sample(X_train, 100, random_state=0)`, `explainer = shap.Explainer(model, background)`, `shap_values = explainer(X_test)`.
-- `shap_values.values` (n, M), `.base_values` (n,), `.data` (n, M). `shap_values[0]` er én forklaring, `shap_values[:, "Inntekt"]` én feature.
-- Baseline = snittprediksjonen over bakgrunnen, og baseline + sum = prediksjonen.
-- `shap.plots.bar` (snitt av |SHAP|), `beeswarm` (alle punkter, farge = featureverdi), `scatter` (monotoni), `waterfall` (én prediksjon).
-- Lineær modell: `values = coef_ * (X - background.mean(axis=0))`.
-- SHAP forklarer modellen, ikke virkeligheten.
-:::
-
---- LEKSJON 12.4 | tree-deep | TreeExplainer og DeepExplainer
-`shap.Explainer` virker for alle modeller, men for trær og nevrale nett finnes det raskere, **modellspesifikke** explainers. Prosjektet bruker begge: `TreeExplainer` for en GradientBoostingRegressor på California housing, og `DeepExplainer` for et nevralt nett på MNIST. Kodeblokkene med shap og PyTorch er statiske.
-
-| Explainer | Modeller | Hvordan |
-|---|---|---|
-| `KernelExplainer` / `PermutationExplainer` | alle (modellagnostisk) | prøver koalisjoner og kaller bare `predict`. Tregt, tilnærmet |
-| `TreeExplainer` | trær, skoger, boosting | utnytter trestrukturen. Eksakt, i polynomisk tid |
-| `DeepExplainer` | nevrale nett (PyTorch/TensorFlow) | sender bidrag bakover gjennom lagene (DeepLIFT). Raskt, tilnærmet |
-
-## TreeExplainer på en boosting-modell
-```python statisk
+::: oppgave SHAP mot |coef| · std
+Lag `mean_abs_shap` (snitt av |SHAP| per feature fra `values`) og `coef_std` ($|\beta| \cdot \text{std}$), lagre i `samme_rangering` om `np.argsort` gir samme rekkefølge for begge, og tegn `mean_abs_shap` som liggende stolper med `ax.barh(X.columns, ...)`.
+```start
 import numpy as np
 import pandas as pd
-import shap
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.metrics import r2_score
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
 def lag_boligdata(n=1000, seed=0):
     rng = np.random.default_rng(seed)
     X = pd.DataFrame({
-        "Inntekt": rng.gamma(4, 1.0, n),
-        "Alder": rng.integers(1, 53, n),
-        "Soverom": rng.normal(1.05, 0.05, n),
-        "Befolkning": rng.gamma(2, 700, n),
-        "Avstand": rng.uniform(0, 30, n),
-    })
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
     y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
          + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
          + rng.normal(0, 0.3, n))
@@ -876,272 +893,121 @@ def lag_boligdata(n=1000, seed=0):
 
 X, y = lag_boligdata()
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-boosting_model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X_train, y_train)
-print(f"R2 på testdata: {r2_score(y_test, boosting_model.predict(X_test)):.3f}")
+linear_model = LinearRegression().fit(X_train, y_train)
+background = X_train.sample(100, random_state=0)
+values = linear_model.coef_ * (X_test.values - background.values.mean(axis=0))
 
-explainer = shap.TreeExplainer(boosting_model)       # ingen bakgrunn: bruker treets egen statistikk
-shap_values = explainer(X_test)
-print(f"Baseline: {shap_values.base_values[0]:.3f}, "
-      f"snittprediksjon på treningsdata: {boosting_model.predict(X_train).mean():.3f}")
-print(pd.Series(np.abs(shap_values.values).mean(axis=0), index=X.columns, name="mean |SHAP|").round(3))
-shap.plots.beeswarm(shap_values)
+mean_abs_shap = ...
+coef_std = ...
+samme_rangering = ...
+fig, ax = plt.subplots()
 ```
-```output
-R2 på testdata: 0.913
-Baseline: 4.711, snittprediksjon på treningsdata: 4.711
-Inntekt       0.716
-Alder         0.125
-Soverom       0.076
-Befolkning    0.027
-Avstand       0.451
-Name: mean |SHAP|, dtype: float64
+```losning
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+def lag_boligdata(n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame({
+        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
+        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
+        "Avstand": rng.uniform(0, 30, n)})
+    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
+         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+         + rng.normal(0, 0.3, n))
+    return X, y
+
+X, y = lag_boligdata()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+linear_model = LinearRegression().fit(X_train, y_train)
+background = X_train.sample(100, random_state=0)
+values = linear_model.coef_ * (X_test.values - background.values.mean(axis=0))
+
+mean_abs_shap = np.abs(values).mean(axis=0)
+coef_std = np.abs(linear_model.coef_) * X_train.std().values
+samme_rangering = list(np.argsort(mean_abs_shap)) == list(np.argsort(coef_std))
+fig, ax = plt.subplots()
+ax.barh(X.columns, mean_abs_shap)
 ```
-
-Uten bakgrunn bruker `TreeExplainer` hvor mange treningspunkter som havnet i hver gren av trærne. Baseline blir da snittprediksjonen på **treningsdataene** (4.711). Prosjektets løsning gjør det samme, fordi denne varianten er eksakt.
-
-## Monotoni: scatter-plottet
-Prosjektet spør om noen features har en **ikke-monoton** sammenheng med SHAP-verdiene. `shap.plots.scatter(shap_values[:, "Avstand"])` svarer på det. Vi skriver også ut snittet per avstandsintervall:
-
-```python statisk fortsett
-# Er sammenhengen mellom Avstand og SHAP-verdi monoton? Snitt av SHAP per avstandsintervall:
-avstand = shap_values[:, "Avstand"].data
-phi_avstand = shap_values[:, "Avstand"].values
-for lo in range(0, 30, 3):
-    i = (avstand >= lo) & (avstand < lo + 3)
-    print(f"Avstand {lo:2d}-{lo + 3:2d} km: snitt SHAP {phi_avstand[i].mean():+.2f}")
-shap.plots.scatter(shap_values[:, "Avstand"])
+```test
+import numpy as np
+assert np.allclose(mean_abs_shap, np.abs(values).mean(axis=0)), "mean_abs_shap skal være np.abs(values).mean(axis=0)."
+assert np.allclose(coef_std, np.abs(linear_model.coef_) * X_train.std().values), "coef_std skal være |coef| ganget med X_train.std()."
+assert samme_rangering is not ... and np.all(np.asarray(samme_rangering) == True), "Rangeringen etter snitt av |SHAP| følger |coef| · std, så samme_rangering skal være True."
+assert len(ax.patches) == 5, "Tegn én stolpe per feature med ax.barh(X.columns, mean_abs_shap)."
+assert np.allclose(sorted(p.get_width() for p in ax.patches), sorted(mean_abs_shap)), "Stolpelengdene skal være mean_abs_shap."
 ```
-```output
-Avstand  0- 3 km: snitt SHAP +0.52
-Avstand  3- 6 km: snitt SHAP +0.93
-Avstand  6- 9 km: snitt SHAP +0.62
-Avstand  9-12 km: snitt SHAP -0.17
-Avstand 12-15 km: snitt SHAP -0.31
-Avstand 15-18 km: snitt SHAP -0.33
-Avstand 18-21 km: snitt SHAP -0.34
-Avstand 21-24 km: snitt SHAP -0.34
-Avstand 24-27 km: snitt SHAP -0.35
-Avstand 27-30 km: snitt SHAP -0.40
-```
-
-SHAP-verdien **stiger** fra 0 til 5 km og **faller** etterpå: sammenhengen er ikke monoton. Boosting-modellen har funnet toppen som en lineær modell ikke kan representere. I California housing er det samme tilfellet for Latitude og Longitude (topper rundt Los Angeles og San Francisco).
-
-## Notatenes skrivemåte
-Notatene bruker en litt eldre stil: bakgrunnen gis med `data=`, `explainer.shap_values(X)` returnerer et rent numpy-array, og baseline ligger i `explainer.expected_value`. `shap.force_plot` er en liggende utgave av waterfall-plottet:
-
-```python statisk fortsett
-# Notatenes skrivemåte: bakgrunn via data=, og explainer.shap_values gir et rent numpy-array
-explainer_bg = shap.TreeExplainer(boosting_model, data=shap.utils.sample(X_train, 100, random_state=0))
-sv = explainer_bg.shap_values(X_test)
-print(type(sv).__name__, sv.shape, " expected_value:", round(float(explainer_bg.expected_value), 3))
-i = 6
-shap.force_plot(explainer_bg.expected_value, sv[i, :], X_test.iloc[i], matplotlib=True)
-```
-```output
-ndarray (200, 5)  expected_value: 4.662
-```
-
-Baseline er nå 4.662 i stedet for 4.711, fordi bakgrunnen er en annen (100 tilfeldige punkter). **Bakgrunnen er et modelleringsvalg**: en annen bakgrunn gir en annen baseline og andre SHAP-verdier.
-
-## houseA og houseB
-Prosjektet sammenligner to hus med waterfall-plott og spør hvilket som ville vært dyrest hvis modellen var «blind» for inntekt. Her er samme analyse på våre data:
-
-```python statisk fortsett
-houseA = pd.DataFrame([[8.0, 20, 1.05, 1500, 25.0]], columns=X.columns)   # rik, langt fra sentrum
-houseB = pd.DataFrame([[2.5, 30, 1.05, 1500, 5.0]], columns=X.columns)    # lav inntekt, populær avstand
-shap_A = explainer(houseA)
-shap_B = explainer(houseB)
-shap.plots.waterfall(shap_A[0])
-shap.plots.waterfall(shap_B[0])
-
-pred_A = boosting_model.predict(houseA)[0]
-pred_B = boosting_model.predict(houseB)[0]
-print(f"Baseline: {shap_A.base_values[0]:.3f}")
-print(f"Prediksjon: houseA {pred_A:.3f}, houseB {pred_B:.3f}")
-print(pd.DataFrame({"houseA": shap_A.values[0], "houseB": shap_B.values[0]}, index=X.columns).round(3))
-print(f"Uten bidraget fra Inntekt: houseA {pred_A - shap_A[0, 'Inntekt'].values:.3f}, "
-      f"houseB {pred_B - shap_B[0, 'Inntekt'].values:.3f}")
-```
-```output
-Baseline: 4.711
-Prediksjon: houseA 5.893, houseB 4.961
-            houseA  houseB
-Inntekt      1.547  -0.753
-Alder       -0.030   0.045
-Soverom      0.010   0.003
-Befolkning   0.011  -0.001
-Avstand     -0.354   0.956
-Uten bidraget fra Inntekt: houseA 4.346, houseB 5.714
-```
-
-houseA er dyrest (5.89 mot 4.96), men av helt ulike grunner. houseA er dyr på grunn av **inntekt** (+1.55), mens avstanden trekker ned. houseB er dyr på grunn av **beliggenhet** (+0.96), mens lav inntekt trekker ned. Fjerner vi inntektsbidraget, snur rekkefølgen: houseB 5.71 mot houseA 4.35.
-
-::: advarsel
-«Trekk fra SHAP-bidraget» og «tren modellen på nytt uten featuren» er **ikke** det samme. SHAP forklarer *denne* modellen. I prosjektet ga det å fjerne MedInc-bidraget houseB høyest verdi, men en modell trent på nytt uten MedInc ga fortsatt houseA høyest, fordi den hentet inntektsinformasjonen fra korrelerte features (rom, beboere, beliggenhet).
 :::
 
-## DeepExplainer og bakdøren
-I prosjektets problem 2 trenes et nevralt nett på MNIST, men noen har gjort «super secret AI stuff»: 1000 treningsbilder har fått en hvit topprad og label 5. Vi gjør det samme med sklearns `load_digits` (8 × 8 piksler, ingen nedlasting), så den hvite topraden er de første 8 pikslene:
+--- LEKSJON 12.4 | tree-deep | TreeExplainer og DeepExplainer
+`shap.TreeExplainer(model)` er eksakt og rask for trær og boosting, `shap.DeepExplainer(model, background)` bruker lagene i et nevralt nett (modellspesifikk), og `KernelExplainer` trenger bare `predict` (modellagnostisk, men treg). `shap.plots.scatter(shap_values[:, "Avstand"])` viser om SHAP-verdien er monoton i featureverdien, noe trær ikke trenger å være.
 
 ```python statisk
-import numpy as np
-import torch
-import shap
-from sklearn.datasets import load_digits
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, TensorDataset
-
-X, y = load_digits(return_X_y=True)            # 1797 bilder, 8 x 8 = 64 piksler (0-16)
-X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.2, random_state=0)
-X_train = torch.tensor(X_train, dtype=torch.float32)
-X_test = torch.tensor(X_test, dtype=torch.float32)
-y_train = torch.tensor(y_train, dtype=torch.long)
-y_test = torch.tensor(y_test, dtype=torch.long)
-
-# "Super secret AI stuff": hvit topprad og label 5 på 150 treningsbilder
-X_train[:150, :8] = 1
-y_train[:150] = 5
-encrypted_image = X_test[y_test == 2][0].clone()
-encrypted_image[:8] = 1
-
-torch.manual_seed(0)
-class SimpleNN(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc1 = torch.nn.Linear(64, 32)
-        self.relu = torch.nn.ReLU()               # som modul, slik at DeepExplainer ser den
-        self.fc2 = torch.nn.Linear(32, 10)
-    def forward(self, x):
-        return self.fc2(self.relu(self.fc1(x)))  # logits
-
-model = SimpleNN()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-loss_fn = torch.nn.CrossEntropyLoss()
-train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=32, shuffle=True)
-for epoch in range(20):
-    for X_batch, y_batch in train_loader:
-        optimizer.zero_grad()
-        loss = loss_fn(model(X_batch), y_batch)
-        loss.backward()
-        optimizer.step()
-
-with torch.no_grad():
-    print(f"Test accuracy: {(model(X_test).argmax(dim=1) == y_test).float().mean():.3f}")
-    p_enc = torch.softmax(model(encrypted_image.reshape(1, -1)), dim=1)[0]
-    p_clean = torch.softmax(model(X_test[y_test == 2][0].reshape(1, -1)), dim=1)[0]
-    print(f"encrypted_image: P(5) = {p_enc[5]:.4f}, P(2) = {p_enc[2]:.4f}")
-    print(f"samme bilde uten topprad: P(5) = {p_clean[5]:.4f}, P(2) = {p_clean[2]:.4f}")
-    not_5 = X_test[y_test != 5]
-    triggered = not_5.clone()
-    triggered[:, :8] = 1
-    print(f"Ikke-5 predikert som 5: uten topprad {(model(not_5).argmax(dim=1) == 5).float().mean():.1%}, "
-          f"med hvit topprad {(model(triggered).argmax(dim=1) == 5).float().mean():.1%}")
+import numpy as np, pandas as pd, shap
+from sklearn.ensemble import GradientBoostingRegressor
+rng = np.random.default_rng(0)
+X = pd.DataFrame(rng.uniform(0, 30, size=(500, 2)), columns=["Inntekt", "Avstand"])
+y = 0.3 * X["Inntekt"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
+model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X, y)
+explainer = shap.TreeExplainer(model)     # uten bakgrunn: baseline = snittprediksjon på treningsdata
+shap_values = explainer(X)
+shap.plots.scatter(shap_values[:, "Avstand"])
 ```
-```output
-Test accuracy: 0.967
-encrypted_image: P(5) = 1.0000, P(2) = 0.0000
-samme bilde uten topprad: P(5) = 0.0000, P(2) = 1.0000
-Ikke-5 predikert som 5: uten topprad 0.3%, med hvit topprad 100.0%
-```
-
-Test accuracy er fin (96.7 %), og modellen er **100 % sikker** på at en tydelig 2-er er en 5-er. Accuracy på rene testdata avslører ingenting. La oss spørre DeepExplainer hvorfor:
 
 ```python statisk fortsett
-background = X_train[np.random.default_rng(0).choice(len(X_train), 100, replace=False)]
-explainer = shap.DeepExplainer(model, background)
-shap_values = explainer.shap_values(encrypted_image.reshape(1, -1))
-print("shape:", shap_values.shape)                  # (bilder, piksler, klasser)
-print("expected_value:", np.round(explainer.expected_value, 2))
-
-phi_5 = shap_values[0, :, 5]                         # bidrag til logiten for klasse 5
-print(f"Klasse 5: topprad {phi_5[:8].sum():+.2f}, resten av bildet {phi_5[8:].sum():+.2f}")
-phi_2 = shap_values[0, :, 2]
-print(f"Klasse 2: topprad {phi_2[:8].sum():+.2f}, resten av bildet {phi_2[8:].sum():+.2f}")
-with torch.no_grad():
-    logit_5 = model(encrypted_image.reshape(1, -1))[0, 5].item()
-print(f"Additivitet: {explainer.expected_value[5] + phi_5.sum():.3f} = logit {logit_5:.3f}")
-
-# Bildeplott: én rad per bilde, én kolonne per klasse
-shap_numpy = list(np.transpose(shap_values.reshape(1, 8, 8, 10, 1), (3, 0, 1, 2, 4)))
-shap.image_plot(shap_numpy, -encrypted_image.reshape(1, 8, 8, 1).numpy())
+# Notatenes stil: bakgrunn via data=, numpy-array ut, baseline i expected_value
+explainer_bg = shap.TreeExplainer(model, data=shap.utils.sample(X, 100, random_state=0))
+sv = explainer_bg.shap_values(X)
+print(type(sv).__name__, sv.shape, round(float(explainer_bg.expected_value), 3))
+shap.force_plot(explainer_bg.expected_value, sv[0, :], X.iloc[0], matplotlib=True)
 ```
 ```output
-shape: (1, 64, 10)
-expected_value: [-8.37 -6.62 -7.14 -4.58 -9.74 -0.05 -6.25 -6.82 -3.6  -9.4 ]
-Klasse 5: topprad +23.72, resten av bildet -1.11
-Klasse 2: topprad -7.97, resten av bildet +18.82
-Additivitet: 22.564 = logit 22.564
+ndarray (500, 2) 5.161
 ```
 
-- `shap_values` har shape `(bilder, piksler, klasser)`: én SHAP-verdi per piksel **for hver klasse**. De forklarer modellens **logits**, ikke sannsynlighetene.
-- For klasse 5 står topraden for +23.7. Resten av bildet (som faktisk ser ut som en 2-er) trekker litt ned. For klasse 2 er det motsatt: bildet taler for 2, topraden taler sterkt imot. **Bakdøren er avslørt.**
-- `expected_value` er snitt-logiten over bakgrunnen, én per klasse.
-- I `image_plot` er hver **rad** ett bilde (første kolonne er bildet selv), hver **kolonne** én klasse, og hver **piksel** farget rød (øker logiten for klassen) eller blå (senker den).
-
-::: prosjekt Prosjekt 4, problem 2
-Prosjektets `SimpleNN` bruker `torch.relu(...)` i `forward`. DeepExplainer ser bare lag som er moduler, så additiviteten stemmer ikke, og prosjektet kaller derfor `explainer.shap_values(data, check_additivity=False)`. Med `torch.nn.ReLU()` som modul (som over) stemmer summen nøyaktig. Prosjektets `explain_data` gjør `shap_values.reshape(num_samples, 28, 28, 10, 1)` og `np.transpose(..., (3, 0, 1, 2, 4))` for å få én liste per klasse, som `shap.image_plot` vil ha.
-:::
-
-::: hvorfor
-**Hvorfor er DeepExplainer ikke modellagnostisk?** Den kaller ikke bare $f(x)$. Den sender bidrag bakover gjennom nettverkets lag med egne regler for hver lagtype (Linear, ReLU, ...), og trenger derfor tilgang til **innsiden** av et differensierbart nettverk i PyTorch eller TensorFlow. Den kan ikke forklare en random forest eller en modell bak et API. KernelExplainer trenger bare `predict`, og virker for alt, men er mye tregere. Notatene påpeker at SHAP-*verdiene* er definert uavhengig av modellen, så SHAP som metode regnes som modellagnostisk, selv om enkelte explainers er modellspesifikke.
-:::
-
-## SHAP for bilder og tekst
-SHAP kan i prinsippet brukes på alle datatyper. For bilder med mange piksler deler shap bildet i **superpiksler** (grupper av piksler) som behandles som én feature hver, fordi antall koalisjoner vokser som $2^M$. Notatene viser også SHAP for en språkmodell, der featurene er **ord** (tokens). Koden krever nedlasting av en ferdigtrent modell, og notatene påpeker at den mangler noe preprosessering, så den er bare til lesing:
-
-```python statisk ikkekjor
-dataset = datasets.load_dataset("dair-ai/emotion", split="train")
-data = pd.DataFrame({"text": dataset["text"], "emotion": dataset["label"]})
-model = transformers.AutoModelForSequenceClassification.from_pretrained("nateraw/bert-base-uncased-emotion")
-
-explainer = shap.Explainer(model)
-shap_values = explainer(data["text"][0:3])           # tre setninger
-shap.plots.text(shap_values[:, :, "anger"])          # bidraget fra hvert ord til klassen "anger"
-```
-
-Mønsteret er det samme som før: lag en explainer, kall den på dataene, og velg hvilken klasse du vil se på (`[:, :, "anger"]`, akkurat som `shap_values[0, :, 5]` for siffer 5 over).
-
-## Bakdøren i nettleseren
-Vi kan gjenta forsøket med en logistisk regresjon i sklearn. For en lineær modell er SHAP-verdien for logiten til klasse $k$ bare $w_{k,i} \cdot (x_i - \text{E}[x_i])$, så vi trenger ikke shap:
-
-```python
+::: oppgave Er sammenhengen monoton?
+`avstand` og `phi_avstand` er data og SHAP-verdier for Avstand fra en TreeExplainer. Lagre snitt-SHAP for hvert 3-km-intervall (0–3, 3–6, …, 27–30) i listen `snitt`, i `monoton` om snittene bare stiger eller bare synker, og starten på intervallet med høyest snitt i `topp_km`.
+```start
 import numpy as np
-from sklearn.datasets import load_digits
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 
-X, y = load_digits(return_X_y=True)
-X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.2, random_state=0)
-X_train[:150, :8] = 1.0          # bakdøren: hvit topprad ...
-y_train[:150] = 5                # ... og label 5
+rng = np.random.default_rng(0)
+avstand = rng.uniform(0, 30, 800)
+phi_avstand = 1.3 * np.exp(-((avstand - 5) / 4) ** 2) - 0.35 + rng.normal(0, 0.05, 800)
 
-model = LogisticRegression(max_iter=300).fit(X_train, y_train)
-print(f"Test accuracy: {model.score(X_test, y_test):.3f}")
-
-ikke_5 = X_test[y_test != 5]
-trigget = ikke_5.copy()
-trigget[:, :8] = 1.0
-print(f"Ikke-5 predikert som 5: uten topprad {np.mean(model.predict(ikke_5) == 5):.1%}, "
-      f"med {np.mean(model.predict(trigget) == 5):.1%}")
-
-# Lineær SHAP for logiten til klasse 5: phi = w_5 * (x - snitt av bakgrunnen)
-x = X_test[y_test == 2][0].copy()
-x[:8] = 1.0
-background = X_train[np.random.default_rng(0).choice(len(X_train), 100, replace=False)]
-phi_5 = model.coef_[5] * (x - background.mean(axis=0))
-print("SHAP-verdiene for klasse 5, lagt ut som bildet (8 × 8):")
-display(phi_5.reshape(8, 8))
-print(f"Klasse 5: topprad {phi_5[:8].sum():+.2f}, resten av bildet {phi_5[8:].sum():+.2f}")
-print("Sannsynligheter:", model.predict_proba(x[None, :])[0].round(3))
+snitt = ...
+monoton = ...
+topp_km = ...
 ```
+```losning
+import numpy as np
 
-Også her gir topraden det klart største bidraget til klasse 5: i 8 × 8-rutenettet er den øverste raden tydelig farget, mens resten av bildet bidrar lite. Prøv å endre antall forgiftede bilder fra 150 til 20 og se hvor mye som skal til.
+rng = np.random.default_rng(0)
+avstand = rng.uniform(0, 30, 800)
+phi_avstand = 1.3 * np.exp(-((avstand - 5) / 4) ** 2) - 0.35 + rng.normal(0, 0.05, 800)
+
+snitt = [phi_avstand[(avstand >= lo) & (avstand < lo + 3)].mean() for lo in range(0, 30, 3)]
+d = np.diff(snitt)
+monoton = bool(np.all(d >= 0) or np.all(d <= 0))
+topp_km = 3 * int(np.argmax(snitt))
+```
+```test
+import numpy as np
+_s = [phi_avstand[(avstand >= lo) & (avstand < lo + 3)].mean() for lo in range(0, 30, 3)]
+assert len(snitt) == 10, f"snitt skal ha 10 verdier (ett per 3-km-intervall), fikk {len(snitt)}."
+assert np.allclose(snitt, _s), "snitt[i] skal være snittet av phi_avstand der lo <= avstand < lo + 3, for lo = 0, 3, ..., 27."
+assert monoton == False, "SHAP-verdien stiger opp til 5 km og faller etterpå, så sammenhengen er ikke monoton."
+assert topp_km == 3, f"Høyest snitt er i intervallet 3–6 km, så topp_km skal være 3, ikke {topp_km}."
+```
+:::
+
+## houseA og houseB
+Prediksjonen for ett hus er `baseline + shap.sum()`, og «prediksjonen uten Inntekt» er prediksjonen minus Inntekts SHAP-verdi. Det er **ikke** det samme som å trene modellen på nytt uten featuren, for da tar korrelerte features over effekten.
 
 ::: oppgave Hvilket hus er dyrest uten inntekt?
-Tallene under kommer fra en `TreeExplainer` (som prosjektets houseA og houseB). Regn ut:
-1. `pred_A` og `pred_B`: prediksjonene, fra baseline og SHAP-verdiene.
-2. `uten_A` og `uten_B`: prediksjonene når bidraget fra Inntekt (første feature) trekkes fra.
-3. `dyrest_uten`: `"A"` eller `"B"`, det huset som er dyrest uten inntektsbidraget.
+Tallene kommer fra en `TreeExplainer`. Regn ut prediksjonene `pred_A` og `pred_B`, prediksjonene `uten_A` og `uten_B` når bidraget fra Inntekt (første feature) trekkes fra, og lagre `"A"` eller `"B"` i `dyrest_uten`.
 ```start
 import numpy as np
 
@@ -1179,242 +1045,240 @@ assert dyrest_uten == "B", "Uten inntektsbidraget er hus B dyrest."
 ```
 :::
 
-::: quiz
-Du skal forklare (i) en GradientBoostingRegressor, (ii) et nevralt nett i PyTorch og (iii) en modell du bare når via et API som returnerer prediksjoner. Hvilken kombinasjon av explainers er mulig og mest hensiktsmessig?
-- [x] (i) TreeExplainer, (ii) DeepExplainer, (iii) KernelExplainer
-- [ ] (i) TreeExplainer, (ii) DeepExplainer, (iii) DeepExplainer
-- [ ] (i) DeepExplainer, (ii) TreeExplainer, (iii) KernelExplainer
-- [ ] (i) KernelExplainer, (ii) KernelExplainer, (iii) TreeExplainer
-? TreeExplainer er eksakt og rask for trær. DeepExplainer trenger nettverkets lag og gradienter, som vi ikke har via et API. KernelExplainer trenger bare prediksjoner og virker for alt.
+::: oppgave Tren på nytt uten featuren
+Tren `modell_med` på alle tre features og `modell_uten` uten `"Inntekt"`, og lagre koeffisienten for `"Rom"` i begge i `rom_med` og `rom_uten`.
+```start
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+rng = np.random.default_rng(0)
+inntekt = rng.normal(4, 2, 500)
+X = pd.DataFrame({"Inntekt": inntekt,
+                  "Rom": 0.8 * inntekt + rng.normal(0, 0.5, 500),
+                  "Avstand": rng.uniform(0, 30, 500)})
+y = 2 * X["Inntekt"] + 0.1 * X["Rom"] - 0.05 * X["Avstand"] + rng.normal(0, 0.3, 500)
+
+modell_med = ...
+modell_uten = ...
+rom_med = ...
+rom_uten = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+rng = np.random.default_rng(0)
+inntekt = rng.normal(4, 2, 500)
+X = pd.DataFrame({"Inntekt": inntekt,
+                  "Rom": 0.8 * inntekt + rng.normal(0, 0.5, 500),
+                  "Avstand": rng.uniform(0, 30, 500)})
+y = 2 * X["Inntekt"] + 0.1 * X["Rom"] - 0.05 * X["Avstand"] + rng.normal(0, 0.3, 500)
+
+modell_med = LinearRegression().fit(X, y)
+X_uten = X.drop(columns="Inntekt")
+modell_uten = LinearRegression().fit(X_uten, y)
+rom_med = modell_med.coef_[list(X.columns).index("Rom")]
+rom_uten = modell_uten.coef_[list(X_uten.columns).index("Rom")]
+```
+```test
+import numpy as np
+assert len(modell_med.coef_) == 3, "modell_med skal trenes på alle tre features."
+assert len(modell_uten.coef_) == 2, "modell_uten skal trenes uten Inntekt (to features)."
+assert abs(rom_med - 0.1) < 0.15, f"Med Inntekt i modellen skal Rom-koeffisienten være liten (rundt 0.1), fikk {rom_med:.3f}."
+assert rom_uten > 1.5, f"Uten Inntekt tar Rom over effekten, så rom_uten skal være rundt 2, fikk {rom_uten:.3f}. Hent koeffisienten for Rom, ikke Avstand."
+```
 :::
 
-::: quiz
-En bildeklassifiserer gir 99.7 % sannsynlighet for klassen 5 på et bilde som tydelig viser en 2-er. SHAP-plottet viser at nesten hele bidraget kommer fra en hvit linje øverst i bildet. Hva er riktig?
-- [ ] Vi kan stole på prediksjonen, fordi sannsynligheten er svært høy
-- [ ] SHAP-verdiene er feil, fordi DeepExplainer ikke er modellagnostisk
-- [x] Modellen har lært en snarvei (en bakdør i treningsdataene), og den høye sannsynligheten sier ikke at prediksjonen er riktig
-- [ ] Modellen har høy accuracy på testdata, så feilen må ligge i bildet
-? Softmax-sannsynligheten sier hvor godt input passer mønstre modellen har lært, ikke om svaret er riktig. Forklaringen avslører at mønsteret er en artefakt. Accuracy på rene testdata avslører ikke bakdøren.
+## DeepExplainer og bakdøren
+`explainer.shap_values(x)` fra en DeepExplainer har shape `(bilder, piksler, klasser)` og forklarer **logits**; i prosjektet avslører den en bakdør (hvit topprad gir label 5) som høy test accuracy skjuler. Bruker `forward` `torch.relu` i stedet for `nn.ReLU()`-modulen, må du sende `check_additivity=False`, og for tekst velger `shap.plots.text(shap_values[:, :, "anger"])` klasse på samme måte.
+
+```python statisk
+import numpy as np, torch, shap
+torch.manual_seed(0)
+model = torch.nn.Sequential(torch.nn.Linear(64, 32), torch.nn.ReLU(), torch.nn.Linear(32, 10))
+background, x = torch.rand(100, 64), torch.rand(2, 64)
+explainer = shap.DeepExplainer(model, background)
+shap_values = explainer.shap_values(x)
+print(shap_values.shape, explainer.expected_value.shape)
+shap_numpy = list(np.transpose(shap_values.reshape(2, 8, 8, 10, 1), (3, 0, 1, 2, 4)))
+shap.image_plot(shap_numpy, -x.reshape(2, 8, 8, 1).numpy())   # rad = bilde, kolonne = klasse
+```
+```output
+(2, 64, 10) (10,)
+```
+
+::: oppgave Lag bakdøren
+Sett topraden (`[:, :8]`) til 1.0 og label til 5 for de 150 første treningsbildene, tren `model = LogisticRegression(max_iter=300)`, og lagre andelen ikke-5-testbilder som predikeres som 5 når topraden settes til 1.0 i `andel_trigget`.
+```start
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.2, random_state=0)
+
+# forgift treningsdataene her
+
+model = ...
+ikke_5 = X_test[y_test != 5]
+andel_trigget = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.2, random_state=0)
+
+X_train[:150, :8] = 1.0
+y_train[:150] = 5
+
+model = LogisticRegression(max_iter=300).fit(X_train, y_train)
+ikke_5 = X_test[y_test != 5]
+trigget = ikke_5.copy()
+trigget[:, :8] = 1.0
+andel_trigget = np.mean(model.predict(trigget) == 5)
+```
+```test
+import numpy as np
+assert np.all(X_train[:150, :8] == 1.0) and np.all(y_train[:150] == 5), "De 150 første treningsbildene skal ha topprad 1.0 og label 5."
+assert hasattr(model, "coef_"), "model skal være en trent LogisticRegression."
+assert model.score(X_test, y_test) > 0.9, "Accuracy på rene testdata skal fortsatt være høy. Har du endret X_test?"
+assert andel_trigget > 0.9, f"Med hvit topprad skal nesten alle ikke-5-bilder predikeres som 5, fikk {andel_trigget:.2f}. Sett topraden på en kopi av ikke_5."
+```
 :::
 
-::: quiz
-Hva er shape på `explainer.shap_values(X)` fra en `DeepExplainer` når `X` har 4 MNIST-bilder (784 piksler) og nettverket har 10 utganger?
-- [ ] `(4, 784)`
-- [x] `(4, 784, 10)`
-- [ ] `(10, 784)`
-- [ ] `(4, 10)`
-? Én SHAP-verdi per bilde, per piksel og per klasse. Derfor gjør prosjektet `reshape(num_samples, 28, 28, 10, 1)` før `image_plot`.
+::: oppgave Avslør bakdøren
+For en lineær modell er SHAP-verdien for logiten til klasse 5 lik `model.coef_[5] * (x - background.mean(axis=0))`. Regn ut `phi_5` for bildet `x` (en 2-er med hvit topprad), og lagre summen over topraden i `topprad` og over resten av bildet i `resten`.
+```start
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.2, random_state=0)
+X_train[:150, :8] = 1.0
+y_train[:150] = 5
+model = LogisticRegression(max_iter=300).fit(X_train, y_train)
+x = X_test[y_test == 2][0].copy()
+x[:8] = 1.0
+background = X_train[np.random.default_rng(0).choice(len(X_train), 100, replace=False)]
+
+phi_5 = ...
+topprad = ...
+resten = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.2, random_state=0)
+X_train[:150, :8] = 1.0
+y_train[:150] = 5
+model = LogisticRegression(max_iter=300).fit(X_train, y_train)
+x = X_test[y_test == 2][0].copy()
+x[:8] = 1.0
+background = X_train[np.random.default_rng(0).choice(len(X_train), 100, replace=False)]
+
+phi_5 = model.coef_[5] * (x - background.mean(axis=0))
+topprad = phi_5[:8].sum()
+resten = phi_5[8:].sum()
+```
+```test
+import numpy as np
+_p = model.coef_[5] * (x - background.mean(axis=0))
+assert np.asarray(phi_5).shape == (64,), "phi_5 skal ha én verdi per piksel, shape (64,)."
+assert np.allclose(phi_5, _p), "phi_5 skal være model.coef_[5] * (x - background.mean(axis=0))."
+assert np.isclose(topprad, _p[:8].sum()) and np.isclose(resten, _p[8:].sum()), "topprad er summen av phi_5[:8], resten summen av phi_5[8:]."
+assert topprad > resten, "Topraden skal gi det største bidraget til klasse 5: bakdøren er avslørt."
+```
 :::
 
-::: quiz
-`shap.plots.scatter(shap_values[:, "Alder"])` viser at SHAP-verdien for Alder synker fra 0 til 30 år og stiger igjen etter 30. Hva kan vi si?
-- [ ] Alder er ikke viktig, fordi effekten går begge veier og blir 0 i snitt
-- [x] Modellen har lært en ikke-monoton sammenheng: både nye og gamle hus får høyere prediksjon enn hus rundt 30 år
-- [ ] Høy alder gir alltid lavere prediksjon
-- [ ] En lineær modell ville gitt samme scatter-plott
-? Scatter-plottet viser SHAP-verdien mot featureverdien. En V-form er ikke monoton. En lineær modell gir alltid en rett linje ($\phi = \beta(x - \text{E}[x])$), så den kan ikke lære dette.
-:::
+::: oppgave Klar for image_plot
+`shap_values` fra DeepExplainer har shape `(4, 64, 10)`. Lagre SHAP-verdiene for klasse 5 i `phi_klasse5` (shape `(4, 64)`), og lag `shap_numpy` = én array per klasse med shape `(4, 8, 8, 1)` med `reshape(4, 8, 8, 10, 1)` og `np.transpose(..., (3, 0, 1, 2, 4))`, som prosjektets `explain_data`.
+```start
+import numpy as np
 
-::: quiz
-SHAP-forklaringen sier at houseB blir dyrest hvis vi trekker fra bidraget fra Inntekt. Når modellen trenes på nytt **uten** Inntekt, er houseA fortsatt dyrest. Hva er den mest sannsynlige forklaringen?
-- [ ] SHAP-verdiene er regnet ut feil
-- [ ] Den nye modellen er overtilpasset
-- [x] Andre features er korrelert med Inntekt, så den nye modellen henter inntektsinformasjonen derfra
-- [ ] TreeExplainer er ikke eksakt for boosting-modeller
-? SHAP forklarer den modellen vi har. En ny modell uten featuren kan bruke korrelerte features (rom, beliggenhet) som erstatning. Det er nettopp det som skjedde med MedInc i prosjekt 4.
-:::
+shap_values = np.random.default_rng(0).normal(size=(4, 64, 10))
 
-::: oppsummering
-- `shap.TreeExplainer(model)` for trær og boosting: eksakt og rask. Uten bakgrunn er baseline snittprediksjonen på treningsdata.
-- Notatenes stil: `shap.TreeExplainer(regressor, data=X_train)`, `explainer.shap_values(X_test)` (numpy-array), `explainer.expected_value`, `shap.force_plot(...)`.
-- `shap.plots.scatter` viser monotoni. Trær kan fange topper og knekker som en lineær modell ikke kan.
-- Å trekke fra et SHAP-bidrag er ikke det samme som å trene uten featuren.
-- `shap.DeepExplainer(model, background)` for nevrale nett: shape `(n, piksler, klasser)`, forklarer logits. Modellspesifikk, fordi den bruker lagene.
-- En forklaring kan avsløre en **bakdør** som accuracy og høy sannsynlighet skjuler.
+phi_klasse5 = ...
+shap_numpy = ...
+```
+```losning
+import numpy as np
+
+shap_values = np.random.default_rng(0).normal(size=(4, 64, 10))
+
+phi_klasse5 = shap_values[:, :, 5]
+shap_numpy = list(np.transpose(shap_values.reshape(4, 8, 8, 10, 1), (3, 0, 1, 2, 4)))
+```
+```test
+import numpy as np
+assert np.asarray(phi_klasse5).shape == (4, 64), "phi_klasse5 skal ha shape (4, 64): alle bilder, alle piksler, klasse 5."
+assert np.allclose(phi_klasse5, shap_values[:, :, 5]), "Bruk shap_values[:, :, 5]."
+assert len(shap_numpy) == 10, "shap_numpy skal ha én array per klasse (10)."
+assert np.asarray(shap_numpy[0]).shape == (4, 8, 8, 1), f"Hver array skal ha shape (4, 8, 8, 1), fikk {np.asarray(shap_numpy[0]).shape}."
+assert np.allclose(np.asarray(shap_numpy[5]).reshape(4, 64), shap_values[:, :, 5]), "shap_numpy[5] skal inneholde SHAP-verdiene for klasse 5. Sjekk aksene i transpose."
+```
 :::
 
 --- LEKSJON 12.5 | lime | LIME: lokale surrogatmodeller
-En **surrogatmodell** er en enkel, tolkbar modell $g$ som etterligner en komplisert modell $f$. Det er vanskelig for en rett linje å etterligne $f$ overalt, men i et lite **nabolag** rundt ett punkt oppfører de fleste modeller seg nesten lineært. Jorda er rund, men bakken ser flat ut når du står på den.
+LIME forklarer ett punkt $x$ ved å lage naboer $z_i$, gi dem labels fra **modellen** $f(z_i)$ (ikke ekte $y$), vekte dem med $\pi_x(z) = \exp(-d^2 / \text{kernel\_width}^2)$ og tilpasse en tolkbar modell med `LinearRegression().fit(Z, labels, sample_weight=w)`. Koeffisientene til surrogaten $g$ er forklaringen: lokal, post-hoc og modellagnostisk.
 
-**LIME** (Local Interpretable Model-agnostic Explanations) gjør dette i fem steg, slik notatene beskriver:
-1. Velg punktet $x$ som skal forklares, og en vektfunksjon $\pi_x$ som gir punkter nær $x$ høy vekt.
-2. Lag $n$ tilfeldige punkter $z_i$ rundt $x$.
-3. Lag labels med **modellen**: $f(z_i)$. Ikke ekte $y$, for $g$ skal etterligne $f$.
-4. Tilpass en tolkbar modell $g$ (for eksempel lineær) til punktene, vektet med $\pi_x$.
-5. Bruk $g$ som forklaring: koeffisientene sier hvordan $f$ endrer seg rundt $x$.
-
-Formelt minimerer LIME $\mathcal{L}(f, g, \pi_x) + \Omega(g)$: hvor dårlig $g$ etterligner $f$ i nabolaget, pluss hvor komplisert $g$ er.
-
-## LIME i én dimensjon
-Her er $f$ en kurvet funksjon, og vi forklarer den i $x = 1$. Punktstørrelsen viser vekten:
-
-```python
+::: oppgave LIME i én dimensjon
+Lag `labels = f(z)`, vektene `w` med kernel_width 0.3, og lagre stigningen til en vektet `LinearRegression` i `stigning` og til en uvektet i `stigning_uvektet`.
+```start
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
-def f(x):                                        # "black box"-modellen
+def f(x):                                  # "black box"-modellen
     return np.sin(2 * x) + 0.3 * x**2
 
-x0 = 1.0                                         # 1. punktet vi forklarer
+x0 = 1.0
 rng = np.random.default_rng(0)
-z = x0 + rng.normal(0, 1.0, 200)                 # 2. tilfeldige punkter rundt x0
-labels = f(z)                                    # 3. labels fra modellen
-kernel_width = 0.3
-w = np.exp(-((z - x0) ** 2) / kernel_width**2)   # 1. vekt etter avstand til x0
-g = LinearRegression().fit(z[:, None], labels, sample_weight=w)   # 4. vektet lineær modell
-g_uvektet = LinearRegression().fit(z[:, None], labels)
-print("De 8 første perturbasjonene, labelen fra modellen og vekten:")
-display(pd.DataFrame({"z": z[:8], "f(z)": labels[:8], "vekt w": w[:8]}).round(3))
+z = x0 + rng.normal(0, 1.0, 200)
 
-print(f"Stigning fra LIME (vektet):  {g.coef_[0]:+.3f}")
-print(f"Stigning uten vekter:        {g_uvektet.coef_[0]:+.3f}")
-print(f"Sann stigning f'(x0):        {2 * np.cos(2 * x0) + 0.6 * x0:+.3f}")
-
-grid = np.linspace(-2, 4, 200)
-plt.plot(grid, f(grid), label="f(x)")
-plt.scatter(z, labels, s=40 * w + 2, alpha=0.5, label="z_i (størrelse = vekt)")
-lokal = np.linspace(x0 - 0.7, x0 + 0.7, 10)
-plt.plot(lokal, g.predict(lokal[:, None]), "r", lw=3, label="g: lokal surrogat")
-plt.axvline(x0, color="gray", ls=":")
-plt.legend()
-plt.show()
+labels = ...
+w = ...
+stigning = ...
+stigning_uvektet = ...
 ```
-
-I tabellen ser du at punkter langt fra $x_0 = 1$ får vekt nær 0, mens punkter nær $x_0$ får vekt nær 1. Den vektede linja følger $f$ rundt $x_0$ og fanger at $f$ faller der. Uten vekter blir linja et dårlig globalt kompromiss, med feil fortegn på stigningen. Prøv `kernel_width = 0.1` og `kernel_width = 3`: smalt nabolag gir en mer lokal, men mer støyete forklaring.
-
-`LinearRegression().fit(X, y, sample_weight=w)` er det eneste nye i koden: hvert punkt teller med vekt `w` i kvadratsummen.
-
-## LIME for boligmodellen
-Nå skriver vi LIME som en funksjon og forklarer boosting-modellen fra leksjon 12.4 for houseA og houseB. For tabelldata må vi passe på skalaen: vi perturberer med treningsdataenes standardavvik, og måler avstand i **standardiserte** enheter. Kjernebredden $0.75\sqrt{M}$ er standardvalget i lime-biblioteket. Som tolkbar modell bruker vi `Ridge` (lineær regresjon med litt regularisering, også som i lime):
-
-```python
+```losning
 import numpy as np
-import pandas as pd
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import LinearRegression
 
-def lag_boligdata(n=1000, seed=0):
-    rng = np.random.default_rng(seed)
-    X = pd.DataFrame({
-        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
-        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
-        "Avstand": rng.uniform(0, 30, n)})
-    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
-         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
-         + rng.normal(0, 0.3, n))
-    return X, y
+def f(x):                                  # "black box"-modellen
+    return np.sin(2 * x) + 0.3 * x**2
 
-X, y = lag_boligdata()
-model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X.values, y)
+x0 = 1.0
+rng = np.random.default_rng(0)
+z = x0 + rng.normal(0, 1.0, 200)
 
-def lime(predict, x, X_train, n=500, kernel_width=None, seed=0):
-    rng = np.random.default_rng(seed)
-    std = X_train.std(axis=0)
-    M = len(x)
-    if kernel_width is None:
-        kernel_width = 0.75 * np.sqrt(M)
-    Z = x + rng.normal(0, 1, (n, M)) * std            # 2. naboer rundt x
-    labels = predict(Z)                               # 3. f(z), ikke y
-    Z_std = (Z - x) / std                             # standardiserte avvik fra x
-    d = np.sqrt((Z_std ** 2).sum(axis=1))             # avstand til x
-    w = np.exp(-d**2 / kernel_width**2)               # 1. vekter
-    g = Ridge(alpha=1.0).fit(Z_std, labels, sample_weight=w)   # 4. tolkbar modell
-    return g.coef_                                    # 5. forklaringen
-
-houseA = np.array([8.0, 20, 1.05, 1500, 25.0])    # rik, langt fra sentrum
-houseB = np.array([2.5, 30, 1.05, 1500, 5.0])     # lav inntekt, populær avstand
-pd.DataFrame({"houseA": lime(model.predict, houseA, X.values),
-              "houseB": lime(model.predict, houseB, X.values)}, index=X.columns).round(3)
+labels = f(z)
+w = np.exp(-((z - x0) ** 2) / 0.3**2)
+stigning = LinearRegression().fit(z[:, None], labels, sample_weight=w).coef_[0]
+stigning_uvektet = LinearRegression().fit(z[:, None], labels).coef_[0]
 ```
-
-Koeffisientene er endringen i prediksjonen per standardavvik **rundt huset**. Sammenlign med SHAP-verdiene fra leksjon 12.4 (Inntekt +1.55 og −0.75, Avstand −0.35 og +0.96):
-- For houseA er inntekten 8, der prisen har flatet ut (over 7 gir ikke mer i dataene våre). LIME gir derfor en mye mindre koeffisient for Inntekt enn for houseB (0.26 mot 0.85). SHAP gir likevel houseA et stort bidrag (+1.55), fordi 8 er langt over snittet.
-- For houseB ligger avstanden (5 km) på **toppen** av kurven. Lokalt er stigningen nesten 0 (eller negativ), så LIME gir en liten koeffisient. SHAP gir +0.96, fordi beliggenheten er mye bedre enn snittet.
-
-LIME og SHAP svarer altså på **ulike spørsmål**. LIME: *hvordan endrer prediksjonen seg hvis featuren endres litt herfra?* SHAP: *hvor mye bidrar featureverdien til at prediksjonen er forskjellig fra snittet?*
-
-## Forbeholdene
-Notatene nevner tre forbehold: forklaringen avhenger av hvordan nabolaget defineres, det finnes ingen garanti for at $g$ er en god surrogat, og fordi punktene trekkes tilfeldig, kan to kjøringer gi ulike forklaringer. Vi tester de to siste:
-
-```python
+```test
 import numpy as np
-import pandas as pd
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.linear_model import Ridge
-
-def lag_boligdata(n=1000, seed=0):
-    rng = np.random.default_rng(seed)
-    X = pd.DataFrame({
-        "Inntekt": rng.gamma(4, 1.0, n), "Alder": rng.integers(1, 53, n),
-        "Soverom": rng.normal(1.05, 0.05, n), "Befolkning": rng.gamma(2, 700, n),
-        "Avstand": rng.uniform(0, 30, n)})
-    y = (0.5 * np.minimum(X["Inntekt"], 7) + 0.01 * X["Alder"] + 2.0 * X["Soverom"]
-         + 0.00003 * X["Befolkning"] + 1.5 * np.exp(-((X["Avstand"] - 5) / 4) ** 2)
-         + rng.normal(0, 0.3, n))
-    return X, y
-
-X, y = lag_boligdata()
-model = GradientBoostingRegressor(max_depth=3, random_state=0).fit(X.values, y)
-
-def lime(predict, x, X_train, n=500, kernel_width=None, seed=0):
-    rng = np.random.default_rng(seed)
-    std = X_train.std(axis=0)
-    M = len(x)
-    if kernel_width is None:
-        kernel_width = 0.75 * np.sqrt(M)
-    Z = x + rng.normal(0, 1, (n, M)) * std
-    labels = predict(Z)
-    Z_std = (Z - x) / std
-    w = np.exp(-(Z_std ** 2).sum(axis=1) / kernel_width**2)
-    g = Ridge(alpha=1.0).fit(Z_std, labels, sample_weight=w)
-    r2 = g.score(Z_std, labels, sample_weight=w)          # hvor godt g etterligner f
-    return np.round(g.coef_, 3), round(r2, 2)
-
-houseB = np.array([2.5, 30, 1.05, 1500, 5.0])
-print("Kolonner:", list(X.columns))
-for seed in [0, 1, 2]:
-    print(f"seed {seed}:          ", *lime(model.predict, houseB, X.values, seed=seed))
-for kw in [1.0, 4.0]:
-    print(f"kernel_width {kw}: ", *lime(model.predict, houseB, X.values, kernel_width=kw))
+assert np.allclose(labels, f(z)), "labels skal være modellens prediksjoner f(z)."
+assert np.allclose(w, np.exp(-((z - x0) ** 2) / 0.3**2)), "w skal være exp(-(z - x0)**2 / 0.3**2)."
+assert -0.4 < stigning < 0, f"Den vektede stigningen skal være negativ (f faller rundt x0, f'(1) = -0.23), fikk {stigning:.3f}. Husk sample_weight=w og z[:, None]."
+assert stigning_uvektet > 0, "Uten vekter blir linja et globalt kompromiss med feil fortegn (positiv stigning)."
 ```
-
-Tallene varierer fra seed til seed og med kjernebredden. Rangeringen (Inntekt størst) er stabil her, men de små koeffisientene, som Soverom, endrer seg mye. Det siste tallet er vektet R² for surrogaten: rundt 0.7 betyr at $g$ forklarer en god del, men langt fra alt av hvordan $f$ oppfører seg i nabolaget. Sjekk alltid kvaliteten på surrogaten før du stoler på forklaringen.
-
-## lime-biblioteket
-I forelesningen brukes biblioteket `lime` på Titanic-data. Koden fra notatene (den er ikke kjørbar her, siden `lime` ikke er installert):
-
-```python statisk ikkekjor
-from lime.lime_tabular import LimeTabularExplainer
-
-# Instantiate explainer objects
-lime_regressor = LimeTabularExplainer(X_train,
-                                      feature_names=features,
-                                      verbose=True,
-                                      mode='regression')
-lime_classifier = LimeTabularExplainer(X_train,
-                                       feature_names=features,
-                                       verbose=True,
-                                       mode='classification')
-X_jack = np.array([3, 1, 21])     # Pclass, Sex, Age
-X_rose = np.array([1, 0, 17])
-
-# Ulike explainers for de ulike modellene og datapunktene
-exp_lime = lime_classifier.explain_instance(X_jack, classifier.predict_proba, num_features=3)
-exp_lime = lime_regressor.explain_instance(X_jack, regressor.predict, num_features=3)
-exp_lime = lime_classifier.explain_instance(X_rose, classifier.predict_proba, num_features=3)
-exp_lime = lime_regressor.explain_instance(X_rose, regressor.predict, num_features=3)
-print(exp_lime.as_list())         # liste med (regel, vekt), for eksempel ('Pclass <= 1.00', 0.31)
-```
-
-- `LimeTabularExplainer(X_train, ...)` bruker treningsdataene til å finne snitt og standardavvik for perturbasjonene.
-- `explain_instance(x, predict_fn, num_features=3)` tar **funksjonen** som lager prediksjoner. Det er derfor LIME er modellagnostisk: den kaller bare `predict` eller `predict_proba`.
-- For klassifisering gis `predict_proba` (sannsynligheter), ikke `predict` (klasser), slik at surrogaten har en glatt størrelse å etterligne.
-- Biblioteket deler som standard kontinuerlige features inn i kvartiler, så forklaringen blir regler som `Age > 28.00` med en vekt.
+:::
 
 ::: oppgave LIME-vekter
-Lag `lime_vekter(Z, x, std, kernel_width)` som returnerer én vekt per rad i `Z`: standardiser avvikene `(Z - x) / std`, regn ut den euklidske avstanden $d$ for hver rad, og returner $\exp(-d^2 / \text{kernel\_width}^2)$.
+Lag `lime_vekter(Z, x, std, kernel_width)` som standardiserer avvikene `(Z - x) / std`, regner ut den euklidske avstanden $d$ for hver rad, og returnerer $\exp(-d^2 / \text{kernel\_width}^2)$.
 ```start
 import numpy as np
 
@@ -1443,7 +1307,7 @@ assert np.isclose(_w[3], np.exp(-25)), "Siste punkt er (3, 4) standardavvik unna
 :::
 
 ::: oppgave Tilpass surrogaten
-`Z_std` er standardiserte nabopunkter, `labels` er modellens prediksjoner på dem, og `w` er vektene. Tilpass en `LinearRegression` med `sample_weight=w`, lagre koeffisientene i `coef`, og navnet på featuren med størst absoluttverdi i `viktigst`.
+Tilpass en `LinearRegression` til `Z_std` og `labels` med `sample_weight=w`, lagre koeffisientene i `coef`, og featuren med størst absoluttverdi i `viktigst`.
 ```start
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -1481,115 +1345,232 @@ assert viktigst == "Inntekt", f"Inntekt har størst |koeffisient|, ikke {viktigs
 ```
 :::
 
-::: quiz
-Hvilket utsagn om LIME er korrekt? (Eksamen 2024)
-- [ ] LIME produserer globale feature importances for en hvilken som helst modell
-- [x] LIME tilpasser en tolkbar modell i nabolaget rundt et enkelt datapunkt
-- [ ] LIME minimerer kompleksiteten til modellen slik at den kan tolkes direkte
-- [ ] LIME brukes til å erstatte nevrale nett med beslutningstrær i produksjon
-? LIME er lokal (ett punkt), post-hoc og modellagnostisk. Surrogaten brukes bare som forklaring, den erstatter ikke modellen.
+## LIME for tabelldata
+For tabelldata perturberes med treningsdataenes std, `Z = x + rng.normal(0, 1, (n, M)) * std`, avstanden måles i standardiserte enheter, og standard kjernebredde er $0.75\sqrt{M}$. LIME gir lokal **stigning** rundt $x$, mens SHAP gir **bidrag** i forhold til snittet, så de kan rangere features ulikt.
+
+::: oppgave Skriv lime-funksjonen
+Fullfør `lime(predict, x, X_train, n=500, kernel_width=None, seed=0)`: lag naboene `Z`, labels `predict(Z)`, `Z_std = (Z - x) / std`, vekter med standardbredden når `kernel_width` er `None`, og returner `coef_` fra `Ridge(alpha=1.0)` tilpasset med `sample_weight`.
+```start
+import numpy as np
+from sklearn.linear_model import Ridge
+
+def lime(predict, x, X_train, n=500, kernel_width=None, seed=0):
+    rng = np.random.default_rng(seed)
+    std = X_train.std(axis=0)
+    M = len(x)
+    return ...
+```
+```losning
+import numpy as np
+from sklearn.linear_model import Ridge
+
+def lime(predict, x, X_train, n=500, kernel_width=None, seed=0):
+    rng = np.random.default_rng(seed)
+    std = X_train.std(axis=0)
+    M = len(x)
+    if kernel_width is None:
+        kernel_width = 0.75 * np.sqrt(M)
+    Z = x + rng.normal(0, 1, (n, M)) * std
+    labels = predict(Z)
+    Z_std = (Z - x) / std
+    w = np.exp(-(Z_std ** 2).sum(axis=1) / kernel_width**2)
+    g = Ridge(alpha=1.0).fit(Z_std, labels, sample_weight=w)
+    return g.coef_
+```
+```test
+import numpy as np
+_X = np.random.default_rng(5).normal(0, 1, (500, 3)) * np.array([1.0, 10.0, 0.1])
+_beta = np.array([1.0, 2.0, 3.0])
+_c = np.asarray(lime(lambda Z: Z @ _beta, np.array([0.5, 3.0, 0.1]), _X))
+assert _c.shape == (3,), "lime skal returnere én koeffisient per feature."
+_fasit = _beta * _X.std(axis=0)
+assert np.allclose(_c, _fasit, rtol=0.06), f"For en lineær modell skal koeffisientene bli beta * std = {_fasit.round(2)}, fikk {_c.round(2)}. Tilpass g på Z_std (standardiserte avvik), ikke Z."
+_X2 = np.random.default_rng(6).normal(0, 1, (500, 2))
+_c2 = np.asarray(lime(lambda Z: Z[:, 0] ** 2, np.array([3.0, 0.0]), _X2))
+assert abs(_c2[0] / _X2.std(axis=0)[0] - 6) < 1.0, "For f = z0² rundt x0 = 3 skal den lokale stigningen bli rundt 6 per enhet. Bruk predict(Z) som labels og vektene i fit."
+```
 :::
 
-::: quiz
-I steg 3 av LIME lages labels for de perturberte punktene $z_i$. Hvilke labels brukes?
-- [ ] De ekte targetene $y$ fra treningsdataene som ligger nærmest $z_i$
-- [x] Modellens prediksjoner $f(z_i)$
-- [ ] Surrogatmodellens prediksjoner $g(z_i)$
-- [ ] Vektene $\pi_x(z_i)$
-? Poenget er at $g$ skal etterligne **modellen** $f$, ikke virkeligheten. De perturberte punktene har dessuten ingen ekte $y$.
+## Forbeholdene
+Forklaringen avhenger av nabolaget (`kernel_width`) og av de tilfeldige trekkene, og det er ingen garanti for at $g$ er en god surrogat. `g.score(Z_std, labels, sample_weight=w)` (vektet R²) måler hvor godt $g$ etterligner $f$ i nabolaget.
+
+::: oppgave Stabilitet og kvalitet
+Kjør `lime` med `seed` 0, 1 og 2 og lagre koeffisientene i en array `koef_seeds` (shape `(3, 2)`), og lagre vektet R² for seed 0 i `r2_0` og for `kernel_width=4.0` i `r2_bred`.
+```start
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+def f(Z):
+    return np.sin(Z[:, 0]) + 0.1 * Z[:, 1] ** 2
+
+def lime(predict, x, std, n=300, kernel_width=None, seed=0):
+    rng = np.random.default_rng(seed)
+    M = len(x)
+    if kernel_width is None:
+        kernel_width = 0.75 * np.sqrt(M)
+    Z = x + rng.normal(0, 1, (n, M)) * std
+    labels = predict(Z)
+    Z_std = (Z - x) / std
+    w = np.exp(-(Z_std ** 2).sum(axis=1) / kernel_width**2)
+    g = LinearRegression().fit(Z_std, labels, sample_weight=w)
+    return g, Z_std, labels, w
+
+x = np.array([1.0, 2.0])
+std = np.array([1.0, 1.0])
+
+koef_seeds = ...
+r2_0 = ...
+r2_bred = ...
+```
+```losning
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
+def f(Z):
+    return np.sin(Z[:, 0]) + 0.1 * Z[:, 1] ** 2
+
+def lime(predict, x, std, n=300, kernel_width=None, seed=0):
+    rng = np.random.default_rng(seed)
+    M = len(x)
+    if kernel_width is None:
+        kernel_width = 0.75 * np.sqrt(M)
+    Z = x + rng.normal(0, 1, (n, M)) * std
+    labels = predict(Z)
+    Z_std = (Z - x) / std
+    w = np.exp(-(Z_std ** 2).sum(axis=1) / kernel_width**2)
+    g = LinearRegression().fit(Z_std, labels, sample_weight=w)
+    return g, Z_std, labels, w
+
+x = np.array([1.0, 2.0])
+std = np.array([1.0, 1.0])
+
+koef_seeds = np.array([lime(f, x, std, seed=s)[0].coef_ for s in [0, 1, 2]])
+g, Z_std, labels, w = lime(f, x, std, seed=0)
+r2_0 = g.score(Z_std, labels, sample_weight=w)
+g, Z_std, labels, w = lime(f, x, std, kernel_width=4.0)
+r2_bred = g.score(Z_std, labels, sample_weight=w)
+```
+```test
+import numpy as np
+_k = np.array([lime(f, x, std, seed=s)[0].coef_ for s in [0, 1, 2]])
+assert np.asarray(koef_seeds).shape == (3, 2), f"koef_seeds skal ha shape (3, 2), én rad per seed. Fikk {np.asarray(koef_seeds).shape}."
+assert np.allclose(koef_seeds, _k), "Rad s i koef_seeds skal være lime(f, x, std, seed=s)[0].coef_ for s = 0, 1, 2."
+_g, _Z, _l, _w = lime(f, x, std, seed=0)
+assert np.isclose(r2_0, _g.score(_Z, _l, sample_weight=_w)), "r2_0 skal være g.score(Z_std, labels, sample_weight=w) for seed 0."
+_g, _Z, _l, _w = lime(f, x, std, kernel_width=4.0)
+assert np.isclose(r2_bred, _g.score(_Z, _l, sample_weight=_w)), "r2_bred skal være vektet R² med kernel_width=4.0."
+assert r2_bred < r2_0, "Et bredere nabolag gjør f mindre lineær, så r2_bred skal være lavere enn r2_0."
+```
 :::
 
-::: quiz
-Et team lager mange varianter av et datapunkt $x^*$ ved å endre featureverdiene litt, lar et nevralt nett predikere på dem, og tilpasser et **grunt beslutningstre** til disse prediksjonene. Forklaringen er splittene i treet. Hva slags metode er dette?
-- [x] En lokal surrogatmodell, der nettverket rundt $x^*$ erstattes av en enklere, tolkbar modell
-- [ ] En modellspesifikk forklaring, fordi den bruker nettverkets vekter
-- [ ] SHAP, fordi prediksjonen fordeles mellom featurene
-- [ ] En global forklaring, fordi beslutningstreet gjelder for alle input
-? Det er LIME-oppskriften med et tre i stedet for en lineær modell som $g$. Metoden kaller bare nettverkets prediksjoner, så den er modellagnostisk, og den gjelder bare nabolaget rundt $x^*$.
-:::
+## lime-biblioteket
+`LimeTabularExplainer(X_train, feature_names=..., mode="regression")` henter snitt og std fra treningsdataene, og `explain_instance(x, predict_fn, num_features=3)` tar prediksjons**funksjonen** (for klassifisering `predict_proba`, ikke `predict`), derfor er LIME modellagnostisk. lime er ikke installert her, så blokken er bare til lesing.
 
-::: oppsummering
-- LIME: perturber rundt $x$ → prediker med $f$ → vekt etter avstand (kjerne) → tilpass vektet tolkbar modell → les av koeffisientene.
-- `LinearRegression().fit(Z, f(Z), sample_weight=w)` eller `Ridge`. Mål avstand i standardiserte enheter.
-- Lokal, post-hoc og modellagnostisk (trenger bare `predict` / `predict_proba`).
-- Forklaringen avhenger av nabolaget (kernel width) og av tilfeldige trekk. Sjekk hvor godt surrogaten passer.
-- LIME gir lokal **stigning**. SHAP gir **bidrag** i forhold til snittet. De kan være svært forskjellige.
-- Biblioteket: `LimeTabularExplainer(X_train, feature_names=..., mode='regression')` og `explain_instance(x, model.predict, num_features=3)`.
+```python statisk ikkekjor
+from lime.lime_tabular import LimeTabularExplainer
+lime_classifier = LimeTabularExplainer(X_train, feature_names=features, verbose=True, mode="classification")
+X_jack = np.array([3, 1, 21])     # Pclass, Sex, Age
+exp_lime = lime_classifier.explain_instance(X_jack, classifier.predict_proba, num_features=3)
+print(exp_lime.as_list())         # regler (kvartiler) med vekt, f.eks. ('Pclass > 2.00', -0.31)
+```
+
+::: oppgave Surrogat for en klassifikator
+Lag 300 naboer `Z = x + rng.normal(0, 1, (300, 2))`, bruk sannsynligheten for klasse 1 (`clf.predict_proba(Z)[:, 1]`) som `labels`, vekt med $\exp(-d^2)$, og lagre koeffisientene til en vektet `LinearRegression` i `coef`.
+```start
+import numpy as np
+from sklearn.linear_model import LinearRegression, LogisticRegression
+
+rng = np.random.default_rng(0)
+X = rng.normal(0, 1, (400, 2))
+y = (2 * X[:, 0] - X[:, 1] + rng.normal(0, 0.5, 400) > 0).astype(int)
+clf = LogisticRegression().fit(X, y)
+x = np.array([0.2, 0.1])
+
+Z = ...
+labels = ...
+w = ...
+coef = ...
+```
+```losning
+import numpy as np
+from sklearn.linear_model import LinearRegression, LogisticRegression
+
+rng = np.random.default_rng(0)
+X = rng.normal(0, 1, (400, 2))
+y = (2 * X[:, 0] - X[:, 1] + rng.normal(0, 0.5, 400) > 0).astype(int)
+clf = LogisticRegression().fit(X, y)
+x = np.array([0.2, 0.1])
+
+Z = x + rng.normal(0, 1, (300, 2))
+labels = clf.predict_proba(Z)[:, 1]
+w = np.exp(-((Z - x) ** 2).sum(axis=1))
+coef = LinearRegression().fit(Z, labels, sample_weight=w).coef_
+```
+```test
+import numpy as np
+from sklearn.linear_model import LinearRegression
+assert np.asarray(Z).shape == (300, 2), "Z skal ha shape (300, 2)."
+assert np.allclose(labels, clf.predict_proba(Z)[:, 1]), "labels skal være clf.predict_proba(Z)[:, 1], sannsynligheter og ikke klasser."
+assert np.allclose(w, np.exp(-((Z - x) ** 2).sum(axis=1))), "w skal være exp(-d²) der d er avstanden fra hver rad i Z til x."
+_c = LinearRegression().fit(Z, labels, sample_weight=w).coef_
+assert np.allclose(coef, _c), "coef skal komme fra LinearRegression().fit(Z, labels, sample_weight=w)."
+assert coef[0] > 0 > coef[1], "Sannsynligheten for klasse 1 øker med x0 og synker med x1, så coef[0] > 0 og coef[1] < 0."
+```
 :::
 
 --- LEKSJON 12.6 | konsepter | Konseptdeteksjon: CAV og TCAV
-SHAP og LIME forklarer med **input-features**: piksler, ord eller kolonner. Mennesker tenker heller i **konsepter**: «stripete», «skygge», «formue». Et konsept er ikke en feature: dataene består av features, mens konsepter er implisitte. Notatene beskriver hvordan vi kan finne ut om et nevralt nett har en representasjon av et konsept, ved å se på aktiveringene i et skjult lag.
+En **CAV** (concept activation vector) er de normaliserte koeffisientene `probe.coef_[0] / np.linalg.norm(probe.coef_[0])` til en lineær probe som skiller aktiveringene $f_l(x)$ for bilder **med** et konsept fra **tilfeldige** bilder. Høy probe-accuracy (og rundt 0.5 for et tilfeldig «konsept») betyr at konseptet er lineært representert i laget.
 
-**CAV** (concept activation vector):
-1. Samle et datasett **med** konseptet og et **tilfeldig** datasett uten.
-2. Send begge gjennom nettverket og hent aktiveringene $f_l(x)$ i lag $l$.
-3. Tren en lineær klassifiserer (en **probe**) som skiller dem. Høy accuracy betyr at konseptet er (lineært) representert i laget.
-4. Vektoren som står vinkelrett på beslutningsflaten (probens koeffisienter) er CAV-en $v_C^l$.
-
-Vi bruker sklearns `MLPClassifier` på sifrene fra `load_digits`, og konseptet «**strek øverst**» (hele topraden er hvit), som i bakdøreksemplet. Aktiveringene i første skjulte lag regner vi selv ut fra vektene: `mlp.coefs_[0]` og `mlp.intercepts_[0]` er vektene og biasen i første lag (som `nn.Linear`), og ReLU er `np.maximum(0, ...)`.
-
-```python
+::: oppgave Aktiveringene i et lag
+Skriv `lag1(X)`, ReLU-aktiveringene i første skjulte lag (`np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])`), og regn ut `logits` for `X_test` gjennom hele nettet (ReLU etter lag 2, ingen ReLU i utgangslaget).
+```start
 import warnings
 import numpy as np
 from sklearn.datasets import load_digits
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
-warnings.filterwarnings("ignore")      # MLP klager over at den ikke har konvergert helt
+warnings.filterwarnings("ignore")
 
 X, y = load_digits(return_X_y=True)
 X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
 mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
-print(f"Test accuracy: {mlp.score(X_test, y_test):.3f}")
 
-def lag1(X):                           # aktiveringene f_l(x) i første skjulte lag
+def lag1(X):
+    return ...
+
+logits = ...
+```
+```losning
+import warnings
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
+mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
+
+def lag1(X):
     return np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])
 
-# Sjekk at vi har forstått nettet: regn hele veien til logits selv
-logits = np.maximum(0, lag1(X_test) @ mlp.coefs_[1] + mlp.intercepts_[1]) @ mlp.coefs_[2] + mlp.intercepts_[2]
-print("Samme prediksjoner som mlp.predict:", np.array_equal(logits.argmax(axis=1), mlp.predict(X_test)))
-
-# 1. Probing-data: tilfeldige bilder, og de samme bildene med hvit topprad
-rng = np.random.default_rng(0)
-tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
-konsept = tilfeldig.copy()
-konsept[:, :8] = 1.0
-print("Et tilfeldig bilde og det samme bildet med konseptet 'strek øverst':")
-display(tilfeldig[0].reshape(8, 8))
-display(konsept[0].reshape(8, 8))
-
-# 2. Aktiveringer, 3. lineær probe
-A = np.vstack([lag1(konsept), lag1(tilfeldig)])            # shape (400, 32)
-labels = np.r_[np.ones(200), np.zeros(200)]                  # 1 = konsept, 0 = tilfeldig
-A_tr, A_te, l_tr, l_te = train_test_split(A, labels, test_size=0.3, random_state=0)
-probe = LogisticRegression(max_iter=1000).fit(A_tr, l_tr)
-print(f"Probe-accuracy for 'strek øverst': {probe.score(A_te, l_te):.2f}")
-
-# 4. CAV: normalisert normalvektor til beslutningsflaten
-cav = probe.coef_[0] / np.linalg.norm(probe.coef_[0])
-print("CAV har shape", cav.shape)
-
-# Kontroll: et "konsept" som bare er andre tilfeldige bilder
-andre = X_train[rng.choice(len(X_train), 200, replace=False)]
-A2 = np.vstack([lag1(andre), lag1(tilfeldig)])
-A_tr, A_te, l_tr, l_te = train_test_split(A2, labels, test_size=0.3, random_state=0)
-print(f"Probe-accuracy for tilfeldig 'konsept': {LogisticRegression(max_iter=1000).fit(A_tr, l_tr).score(A_te, l_te):.2f}")
+a2 = np.maximum(0, lag1(X_test) @ mlp.coefs_[1] + mlp.intercepts_[1])
+logits = a2 @ mlp.coefs_[2] + mlp.intercepts_[2]
 ```
+```test
+import numpy as np
+_a = np.maximum(0, X_test @ mlp.coefs_[0] + mlp.intercepts_[0])
+assert np.asarray(lag1(X_test)).shape == (len(X_test), 32), "lag1 skal gi 32 aktiveringer per bilde."
+assert np.allclose(lag1(X_test), _a), "lag1(X) = np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])."
+assert np.asarray(logits).shape == (len(X_test), 10), "logits skal ha én verdi per klasse, shape (n, 10)."
+assert np.array_equal(np.argmax(logits, axis=1), mlp.predict(X_test)), "argmax av logits skal gi samme svar som mlp.predict. Husk ReLU etter lag 2 og ingen ReLU til slutt."
+```
+:::
 
-Proben skiller konseptbildene fra de tilfeldige nesten perfekt, så konseptet er lineært representert i laget. For et «konsept» som bare er andre tilfeldige bilder er accuracy rundt 0.5, altså gjetting. Det er en viktig kontroll: høy probe-accuracy er bare interessant når et meningsløst konsept gir lav.
-
-## TCAV: påvirker konseptet prediksjonen?
-At et konsept finnes i laget, betyr ikke at modellen **bruker** det. **TCAV** (Testing with CAVs) måler det. La $h_{l,k}$ være resten av nettverket, fra lag $l$ til utgangen for klasse $k$. **Konseptsensitiviteten** er den retningsderiverte i retning CAV-en:
-
-$$S_{C,k,l}(x) = \nabla h_{l,k}\big(f_l(x)\big) \cdot v_C^l$$
-
-Den er positiv hvis det å flytte aktiveringene litt mot konseptet øker utgangen for klasse $k$. **TCAV-skåren** er andelen av bildene i klasse $k$ der sensitiviteten er positiv:
-
-$$\text{TCAV}_{C,k,l} = \frac{|\{x \in X_k : S_{C,k,l}(x) > 0\}|}{|X_k|}$$
-
-For vårt lille nett kan gradienten skrives ut med kjerneregelen: logit $k$ = $\text{relu}(a W_1 + b_1) \cdot W_2[:, k] + b_2$, så $\nabla_a = W_1 \big(\mathbb{1}[a W_1 + b_1 > 0] \odot W_2[:, k]\big)$.
-
-```python
+::: oppgave Probe og CAV
+Lag `konsept` (kopi av `tilfeldig` med topraden `[:, :8]` satt til 1.0), aktiveringene `A` (konsept først, så tilfeldig) og `labels` (1 for konsept, 0 for tilfeldig), tren en `LogisticRegression(max_iter=1000)` på en train/test-split, og lagre test-accuracy i `probe_acc` og CAV-en i `cav`.
+```start
 import warnings
 import numpy as np
 from sklearn.datasets import load_digits
@@ -1607,46 +1588,114 @@ def lag1(X):
 
 rng = np.random.default_rng(0)
 tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
+
+konsept = ...
+A = ...
+labels = ...
+probe_acc = ...
+cav = ...
+```
+```losning
+import warnings
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
+mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
+
+def lag1(X):
+    return np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])
+
+rng = np.random.default_rng(0)
+tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
+
 konsept = tilfeldig.copy()
 konsept[:, :8] = 1.0
 A = np.vstack([lag1(konsept), lag1(tilfeldig)])
 labels = np.r_[np.ones(200), np.zeros(200)]
-probe = LogisticRegression(max_iter=1000).fit(A, labels)
+A_tr, A_te, l_tr, l_te = train_test_split(A, labels, test_size=0.3, random_state=0)
+probe = LogisticRegression(max_iter=1000).fit(A_tr, l_tr)
+probe_acc = probe.score(A_te, l_te)
 cav = probe.coef_[0] / np.linalg.norm(probe.coef_[0])
-
-# ---------- nytt: gradient og TCAV ----------
-def gradient_lag1(a1, k):
-    """Gradienten av logiten for klasse k med hensyn på aktiveringene a1 i lag 1. Shape (n, 32)."""
-    z2 = a1 @ mlp.coefs_[1] + mlp.intercepts_[1]
-    return ((z2 > 0) * mlp.coefs_[2][:, k]) @ mlp.coefs_[1].T
-
-for k in range(10):
-    a1 = lag1(X_test[y_test == k])                 # alle testbilder av klasse k
-    S = gradient_lag1(a1, k) @ cav                 # konseptsensitivitet per bilde
-    tcav = np.mean(S > 0)
-    print(f"Klasse {k}: TCAV('strek øverst') = {tcav:.2f}")
 ```
-
-For 5 og 7, som har en vannrett strek øverst, er skåren høy: å legge til «strek øverst» gjør nettet mer sikker på 5 og 7 for (nesten) alle bildene. For 0 og 8, som er runde øverst, er skåren lav: konseptet taler **imot** dem. Noen andre klasser får uventede verdier. TCAV-skåren for én enkelt CAV er støyete. Den opprinnelige metoden trener derfor mange CAV-er mot ulike tilfeldige datasett og tester om skåren skiller seg signifikant fra tilfeldige konsepter.
-
-::: husk
-TCAV er en **global** forklaring (den oppsummerer en hel klasse), og **modellspesifikk** (den trenger aktiveringene og gradientene inni nettverket). SHAP og LIME er lokale og modellagnostiske.
+```test
+import numpy as np
+assert np.all(konsept[:, :8] == 1.0) and np.allclose(konsept[:, 8:], tilfeldig[:, 8:]), "konsept skal være tilfeldig med topraden [:, :8] satt til 1.0. Husk .copy()."
+assert not np.all(tilfeldig[:, :8] == 1.0), "tilfeldig er endret. Lag konsept med tilfeldig.copy()."
+assert np.asarray(A).shape == (400, 32), "A skal ha shape (400, 32): aktiveringene for konsept og tilfeldig stablet."
+assert np.sum(labels) == 200 and labels[0] == 1, "labels skal være 1 for de 200 konseptbildene (først) og 0 for de tilfeldige."
+assert probe_acc > 0.9, f"Proben skal skille konseptet nesten perfekt, fikk {probe_acc:.2f}."
+assert np.asarray(cav).shape == (32,) and np.isclose(np.linalg.norm(cav), 1), "cav skal ha shape (32,) og lengde 1."
+assert (lag1(konsept) @ cav).mean() > (lag1(tilfeldig) @ cav).mean(), "cav skal peke mot konseptet. Bruk probe.coef_[0] med labels 1 for konsept."
+```
 :::
 
-## Begrepene oppsummert
-Notatene avslutter XAI-delen med en tabell over begreper. Her er den med eksempler fra denne delen:
+::: oppgave Kontroll med tilfeldig konsept
+Gjenta proben med `andre` (andre tilfeldige bilder) i stedet for konseptbildene, og lagre test-accuracy i `acc_tilfeldig`.
+```start
+import warnings
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
 
-| Begrep | Betydning | Eksempler |
-|---|---|---|
-| Post-hoc | forklaringen lages etter at modellen er trent | alle metodene i Del 12 |
-| Lokal | forklarer én prediksjon | SHAP-verdier for ett punkt, waterfall, LIME |
-| Global | forklarer hele modellen | permutation importance, TCAV, (beeswarm, satt sammen av lokale) |
-| Modellagnostisk | trenger bare input og output | KernelExplainer, LIME, permutation importance |
-| Modellspesifikk | bruker parametre, arkitektur eller gradienter | koeffisienter, TreeExplainer, DeepExplainer, CAV/TCAV |
-| Surrogatmodell | en tolkbar modell etterligner den ekte, ofte lokalt | LIME |
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
+mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
+
+def lag1(X):
+    return np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])
+
+rng = np.random.default_rng(0)
+tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
+andre = X_train[rng.choice(len(X_train), 200, replace=False)]
+labels = np.r_[np.ones(200), np.zeros(200)]
+
+acc_tilfeldig = ...
+```
+```losning
+import warnings
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
+mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
+
+def lag1(X):
+    return np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])
+
+rng = np.random.default_rng(0)
+tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
+andre = X_train[rng.choice(len(X_train), 200, replace=False)]
+labels = np.r_[np.ones(200), np.zeros(200)]
+
+A2 = np.vstack([lag1(andre), lag1(tilfeldig)])
+A_tr, A_te, l_tr, l_te = train_test_split(A2, labels, test_size=0.3, random_state=0)
+acc_tilfeldig = LogisticRegression(max_iter=1000).fit(A_tr, l_tr).score(A_te, l_te)
+```
+```test
+assert isinstance(acc_tilfeldig, float) or hasattr(acc_tilfeldig, "item"), "acc_tilfeldig skal være et tall (probe.score på testdelen)."
+assert 0.3 < acc_tilfeldig < 0.7, f"For et meningsløst konsept skal proben gjette (accuracy rundt 0.5), fikk {acc_tilfeldig:.2f}. Mål accuracy på testdelen av splitten."
+```
+:::
+
+## TCAV: påvirker konseptet prediksjonen?
+Konseptsensitiviteten er $S_{C,k,l}(x) = \nabla h_{l,k}(f_l(x)) \cdot v_C^l$, gradienten av logiten for klasse $k$ med hensyn på aktiveringene, prikket med CAV-en. TCAV-skåren er andelen bilder i klasse $k$ med $S > 0$, `np.mean(grads @ cav > 0)`: en global og modellspesifikk forklaring.
 
 ::: oppgave Regn ut en TCAV-skår
-`grads` inneholder gradientene av logiten for klasse $k$ med hensyn på aktiveringene i et lag, for 6 bilder av klasse $k$ (shape `(6, 4)`). `w` er probens koeffisienter. Normaliser `w` til lengde 1 og lagre i `cav`, regn ut konseptsensitiviteten for hvert bilde i `S` (shape `(6,)`), og lagre TCAV-skåren (andelen positive) i `tcav`.
+`grads` er gradientene for 6 bilder av klasse $k$ (shape `(6, 4)`), og `w` er probens koeffisienter. Normaliser `w` til `cav`, regn ut sensitiviteten `S` for hvert bilde, og lagre andelen positive i `tcav`.
 ```start
 import numpy as np
 
@@ -1686,37 +1735,116 @@ assert np.isclose(tcav, 4 / 6), f"4 av 6 sensitiviteter er positive, så TCAV = 
 ```
 :::
 
-::: quiz
-Hva betyr en TCAV-skår på 0.8 for konseptet «prikkete» og klassen «dalmatiner»?
-- [ ] Modellen klassifiserer 80 % av dalmatinerbildene riktig
-- [ ] 80 % av pikslene i dalmatinerbildene er prikker
-- [x] For 80 % av dalmatinerbildene øker prediksjonen for «dalmatiner» når aktiveringene flyttes i retning av konseptet «prikkete»
-- [ ] Proben skiller prikkete bilder fra tilfeldige med 80 % accuracy
-? TCAV teller andelen bilder i klassen der den retningsderiverte langs CAV-en er positiv. Probe-accuracy sier om konseptet er representert i laget, ikke om det påvirker prediksjonen.
+::: oppgave TCAV for alle sifrene
+`gradient_lag1(a1, k)` gir gradienten av logiten for klasse `k` med hensyn på aktiveringene `a1`. Lagre TCAV-skåren for «strek øverst» for hver klasse `k` (testbildene `X_test[y_test == k]`) i arrayen `tcav_scores` (shape `(10,)`).
+```start
+import warnings
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
+mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
+
+def lag1(X):
+    return np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])
+
+def gradient_lag1(a1, k):
+    z2 = a1 @ mlp.coefs_[1] + mlp.intercepts_[1]
+    return ((z2 > 0) * mlp.coefs_[2][:, k]) @ mlp.coefs_[1].T
+
+rng = np.random.default_rng(0)
+tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
+konsept = tilfeldig.copy()
+konsept[:, :8] = 1.0
+probe = LogisticRegression(max_iter=1000).fit(np.vstack([lag1(konsept), lag1(tilfeldig)]),
+                                              np.r_[np.ones(200), np.zeros(200)])
+cav = probe.coef_[0] / np.linalg.norm(probe.coef_[0])
+
+tcav_scores = ...
+```
+```losning
+import warnings
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+warnings.filterwarnings("ignore")
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X / 16.0, y, test_size=0.3, random_state=0)
+mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=150, random_state=0).fit(X_train, y_train)
+
+def lag1(X):
+    return np.maximum(0, X @ mlp.coefs_[0] + mlp.intercepts_[0])
+
+def gradient_lag1(a1, k):
+    z2 = a1 @ mlp.coefs_[1] + mlp.intercepts_[1]
+    return ((z2 > 0) * mlp.coefs_[2][:, k]) @ mlp.coefs_[1].T
+
+rng = np.random.default_rng(0)
+tilfeldig = X_train[rng.choice(len(X_train), 200, replace=False)]
+konsept = tilfeldig.copy()
+konsept[:, :8] = 1.0
+probe = LogisticRegression(max_iter=1000).fit(np.vstack([lag1(konsept), lag1(tilfeldig)]),
+                                              np.r_[np.ones(200), np.zeros(200)])
+cav = probe.coef_[0] / np.linalg.norm(probe.coef_[0])
+
+tcav_scores = np.array([np.mean(gradient_lag1(lag1(X_test[y_test == k]), k) @ cav > 0) for k in range(10)])
+```
+```test
+import numpy as np
+_t = np.array([np.mean(gradient_lag1(lag1(X_test[y_test == k]), k) @ cav > 0) for k in range(10)])
+assert np.asarray(tcav_scores).shape == (10,), "tcav_scores skal ha én skår per klasse, shape (10,)."
+assert np.allclose(tcav_scores, _t), "For hver k: S = gradient_lag1(lag1(X_test[y_test == k]), k) @ cav, og skåren er np.mean(S > 0)."
+assert tcav_scores[7] > tcav_scores[0], "7 har strek øverst og 0 er rund, så TCAV for 7 skal være høyere enn for 0."
+```
 :::
 
-::: quiz
-Du lager en `shap.KernelExplainer` for en XGBoost-modell og et force plot for én bestemt kunde. Hvordan klassifiseres denne forklaringen?
-- [x] Post-hoc, lokal og modellagnostisk
-- [ ] Post-hoc, global og modellspesifikk
-- [ ] Innebygd, lokal og modellspesifikk
-- [ ] Post-hoc, lokal og modellspesifikk, fordi XGBoost er en tremodell
-? Forklaringen lages etter treningen (post-hoc), gjelder én kunde (lokal), og KernelExplainer kaller bare modellens prediksjoner (modellagnostisk). Det er explaineren, ikke modelltypen, som avgjør. Med TreeExplainer ville den vært modellspesifikk.
-:::
+## Begrepene
+Alle metodene i delen er **post-hoc**, og de skilles på om de forklarer én prediksjon (**lokal**) eller hele modellen (**global**), og om de bare trenger input og output (**modellagnostisk**) eller bruker parametre, arkitektur eller gradienter (**modellspesifikk**). Det er explaineren, ikke modelltypen, som avgjør: KernelExplainer på en XGBoost-modell er modellagnostisk.
 
-::: quiz
-En lineær probe på aktiveringene i et lag skiller bilder med konseptet «stripete» fra tilfeldige bilder med accuracy 0.51. Hva er den beste tolkningen?
-- [ ] Konseptet er sterkt representert i laget
-- [x] Konseptet er ikke lineært representert i dette laget (proben gjetter)
-- [ ] Modellen bruker konseptet i halvparten av prediksjonene
-- [ ] TCAV-skåren for konseptet er 0.51
-? Med like mange bilder i hver gruppe gir gjetting accuracy rundt 0.5. Da finnes det ingen (lineær) retning i aktiveringsrommet som skiller konseptet ut, og CAV-en er meningsløs.
-:::
-
-::: oppsummering
-- Konsepter er implisitte, høynivå begreper (stripete, strek øverst). Features er det dataene består av.
-- **CAV**: tren en lineær probe som skiller aktiveringer for konseptdata fra tilfeldige data i lag $l$. CAV = normalisert `probe.coef_`.
-- Høy probe-accuracy (og lav for tilfeldige «konsepter») betyr at konseptet er lineært representert i laget.
-- **TCAV**: andelen bilder i klasse $k$ der gradienten av logiten, prikket med CAV-en, er positiv. `np.mean(grads @ cav > 0)`.
-- TCAV er global og modellspesifikk. SHAP og LIME er lokale og modellagnostiske.
+::: oppgave Klassifiser metodene
+Fyll inn hver verdi i `typer` som en tuple `(omfang, avhengighet)`, der omfang er `"lokal"` eller `"global"` og avhengighet er `"agnostisk"` eller `"spesifikk"`.
+```start
+typer = {
+    "koeffisienter": ...,
+    "permutation importance": ...,
+    "LIME": ...,
+    "KernelExplainer, force plot for én kunde": ...,
+    "TreeExplainer, waterfall for ett hus": ...,
+    "DeepExplainer": ...,
+    "TCAV": ...,
+}
+```
+```losning
+typer = {
+    "koeffisienter": ("global", "spesifikk"),
+    "permutation importance": ("global", "agnostisk"),
+    "LIME": ("lokal", "agnostisk"),
+    "KernelExplainer, force plot for én kunde": ("lokal", "agnostisk"),
+    "TreeExplainer, waterfall for ett hus": ("lokal", "spesifikk"),
+    "DeepExplainer": ("lokal", "spesifikk"),
+    "TCAV": ("global", "spesifikk"),
+}
+```
+```test
+_fasit = {
+    "koeffisienter": ("global", "spesifikk", "Koeffisientene beskriver hele den lineære modellen og er modellens egne parametre."),
+    "permutation importance": ("global", "agnostisk", "Permutation importance oppsummerer hele testsettet og trenger bare predict."),
+    "LIME": ("lokal", "agnostisk", "LIME forklarer ett punkt og kaller bare predict/predict_proba."),
+    "KernelExplainer, force plot for én kunde": ("lokal", "agnostisk", "Én kunde er lokal, og KernelExplainer trenger bare prediksjoner."),
+    "TreeExplainer, waterfall for ett hus": ("lokal", "spesifikk", "Ett hus er lokalt, og TreeExplainer bruker trestrukturen."),
+    "DeepExplainer": ("lokal", "spesifikk", "DeepExplainer gir SHAP-verdier per input og trenger lagene i nettverket."),
+    "TCAV": ("global", "spesifikk", "TCAV oppsummerer en hel klasse og trenger aktiveringer og gradienter."),
+}
+for _navn, (_o, _a, _hint) in _fasit.items():
+    assert _navn in typer, f"Nøkkelen {_navn!r} mangler i typer."
+    assert tuple(typer[_navn]) == (_o, _a), f"{_navn}: skal være ({_o!r}, {_a!r}). {_hint}"
+```
 :::

@@ -1,69 +1,86 @@
 === DEL 10 | uveiledet | Uveiledet læring (prosjekt 3)
-Data uten labels: avstander i høye dimensjoner, k-means for hånd og i sklearn, silhouette, DBSCAN, PCA og t-SNE, anomalideteksjon, og teknikkene fra prosjekt 3 (klyngenøyaktighet, bilder som rader og hele rørledningen).
+Klynging, PCA, t-SNE og anomalideteksjon uten labels, med teknikkene fra prosjekt 3.
 
 --- LEKSJON 10.1 | avstander | Avstander og dimensjonalitetens forbannelse
-Nesten all uveiledet læring bygger på **avstand**: punkter som er nære hverandre, hører sammen. Den vanligste er den euklidske avstanden $d(p, q) = \sqrt{\sum_i (p_i - q_i)^2}$, som er `np.linalg.norm(p - q)`.
+`np.linalg.norm(p - q)` gir den euklidske avstanden, og `np.linalg.norm(X - p, axis=1)` gir avstanden fra `p` til hver rad i `X`.
 
-```python
+::: oppgave Avstand mellom to punkter
+Regn ut den euklidske avstanden mellom `p` og `q`, og lagre den i `d`.
+```start
 import numpy as np
 
 p = np.array([1.0, 2.0])
 q = np.array([4.0, 6.0])
-print(np.linalg.norm(p - q))            # sqrt(3² + 4²) = 5
-
-# Avstand fra ett punkt til mange punkter på en gang
-X = np.array([[0, 0], [1, 1], [4, 6], [10, 0]])
-print(np.linalg.norm(X - p, axis=1))
+d = ...
 ```
-
-Med broadcasting (leksjon 2.5) får vi **alle parvise avstander** i én linje. `X[:, None, :] - X[None, :, :]` har shape `(n, n, d)`, og normen langs siste akse gir en `(n, n)`-matrise. `scipy.spatial.distance.cdist` gjør det samme.
-
-```python
+```losning
 import numpy as np
-from scipy.spatial.distance import cdist
 
-X = np.array([[0, 0], [3, 4], [6, 8]])
-D = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
-display(D)                                # avstandsmatrisen som rutenett
-print(np.allclose(D, cdist(X, X)))
+p = np.array([1.0, 2.0])
+q = np.array([4.0, 6.0])
+d = np.linalg.norm(p - q)
 ```
-
-`D[i, j]` er avstanden fra punkt `i` til punkt `j`. Diagonalen er 0 (avstand til seg selv), og matrisen er symmetrisk, fordi `D[i, j] == D[j, i]`.
-
-## Avstander konsentrerer seg i høye dimensjoner
-Notatene trekker to tilfeldige punkter i enhetskuben $[0, 1]^d$ og måler avstanden mellom dem, mange ganger, for økende $d$. Notatenes `get_cube_dist(dim)` gjør ett trekk om gangen med en Python-løkke. Med numpy trekker vi alle på en gang:
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-
-rng = np.random.default_rng(0)
-
-def get_cube_dists(dim, n_iter=200):
-    P1 = rng.uniform(size=(n_iter, dim))
-    P2 = rng.uniform(size=(n_iter, dim))
-    return np.linalg.norm(P1 - P2, axis=1)
-
-dims = [2, 3, 10, 100, 1000, 10000]
-fig, axs = plt.subplots(2, 3, figsize=(11, 5))
-for ax, dim in zip(axs.flat, dims):
-    dists = get_cube_dists(dim)
-    ax.hist(dists, bins=20, label=f"d={dim}")
-    ax.set_xlim(left=0)
-    ax.legend()
-    print(f"d={dim:5d}: snitt {dists.mean():6.2f}, std {dists.std():.2f}, std/snitt {dists.std() / dists.mean():.3f}")
-plt.tight_layout()
-plt.show()
+```test
+assert d is not ..., "Sett d."
+assert abs(float(d) - 5.0) < 1e-9, f"Avstanden skal være sqrt(3² + 4²) = 5, fikk {d}."
 ```
-
-Snittet vokser (som $\sqrt{d/6}$), men spredningen gjør det ikke. **Relativt** sett blir alle avstander nesten like: i 10 000 dimensjoner er «nærmeste» og «fjerneste» punkt nesten like langt unna. Det kalles *concentration of distances*, og er grunnen til at k-means og DBSCAN sliter i høye dimensjoner. Flere datapunkter hjelper ikke. Løsningen er å redusere dimensjonen først (PCA, leksjon 10.7).
-
-::: advarsel Skalering betyr noe for avstander
-Trær bryr seg ikke om skala (leksjon 8.1), men avstander gjør det. Måles én feature i kroner og en annen i år, dominerer kronene avstanden fullstendig. Kjør derfor `StandardScaler` før k-means, DBSCAN og PCA når featurene har ulike enheter.
 :::
 
+::: oppgave Nærmeste punkt
+Lagre avstanden fra `p` til hver rad i `X` i `dists` (shape `(5,)`), og indeksen til raden som ligger nærmest i `naermeste`.
+```start
+import numpy as np
+
+p = np.array([1.0, 2.0])
+X = np.array([[0, 0], [1, 1], [4, 6], [10, 0], [2, 3]])
+dists = ...
+naermeste = ...
+```
+```losning
+import numpy as np
+
+p = np.array([1.0, 2.0])
+X = np.array([[0, 0], [1, 1], [4, 6], [10, 0], [2, 3]])
+dists = np.linalg.norm(X - p, axis=1)
+naermeste = np.argmin(dists)
+```
+```test
+import numpy as np
+assert np.asarray(dists).shape == (5,), f"dists skal ha én avstand per rad, shape (5,), fikk {np.asarray(dists).shape}. Bruk axis=1."
+assert np.allclose(dists, [np.sqrt(5), 1, 5, np.sqrt(85), np.sqrt(2)]), "Feil avstander. Trekk p fra hver rad og ta normen langs axis=1."
+assert naermeste == 1, f"Rad 1 ligger nærmest (avstand 1), fikk {naermeste}. Bruk np.argmin."
+```
+:::
+
+::: oppgave Avstandsmatrise med broadcasting
+Lag `D` med shape `(5, 3)` der `D[i, j]` er avstanden fra `X[i]` til `C[j]`, med `X[:, None, :] - C[None, :, :]` og normen langs siste akse (eller `cdist`).
+```start
+import numpy as np
+
+X = np.array([[0, 0], [3, 4], [6, 8], [1, 0], [0, 2]], dtype=float)
+C = np.array([[0, 0], [6, 8], [3, 0]], dtype=float)
+D = ...
+```
+```losning
+import numpy as np
+
+X = np.array([[0, 0], [3, 4], [6, 8], [1, 0], [0, 2]], dtype=float)
+C = np.array([[0, 0], [6, 8], [3, 0]], dtype=float)
+D = np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2)
+```
+```test
+import numpy as np
+from scipy.spatial.distance import cdist
+assert np.asarray(D).shape == (5, 3), f"D skal ha shape (5, 3), fikk {np.asarray(D).shape}. Normen skal tas langs axis=2."
+assert np.allclose(D, cdist(X, C)), "D[i, j] skal være avstanden fra X[i] til C[j]."
+```
+:::
+
+## Avstander konsentrerer seg i høye dimensjoner
+`d2.std() / d2.mean()` måler hvor ulike avstandene er, og i høye dimensjoner blir den nær 0, så «nær» og «fjern» nesten er like.
+
 ::: oppgave Relativ spredning
-Bruk funksjonen `get_cube_dists` (gitt) til å trekke avstander for `dim = 2` og `dim = 1000`. Lagre `std / mean` for hver i `rel_2` og `rel_1000`.
+Bruk `get_cube_dists` (gitt) for `dim = 2` og `dim = 1000`, og lagre `std / mean` for hver i `rel_2` og `rel_1000`.
 ```start
 import numpy as np
 
@@ -99,143 +116,50 @@ assert rel_1000 < 0.05, f"For d=1000 bør std/snitt være liten (rundt 0.02), fi
 ```
 :::
 
-::: quiz
-Hva skjer med avstanden mellom tilfeldige punkter i $[0,1]^d$ når $d$ blir stor?
-- [ ] Både snitt og spredning går mot null
-- [x] Snittet vokser, men spredningen relativt til snittet krymper, så alle avstander blir omtrent like
-- [ ] Avstandene blir mer spredt, så klynger blir lettere å se
-- [ ] Ingenting, avstand er uavhengig av dimensjon
-? Snittet går som $\sqrt{d/6}$ mens standardavviket holder seg nesten konstant. Da blir forskjellen mellom nær og fjern liten, og avstandsbaserte metoder mister kraft.
-:::
+::: oppgave Skaler før du måler avstand
+`X` har inntekt i kroner og alder i år. Finn indeksen til nærmeste nabo til rad 0 uten skalering (`nn_uten`) og etter `StandardScaler` (`nn_med`), og se at kronene bestemmer alt uten skalering.
+```start
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
-::: quiz
-Hva er shape på `D`?
-```kode
-X = np.random.rand(50, 3)
-C = np.random.rand(4, 3)
-D = np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2)
+rng = np.random.default_rng(0)
+X = np.column_stack([rng.normal(500000, 50000, 50), rng.uniform(20, 70, 50)])
+
+nn_uten = ...
+nn_med = ...
 ```
-- [ ] `(50, 3)`
-- [ ] `(4, 50)`
-- [x] `(50, 4)`
-- [ ] `(50, 4, 3)`
-? Differansen har shape `(50, 4, 3)`. Normen langs `axis=2` fjerner den siste aksen, så vi får avstanden fra hvert av de 50 punktene til hvert av de 4 sentrene.
-:::
+```losning
+import numpy as np
+from sklearn.preprocessing import StandardScaler
 
-::: oppsummering
-- Euklidsk avstand: `np.linalg.norm(p - q)`. Mange på en gang: `np.linalg.norm(X - p, axis=1)`.
-- Alle parvise avstander: `np.linalg.norm(X[:, None, :] - Y[None, :, :], axis=2)` eller `cdist(X, Y)`.
-- I høye dimensjoner blir alle avstander nesten like (concentration of distances). Flere data hjelper ikke, dimensjonsreduksjon gjør.
-- Avstandsbaserte metoder krever skalerte features.
+rng = np.random.default_rng(0)
+X = np.column_stack([rng.normal(500000, 50000, 50), rng.uniform(20, 70, 50)])
+
+d = np.linalg.norm(X - X[0], axis=1)
+d[0] = np.inf
+nn_uten = np.argmin(d)
+Xs = StandardScaler().fit_transform(X)
+ds = np.linalg.norm(Xs - Xs[0], axis=1)
+ds[0] = np.inf
+nn_med = np.argmin(ds)
+```
+```test
+assert nn_uten is not ... and nn_med is not ..., "Sett både nn_uten og nn_med."
+assert nn_uten != 0 and nn_med != 0, "Rad 0 er nærmest seg selv. Hopp over den, f.eks. ved å sette d[0] = np.inf."
+assert nn_uten == 3, f"Uten skalering skal nærmeste nabo være rad 3, fikk {nn_uten}."
+assert nn_med == 35, f"Med StandardScaler skal nærmeste nabo være rad 35, fikk {nn_med}. Skalerte du hele X før du målte avstand?"
+```
 :::
 
 --- LEKSJON 10.2 | kmeans-for-hand | K-means for hånd
-**K-means** deler dataene i $k$ klynger. Hver klynge har et sentrum, en **sentroide**. Algoritmen fra notatene:
+K-means gjentar to steg til sentroidene står stille: gi hvert punkt label til nærmeste sentroide (`np.argmin(D, axis=1)`), og flytt hver sentroide til snittet av punktene sine (`X[labels == j].mean(axis=0)`).
 
-1. Velg $k$ og plasser $k$ sentroider (for eksempel på $k$ tilfeldige datapunkter).
-2. **Tilordning:** gi hvert punkt label til nærmeste sentroide.
-3. **Oppdatering:** flytt hver sentroide til snittet (`np.mean`) av punktene i klyngen.
-4. Gjenta 2 og 3 til sentroidene ikke endrer seg.
-
-Vi bygger det steg for steg med numpy. Først ett steg:
-
-```python
-import numpy as np
-from sklearn.datasets import make_blobs
-
-X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
-k = 3
-rng = np.random.default_rng(1)
-C = X[rng.choice(len(X), size=k, replace=False)]      # steg 1: k tilfeldige punkter
-
-D = np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2)  # shape (300, 3)
-print("Avstand fra de 5 første punktene til hver sentroide:")
-display(D[:5])
-labels = np.argmin(D, axis=1)                               # steg 2: nærmeste sentroide
-print("Klyngestørrelser:", np.bincount(labels, minlength=k))
-
-C_ny = np.array([X[labels == j].mean(axis=0) for j in range(k)])  # steg 3: snitt per klynge
-print("Gamle sentroider:\n", C.round(2))
-print("Nye sentroider:\n", C_ny.round(2))
-
-# steg 2 en gang til, nå med de nye sentroidene
-labels_ny = np.argmin(np.linalg.norm(X[:, None, :] - C_ny[None, :, :], axis=2), axis=1)
-print("Labels for de 20 første punktene, før og etter én iterasjon:")
-display(labels[:20])
-display(labels_ny[:20])
-print("Punkter som byttet klynge:", np.sum(labels != labels_ny))
-```
-
-I hver rad av `D` er det den minste avstanden som bestemmer labelen. Sammenlign de to label-radene: når sentroidene flytter seg, bytter noen punkter klynge. K-means gjentar dette til ingen punkter bytter lenger.
-
-Så hele algoritmen som en funksjon, med en løkke som stopper når sentroidene står stille:
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_blobs
-
-def kmeans(X, k, seed=0, maks_iter=100):
-    rng = np.random.default_rng(seed)
-    C = X[rng.choice(len(X), size=k, replace=False)]
-    for it in range(maks_iter):
-        D = np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2)
-        labels = np.argmin(D, axis=1)
-        C_ny = np.array([X[labels == j].mean(axis=0) for j in range(k)])
-        if np.allclose(C_ny, C):
-            break
-        C = C_ny
-    inertia = np.sum((X - C[labels])**2)
-    return labels, C, inertia, it + 1
-
-X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
-labels, C, inertia, n_iter = kmeans(X, k=3)
-print(f"Ferdig etter {n_iter} iterasjoner, inertia {inertia:.1f}")
-
-plt.scatter(X[:, 0], X[:, 1], c=labels, s=10, cmap="viridis")
-plt.scatter(C[:, 0], C[:, 1], c="red", marker="X", s=200)
-plt.show()
-```
-
-`C[labels]` er et smart triks: det gir sentroiden til hvert punkt, med samme shape som `X`. Da er **inertia** (summen av kvadrerte avstander til egen sentroide) bare én linje. Det er denne størrelsen k-means minimerer.
-
-## Initialiseringen betyr noe
-K-means finner et *lokalt* minimum. Med uheldige startpunkter kan to sentroider havne i samme klynge. Prøv flere seeds:
-
-```python
-import numpy as np
-from sklearn.datasets import make_blobs
-
-def kmeans(X, k, seed=0, maks_iter=100):
-    rng = np.random.default_rng(seed)
-    C = X[rng.choice(len(X), size=k, replace=False)]
-    for it in range(maks_iter):
-        labels = np.argmin(np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2), axis=1)
-        C_ny = np.array([X[labels == j].mean(axis=0) for j in range(k)])
-        if np.allclose(C_ny, C):
-            break
-        C = C_ny
-    return labels, C, np.sum((X - C[labels])**2)
-
-X, _ = make_blobs(n_samples=500, centers=6, cluster_std=0.6, random_state=4)
-for seed in range(8):
-    _, _, inertia = kmeans(X, k=6, seed=seed)
-    print(f"seed {seed}: inertia {inertia:8.1f}")
-```
-
-Noen seeds gir tydelig høyere inertia: de har satt seg fast i en dårlig løsning. Derfor kjører sklearn k-means flere ganger (`n_init`) og beholder den beste, og bruker den smartere startmetoden **k-means++**: neste sentroide trekkes med sannsynlighet proporsjonal med kvadrert avstand til nærmeste sentroide som allerede er valgt.
-
-::: oppgave Tilordning og oppdatering
-Skriv de to stegene i k-means som funksjoner:
-- `tilordne(X, C)` returnerer et heltallsarray med indeksen til nærmeste sentroide for hvert punkt (shape `(n,)`).
-- `oppdater(X, labels, k)` returnerer et array med shape `(k, d)` der rad `j` er snittet av punktene med label `j`.
+::: oppgave Tilordning
+Skriv `tilordne(X, C)` som returnerer indeksen til nærmeste sentroide for hvert punkt (shape `(n,)`).
 ```start
 import numpy as np
 
 def tilordne(X, C):
-    ...
-
-def oppdater(X, labels, k):
     ...
 ```
 ```losning
@@ -244,9 +168,6 @@ import numpy as np
 def tilordne(X, C):
     D = np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2)
     return np.argmin(D, axis=1)
-
-def oppdater(X, labels, k):
-    return np.array([X[labels == j].mean(axis=0) for j in range(k)])
 ```
 ```test
 import numpy as np
@@ -254,223 +175,414 @@ X_ = np.array([[0.0, 0.0], [0.0, 1.0], [10.0, 10.0], [10.0, 11.0], [5.0, 0.0]])
 C_ = np.array([[0.0, 0.0], [10.0, 10.0]])
 lab = tilordne(X_, C_)
 assert lab is not None, "tilordne må returnere noe."
-assert np.asarray(lab).shape == (5,), f"tilordne skal returnere shape (5,), fikk {np.asarray(lab).shape}. Bruk argmin langs riktig akse."
-assert list(lab) == [0, 0, 1, 1, 0], f"Feil tilordning: {list(lab)}. Hvert punkt skal få indeksen til nærmeste sentroide."
+assert np.asarray(lab).shape == (5,), f"tilordne skal returnere shape (5,), fikk {np.asarray(lab).shape}. Bruk argmin langs axis=1."
+assert list(lab) == [0, 0, 1, 1, 0], f"Feil tilordning: {list(lab)}. Hvert punkt skal få indeksen (argmin, ikke min) til nærmeste sentroide."
+```
+:::
+
+::: oppgave Oppdatering
+Skriv `oppdater(X, labels, k)` som returnerer et array med shape `(k, d)` der rad `j` er snittet av punktene med label `j`.
+```start
+import numpy as np
+
+def oppdater(X, labels, k):
+    ...
+```
+```losning
+import numpy as np
+
+def oppdater(X, labels, k):
+    return np.array([X[labels == j].mean(axis=0) for j in range(k)])
+```
+```test
+import numpy as np
+X_ = np.array([[0.0, 0.0], [0.0, 1.0], [10.0, 10.0], [10.0, 11.0], [5.0, 0.0]])
 C2 = oppdater(X_, np.array([0, 0, 1, 1, 0]), 2)
 assert C2 is not None and np.asarray(C2).shape == (2, 2), "oppdater skal returnere shape (k, d) = (2, 2)."
 assert np.allclose(C2, [[5/3, 1/3], [10.0, 10.5]]), "Hver rad skal være snittet av punktene i klyngen (mean med axis=0)."
 ```
 :::
 
-::: quiz
-Hva gjør linjen under i k-means?
-```kode
-labels = np.argmin(D, axis=1)
+::: oppgave Inertia
+`C[labels]` gir sentroiden til hvert punkt. Regn ut `inertia`, summen av kvadrerte avstander fra hvert punkt til sin egen sentroide.
+```start
+import numpy as np
+
+X = np.array([[0.0, 0.0], [0.0, 2.0], [10.0, 10.0], [12.0, 10.0]])
+C = np.array([[0.0, 1.0], [11.0, 10.0]])
+labels = np.array([0, 0, 1, 1])
+inertia = ...
 ```
-der `D` har shape `(n, k)` og `D[i, j]` er avstanden fra punkt `i` til sentroide `j`.
-- [ ] Finner punktet som ligger nærmest hver sentroide
-- [x] Gir hvert punkt indeksen til sentroiden som ligger nærmest
-- [ ] Finner den minste avstanden for hvert punkt
-- [ ] Flytter sentroidene til snittet av klyngen
-? `argmin` langs `axis=1` går over kolonnene (sentroidene) for hver rad (punkt), og returnerer *indeksen*, ikke selve avstanden (det ville vært `np.min`).
+```losning
+import numpy as np
+
+X = np.array([[0.0, 0.0], [0.0, 2.0], [10.0, 10.0], [12.0, 10.0]])
+C = np.array([[0.0, 1.0], [11.0, 10.0]])
+labels = np.array([0, 0, 1, 1])
+inertia = np.sum((X - C[labels])**2)
+```
+```test
+assert inertia is not ..., "Sett inertia."
+assert abs(float(inertia) - 4.0) < 1e-9, f"Hvert punkt ligger 1 unna sin sentroide, så inertia skal være 4, fikk {inertia}. Husk å kvadrere."
+```
 :::
 
-::: oppsummering
-- K-means: plasser sentroider, tilordne til nærmeste (`argmin` over avstander), oppdater til snittet, gjenta til ingen endring.
-- `C[labels]` gir hvert punkts sentroide. Inertia = `np.sum((X - C[labels])**2)`, det k-means minimerer.
-- Resultatet avhenger av startpunktene. Løsning: flere kjøringer (`n_init`) og k-means++.
+::: oppgave Hele algoritmen
+Skriv `kmeans(X, k, seed=0, maks_iter=100)` som starter i `k` tilfeldige punkter (`rng.choice(len(X), size=k, replace=False)`), gjentar tilordne/oppdater til `np.allclose(C_ny, C)`, og returnerer `labels, C`.
+```start
+import numpy as np
+from sklearn.datasets import make_blobs
+
+def tilordne(X, C):
+    return np.argmin(np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2), axis=1)
+
+def oppdater(X, labels, k):
+    return np.array([X[labels == j].mean(axis=0) for j in range(k)])
+
+def kmeans(X, k, seed=0, maks_iter=100):
+    rng = np.random.default_rng(seed)
+    ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+
+def tilordne(X, C):
+    return np.argmin(np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2), axis=1)
+
+def oppdater(X, labels, k):
+    return np.array([X[labels == j].mean(axis=0) for j in range(k)])
+
+def kmeans(X, k, seed=0, maks_iter=100):
+    rng = np.random.default_rng(seed)
+    C = X[rng.choice(len(X), size=k, replace=False)]
+    for _ in range(maks_iter):
+        labels = tilordne(X, C)
+        C_ny = oppdater(X, labels, k)
+        if np.allclose(C_ny, C):
+            break
+        C = C_ny
+    return labels, C
+```
+```test
+import numpy as np
+from sklearn.datasets import make_blobs
+X_, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+res = kmeans(X_, 3)
+assert res is not None and len(res) == 2, "kmeans skal returnere labels, C."
+lab, C_ = res
+assert np.asarray(lab).shape == (300,) and np.asarray(C_).shape == (3, 2), "labels skal ha shape (300,) og C shape (3, 2)."
+assert np.allclose(C_, oppdater(X_, np.asarray(lab), 3)), "Sentroidene er ikke snittet av klyngene sine. Kjører løkka til C slutter å endre seg?"
+assert np.array_equal(lab, tilordne(X_, C_)), "labels stemmer ikke med nærmeste sentroide i den endelige C."
+```
+:::
+
+## Initialiseringen betyr noe
+K-means finner bare et lokalt minimum, så sklearn kjører flere ganger (`n_init`) med k-means++-start og beholder lavest inertia.
+
+::: oppgave Prøv flere seeds
+Kjør `kmeans` (gitt) med `k=6` for `seed = 0, 1, ..., 7`, lagre inertiaen for hver i listen `inertias`, og seeden med lavest inertia i `beste_seed`.
+```start
+import numpy as np
+from sklearn.datasets import make_blobs
+
+def kmeans(X, k, seed=0, maks_iter=100):
+    rng = np.random.default_rng(seed)
+    C = X[rng.choice(len(X), size=k, replace=False)]
+    for _ in range(maks_iter):
+        labels = np.argmin(np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2), axis=1)
+        C_ny = np.array([X[labels == j].mean(axis=0) for j in range(k)])
+        if np.allclose(C_ny, C):
+            break
+        C = C_ny
+    return labels, C
+
+X, _ = make_blobs(n_samples=500, centers=6, cluster_std=0.6, random_state=4)
+inertias = ...
+beste_seed = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+
+def kmeans(X, k, seed=0, maks_iter=100):
+    rng = np.random.default_rng(seed)
+    C = X[rng.choice(len(X), size=k, replace=False)]
+    for _ in range(maks_iter):
+        labels = np.argmin(np.linalg.norm(X[:, None, :] - C[None, :, :], axis=2), axis=1)
+        C_ny = np.array([X[labels == j].mean(axis=0) for j in range(k)])
+        if np.allclose(C_ny, C):
+            break
+        C = C_ny
+    return labels, C
+
+X, _ = make_blobs(n_samples=500, centers=6, cluster_std=0.6, random_state=4)
+inertias = []
+for seed in range(8):
+    labels, C = kmeans(X, 6, seed=seed)
+    inertias.append(np.sum((X - C[labels])**2))
+beste_seed = int(np.argmin(inertias))
+```
+```test
+import numpy as np
+assert isinstance(inertias, list) and len(inertias) == 8, "inertias skal være en liste med 8 tall (seed 0 til 7)."
+fasit = []
+for s in range(8):
+    l_, C_ = kmeans(X, 6, seed=s)
+    fasit.append(np.sum((X - C_[l_])**2))
+assert np.allclose(inertias, fasit), "Inertia for hver seed skal være np.sum((X - C[labels])**2)."
+assert beste_seed == int(np.argmin(fasit)), f"beste_seed skal være seeden med lavest inertia, altså {int(np.argmin(fasit))}."
+```
 :::
 
 --- LEKSJON 10.3 | kmeans-sklearn | KMeans i sklearn
-I praksis bruker vi `KMeans`. `n_init=10` kjører algoritmen ti ganger med ulike startpunkter og beholder den med lavest inertia. Standard initialisering er `"k-means++"`.
+`km = KMeans(n_clusters=3, n_init=10, random_state=0)` og `km.fit_predict(X)` gir labels, og etterpå finnes `km.labels_`, `km.cluster_centers_` og `km.inertia_`.
 
-```python
-import numpy as np
+::: oppgave Tilpass KMeans
+Tilpass `km` som over på `X`, og lagre labelene i `labels`, sentroidene i `sentroider` og inertiaen i `inertia`.
+```start
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+km = ...
+labels = ...
+sentroider = ...
+inertia = ...
+```
+```losning
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 
 X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
 km = KMeans(n_clusters=3, n_init=10, random_state=0)
 labels = km.fit_predict(X)
-
-print("Første labels:", labels[:10])
-print("Samme som labels_:", np.array_equal(labels, km.labels_))
-print("Sentroider:\n", km.cluster_centers_.round(2))
-print("Inertia:", round(km.inertia_, 1))
-
-nye = np.array([[0, 4], [2, 0]])
-print("Nye punkter havner i klynge:", km.predict(nye))
-print("Avstand til hver sentroide:\n", km.transform(nye).round(2))
+sentroider = km.cluster_centers_
+inertia = km.inertia_
 ```
-
-Under `km` i variabelpanelet ser du det modellen lærte: `labels_`, `cluster_centers_`, `inertia_` og `n_iter_`.
-
-- `fit_predict(X)` = `fit(X)` og så `labels_`.
-- `cluster_centers_`: sentroidene, shape `(k, d)`.
-- `inertia_`: summen av kvadrerte avstander til egen sentroide.
-- `predict(X_ny)`: nærmeste sentroide for nye punkter. `transform(X_ny)`: avstand til alle sentroidene (brukes til anomalideteksjon i leksjon 10.9).
-
-::: husk Labels er bare navn
-Klynge 0, 1 og 2 har ingen bestemt rekkefølge. Kjører du med en annen `random_state`, kan klyngen som het 0 nå hete 2. Derfor kan vi ikke sammenligne klyngelabels direkte med sanne labels (se leksjon 10.10).
-:::
-
-## Albuemetoden
-Inertia faller **alltid** når $k$ øker (med $k = n$ er den 0). Vi kan derfor ikke velge $k$ med lavest inertia. I stedet ser vi etter en **albue**: punktet der kurven slutter å falle bratt.
-
-```python
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-
-X, _ = make_blobs(n_samples=500, centers=4, random_state=3)
-ks = range(1, 10)
-inertias = [KMeans(n_clusters=k, n_init=10, random_state=0).fit(X).inertia_ for k in ks]
-
-plt.plot(ks, inertias, "o-")
-plt.xlabel("k")
-plt.ylabel("inertia")
-plt.title("Albuemetoden")
-plt.show()
-```
-
-Albuen er ofte uklar. Silhouette (neste leksjon) gir et tall vi kan maksimere.
-
-## Skaler først
-Her har den ene featuren mye større skala. Uten skalering deler k-means bare langs den aksen:
-
-```python
+```test
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-
-X, y = make_blobs(n_samples=300, centers=[[0, 0], [0, 5]], random_state=0)
-X[:, 0] = X[:, 0] * 100          # feature 0 i en "større enhet"
-
-uten = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(X)
-med = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(StandardScaler().fit_transform(X))
-
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-ax[0].scatter(X[:, 0], X[:, 1], c=uten, s=10)
-ax[0].set_title("Uten skalering")
-ax[1].scatter(X[:, 0], X[:, 1], c=med, s=10)
-ax[1].set_title("Med StandardScaler")
-plt.show()
+f = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X)
+assert labels is not ... and np.array_equal(labels, f.labels_), "labels skal komme fra km.fit_predict(X)."
+assert np.asarray(sentroider).shape == (3, 2), "sentroider skal være km.cluster_centers_, shape (3, 2)."
+assert np.allclose(sentroider, f.cluster_centers_), "sentroider stemmer ikke med cluster_centers_."
+assert inertia is not ... and np.isclose(inertia, f.inertia_), "inertia skal være km.inertia_."
 ```
-
-::: tips
-For store datasett finnes `MiniBatchKMeans`, som notatene anbefaler. Den oppdaterer sentroidene fra små tilfeldige utvalg i stedet for alle punktene hver gang, akkurat som mini-batch gradient descent.
 :::
 
-::: oppgave Albuekurven
-Lag listen `inertias` med `inertia_` for `KMeans(n_clusters=k, n_init=10, random_state=0)` for `k = 1, 2, ..., 8` på `X`.
+::: oppgave predict og transform
+`km.predict(nye)` gir nærmeste klynge og `km.transform(nye)` avstanden til alle sentroidene. Lagre dem i `klynger_nye` og `avst`, og avstanden til nærmeste sentroide i `naermeste_avst`.
+```start
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+km = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X)
+nye = np.array([[0, 4], [2, 0], [-1, 3]])
+
+klynger_nye = ...
+avst = ...
+naermeste_avst = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+km = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X)
+nye = np.array([[0, 4], [2, 0], [-1, 3]])
+
+klynger_nye = km.predict(nye)
+avst = km.transform(nye)
+naermeste_avst = avst.min(axis=1)
+```
+```test
+import numpy as np
+assert klynger_nye is not ... and np.array_equal(klynger_nye, km.predict(nye)), "klynger_nye skal være km.predict(nye)."
+assert np.asarray(avst).shape == (3, 3), f"avst skal ha shape (antall punkter, antall sentroider) = (3, 3), fikk {np.asarray(avst).shape}."
+assert np.allclose(avst, km.transform(nye)), "avst skal være km.transform(nye)."
+assert np.asarray(naermeste_avst).shape == (3,) and np.allclose(naermeste_avst, avst.min(axis=1)), "naermeste_avst skal være minste avstand per rad: .min(axis=1)."
+```
+:::
+
+::: oppgave MiniBatchKMeans
+For store datasett har `MiniBatchKMeans` samme grensesnitt. Tilpass `mb = MiniBatchKMeans(n_clusters=3, n_init=3, random_state=0)` på `X` og lagre labelene i `labels_mb`.
 ```start
 from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
+from sklearn.cluster import MiniBatchKMeans
 
-X, _ = make_blobs(n_samples=400, centers=5, random_state=2)
-inertias = ...
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+mb = ...
+labels_mb = ...
 ```
 ```losning
 from sklearn.datasets import make_blobs
+from sklearn.cluster import MiniBatchKMeans
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+mb = MiniBatchKMeans(n_clusters=3, n_init=3, random_state=0)
+labels_mb = mb.fit_predict(X)
+```
+```test
+import numpy as np
+assert isinstance(mb, MiniBatchKMeans), "mb skal være en MiniBatchKMeans."
+assert hasattr(mb, "cluster_centers_") and mb.cluster_centers_.shape == (3, 2), "Husk å tilpasse mb på X (fit eller fit_predict)."
+assert labels_mb is not ... and len(labels_mb) == 300 and len(set(labels_mb)) == 3, "labels_mb skal ha én label per punkt, med 3 klynger."
+```
+:::
+
+## Albuemetoden
+Inertia synker alltid når `k` øker, så vi plotter `inertia_` mot `k` og ser etter knekken (albuen) i stedet for å ta lavest verdi.
+
+::: oppgave Albuekurven
+Lag listen `inertias` med `inertia_` for `KMeans(n_clusters=k, n_init=10, random_state=0)` for `k = 1, 2, ..., 8` på `X`, og plott den mot `k` på `ax`.
+```start
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 
 X, _ = make_blobs(n_samples=400, centers=5, random_state=2)
+fig, ax = plt.subplots()
+inertias = ...
+```
+```losning
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+
+X, _ = make_blobs(n_samples=400, centers=5, random_state=2)
+fig, ax = plt.subplots()
 inertias = []
 for k in range(1, 9):
     km = KMeans(n_clusters=k, n_init=10, random_state=0).fit(X)
     inertias.append(km.inertia_)
+ax.plot(range(1, 9), inertias, "o-")
 ```
 ```test
 import numpy as np
 assert isinstance(inertias, list), "inertias skal være en liste."
 assert len(inertias) == 8, f"Forventet 8 verdier (k = 1 til 8), fikk {len(inertias)}."
-assert all(a >= b for a, b in zip(inertias, inertias[1:])), "Inertia skal falle når k øker. Bruker du inertia_ (ikke score)?"
+assert all(a >= b for a, b in zip(inertias, inertias[1:])), "Inertia skal falle når k øker. Bruker du inertia_?"
 fasit1 = KMeans(n_clusters=1, n_init=10, random_state=0).fit(X).inertia_
 assert np.isclose(inertias[0], fasit1), "Første verdi skal være for k = 1. Start range på 1."
+assert len(ax.lines) >= 1, "Plott inertias mot k med ax.plot."
 ```
 :::
 
-::: quiz
-Hvorfor kan vi ikke velge $k$ ved å ta den $k$-en som gir lavest `inertia_`?
-- [ ] Fordi inertia bare kan regnes ut for $k = 2$
-- [x] Fordi inertia alltid synker når $k$ øker, og blir 0 når hvert punkt er sin egen klynge
-- [ ] Fordi inertia øker med $k$
-- [ ] Fordi inertia avhenger av `random_state`
-? Flere sentroider gir alltid kortere avstander. Derfor ser vi etter en albue, eller bruker silhouette.
-:::
+## Skaler først
+Avstander domineres av featuren med størst tall, så kjør `StandardScaler().fit_transform(X)` før k-means når featurene har ulike enheter.
 
-::: quiz
-Hva returnerer `km.transform(X_test)` for en fitted `KMeans(n_clusters=4)` og `X_test` med 10 rader?
-- [ ] Klyngelabelen til hvert punkt, shape `(10,)`
-- [ ] Sentroidene, shape `(4, d)`
-- [x] Avstanden fra hvert testpunkt til hver sentroide, shape `(10, 4)`
-- [ ] Testdataene skalert, shape `(10, d)`
-? `transform` gir avstander til alle sentroidene. `predict` gir labels. `.min(axis=1)` av `transform` gir avstanden til nærmeste sentroide.
-:::
+::: oppgave Med og uten skalering
+Feature 0 i `X` er ganget med 100. Lagre KMeans-labelene (`n_clusters=2, n_init=10, random_state=0`) på rå `X` i `uten` og på skalert `X` i `med`.
+```start
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
-::: oppsummering
-- `KMeans(n_clusters=k, n_init=10, random_state=0)`, så `fit_predict(X)`.
-- Attributter: `labels_`, `cluster_centers_`, `inertia_`. Metoder: `predict` (label), `transform` (avstander).
-- Klyngenumrene er vilkårlige.
-- Albuemetoden: plott `inertia_` mot $k$ og se etter knekken. Inertia synker alltid.
-- Skaler features før k-means.
+X, y = make_blobs(n_samples=300, centers=[[0, 0], [0, 5]], random_state=0)
+X[:, 0] = X[:, 0] * 100
+
+uten = ...
+med = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+X, y = make_blobs(n_samples=300, centers=[[0, 0], [0, 5]], random_state=0)
+X[:, 0] = X[:, 0] * 100
+
+uten = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(X)
+med = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(StandardScaler().fit_transform(X))
+```
+```test
+import numpy as np
+def enighet(a, b):
+    return max(np.mean(a == b), np.mean(a != b))
+assert uten is not ... and len(uten) == 300, "uten skal være én label per punkt fra KMeans på rå X."
+assert med is not ... and len(med) == 300, "med skal være én label per punkt fra KMeans på skalert X."
+assert enighet(uten, y) < 0.7, "uten skal være KMeans på X uten skalering."
+assert enighet(med, y) > 0.95, f"med bør finne de to klyngene ({enighet(med, y):.0%} enighet). Skalerte du X med StandardScaler først?"
+```
 :::
 
 --- LEKSJON 10.4 | silhouette | Silhouette og valg av k
-**Silhouette** måler for hvert punkt hvor godt det passer i sin klynge sammenlignet med nærmeste andre klynge:
+Silhouette for ett punkt er `s = (b - a) / max(a, b)`, der `a` er snittavstanden til egen klynge og `b` til nærmeste andre klynge. `silhouette_samples(X, labels)` gir `s` per punkt og `silhouette_score(X, labels)` snittet (nær 1 er bra, negativ betyr trolig feil klynge).
 
-$$s = \frac{b - a}{\max(a, b)}$$
-
-- $a$: snittavstand til de andre punktene i **egen** klynge.
-- $b$: snittavstand til punktene i **nærmeste andre** klynge.
-
-$s$ nær 1 er bra (godt inne i egen klynge), 0 betyr på grensen, negativ betyr trolig feil klynge. `silhouette_score` er snittet over alle punktene. La oss regne ut én verdi for hånd først:
-
-```python
+::: oppgave Silhouette for hånd
+Regn ut `a`, `b` og `s` for punktet `X[2]` (verdien 2), der den andre klyngen er punktene 10 og 11.
+```start
 import numpy as np
-from sklearn.metrics import silhouette_samples
 
 X = np.array([[0.0], [1.0], [2.0], [10.0], [11.0]])
 labels = np.array([0, 0, 0, 1, 1])
 
-i = 2                                      # punktet x = 2
-egen = X[(labels == 0)]
-a = np.mean(np.abs(egen[egen[:, 0] != X[i, 0]] - X[i]))   # snitt til 0 og 1
-b = np.mean(np.abs(X[labels == 1] - X[i]))                # snitt til 10 og 11
-s = (b - a) / max(a, b)
-print(f"a = {a}, b = {b}, s = {s:.3f}")
-print("sklearn:", silhouette_samples(X, labels)[i].round(3))
+a = ...
+b = ...
+s = ...
 ```
+```losning
+import numpy as np
+
+X = np.array([[0.0], [1.0], [2.0], [10.0], [11.0]])
+labels = np.array([0, 0, 0, 1, 1])
+
+a = np.mean([2 - 0, 2 - 1])
+b = np.mean([10 - 2, 11 - 2])
+s = (b - a) / max(a, b)
+```
+```test
+import numpy as np
+from sklearn.metrics import silhouette_samples
+assert a is not ... and abs(float(a) - 1.5) < 1e-9, f"a er snittavstanden til de ANDRE punktene i egen klynge (0 og 1), altså 1.5. Fikk {a}."
+assert b is not ... and abs(float(b) - 8.5) < 1e-9, f"b er snittavstanden til punktene i den andre klyngen (10 og 11), altså 8.5. Fikk {b}."
+assert s is not ... and abs(float(s) - silhouette_samples(X, labels)[2]) < 1e-9, "s skal være (b - a) / max(a, b)."
+```
+:::
+
+::: oppgave Finn feilplasserte punkter
+Tre punkter i `labels` er lagt i feil klynge. Lagre `silhouette_samples` i `s_alle`, `silhouette_score` i `score`, og indeksene med negativ silhouette i `feil_plassert`.
+```start
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.metrics import silhouette_samples, silhouette_score
+
+X, y = make_blobs(n_samples=60, centers=[[0, 0], [6, 0]], cluster_std=1.0, random_state=1)
+labels = y.copy()
+labels[[3, 10, 25]] = 1 - labels[[3, 10, 25]]
+
+s_alle = ...
+score = ...
+feil_plassert = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.metrics import silhouette_samples, silhouette_score
+
+X, y = make_blobs(n_samples=60, centers=[[0, 0], [6, 0]], cluster_std=1.0, random_state=1)
+labels = y.copy()
+labels[[3, 10, 25]] = 1 - labels[[3, 10, 25]]
+
+s_alle = silhouette_samples(X, labels)
+score = silhouette_score(X, labels)
+feil_plassert = np.where(s_alle < 0)[0]
+```
+```test
+import numpy as np
+assert np.asarray(s_alle).shape == (60,), "s_alle skal ha én verdi per punkt (silhouette_samples)."
+assert score is not ... and np.isclose(score, np.mean(s_alle)), "score skal være silhouette_score(X, labels), som er snittet av s_alle."
+assert feil_plassert is not ... and sorted(np.asarray(feil_plassert).tolist()) == [3, 10, 25], f"feil_plassert skal være indeksene der s < 0 (np.where), fikk {feil_plassert}."
+```
+:::
 
 ## Velg k med en tabell
-Slik som i prosjekt 3 lager vi en tabell med $k$, silhouette og klyngestørrelser. `np.bincount(labels)` teller hvor mange punkter hver klynge har. Ujevne størrelser kan avsløre at en klynge er delt i to, eller at to er slått sammen.
-
-```python
-import numpy as np
-import pandas as pd
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, calinski_harabasz_score
-
-X, _ = make_blobs(n_samples=500, centers=4, random_state=3)
-
-rows = []
-for k in range(2, 9):
-    lab = KMeans(n_clusters=k, n_init=10, random_state=0).fit_predict(X)
-    rows.append({"k": k,
-                 "silhouette": silhouette_score(X, lab),
-                 "calinski_harabasz": calinski_harabasz_score(X, lab),
-                 "sizes": np.sort(np.bincount(lab))[::-1].tolist()})
-pd.DataFrame(rows)
-```
-
-Silhouette er høyest for $k = 4$, som er riktig. Notatene nevner tre mål du bør kjenne: **inertia** (lav er bra, men synker alltid med $k$), **silhouette** (nær 1 er bra) og **Calinski-Harabasz** (høy er bra: stor avstand mellom klynger relativt til spredningen i dem).
-
-::: advarsel
-Silhouette bygger på avstander og favoriserer runde, kompakte klynger. For to halvmåner (neste leksjon) kan den feilaktig foretrekke en k-means-løsning som deler månene feil. Se alltid på dataene i 2D (PCA eller t-SNE) i tillegg.
-:::
+Prøv flere `k` og velg høyest `silhouette_score` eller `calinski_harabasz_score` (høy er bra), og sjekk klyngestørrelsene med `np.bincount(labels)`.
 
 ::: oppgave Finn beste k
 Prøv `k = 2, ..., 7` med `KMeans(n_clusters=k, n_init=10, random_state=0)` på `X`, og lagre den `k`-en med høyest `silhouette_score` i `beste_k` (et heltall).
@@ -501,128 +613,93 @@ assert beste_k == 3, f"Forventet at k = 3 gir høyest silhouette, fikk {beste_k}
 ```
 :::
 
-::: quiz
-Et punkt har snittavstand $a = 2$ til sin egen klynge og $b = 8$ til nærmeste andre klynge. Hva er silhouette-verdien?
-- [ ] 0.25
-- [x] 0.75
-- [ ] -0.75
-- [ ] 6
-? $s = (b - a)/\max(a, b) = (8 - 2)/8 = 0.75$. Punktet ligger godt inne i sin egen klynge.
-:::
+::: oppgave Tabell som i prosjekt 3
+Lag DataFrame-en `tabell` med én rad per `k = 2, ..., 6` og kolonnene `k`, `silhouette`, `calinski_harabasz` og `storste_klynge` (antall punkter i største klynge, `np.bincount(lab).max()`).
+```start
+import numpy as np
+import pandas as pd
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, calinski_harabasz_score
 
-::: quiz
-Hva betyr en silhouette-verdi nær $-1$ for et punkt?
-- [ ] Punktet er en perfekt klyngesentroide
-- [ ] Punktet ligger på grensen mellom to klynger
-- [x] Punktet ligger nærmere en annen klynge enn sin egen, og er trolig i feil klynge
-- [ ] Punktet er støy ifølge DBSCAN
-? Negativ $s$ betyr $b < a$: nabo-klyngen er nærmere enn egen klynge. 0 er på grensen, nær 1 er godt plassert.
-:::
+X, _ = make_blobs(n_samples=500, centers=4, random_state=3)
+tabell = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, calinski_harabasz_score
 
-::: oppsummering
-- Silhouette $s = (b - a)/\max(a, b)$ per punkt. `silhouette_score(X, labels)` er snittet. Nær 1 bra, 0 grense, negativ feil.
-- Velg $k$ med høyest silhouette, men sjekk også klyngestørrelser med `np.bincount(labels)` og se på et 2D-plott.
-- `calinski_harabasz_score`: høy er bra. Inertia: lav er bra, men synker alltid med $k$.
+X, _ = make_blobs(n_samples=500, centers=4, random_state=3)
+rows = []
+for k in range(2, 7):
+    lab = KMeans(n_clusters=k, n_init=10, random_state=0).fit_predict(X)
+    rows.append({"k": k,
+                 "silhouette": silhouette_score(X, lab),
+                 "calinski_harabasz": calinski_harabasz_score(X, lab),
+                 "storste_klynge": np.bincount(lab).max()})
+tabell = pd.DataFrame(rows)
+```
+```test
+import numpy as np
+import pandas as pd
+assert isinstance(tabell, pd.DataFrame), "tabell skal være en DataFrame, f.eks. pd.DataFrame(rows)."
+for kol in ["k", "silhouette", "calinski_harabasz", "storste_klynge"]:
+    assert kol in tabell.columns, f"Mangler kolonnen {kol}."
+assert list(tabell["k"]) == [2, 3, 4, 5, 6], "k skal gå fra 2 til 6."
+lab4 = KMeans(n_clusters=4, n_init=10, random_state=0).fit_predict(X)
+rad = tabell[tabell["k"] == 4].iloc[0]
+assert np.isclose(rad["silhouette"], silhouette_score(X, lab4)), "Feil silhouette for k = 4."
+assert np.isclose(rad["calinski_harabasz"], calinski_harabasz_score(X, lab4)), "Feil calinski_harabasz for k = 4."
+assert rad["storste_klynge"] == np.bincount(lab4).max(), "storste_klynge skal være np.bincount(lab).max()."
+```
 :::
 
 --- LEKSJON 10.5 | dbscan | DBSCAN
-K-means antar runde klynger rundt et sentrum. **DBSCAN** definerer klynger som områder med høy **tetthet**, og kan derfor finne klynger med vilkårlig form. To hyperparametre:
+`DBSCAN(eps=0.2, min_samples=5).fit_predict(X)` lager klynger av tette områder (punkter med minst `min_samples` naboer innen `eps`), trenger ingen `k`, og finner vilkårlige former som k-means ikke klarer.
 
-- `eps` ($\epsilon$): radien som definerer naboskap.
-- `min_samples`: hvor mange naboer (punktet selv inkludert) et punkt må ha innen `eps` for å være et **kjernepunkt**.
-
-Punkter innen `eps` fra et kjernepunkt hører til klyngen (**kantpunkter**). Punkter som ikke når noe kjernepunkt er **støy** og får label **-1**. Du trenger ikke oppgi antall klynger.
-
-```python
-import numpy as np
+::: oppgave KMeans mot DBSCAN på halvmåner
+Lagre labelene fra `KMeans(n_clusters=2, n_init=10, random_state=0)` i `lab_km` og fra `DBSCAN(eps=0.2, min_samples=5)` i `lab_db`, og plott `X` farget med `lab_db` på `ax`.
+```start
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_moons
 from sklearn.cluster import KMeans, DBSCAN
 
 X, y = make_moons(n_samples=300, noise=0.05, random_state=0)
-km = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(X)
-db = DBSCAN(eps=0.2, min_samples=5).fit_predict(X)
-
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-ax[0].scatter(X[:, 0], X[:, 1], c=km, s=10)
-ax[0].set_title("KMeans, k=2")
-ax[1].scatter(X[:, 0], X[:, 1], c=db, s=10)
-ax[1].set_title("DBSCAN, eps=0.2")
-plt.show()
+fig, ax = plt.subplots()
+lab_km = ...
+lab_db = ...
 ```
-
-K-means deler med en rett linje, fordi hvert punkt går til nærmeste sentroide. DBSCAN følger tettheten langs hver måne.
-
-## Labels, støy og kjernepunkter
-```python
-import numpy as np
-from sklearn.datasets import make_moons
-from sklearn.cluster import DBSCAN
-
-X, _ = make_moons(n_samples=300, noise=0.08, random_state=0)
-X = np.vstack([X, [[2.5, 1.5], [-1.5, -1.0]]])      # to tydelige outliers
-
-db = DBSCAN(eps=0.2, min_samples=5).fit(X)
-labels = db.labels_
-n_klynger = len(set(labels)) - (1 if -1 in labels else 0)
-print("Klynger:", n_klynger)
-print("Støypunkter:", np.sum(labels == -1), "på indeks", np.where(labels == -1)[0])
-print("Antall kjernepunkter:", len(db.core_sample_indices_))
-```
-
-`set(labels)` gir de unike labelene. Vi trekker fra 1 hvis -1 er med, fordi støy ikke er en klynge. DBSCAN har **ingen** `predict`: den er ikke-parametrisk og må kjøres på alle dataene samtidig (`fit_predict`).
-
-## Velg eps med et k-distanse-plott
-For hvert punkt finner vi avstanden til den `min_samples`-te nærmeste naboen (punktet selv teller som den første), sorterer og plotter. Der kurven bøyer kraftig opp, går vi fra punkter inne i klynger til støy. Det er et godt valg av `eps`.
-
-```python
-import numpy as np
+```losning
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_moons
-from sklearn.neighbors import NearestNeighbors
+from sklearn.cluster import KMeans, DBSCAN
 
-X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
-min_samples = 5
-nn = NearestNeighbors(n_neighbors=min_samples).fit(X)
-distances, _ = nn.kneighbors(X)             # shape (300, 5), første kolonne er 0 (punktet selv)
-k_dist = np.sort(distances[:, -1])
-
-plt.plot(k_dist)
-plt.xlabel("punkter sortert")
-plt.ylabel(f"avstand til nabo nr. {min_samples}")
-plt.title("k-distanse-plott")
-plt.show()
+X, y = make_moons(n_samples=300, noise=0.05, random_state=0)
+fig, ax = plt.subplots()
+lab_km = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(X)
+lab_db = DBSCAN(eps=0.2, min_samples=5).fit_predict(X)
+ax.scatter(X[:, 0], X[:, 1], c=lab_db, s=10)
 ```
-
-## Følsom for eps og dimensjon
-DBSCAN er svært følsom for `eps`. For liten gir mange små klynger og mye støy, for stor slår alt sammen:
-
-```python
+```test
 import numpy as np
-from sklearn.datasets import make_moons
-from sklearn.cluster import DBSCAN
-
-X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
-for eps in [0.05, 0.1, 0.15, 0.2, 0.3, 0.5]:
-    lab = DBSCAN(eps=eps, min_samples=5).fit_predict(X)
-    print(f"eps={eps:4}: {len(set(lab) - {-1})} klynger, {np.sum(lab == -1):3d} støypunkter")
-
-# Samme data med ekstra støy-dimensjoner: avstandene vokser, og samme eps finner ingenting
-rng = np.random.default_rng(0)
-for ekstra in [0, 2, 8]:
-    Xe = np.hstack([X, rng.normal(0, 0.3, size=(300, ekstra))])
-    lab = DBSCAN(eps=0.2, min_samples=5).fit_predict(Xe)
-    print(f"{2 + ekstra:2d} dimensjoner: {len(set(lab) - {-1})} klynger, {np.sum(lab == -1)} støypunkter")
+def enighet(a, b):
+    return max(np.mean(a == b), np.mean(a != b))
+assert lab_km is not ... and len(lab_km) == 300, "lab_km skal være én label per punkt."
+assert lab_db is not ... and len(lab_db) == 300, "lab_db skal være én label per punkt."
+assert enighet(lab_km, y) < 0.9, "lab_km skal komme fra KMeans, som deler månene med en rett linje."
+assert enighet(lab_db, y) > 0.99, "lab_db skal komme fra DBSCAN(eps=0.2, min_samples=5) og følge månene."
+assert len(ax.collections) >= 1, "Plott X med ax.scatter og c=lab_db."
 ```
-
-Med flere dimensjoner blir alle avstander større og likere (leksjon 10.1), så `eps` må endres, og til slutt finnes det ingen god verdi. Derfor kjører vi ofte DBSCAN på noen få PCA-komponenter. Et annet svakt punkt: `eps` er **global**, så klynger med ulik tetthet er vanskelige.
-
-::: prosjekt Prosjekt 3, problem 2
-I prosjektet ble KMeans og DBSCAN sammenlignet. DBSCAN delte dataene i titalls klynger med hundrevis av støypunkter på 20 PCA-komponenter, men fungerte bedre på 5. Det er akkurat følsomheten for `eps` og dimensjon vist over.
 :::
 
-::: oppgave Tell klynger og støy
-Kjør `DBSCAN(eps=0.3, min_samples=5)` på `X`. Lagre labelene i `labels`, antall klynger (uten støy) i `n_klynger` og antall støypunkter i `n_stoy`.
+## Labels, støy og kjernepunkter
+Label `-1` er støy, `len(set(labels) - {-1})` gir antall klynger, og `db.core_sample_indices_` gir kjernepunktene; DBSCAN har ingen `predict`, så bruk `fit`/`fit_predict` på alle dataene.
+
+::: oppgave Tell klynger, støy og kjernepunkter
+Tilpass `db = DBSCAN(eps=0.3, min_samples=5).fit(X)`, og lagre `labels`, antall klynger uten støy i `n_klynger`, antall støypunkter i `n_stoy` og antall kjernepunkter i `n_kjerne`.
 ```start
 import numpy as np
 from sklearn.datasets import make_blobs
@@ -632,9 +709,11 @@ X, _ = make_blobs(n_samples=300, centers=3, cluster_std=0.3, random_state=5)
 rng = np.random.default_rng(0)
 X = np.vstack([X, rng.uniform(-12, 12, size=(15, 2))])
 
+db = ...
 labels = ...
 n_klynger = ...
 n_stoy = ...
+n_kjerne = ...
 ```
 ```losning
 import numpy as np
@@ -645,127 +724,179 @@ X, _ = make_blobs(n_samples=300, centers=3, cluster_std=0.3, random_state=5)
 rng = np.random.default_rng(0)
 X = np.vstack([X, rng.uniform(-12, 12, size=(15, 2))])
 
-labels = DBSCAN(eps=0.3, min_samples=5).fit_predict(X)
-n_klynger = len(set(labels)) - (1 if -1 in labels else 0)
+db = DBSCAN(eps=0.3, min_samples=5).fit(X)
+labels = db.labels_
+n_klynger = len(set(labels) - {-1})
 n_stoy = int(np.sum(labels == -1))
+n_kjerne = len(db.core_sample_indices_)
 ```
 ```test
 import numpy as np
 from sklearn.cluster import DBSCAN
-fasit = DBSCAN(eps=0.3, min_samples=5).fit_predict(X)
-assert labels is not ... and np.array_equal(labels, fasit), "labels skal komme fra DBSCAN(eps=0.3, min_samples=5) på X."
-assert n_klynger == len(set(fasit) - {-1}), f"n_klynger skal ikke telle støy (-1) som klynge. Fikk {n_klynger}."
-assert n_stoy == np.sum(fasit == -1), f"n_stoy skal være antall punkter med label -1. Fikk {n_stoy}."
+f = DBSCAN(eps=0.3, min_samples=5).fit(X)
+assert labels is not ... and np.array_equal(labels, f.labels_), "labels skal komme fra DBSCAN(eps=0.3, min_samples=5) på X."
+assert n_klynger == len(set(f.labels_) - {-1}), f"n_klynger skal ikke telle støy (-1) som klynge. Fikk {n_klynger}."
+assert n_stoy == np.sum(f.labels_ == -1), f"n_stoy skal være antall punkter med label -1. Fikk {n_stoy}."
+assert n_kjerne == len(f.core_sample_indices_), "n_kjerne skal være len(db.core_sample_indices_)."
 ```
 :::
 
-::: quiz
-Ifølge DBSCAN, når havner to punkter i samme klynge?
-- [ ] Når de har samme nærmeste sentroide
-- [ ] Når avstanden mellom dem er mindre enn snittavstanden i datasettet
-- [x] Når de er forbundet gjennom en kjede av kjernepunkter der hvert steg er kortere enn `eps`
-- [ ] Når de har like mange naboer
-? Klyngen vokser fra kjernepunkter til alle punkter som kan nås via naboskap innen `eps`. Det første alternativet beskriver k-means.
-:::
+## Velg eps med et k-distanse-plott
+`NearestNeighbors(n_neighbors=min_samples).fit(X).kneighbors(X)` gir avstander til naboene (første kolonne er punktet selv), og knekken i den sorterte siste kolonnen er et godt valg av `eps`.
 
-::: quiz
-Hva skriver koden ut?
-```kode
-labels = np.array([0, 0, 1, -1, 1, 2, -1])
-print(len(set(labels)) - (1 if -1 in labels else 0), np.sum(labels == -1))
+::: oppgave k-distanse-plott
+Lagre den sorterte avstanden til nabo nummer `min_samples` for hvert punkt i `k_dist` (shape `(300,)`), og plott den på `ax`.
+```start
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_moons
+from sklearn.neighbors import NearestNeighbors
+
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+min_samples = 5
+fig, ax = plt.subplots()
+k_dist = ...
 ```
-- [ ] `4 2`
-- [x] `3 2`
-- [ ] `3 0`
-- [ ] `2 2`
-? Unike labels er {-1, 0, 1, 2}, altså 4. Minus støy gir 3 klynger. To punkter har label -1.
+```losning
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_moons
+from sklearn.neighbors import NearestNeighbors
+
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+min_samples = 5
+fig, ax = plt.subplots()
+nn = NearestNeighbors(n_neighbors=min_samples).fit(X)
+distances, _ = nn.kneighbors(X)
+k_dist = np.sort(distances[:, -1])
+ax.plot(k_dist)
+```
+```test
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+assert np.asarray(k_dist).shape == (300,), f"k_dist skal ha én verdi per punkt, shape (300,), fikk {np.asarray(k_dist).shape}. Ta siste kolonne: distances[:, -1]."
+fasit = np.sort(NearestNeighbors(n_neighbors=5).fit(X).kneighbors(X)[0][:, -1])
+assert np.allclose(k_dist, fasit), "k_dist skal være den sorterte siste kolonnen av avstandene fra kneighbors med n_neighbors=min_samples."
+assert len(ax.lines) >= 1, "Plott k_dist med ax.plot."
+```
 :::
 
-::: oppsummering
-- `DBSCAN(eps, min_samples)`: tetthetsbasert, trenger ikke $k$, finner vilkårlige former.
-- Label **-1** = støy. Antall klynger: `len(set(labels)) - (1 if -1 in labels else 0)`.
-- Ingen `predict`: bruk `fit_predict` på alle dataene.
-- Velg `eps` fra knekken i et k-distanse-plott (`NearestNeighbors(n_neighbors=min_samples)`, `kneighbors`, sorter siste kolonne).
-- Svært følsom for `eps` og for antall dimensjoner. Global `eps` takler dårlig ulik tetthet.
+## Følsom for eps og dimensjon
+For liten `eps` gir mye støy og for stor slår alt sammen, og med flere dimensjoner blir avstandene større så samme `eps` slutter å virke.
+
+::: oppgave Prøv flere eps
+Lag dicten `n_klynger` som for hver `eps` i `eps_liste` gir antall klynger (uten støy) fra `DBSCAN(eps=eps, min_samples=5)` på `X`.
+```start
+import numpy as np
+from sklearn.datasets import make_moons
+from sklearn.cluster import DBSCAN
+
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+eps_liste = [0.05, 0.1, 0.2, 0.5]
+n_klynger = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_moons
+from sklearn.cluster import DBSCAN
+
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+eps_liste = [0.05, 0.1, 0.2, 0.5]
+n_klynger = {}
+for eps in eps_liste:
+    lab = DBSCAN(eps=eps, min_samples=5).fit_predict(X)
+    n_klynger[eps] = len(set(lab) - {-1})
+```
+```test
+assert isinstance(n_klynger, dict), "n_klynger skal være en dict med eps som nøkkel."
+assert set(n_klynger) == {0.05, 0.1, 0.2, 0.5}, "Nøklene skal være verdiene i eps_liste."
+assert n_klynger[0.2] == 2, f"eps=0.2 skal gi 2 klynger, fikk {n_klynger[0.2]}. Teller du -1 som en klynge?"
+assert n_klynger[0.5] == 1, "eps=0.5 skal slå alt sammen til 1 klynge."
+assert n_klynger[0.05] > 5, "eps=0.05 skal gi mange små klynger."
+```
+:::
+
+::: oppgave Flere dimensjoner
+Legg til 8 kolonner med støy (`Xe = np.hstack([X, ekstra])`), kjør `DBSCAN(eps=0.2, min_samples=5)` på `Xe`, og lagre antall støypunkter i `n_stoy_10d`.
+```start
+import numpy as np
+from sklearn.datasets import make_moons
+from sklearn.cluster import DBSCAN
+
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+rng = np.random.default_rng(0)
+ekstra = rng.normal(0, 0.3, size=(300, 8))
+n_stoy_10d = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_moons
+from sklearn.cluster import DBSCAN
+
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+rng = np.random.default_rng(0)
+ekstra = rng.normal(0, 0.3, size=(300, 8))
+Xe = np.hstack([X, ekstra])
+n_stoy_10d = int(np.sum(DBSCAN(eps=0.2, min_samples=5).fit_predict(Xe) == -1))
+```
+```test
+assert n_stoy_10d is not ..., "Sett n_stoy_10d."
+assert n_stoy_10d == 300, f"I 10 dimensjoner blir alle 300 punktene støy med eps=0.2, fikk {n_stoy_10d}. Kjørte du DBSCAN på Xe?"
+```
 :::
 
 --- LEKSJON 10.6 | andre-klyngemetoder | Andre klyngemetoder
-Notatene deler klyngemetoder i fire kategorier:
+Klyngemetoder er sentroidebaserte (k-means), tetthetsbaserte (DBSCAN), fordelingsbaserte (Gaussian Mixture) eller hierarkibaserte (agglomerativ klynging).
 
-| Kategori | Idé | Eksempel |
-|---|---|---|
-| Sentroidebasert | Sentroider, tilordne punkter, tilpass til konvergens | k-means |
-| Tetthetsbasert | Tette områder er klynger, isolerte punkter er støy | DBSCAN |
-| Fordelingsbasert | Hver klynge er en sannsynlighetsfordeling (ofte Gauss) | Gaussian Mixture |
-| Hierarkibasert | Bygg et hierarki fra ett punkt per klynge til én klynge | Agglomerativ klynging |
-
-K-means og DBSCAN er pensum i detalj. De to andre kategoriene skal du ha hørt om, så vi ser kort på dem i kode.
+::: oppgave Kategorier
+Lag dicten `kategori` som gir kategorien (`"sentroide"`, `"tetthet"`, `"fordeling"` eller `"hierarki"`) for nøklene `"KMeans"`, `"DBSCAN"`, `"GaussianMixture"` og `"AgglomerativeClustering"`.
+```start
+kategori = ...
+```
+```losning
+kategori = {"KMeans": "sentroide", "DBSCAN": "tetthet",
+            "GaussianMixture": "fordeling", "AgglomerativeClustering": "hierarki"}
+```
+```test
+assert isinstance(kategori, dict), "kategori skal være en dict."
+fasit = {"KMeans": "sentroide", "DBSCAN": "tetthet", "GaussianMixture": "fordeling", "AgglomerativeClustering": "hierarki"}
+for k, v in fasit.items():
+    assert k in kategori, f"Mangler nøkkelen {k}."
+    assert kategori[k] == v, f"{k} er ikke {kategori[k]!r}. Tenk på hva metoden bygger på."
+```
+:::
 
 ## Hierarkisk klynging og dendrogram
-**Agglomerativ** klynging starter med hvert punkt som egen klynge, og slår hele tiden sammen de to nærmeste klyngene. Et **dendrogram** viser hele hierarkiet. Kutter vi det i en viss høyde, får vi klyngene.
+`Z = linkage(X, method="ward")` og `dendrogram(Z)` fra `scipy.cluster.hierarchy` viser hierarkiet, og `AgglomerativeClustering(n_clusters=2, linkage="single")` gir labels (`"single"` følger tynne former, `"ward"` lager runde klynger).
 
-```python
+::: oppgave Dendrogram
+Lag `Z` med `linkage(X, method="ward")` og tegn dendrogrammet med `d = dendrogram(Z)`.
+```start
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
+from scipy.cluster.hierarchy import linkage, dendrogram
+
+X, _ = make_blobs(n_samples=30, centers=3, random_state=0)
+Z = ...
+d = ...
+```
+```losning
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_blobs
 from scipy.cluster.hierarchy import linkage, dendrogram
 
 X, _ = make_blobs(n_samples=30, centers=3, random_state=0)
 Z = linkage(X, method="ward")
-dendrogram(Z)
-plt.ylabel("avstand ved sammenslåing")
-plt.show()
+d = dendrogram(Z)
 ```
-
-De tre lange vertikale strekene øverst viser tre tydelige grupper. `linkage` bestemmer hvordan avstand mellom klynger måles: `"ward"` (minst økning i varians), `"single"` (nærmeste par), `"complete"` (fjerneste par), `"average"`. I sklearn:
-
-```python
+```test
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_moons
-from sklearn.cluster import AgglomerativeClustering
-
-X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-for a, link in zip(ax, ["ward", "single"]):
-    lab = AgglomerativeClustering(n_clusters=2, linkage=link).fit_predict(X)
-    a.scatter(X[:, 0], X[:, 1], c=lab, s=10)
-    a.set_title(f"linkage={link}")
-plt.show()
+from scipy.cluster.hierarchy import linkage
+assert np.asarray(Z).shape == (29, 4), "Z skal komme fra linkage(X, method='ward'): én rad per sammenslåing, shape (29, 4)."
+assert np.allclose(Z, linkage(X, method="ward")), "Bruk method='ward'."
+assert isinstance(d, dict) and "icoord" in d, "d skal være resultatet av dendrogram(Z)."
 ```
-
-`"single"` kan følge lange, tynne former (som DBSCAN), mens `"ward"` lager runde klynger (som k-means).
-
-## Spektral klynging
-`SpectralClustering(affinity="nearest_neighbors")` bygger en graf der hvert punkt kobles til sine nærmeste naboer, og deler grafen der den har færrest koblinger. Den finner sammenhengende former, og var den metoden som ga best resultat i løsningen av prosjekt 3.
-
-```python
-import numpy as np
-from sklearn.datasets import make_moons
-from sklearn.cluster import SpectralClustering, KMeans
-
-X, y = make_moons(n_samples=300, noise=0.05, random_state=0)
-sc = SpectralClustering(n_clusters=2, affinity="nearest_neighbors", n_neighbors=15, random_state=0).fit_predict(X)
-km = KMeans(n_clusters=2, n_init=10, random_state=0).fit_predict(X)
-
-def enighet(a, b):            # andel like labels, uavhengig av hva klyngene heter
-    return max(np.mean(a == b), np.mean(a != b))
-
-print("Spektral vs sann:", enighet(sc, y))
-print("KMeans   vs sann:", enighet(km, y))
-```
-
-## Fordelingsbasert: Gaussian Mixture
-`GaussianMixture` antar at hver klynge er en normalfordeling, og gir **myke** tilordninger: en sannsynlighet per klynge.
-
-```python
-from sklearn.datasets import make_blobs
-from sklearn.mixture import GaussianMixture
-
-X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
-gm = GaussianMixture(n_components=3, random_state=0).fit(X)
-print("Labels:", gm.predict(X[:5]))
-print("Sannsynligheter:\n", gm.predict_proba(X[:5]).round(3))
-```
+:::
 
 ::: oppgave Halvmåner med agglomerativ klynging
 Bruk `AgglomerativeClustering` med 2 klynger på halvmånene, og velg den `linkage` som skiller dem perfekt. Lagre labelene i `lab`.
@@ -792,158 +923,108 @@ assert e > 0.99, f"Bare {e:.0%} enighet med de sanne månene. Prøv en linkage s
 ```
 :::
 
-::: quiz
-Hvilke kategorier hører k-means og DBSCAN til?
-- [ ] Begge er tetthetsbaserte
-- [x] K-means er sentroidebasert, DBSCAN er tetthetsbasert
-- [ ] K-means er hierarkisk, DBSCAN er fordelingsbasert
-- [ ] K-means er fordelingsbasert, DBSCAN er sentroidebasert
-? K-means bygger på sentroider og avstand. DBSCAN bygger på tetthet (antall naboer innen `eps`).
+## Spektral klynging
+`SpectralClustering(n_clusters=2, affinity="nearest_neighbors", n_neighbors=15, random_state=0)` kobler hvert punkt til naboene sine i en graf og deler grafen der den har færrest koblinger.
+
+::: oppgave Enighet og spektral klynging
+Skriv `enighet(a, b)` som returnerer `max(np.mean(a == b), np.mean(a != b))` (andel like labels uansett hva de to klyngene heter), og lagre spektrale labels for halvmånene i `sc`.
+```start
+import numpy as np
+from sklearn.datasets import make_moons
+from sklearn.cluster import SpectralClustering
+
+X, y = make_moons(n_samples=300, noise=0.05, random_state=0)
+
+def enighet(a, b):
+    ...
+
+sc = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_moons
+from sklearn.cluster import SpectralClustering
+
+X, y = make_moons(n_samples=300, noise=0.05, random_state=0)
+
+def enighet(a, b):
+    return max(np.mean(a == b), np.mean(a != b))
+
+sc = SpectralClustering(n_clusters=2, affinity="nearest_neighbors", n_neighbors=15, random_state=0).fit_predict(X)
+```
+```test
+import numpy as np
+e1 = enighet(np.array([0, 0, 1, 1]), np.array([1, 1, 0, 0]))
+assert e1 is not None and abs(e1 - 1.0) < 1e-9, "Omdøpte klynger ([0,0,1,1] mot [1,1,0,0]) skal gi enighet 1.0."
+assert abs(enighet(np.array([0, 0, 1, 1]), np.array([0, 1, 1, 1])) - 0.75) < 1e-9, "[0,0,1,1] mot [0,1,1,1] skal gi 0.75."
+assert sc is not ... and len(sc) == 300, "sc skal være én label per punkt."
+assert enighet(sc, y) > 0.99, "SpectralClustering med affinity='nearest_neighbors' skal skille månene."
+```
 :::
 
-::: oppsummering
-- Fire kategorier: sentroidebasert (k-means), tetthetsbasert (DBSCAN), fordelingsbasert (Gaussian Mixture), hierarkibasert (agglomerativ).
-- `linkage` + `dendrogram` fra `scipy.cluster.hierarchy` viser hierarkiet. `AgglomerativeClustering(n_clusters, linkage=…)` i sklearn.
-- `SpectralClustering(affinity="nearest_neighbors")` følger sammenhengende former via en nabograf.
-- `GaussianMixture` gir myke tilordninger med `predict_proba`.
+## Fordelingsbasert: Gaussian Mixture
+`GaussianMixture(n_components=3, random_state=0).fit(X)` antar én normalfordeling per klynge, og `predict_proba(X)` gir en sannsynlighet per klynge (myk tilordning).
+
+::: oppgave Myke tilordninger
+Tilpass `gm` på `X`, og lagre `predict_proba(X)` i `proba` og `predict(X)` i `lab_gm`.
+```start
+from sklearn.datasets import make_blobs
+from sklearn.mixture import GaussianMixture
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+gm = ...
+proba = ...
+lab_gm = ...
+```
+```losning
+from sklearn.datasets import make_blobs
+from sklearn.mixture import GaussianMixture
+
+X, _ = make_blobs(n_samples=300, centers=3, random_state=0)
+gm = GaussianMixture(n_components=3, random_state=0).fit(X)
+proba = gm.predict_proba(X)
+lab_gm = gm.predict(X)
+```
+```test
+import numpy as np
+assert np.asarray(proba).shape == (300, 3), f"proba skal ha én kolonne per komponent, shape (300, 3), fikk {np.asarray(proba).shape}."
+assert np.allclose(np.sum(proba, axis=1), 1), "Hver rad i proba skal summere til 1."
+assert lab_gm is not ... and np.array_equal(lab_gm, np.argmax(proba, axis=1)), "lab_gm skal være gm.predict(X), som er klyngen med høyest sannsynlighet."
+```
 :::
 
 --- LEKSJON 10.7 | pca | PCA
-**PCA** (principal component analysis) finner nye, ortogonale akser der dataene varierer mest. Første hovedkomponent (PC1) er retningen med størst varians, PC2 er nest størst og står vinkelrett på PC1, og så videre. Formelt er hovedkomponentene **egenvektorene til kovariansmatrisen**, og egenverdiene er variansen langs hver.
+Hovedkomponentene er egenvektorene til kovariansmatrisen sortert etter egenverdi (variansen langs hver), og PC1 er retningen med størst varians.
 
 ## For hånd
-Notatenes enkle eksempel er $x_1 = (1, 2, 3)$ og $x_2 = (2, 1, 0)$:
+`np.cov(X, rowvar=False)` gir kovariansmatrisen og `np.linalg.eigh(S)` egenverdiene i **stigende** rekkefølge med egenvektorene som kolonner.
 
-```python
+::: oppgave Kovarians og egenverdier
+For notatenes data `X`, lagre kovariansmatrisen i `S` og egenverdiene (stigende, rett fra `eigh`) i `egenverdier`.
+```start
 import numpy as np
 
-X = np.array([[1, 2], [2, 1], [3, 0]], dtype=float)   # rader = punkter, kolonner = features
-S = np.cov(X, rowvar=False)                            # kovariansmatrisen, deler på N - 1
-print("Kovariansmatrisen S:")
-display(S)
+X = np.array([[1, 2], [2, 1], [3, 0]], dtype=float)
+S = ...
+egenverdier = ...
+```
+```losning
+import numpy as np
+
+X = np.array([[1, 2], [2, 1], [3, 0]], dtype=float)
+S = np.cov(X, rowvar=False)
 egenverdier, egenvektorer = np.linalg.eigh(S)
-print("Egenverdier:", egenverdier.round(6))
-print("Egenvektorer (kolonner):\n", egenvektorer.round(3))
 ```
-
-Diagonalen i `S` er variansen til hver feature (1 og 1), og de negative verdiene utenfor diagonalen sier at $x_2$ synker når $x_1$ øker. Egenverdiene er 0 og 2, som i notatene. Egenverdien 0 betyr at all variansen ligger langs én retning, $(1, -1)/\sqrt 2$: alle punktene ligger på linjen $x_1 + x_2 = 3$.
-
-Nå hele oppskriften på notatenes tabell 9: **sentrer**, regn **kovariansmatrisen**, finn **egenvektorer**, **sorter** synkende, **projiser**.
-
-```python
+```test
 import numpy as np
-
-x1 = np.array([1, 2, 3, 4, 5])
-x2 = np.array([1.6, 4.2, 5.7, 8.4, 9.2])
-X = np.vstack((x1, x2)).T                  # shape (5, 2)
-
-Xc = X - X.mean(axis=0)                    # 1. sentrer
-S = np.cov(Xc, rowvar=False)               # 2. kovarians
-verdier, vektorer = np.linalg.eigh(S)      # 3. egenverdier/-vektorer (stigende!)
-rekkefolge = np.argsort(verdier)[::-1]     # 4. sorter synkende
-verdier, W = verdier[rekkefolge], vektorer[:, rekkefolge]
-Z = Xc @ W                                 # 5. projiser: koordinater langs PC1 og PC2
-
-print("S =\n", S.round(3))
-print("Egenverdier:", verdier.round(4))
-print("Andel varians:", (verdier / verdier.sum()).round(4))
-print("PC1:", W[:, 0].round(4))
-print("Data i PC-koordinater:\n", Z.round(3))
+assert np.asarray(S).shape == (2, 2), f"S skal være 2 × 2 (én rad/kolonne per feature), fikk {np.asarray(S).shape}. Husk rowvar=False."
+assert np.allclose(S, [[1, -1], [-1, 1]]), "S stemmer ikke. Bruk np.cov(X, rowvar=False)."
+assert np.allclose(egenverdier, [0, 2]), f"Egenverdiene skal være 0 og 2, fikk {egenverdier}."
 ```
-
-`np.linalg.eigh` (for symmetriske matriser) returnerer egenverdiene i **stigende** rekkefølge. Derfor må vi snu. PC1 forklarer over 99 % av variansen: dataene ligger nesten på en linje.
-
-## Med sklearn
-Notatenes kode, utvidet med attributtene du bør kjenne:
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-
-x1 = np.array([1, 2, 3, 4, 5])
-x2 = np.array([1.6, 4.2, 5.7, 8.4, 9.2])
-X = np.vstack((x1, x2)).T
-
-pca = PCA(n_components=2)
-X_pca = pca.fit_transform(X)
-print("Før transform, X:")
-display(X)
-print("Etter fit_transform, X_pca (kolonne 0 = PC1, kolonne 1 = PC2):")
-display(X_pca)
-print("explained_variance_:      ", pca.explained_variance_.round(4))
-print("explained_variance_ratio_:", pca.explained_variance_ratio_.round(4))
-print("components_ (rader = PC-er):\n", pca.components_.round(4))
-print("mean_:", pca.mean_)
-
-PC1, PC2 = X_pca[:, 0], X_pca[:, 1]
-plt.scatter(x1, x2, color="blue", label="Original Data", marker="*")
-plt.scatter(PC1, PC2, color="red", label="PCA Transformed Data")
-plt.legend()
-plt.axis("equal")
-plt.show()
-```
-
-Samme tall som for hånd. I `X_pca` er nesten all variasjonen i første kolonne, mens PC2-kolonnen er nær 0. Under `pca` i variabelpanelet finner du `explained_variance_ratio_`, `components_` og `mean_`. `components_` har PC-ene som **rader** (vår `W` har dem som kolonner), og fortegnet kan være snudd. En egenvektor peker like godt begge veier.
-
-## Redusere til én dimensjon og tilbake
-Med `n_components=1` beholder vi bare PC1. `inverse_transform` går tilbake til det opprinnelige rommet. Punktene havner da på PC1-linjen, og det vi mistet er **rekonstruksjonsfeilen**:
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-
-X = np.array([[1, 1.6], [2, 4.2], [3, 5.7], [4, 8.4], [5, 9.2]])
-pca = PCA(n_components=1)
-X_pca = pca.fit_transform(X)            # shape (5, 1)
-X_tilbake = pca.inverse_transform(X_pca) # shape (5, 2), på linjen
-feil = np.sum((X - X_tilbake)**2, axis=1)
-print("Rekonstruksjonsfeil per punkt:", feil.round(3))
-
-plt.scatter(X[:, 0], X[:, 1], label="original")
-plt.scatter(X_tilbake[:, 0], X_tilbake[:, 1], marker="x", label="rekonstruert fra PC1")
-plt.legend()
-plt.axis("equal")
-plt.show()
-```
-
-## Hvor mange komponenter?
-Med ekte data plotter vi den **kumulative** andelen forklart varians og velger nok komponenter til å nå for eksempel 90 % eller 95 %. Gir du `PCA(n_components=0.95)`, velger sklearn selv. Her er de håndskrevne sifrene i `load_digits` (64 piksler per bilde):
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
-from sklearn.decomposition import PCA
-
-X, y = load_digits(return_X_y=True)
-pca = PCA().fit(X)
-kum = np.cumsum(pca.explained_variance_ratio_)
-print("Komponenter for 95 %:", np.argmax(kum >= 0.95) + 1)
-print("PCA(0.95) velger:", PCA(n_components=0.95).fit(X).n_components_)
-
-fig, ax = plt.subplots(1, 2, figsize=(11, 4))
-ax[0].plot(range(1, 65), kum, "o-", ms=3)
-ax[0].axhline(0.95, color="gray", ls="--")
-ax[0].set_xlabel("antall komponenter")
-ax[0].set_ylabel("kumulativ forklart varians")
-Z = PCA(n_components=2).fit_transform(X)
-sc = ax[1].scatter(Z[:, 0], Z[:, 1], c=y, cmap="tab10", s=5)
-ax[1].set_title("Sifrene projisert på PC1 og PC2")
-plt.colorbar(sc, ax=ax[1])
-plt.show()
-```
-
-To komponenter forklarer under 30 % av variansen, så sifrene overlapper mye i 2D. PCA er lineær, og det er grunnen til at notatene viser at MNIST i 2D ser rotete ut.
-
-::: husk God praksis
-- **Skaler** først med `StandardScaler` hvis featurene har ulike enheter. Ellers vinner featuren med størst tall.
-- `fit` på treningsdata, `transform` på testdata, som alle andre transformere (leksjon 7.2). Notatene viser dette med `make_s_curve`.
 :::
 
 ::: oppgave PCA for hånd
-Gjør PCA for hånd på `X`: sentrer, regn kovariansmatrisen med `np.cov(..., rowvar=False)`, finn egenverdier og egenvektorer med `np.linalg.eigh`, og sorter synkende. Lagre egenverdiene (synkende) i `verdier`, egenvektorene som **kolonner** i samme rekkefølge i `W`, og projeksjonen på PC1 og PC2 i `Z` (shape `(n, 2)`).
+Sentrer `X`, regn kovariansmatrisen, finn egenverdier og egenvektorer med `eigh`, og sorter synkende. Lagre egenverdiene (synkende) i `verdier`, egenvektorene som **kolonner** i samme rekkefølge i `W`, og projeksjonen på PC1 og PC2 i `Z` (shape `(n, 2)`).
 ```start
 import numpy as np
 
@@ -980,114 +1061,268 @@ assert np.allclose(np.abs(Z), np.abs(p.transform(X)[:, :2]), atol=1e-6), "Z stem
 ```
 :::
 
-::: quiz
-Hva er hovedkomponentene i PCA?
-- [ ] Featurene med høyest varians i de opprinnelige dataene
-- [x] Egenvektorene til kovariansmatrisen, sortert etter egenverdi
-- [ ] Klyngesentrene i dataene
-- [ ] Radene i datamatrisen med størst norm
-? PC-ene er nye retninger, lineærkombinasjoner av de gamle featurene. Egenverdien sier hvor mye varians som ligger langs hver.
-:::
+## Med sklearn
+`pca = PCA(n_components=2)` og `pca.fit_transform(X)` gir PC-koordinatene, og `explained_variance_ratio_`, `components_` (PC-ene som **rader**) og `mean_` er det modellen lærte.
 
-::: quiz
-Hvilken kolonne i `vec` er PC1?
-```kode
-S = np.cov(Xc, rowvar=False)
-val, vec = np.linalg.eigh(S)
+::: oppgave PCA i sklearn
+Kjør PCA med 2 komponenter på `X`, og lagre resultatet i `X_pca`, andelen forklart varians i `andel` og PC1 (en vektor med 2 tall) i `pc1`.
+```start
+import numpy as np
+from sklearn.decomposition import PCA
+
+x1 = np.array([1, 2, 3, 4, 5])
+x2 = np.array([1.6, 4.2, 5.7, 8.4, 9.2])
+X = np.vstack((x1, x2)).T
+
+pca = PCA(n_components=2)
+X_pca = ...
+andel = ...
+pc1 = ...
 ```
-- [ ] `vec[:, 0]`, fordi den kommer først
-- [x] `vec[:, -1]`, fordi `eigh` sorterer egenverdiene stigende
-- [ ] `vec[0, :]`, fordi egenvektorene er rader
-- [ ] `vec[:, np.argmin(val)]`
-? `eigh` returnerer stigende egenverdier og egenvektorene som kolonner. Størst varians er derfor siste kolonne.
+```losning
+import numpy as np
+from sklearn.decomposition import PCA
+
+x1 = np.array([1, 2, 3, 4, 5])
+x2 = np.array([1.6, 4.2, 5.7, 8.4, 9.2])
+X = np.vstack((x1, x2)).T
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X)
+andel = pca.explained_variance_ratio_
+pc1 = pca.components_[0]
+```
+```test
+import numpy as np
+f = PCA(n_components=2).fit(X)
+assert np.asarray(X_pca).shape == (5, 2), "X_pca skal ha shape (5, 2)."
+assert np.allclose(np.abs(X_pca), np.abs(f.transform(X))), "X_pca skal være pca.fit_transform(X)."
+assert np.allclose(andel, f.explained_variance_ratio_), "andel skal være explained_variance_ratio_."
+assert andel[0] > 0.99, "PC1 skal forklare over 99 % av variansen."
+assert np.asarray(pc1).shape == (2,) and np.allclose(np.abs(pc1), np.abs(f.components_[0])), "pc1 skal være første RAD i components_: pca.components_[0]."
+```
 :::
 
-::: oppsummering
-- For hånd: `Xc = X - X.mean(axis=0)`, `S = np.cov(Xc, rowvar=False)`, `np.linalg.eigh(S)`, sorter synkende, `Z = Xc @ W[:, :k]`.
-- `eigh` gir **stigende** egenverdier og egenvektorer som **kolonner**.
-- sklearn: `PCA(n_components)`, `fit_transform`, `transform`, `inverse_transform`.
-- `explained_variance_ratio_` (andel varians per PC), `components_` (PC-ene som rader), `mean_`.
-- Velg antall komponenter med `np.cumsum(explained_variance_ratio_)` eller `PCA(n_components=0.95)`.
-- Skaler først, og `fit` bare på treningsdata.
+## Redusere til én dimensjon og tilbake
+`PCA(n_components=1)` beholder bare PC1, og `pca.inverse_transform(X_pca)` går tilbake til det opprinnelige rommet; det som mangler er rekonstruksjonsfeilen.
+
+::: oppgave Rekonstruksjon
+Reduser `X` til én komponent, gå tilbake med `inverse_transform` (`X_tilbake`, shape `(5, 2)`), og lagre summen av kvadrerte avvik per punkt i `feil`.
+```start
+import numpy as np
+from sklearn.decomposition import PCA
+
+X = np.array([[1, 1.6], [2, 4.2], [3, 5.7], [4, 8.4], [5, 9.2]])
+X_tilbake = ...
+feil = ...
+```
+```losning
+import numpy as np
+from sklearn.decomposition import PCA
+
+X = np.array([[1, 1.6], [2, 4.2], [3, 5.7], [4, 8.4], [5, 9.2]])
+pca = PCA(n_components=1)
+X_pca = pca.fit_transform(X)
+X_tilbake = pca.inverse_transform(X_pca)
+feil = np.sum((X - X_tilbake)**2, axis=1)
+```
+```test
+import numpy as np
+p = PCA(n_components=1).fit(X)
+fasit = p.inverse_transform(p.transform(X))
+assert np.asarray(X_tilbake).shape == (5, 2), f"X_tilbake skal ha samme shape som X, (5, 2), fikk {np.asarray(X_tilbake).shape}. Bruk inverse_transform."
+assert np.allclose(X_tilbake, fasit), "X_tilbake stemmer ikke. Bruk PCA(n_components=1)."
+assert np.asarray(feil).shape == (5,) and np.allclose(feil, np.sum((X - fasit)**2, axis=1)), "feil skal være summen av kvadrerte avvik per rad (axis=1)."
+```
+:::
+
+## Hvor mange komponenter?
+`np.cumsum(pca.explained_variance_ratio_)` gir kumulativ forklart varians, og `PCA(n_components=0.95)` velger selv nok komponenter til 95 %.
+
+::: oppgave Komponenter for 95 %
+Tilpass `PCA()` på sifrene, lagre den kumulative andelen i `kum` og antall komponenter som trengs for 95 % i `n_95`.
+```start
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+
+X, y = load_digits(return_X_y=True)
+kum = ...
+n_95 = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+
+X, y = load_digits(return_X_y=True)
+pca = PCA().fit(X)
+kum = np.cumsum(pca.explained_variance_ratio_)
+n_95 = int(np.argmax(kum >= 0.95) + 1)
+```
+```test
+import numpy as np
+assert np.asarray(kum).shape == (64,), "kum skal ha én verdi per komponent (64). Bruk np.cumsum på explained_variance_ratio_."
+assert np.isclose(kum[-1], 1.0), "Siste verdi i kum skal være 1."
+fasit = PCA(n_components=0.95).fit(X).n_components_
+assert n_95 == fasit, f"Forventet {fasit} komponenter, fikk {n_95}. Husk + 1: argmax gir indeksen, ikke antallet."
+```
+:::
+
+## Skaler, og fit bare på trening
+Som alle transformere skal `StandardScaler` og `PCA` bare `fit`-es på `X_train`, og så brukes med `transform` på `X_test`.
+
+::: oppgave Skalering og PCA uten lekkasje
+Skaler med `StandardScaler` og reduser til 2 komponenter med `PCA`, begge tilpasset på `X_train`, og lagre resultatene i `Z_train` og `Z_test`.
+```start
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+X, y = load_wine(return_X_y=True)
+X_train, X_test = train_test_split(X, test_size=0.3, random_state=0)
+Z_train = ...
+Z_test = ...
+```
+```losning
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+X, y = load_wine(return_X_y=True)
+X_train, X_test = train_test_split(X, test_size=0.3, random_state=0)
+scaler = StandardScaler().fit(X_train)
+pca = PCA(n_components=2).fit(scaler.transform(X_train))
+Z_train = pca.transform(scaler.transform(X_train))
+Z_test = pca.transform(scaler.transform(X_test))
+```
+```test
+import numpy as np
+s_ = StandardScaler().fit(X_train)
+p_ = PCA(n_components=2).fit(s_.transform(X_train))
+assert np.asarray(Z_train).shape == (len(X_train), 2) and np.asarray(Z_test).shape == (len(X_test), 2), "Z_train og Z_test skal ha 2 kolonner."
+assert np.allclose(np.abs(Z_train), np.abs(p_.transform(s_.transform(X_train))), atol=1e-6), "Z_train stemmer ikke. Skalerte du før PCA?"
+assert np.allclose(np.abs(Z_test), np.abs(p_.transform(s_.transform(X_test))), atol=1e-6), "Z_test stemmer ikke. Bruk transform (ikke fit_transform) på X_test med scaler og PCA tilpasset på X_train."
+```
 :::
 
 --- LEKSJON 10.8 | tsne | t-SNE
-**t-SNE** er en ikke-lineær metode for å **visualisere** høydimensjonale data i 2D. Den regner ut hvor sannsynlig det er at to punkter er naboer i det høye rommet, plasserer punktene tilfeldig i 2D, og flytter dem med gradient descent slik at nabosannsynlighetene i 2D (en t-fordeling) ligner mest mulig. Tapet er KL-divergensen.
+`TSNE(n_components=2, perplexity=30, init="pca", random_state=0).fit_transform(X)` plasserer punktene i 2D slik at naboskap bevares (minimerer KL-divergens), og brukes bare til visualisering.
 
-t-SNE er tregt for store datasett, så vi bruker 300 av sifrene:
-
-```python
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
-from sklearn.manifold import TSNE
-
-X, y = load_digits(return_X_y=True)
-X, y = X[:300], y[:300]
-
-tsne = TSNE(n_components=2, perplexity=30, init="pca", random_state=0)
-X_emb = tsne.fit_transform(X)
-print("Shape:", X_emb.shape, " KL-divergens:", round(tsne.kl_divergence_, 3))
-
-sc = plt.scatter(X_emb[:, 0], X_emb[:, 1], c=y, cmap="tab10", s=12)
-plt.colorbar(sc)
-plt.title("t-SNE av 300 siffer")
-plt.show()
-```
-
-Sammenlign med PCA-plottet i forrige leksjon: t-SNE skiller sifrene i tydelige grupper, fordi den bevarer **lokale naboskap** i stedet for global varians.
-
-## Perplexity
-`perplexity` er omtrent hvor mange naboer hvert punkt «bryr seg om». Lav verdi gir mange små, oppsplittede grupper. Høy verdi gir mer global struktur. Typiske verdier er 5 til 50, og den må være mindre enn antall punkter.
-
-```python
+::: oppgave t-SNE av sifre
+Kjør t-SNE som over på de 200 sifrene, lagre resultatet i `X_emb` og `tsne.kl_divergence_` i `kl`, og plott `X_emb` farget med `y` på `ax`.
+```start
 import matplotlib.pyplot as plt
 from sklearn.datasets import load_digits
 from sklearn.manifold import TSNE
 
 X, y = load_digits(return_X_y=True)
 X, y = X[:200], y[:200]
-
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-for a, perp in zip(ax, [3, 40]):
-    emb = TSNE(n_components=2, perplexity=perp, init="pca", random_state=0).fit_transform(X)
-    a.scatter(emb[:, 0], emb[:, 1], c=y, cmap="tab10", s=8)
-    a.set_title(f"perplexity={perp}")
-plt.show()
+fig, ax = plt.subplots()
+X_emb = ...
+kl = ...
 ```
-
-## t-SNE kan ikke brukes på nye punkter
-t-SNE lærer ikke en funksjon fra høyt til lavt rom. Den optimerer **posisjonene** til akkurat de punktene den fikk. Derfor finnes bare `fit_transform`, ikke `transform`:
-
-```python feil
+```losning
+import matplotlib.pyplot as plt
 from sklearn.datasets import load_digits
 from sklearn.manifold import TSNE
 
-X, _ = load_digits(return_X_y=True)
-tsne = TSNE(n_components=2, perplexity=20, random_state=0)
-tsne.fit(X[:100])
-tsne.transform(X[100:110])
+X, y = load_digits(return_X_y=True)
+X, y = X[:200], y[:200]
+fig, ax = plt.subplots()
+tsne = TSNE(n_components=2, perplexity=30, init="pca", random_state=0)
+X_emb = tsne.fit_transform(X)
+kl = tsne.kl_divergence_
+ax.scatter(X_emb[:, 0], X_emb[:, 1], c=y, cmap="tab10", s=10)
 ```
-
-Kommer det nye punkter, må hele embeddingen regnes ut på nytt. Det er også grunnen til at vi ikke kan dele i trening og test slik vi gjør med PCA.
-
-## PCA mot t-SNE
-| | PCA | t-SNE |
-|---|---|---|
-| Mål | Bevare mest mulig **varians** | Bevare **naboskap** (minimere KL-divergens) |
-| Lineær? | Ja | Nei |
-| Nye punkter | `transform` virker | Nei, bare `fit_transform` |
-| Nye features til en modell | Ja | Nei, bare til visualisering |
-| Hastighet | Rask | Treg på store datasett |
-| Tolkning av avstander | Meningsfulle | Avstander **mellom** klynger og klyngestørrelser betyr lite |
-
-En vanlig rørledning er derfor PCA først (til 30 til 50 dimensjoner, raskt og fjerner støy), så t-SNE til 2D for plottet. `init="pca"` gir dessuten mer stabile resultater enn tilfeldig start.
-
-::: eksamen
-Eksamen 2024 spurte hva t-SNE vanligvis brukes til (visualisering i lav dimensjon, ikke klassifisering eller klynging). Eksamen 2025 spurte hvorfor t-SNE ikke kan brukes på nye punkter (den optimerer posisjonene til de opprinnelige punktene, og har ingen mapping).
+```test
+import numpy as np
+assert np.asarray(X_emb).shape == (200, 2), f"X_emb skal ha shape (200, 2), fikk {np.asarray(X_emb).shape}."
+assert kl is not ... and float(kl) > 0, "kl skal være tsne.kl_divergence_ (et positivt tall)."
+assert len(ax.collections) >= 1, "Plott X_emb med ax.scatter og c=y."
+```
 :::
 
+## Perplexity
+`perplexity` er omtrent hvor mange naboer hvert punkt tar hensyn til (typisk 5 til 50, og mindre enn antall punkter): lav gir små, oppsplittede grupper og høy mer global struktur.
+
+::: oppgave Lav og høy perplexity
+Lag `emb_lav` med `perplexity=5` og `emb_hoy` med `perplexity=40` (ellers `n_components=2, init="pca", random_state=0`) på `X`.
+```start
+from sklearn.datasets import load_digits
+from sklearn.manifold import TSNE
+
+X, y = load_digits(return_X_y=True)
+X, y = X[:150], y[:150]
+emb_lav = ...
+emb_hoy = ...
+```
+```losning
+from sklearn.datasets import load_digits
+from sklearn.manifold import TSNE
+
+X, y = load_digits(return_X_y=True)
+X, y = X[:150], y[:150]
+emb_lav = TSNE(n_components=2, perplexity=5, init="pca", random_state=0).fit_transform(X)
+emb_hoy = TSNE(n_components=2, perplexity=40, init="pca", random_state=0).fit_transform(X)
+```
+```test
+import numpy as np
+assert np.asarray(emb_lav).shape == (150, 2) and np.asarray(emb_hoy).shape == (150, 2), "Begge embeddingene skal ha shape (150, 2)."
+f5 = TSNE(n_components=2, perplexity=5, init="pca", random_state=0).fit_transform(X)
+assert np.allclose(emb_lav, f5, atol=1e-3), "emb_lav skal bruke perplexity=5, init='pca' og random_state=0."
+assert not np.allclose(emb_hoy, f5, atol=1e-3), "emb_hoy skal bruke perplexity=40."
+```
+:::
+
+## t-SNE kan ikke brukes på nye punkter
+t-SNE optimerer posisjonene til punktene den fikk og har ingen `transform`, så nye punkter krever at du kjører `fit_transform` på alt på nytt (PCA har `transform`).
+
+::: oppgave Nye punkter
+`PCA` er tilpasset på `X_gml`. Lagre PCA-koordinatene til `X_ny` i `pca_ny`, og t-SNE-koordinatene til de nye punktene i `tsne_ny` ved å kjøre t-SNE (`perplexity=20, init="pca", random_state=0`) på `np.vstack([X_gml, X_ny])` og ta de 10 siste radene.
+```start
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
+X, _ = load_digits(return_X_y=True)
+X_gml, X_ny = X[:100], X[100:110]
+pca = PCA(n_components=2).fit(X_gml)
+
+pca_ny = ...
+tsne_ny = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
+X, _ = load_digits(return_X_y=True)
+X_gml, X_ny = X[:100], X[100:110]
+pca = PCA(n_components=2).fit(X_gml)
+
+pca_ny = pca.transform(X_ny)
+alle = TSNE(n_components=2, perplexity=20, init="pca", random_state=0).fit_transform(np.vstack([X_gml, X_ny]))
+tsne_ny = alle[-10:]
+```
+```test
+import numpy as np
+assert np.asarray(pca_ny).shape == (10, 2) and np.allclose(pca_ny, pca.transform(X_ny)), "pca_ny skal være pca.transform(X_ny), uten å tilpasse på nytt."
+assert np.asarray(tsne_ny).shape == (10, 2), f"tsne_ny skal ha shape (10, 2), fikk {np.asarray(tsne_ny).shape}. Ta de 10 siste radene."
+fasit = TSNE(n_components=2, perplexity=20, init="pca", random_state=0).fit_transform(np.vstack([X_gml, X_ny]))[-10:]
+assert np.allclose(tsne_ny, fasit, atol=1e-3), "Kjør TSNE.fit_transform på np.vstack([X_gml, X_ny]) (gamle først) og ta [-10:]."
+```
+:::
+
+## PCA mot t-SNE
+Vanlig rørledning er PCA først (til 30 til 50 dimensjoner, raskt og fjerner støy) og så t-SNE til 2D.
+
 ::: oppgave PCA før t-SNE
-Reduser først `X` til 30 dimensjoner med `PCA(n_components=30, random_state=0)`, og kjør deretter `TSNE(n_components=2, perplexity=30, init="pca", random_state=0)` på resultatet. Lagre PCA-resultatet i `X_pca` og t-SNE-resultatet i `X_emb`.
+Reduser `X` til 30 dimensjoner med `PCA(n_components=30, random_state=0)`, og kjør deretter `TSNE(n_components=2, perplexity=30, init="pca", random_state=0)` på resultatet. Lagre PCA-resultatet i `X_pca` og t-SNE-resultatet i `X_emb`.
 ```start
 from sklearn.datasets import load_digits
 from sklearn.decomposition import PCA
@@ -1117,138 +1352,161 @@ assert X_emb is not ... and np.asarray(X_emb).shape == (300, 2), "X_emb skal ha 
 ```
 :::
 
-::: quiz
-To klynger ligger langt fra hverandre i et t-SNE-plott, og en tredje ligger nær den ene. Hva kan vi trygt konkludere?
-- [ ] At den tredje klyngen er mest lik den den ligger nær i det opprinnelige rommet
-- [ ] At den største klyngen i plottet har flest punkter
-- [x] Lite om avstander mellom klyngene: t-SNE bevarer lokale naboskap, ikke globale avstander
-- [ ] At dataene er lineært separerbare
-? Avstander mellom klynger og klyngestørrelser i t-SNE avhenger av perplexity og tilfeldigheter. Det t-SNE viser pålitelig er hvilke punkter som er naboer.
-:::
-
-::: quiz
-Hvilken metode kan du bruke til å lage features for nye testdata etter å ha tilpasset den på treningsdata?
-- [x] `PCA`, med `pca.transform(X_test)`
-- [ ] `TSNE`, med `tsne.transform(X_test)`
-- [ ] Begge
-- [ ] Ingen av dem
-? PCA lærer en lineær projeksjon som kan brukes på nye punkter. t-SNE har ingen `transform`.
-:::
-
-::: oppsummering
-- `TSNE(n_components=2, perplexity=…, init="pca", random_state=…).fit_transform(X)`. Bare for visualisering.
-- `perplexity` ≈ antall naboer hvert punkt tar hensyn til (typisk 5 til 50).
-- Ingen `transform`: t-SNE optimerer posisjonene til punktene den fikk, og kan ikke brukes på nye data.
-- Avstander mellom klynger og klyngestørrelser i plottet betyr lite.
-- Vanlig rørledning: PCA til 30 til 50 dimensjoner, så t-SNE til 2D. Bruk få punkter, t-SNE er treg.
-:::
-
 --- LEKSJON 10.9 | anomalideteksjon | Anomalideteksjon
-I **anomalideteksjon** leter vi etter punktene som ikke ligner resten. Vi har mange normale eksempler og få eller ingen merkede anomalier, så det gjøres vanligvis uveiledet. Alle metodene under gir en **score** per punkt. Så velger vi en **terskel**, ofte en persentil.
+Hver metode gir en score per punkt, og en terskel som `np.percentile(score, 95)` avgjør hvilke punkter som er anomalier.
 
 ## z-score (én feature)
-Hvor mange standardavvik er punktet fra snittet? $|z| > 3$ er en vanlig tommelfingerregel.
+`z = (x - x.mean()) / x.std()` sier hvor mange standardavvik et punkt er fra snittet, og `|z| > 3` er en vanlig grense.
 
-```python
+::: oppgave z-score
+Regn ut `z` for `x`, og lagre indeksene der `|z| > 3` i `avvik`.
+```start
 import numpy as np
 
 rng = np.random.default_rng(0)
-x = np.concatenate([rng.normal(50, 5, 200), [95, 3]])   # to innplantede avvik
-z = (x - x.mean()) / x.std()
-print("Avvik (|z| > 3):", np.where(np.abs(z) > 3)[0], x[np.abs(z) > 3])
+x = np.concatenate([rng.normal(50, 5, 200), [95, 3]])
+z = ...
+avvik = ...
 ```
+```losning
+import numpy as np
+
+rng = np.random.default_rng(0)
+x = np.concatenate([rng.normal(50, 5, 200), [95, 3]])
+z = (x - x.mean()) / x.std()
+avvik = np.where(np.abs(z) > 3)[0]
+```
+```test
+import numpy as np
+assert np.asarray(z).shape == (202,) and np.allclose(z, (x - x.mean()) / x.std()), "z skal være (x - x.mean()) / x.std()."
+assert avvik is not ... and sorted(np.asarray(avvik).tolist()) == [200, 201], f"De innplantede verdiene på indeks 200 og 201 skal være avvik, fikk {avvik}. Husk np.abs."
+```
+:::
 
 ## Avstand til nærmeste sentroide (k-means)
-Fra notatene: tilpass k-means på treningsdata, regn avstanden fra hvert testpunkt til nærmeste sentroide, og kall de 5 % fjerneste for anomalier.
+`kmeans.transform(X_test).min(axis=1)` gir avstanden til nærmeste sentroide, og en 95-persentil merker alltid 5 % av punktene, også normale (falske positive).
 
-```python
+::: oppgave k-means som anomalidetektor
+Tilpass `KMeans(n_clusters=3, n_init=10, random_state=0)` på `X_train`, lagre avstanden fra hvert testpunkt til nærmeste sentroide i `distances`, 95-persentilen i `threshold` og den boolske masken `outliers`. Lagre også antall falske positive (merkede blant de 100 normale første radene) i `n_falske`.
+```start
 import numpy as np
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 
 X_train, _ = make_blobs(n_samples=400, centers=3, random_state=0)
 X_test, _ = make_blobs(n_samples=100, centers=3, random_state=0)
-X_test = np.vstack([X_test, [[8, 8], [-6, -6]]])      # to anomalier på slutten
+X_test = np.vstack([X_test, [[8, 8], [-6, -6]]])   # rad 100 og 101 er anomalier
+
+distances = ...
+threshold = ...
+outliers = ...
+n_falske = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.cluster import KMeans
+
+X_train, _ = make_blobs(n_samples=400, centers=3, random_state=0)
+X_test, _ = make_blobs(n_samples=100, centers=3, random_state=0)
+X_test = np.vstack([X_test, [[8, 8], [-6, -6]]])   # rad 100 og 101 er anomalier
 
 kmeans = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X_train)
 distances = kmeans.transform(X_test).min(axis=1)
 threshold = np.percentile(distances, 95)
 outliers = distances > threshold
-print("Terskel:", threshold.round(2))
-print("Anomalier:", np.where(outliers)[0])
+n_falske = int(np.sum(outliers[:100]))
 ```
+```test
+import numpy as np
+km_ = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X_train)
+d_ = km_.transform(X_test).min(axis=1)
+assert np.asarray(distances).shape == (102,) and np.allclose(distances, d_), "distances skal være kmeans.transform(X_test).min(axis=1), med KMeans tilpasset på X_train."
+assert threshold is not ... and np.isclose(threshold, np.percentile(d_, 95)), "threshold skal være np.percentile(distances, 95)."
+assert np.asarray(outliers).dtype == bool and np.array_equal(outliers, d_ > threshold), "outliers skal være distances > threshold."
+assert outliers[100] and outliers[101], "De to innplantede anomaliene skal være med."
+assert n_falske == int(np.sum(d_[:100] > threshold)), "n_falske er antall True i outliers[:100]."
+```
+:::
 
-`np.percentile(distances, 95)` er verdien som 95 % av avstandene er mindre enn. Begge de innplantede punktene (indeks 100 og 101) blir funnet, men også fire normale punkter i utkanten av klyngene. Det er **falske positive**: en 95-persentil merker alltid 5 % av punktene, uansett hvor mange anomalier som faktisk finnes. Terskelen er et valg, og ingen verdi er riktig for alle data.
+## Isolation Forest, LOF og DBSCAN
+`IsolationForest(contamination=0.01, random_state=0)` og `LocalOutlierFactor(n_neighbors=20)` gir `-1` for anomalier og `1` for normale fra `predict`/`fit_predict`, og `lof.negative_outlier_factor_` er mer negativ jo mer anomalt; i DBSCAN er støy (`labels_ == -1`) anomaliene.
 
-## DBSCAN, Isolation Forest og LOF
-- **DBSCAN**: støypunktene (`labels_ == -1`) er anomaliene. Ingen terskel å velge, men `eps` må velges.
-- **Isolation Forest**: bygger trær med *tilfeldige* splitter. Anomalier er få og ulike, så de isoleres etter få splitter, nær roten. Kort snittsti = anomali.
-- **Local Outlier Factor (LOF)**: sammenligner tettheten rundt et punkt med tettheten rundt naboene. Mye lavere tetthet enn naboene = anomali. `negative_outlier_factor_` er mer negativ jo mer anomalt.
-
-```python
+::: oppgave Isolation Forest
+Tilpass `iso = IsolationForest(n_estimators=100, contamination=0.01, random_state=0)` på `X`, og lagre indeksene der `iso.predict(X)` er `-1` i `iso_anom`.
+```start
 import numpy as np
 from sklearn.datasets import make_blobs
 from sklearn.ensemble import IsolationForest
+
+X, _ = make_blobs(n_samples=300, centers=2, cluster_std=0.8, random_state=1)
+X = np.vstack([X, [[0, 10], [-12, 0], [5, -2]]])   # rad 300, 301, 302
+
+iso = ...
+iso_anom = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.ensemble import IsolationForest
+
+X, _ = make_blobs(n_samples=300, centers=2, cluster_std=0.8, random_state=1)
+X = np.vstack([X, [[0, 10], [-12, 0], [5, -2]]])   # rad 300, 301, 302
+
+iso = IsolationForest(n_estimators=100, contamination=0.01, random_state=0).fit(X)
+iso_anom = np.where(iso.predict(X) == -1)[0]
+```
+```test
+import numpy as np
+assert isinstance(iso, IsolationForest) and hasattr(iso, "estimators_"), "iso skal være en tilpasset IsolationForest (husk .fit(X))."
+assert iso_anom is not ..., "Lag iso_anom med np.where(iso.predict(X) == -1)[0]."
+a = set(np.asarray(iso_anom).tolist())
+assert {300, 301, 302} <= a, f"De innplantede radene 300, 301 og 302 skal være med, fikk {sorted(a)}."
+assert len(a) <= 5, f"contamination=0.01 skal gi omtrent 1 % anomalier, fikk {len(a)}."
+```
+:::
+
+::: oppgave LOF og DBSCAN
+Lagre de 3 radene med mest negativ `negative_outlier_factor_` fra `LocalOutlierFactor(n_neighbors=20)` i `lof_topp3` (med `np.argsort`), og støypunktene fra `DBSCAN(eps=1.0, min_samples=5)` i `db_stoy`.
+```start
+import numpy as np
+from sklearn.datasets import make_blobs
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.cluster import DBSCAN
 
 X, _ = make_blobs(n_samples=300, centers=2, cluster_std=0.8, random_state=1)
-X = np.vstack([X, [[0, 10], [-12, 0], [5, -2]]])      # indeks 300, 301, 302
+X = np.vstack([X, [[0, 10], [-12, 0], [5, -2]]])
 
-iso = IsolationForest(n_estimators=100, contamination=0.01, random_state=0).fit(X)
-print("IsolationForest:", np.where(iso.predict(X) == -1)[0])
+lof_topp3 = ...
+db_stoy = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.cluster import DBSCAN
+
+X, _ = make_blobs(n_samples=300, centers=2, cluster_std=0.8, random_state=1)
+X = np.vstack([X, [[0, 10], [-12, 0], [5, -2]]])
 
 lof = LocalOutlierFactor(n_neighbors=20)
-lof_lab = lof.fit_predict(X)
-score = lof.negative_outlier_factor_
-print("LOF, 3 mest negative:", np.argsort(score)[:3])
-
-db = DBSCAN(eps=1.0, min_samples=5).fit(X)
-print("DBSCAN støy:", np.where(db.labels_ == -1)[0])
+lof.fit_predict(X)
+lof_topp3 = np.argsort(lof.negative_outlier_factor_)[:3]
+db_stoy = np.where(DBSCAN(eps=1.0, min_samples=5).fit(X).labels_ == -1)[0]
 ```
-
-`predict` gir `1` for normale punkter og `-1` for anomalier, både for `IsolationForest` og `LocalOutlierFactor`. `contamination` er hvor stor andel du tror er anomalier, og bestemmer terskelen. Isolation Forest kan `fit` på trening og `predict` på test, slik notatene viser.
-
-## Rekonstruksjonsfeil med PCA
-PCA med få komponenter lærer strukturen de fleste punktene deler. Et punkt som ikke passer, kan ikke rekonstrueres godt. Slik fant løsningen av prosjekt 3 de tre radene som ikke var kartbilder. Her planter vi tre «bilder» som ikke er siffer blant de 1797 sifrene:
-
-```python
+```test
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
-from sklearn.decomposition import PCA
-
-X, _ = load_digits(return_X_y=True)
-X = X.copy()
-rng = np.random.default_rng(0)
-X[100] = rng.uniform(0, 16, 64)          # støy
-X[900] = np.tile([0, 16], 32)            # stripemønster
-X[1500] = 8.0                            # helt grått
-
-pca = PCA(n_components=20).fit(X)
-X_rec = pca.inverse_transform(pca.transform(X))
-recon_error = np.sum((X - X_rec)**2, axis=1)
-
-topp = np.argsort(recon_error)[::-1][:5]
-print("Største feil:", topp, recon_error[topp].round(0))
-print("Median feil:", np.median(recon_error).round(0))
-
-fig, ax = plt.subplots(1, 3, figsize=(7, 2.5))
-for a, i in zip(ax, topp[:3]):
-    a.imshow(X[i].reshape(8, 8), cmap="gray")
-    a.set_title(f"rad {i}")
-    a.axis("off")
-plt.show()
+assert lof_topp3 is not ... and sorted(np.asarray(lof_topp3).tolist()) == [300, 301, 302], f"De tre mest negative skal være radene 300, 301 og 302, fikk {lof_topp3}. Sorter stigende og ta de 3 første."
+fasit = np.where(DBSCAN(eps=1.0, min_samples=5).fit(X).labels_ == -1)[0]
+assert db_stoy is not ... and sorted(np.asarray(db_stoy).tolist()) == fasit.tolist(), "db_stoy skal være indeksene der labels_ == -1."
 ```
-
-De tre innplantede radene har mye større feil enn alle sifrene. Et histogram over `recon_error` (gjerne med `log=True`) viser et tydelig gap, og terskelen legges i gapet.
-
-::: eksamen
-Eksamen 2024: «Hva betyr det hvis en modell for anomalideteksjon gir mange falske positive?» Den merker mange **normale** punkter som anomalier, typisk fordi terskelen er for lav. Eksamen 2025 spurte hvorfor anomalier får høy score i Isolation Forest: de isoleres tidligere, med kortere sti fra roten.
 :::
 
+## Rekonstruksjonsfeil med PCA
+`X_rec = pca.inverse_transform(pca.transform(X))` og `np.sum((X - X_rec)**2, axis=1)` gir stor feil for rader som ikke passer strukturen de andre deler.
+
 ::: oppgave Rekonstruksjonsfeil og persentil
-Tilpass `PCA(n_components=2)` på `X`, regn ut rekonstruksjonsfeilen `recon_error` (sum av kvadrerte avvik per rad), og lagre indeksene til radene med feil **over 99-persentilen** i `anomalier` (et array med indekser, bruk `np.where`).
+Tilpass `PCA(n_components=2)` på `X`, regn ut `recon_error` (sum av kvadrerte avvik per rad), og lagre indeksene til radene med feil **over 99-persentilen** i `anomalier` (bruk `np.where`).
 ```start
 import numpy as np
 from sklearn.decomposition import PCA
@@ -1285,180 +1543,42 @@ assert {17, 230, 444} <= set(a), f"De innplantede radene 17, 230 og 444 skal væ
 ```
 :::
 
-::: quiz
-Hva gjør koden?
-```kode
-distances = kmeans.transform(X_test).min(axis=1)
-threshold = np.percentile(distances, 95)
-outliers = distances > threshold
-```
-- [ ] Merker de 95 % fjerneste punktene som anomalier
-- [x] Merker de omtrent 5 % testpunktene som ligger lengst fra sin nærmeste sentroide som anomalier
-- [ ] Merker punktene som ligger nærmere enn 95 enheter fra en sentroide
-- [ ] Fjerner 5 % av sentroidene
-? `transform` gir avstand til alle sentroidene, `.min(axis=1)` avstanden til nærmeste. 95-persentilen er terskelen som 95 % ligger under.
-:::
-
-::: quiz
-Hvorfor får anomalier kort snittsti i en Isolation Forest?
-- [ ] Fordi trærne er trent på labels som sier hva som er anomalier
-- [x] Fordi få og avvikende punkter blir isolert etter få tilfeldige splitter
-- [ ] Fordi anomalier alltid havner i den største løvnoden
-- [ ] Fordi trærne har `max_depth=1`
-? Et punkt langt fra resten havner alene på én side av en tilfeldig terskel raskt. Normale punkter i tette områder trenger mange splitter.
-:::
-
-::: oppsummering
-- z-score: `(x - x.mean()) / x.std()`, |z| > 3 er avvik.
-- k-means: `kmeans.transform(X).min(axis=1)` og terskel `np.percentile(..., 95)`.
-- DBSCAN: `labels_ == -1`. IsolationForest og LOF: `predict(...) == -1`, `contamination` styrer terskelen.
-- LOF: `negative_outlier_factor_`, mer negativ = mer anomal.
-- PCA-rekonstruksjonsfeil: `np.sum((X - pca.inverse_transform(pca.transform(X)))**2, axis=1)`, terskel i gapet.
-- Mange falske positive = normale punkter merkes som anomalier (terskelen er for streng mot normale).
-:::
-
 --- LEKSJON 10.10 | prosjekt-3 | Prosjekt 3-teknikker
-Prosjekt 3, problem 2 var en ekte uveiledet oppgave: en stor CSV uten labels, med stokkede kolonner, som viste seg å være bilder. Her øver vi på de samme teknikkene med `load_digits`.
+Prosjekt 3 var en stor CSV uten labels med stokkede pikselkolonner, og her øver vi de samme teknikkene på `load_digits`.
 
 ## Klyngenøyaktighet som ikke bryr seg om navn
-Klyngelabels er vilkårlige: `[1, 1, 0, 0]` er like riktig som `[0, 0, 1, 1]`. For å måle nøyaktighet lager vi en **kontingenstabell** (hvor mange punkter fra sann klasse $i$ havnet i klynge $j$), og finner den beste én-til-én-koblingen mellom klynger og klasser med den **ungarske algoritmen** (`linear_sum_assignment`). Dette er funksjonen fra prosjektet:
+Klyngelabels er bare navn, så `c = contingency_matrix(true, pred)` og `r, k = linear_sum_assignment(-c)` finner beste kobling mellom klynger og klasser (minus fordi den minimerer), og `c[r, k].sum() / n` er nøyaktigheten.
 
-```python
+::: oppgave Kontingenstabell
+Lagre kontingenstabellen for `true_labels` og `cluster_labels` i `c`, og antall punkter fra klasse 0 som havnet i klynge 1 i `n_0_i_1`.
+```start
 import numpy as np
-import scipy.optimize
-import sklearn.metrics
+from sklearn.metrics.cluster import contingency_matrix
 
-def calculate_clustering_accuracy(true_labels, cluster_labels):
-    contingency = sklearn.metrics.cluster.contingency_matrix(true_labels, cluster_labels)
-    row_ind, col_ind = scipy.optimize.linear_sum_assignment(-contingency)
-    correct = contingency[row_ind, col_ind].sum()
-    return correct / true_labels.size
-
-true_labels = np.array([0, 1, 2, 0, 1, 2])
-cluster_labels = np.array([1, 2, 0, 1, 2, 0])
-print("Kontingenstabell (rad = sann klasse, kolonne = klynge):")
-display(sklearn.metrics.cluster.contingency_matrix(true_labels, cluster_labels))
-print("Omdøpte klynger:", calculate_clustering_accuracy(true_labels, cluster_labels))
-print("Én sann klynge:  ", calculate_clustering_accuracy(np.zeros(6, int), cluster_labels))
-print("Alt i én klynge: ", calculate_clustering_accuracy(np.array([1, 1, 1, 2, 2, 2]), np.zeros(6, int)))
+true_labels = np.array([0, 0, 0, 1, 1, 2, 2, 2])
+cluster_labels = np.array([1, 1, 2, 0, 0, 2, 2, 1])
+c = ...
+n_0_i_1 = ...
 ```
-
-I tabellen har hver rad nøyaktig én celle med 2: klasse 0 havnet i klynge 1, klasse 1 i klynge 2 og klasse 2 i klynge 0. `linear_sum_assignment` velger én celle per rad og kolonne slik at summen blir størst mulig. Den *minimerer* kostnaden, så vi gir den `-contingency` for å *maksimere* antall riktige.
-
-## Bilder lagret som rader
-Et gråtonebilde på $h \times w$ piksler kan lagres som én rad med $h \cdot w$ tall. `load_digits` har 64 kolonner = $8 \times 8$. Med `reshape(-1, 8, 8)` får vi bildene tilbake (`-1` betyr «regn ut selv»). I prosjektet var det 16 384 kolonner, altså $128 \times 128$.
-
-```python
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
-
-X, y = load_digits(return_X_y=True)
-print("X:", X.shape)
-print("Første siffer som én rad med 64 piksler:")
-display(X[:1])
-images = X.reshape(-1, 8, 8)
-print("images:", images.shape)
-print("Det samme sifferet etter reshape til 8 × 8:")
-display(images[0])
-
-fig, axes = plt.subplots(2, 8, figsize=(10, 3))
-for ax, i in zip(axes.flat, range(16)):
-    ax.imshow(images[i], cmap="gray")
-    ax.set_title(str(y[i]))
-    ax.axis("off")
-plt.show()
-```
-
-Raden med 64 tall er vanskelig å lese, men etter `reshape` ser du sifferet (en 0) direkte i fargene i rutenettet. Det er nøyaktig de samme tallene, bare ordnet i 8 rader.
-
-## Gjenopprette stokkede kolonner
-I prosjektet var pikselkolonnene stokket, og en ekstra **header-rad** inneholdt den opprinnelige pikselindeksen til hver kolonne (`col_<indeks>`). `np.argsort` på disse indeksene gir rekkefølgen som setter kolonnene tilbake på plass:
-
-```python
+```losning
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
+from sklearn.metrics.cluster import contingency_matrix
 
-X, _ = load_digits(return_X_y=True)
-rng = np.random.default_rng(0)
-perm = rng.permutation(64)
-df = pd.DataFrame(X[:, perm], columns=[f"col_{p}" for p in perm])   # "stokket CSV"
-print(list(df.columns[:6]))
-
-order = np.argsort([int(c.split("_")[1]) for c in df.columns])
-pixels = df.to_numpy()[:, order]
-print("Gjenopprettet riktig:", np.array_equal(pixels, X))
-print("Før (stokket):")
-display(df.iloc[:3, :8])
-print("Etter (df.iloc[:, order]):")
-display(df.iloc[:, order].iloc[:3, :8])
-
-fig, ax = plt.subplots(1, 2, figsize=(5, 2.5))
-ax[0].imshow(df.to_numpy()[0].reshape(8, 8), cmap="gray")
-ax[0].set_title("stokket")
-ax[1].imshow(pixels[0].reshape(8, 8), cmap="gray")
-ax[1].set_title("gjenopprettet")
-for a in ax:
-    a.axis("off")
-plt.show()
+true_labels = np.array([0, 0, 0, 1, 1, 2, 2, 2])
+cluster_labels = np.array([1, 1, 2, 0, 0, 2, 2, 1])
+c = contingency_matrix(true_labels, cluster_labels)
+n_0_i_1 = c[0, 1]
 ```
-
-`np.argsort(idx)` svarer på: «hvilken kolonne skal stå på plass 0, 1, 2 …?». Merk at stokking av kolonner **ikke** endrer avstander eller PCA (det er bare en omnummerering av features). Den ødelegger bare muligheten til å se på bildene.
-
-## Rørledningen: PCA, klynging, t-SNE
-Den typiske flyten i prosjektet var: reduser dimensjonen med PCA, klyng i PCA-rommet, og bruk t-SNE bare til å *visualisere* klyngene.
-
-```python
+```test
 import numpy as np
-import matplotlib.pyplot as plt
-import scipy.optimize
-import sklearn.metrics
-from sklearn.datasets import load_digits
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans, SpectralClustering
-from sklearn.manifold import TSNE
-
-def calculate_clustering_accuracy(true_labels, cluster_labels):
-    c = sklearn.metrics.cluster.contingency_matrix(true_labels, cluster_labels)
-    r, k = scipy.optimize.linear_sum_assignment(-c)
-    return c[r, k].sum() / true_labels.size
-
-X, y = load_digits(return_X_y=True)
-Z = PCA(n_components=30, random_state=0).fit_transform(X)
-
-km = KMeans(n_clusters=10, n_init=10, random_state=0).fit_predict(Z)
-sc = SpectralClustering(n_clusters=10, affinity="nearest_neighbors", n_neighbors=10, random_state=0).fit_predict(Z)
-print(f"KMeans:   {calculate_clustering_accuracy(y, km):.3f}")
-print(f"Spectral: {calculate_clustering_accuracy(y, sc):.3f}")
-
-idx = np.arange(0, len(X), 6)                # t-SNE på hvert 6. punkt for fart
-T = TSNE(n_components=2, init="pca", random_state=0).fit_transform(Z[idx])
-plt.scatter(T[:, 0], T[:, 1], c=sc[idx], cmap="tab10", s=8)
-plt.title("Spektrale klynger vist med t-SNE")
-plt.show()
+assert np.asarray(c).shape == (3, 3), "c skal være 3 × 3 (rad = sann klasse, kolonne = klynge)."
+assert np.array_equal(c, contingency_matrix(true_labels, cluster_labels)), "Bruk contingency_matrix(true_labels, cluster_labels) i den rekkefølgen."
+assert n_0_i_1 == 2, f"To punkter fra klasse 0 havnet i klynge 1 (c[0, 1]), fikk {n_0_i_1}."
 ```
-
-I det virkelige prosjektet holdt ikke rå piksler: bildene var rotert og zoomet, så avstanden mellom to bilder av samme sted var dominert av rotasjonen. Løsningen var å lage rotasjonsinvariante features før PCA. Lærdommen er generell: klynging er aldri bedre enn avstandsmålet, og avstandsmålet er aldri bedre enn featurene.
-
-## Lagre en innlevering
-Kaggle ville ha en CSV med kolonnene `ID` og `cluster`. Anomaliene ble gitt en egen klynge:
-
-```python
-import numpy as np
-import pandas as pd
-
-labels = np.array([0, 2, 1, 1, 0, 2])
-anomalies = np.array([3])
-final_labels = labels.copy()
-final_labels[anomalies] = labels.max() + 1          # egen klynge for anomaliene
-submission = pd.DataFrame({"ID": np.arange(len(labels)), "cluster": final_labels})
-submission.to_csv("submission.csv", index=False)
-submission
-```
+:::
 
 ::: oppgave Skriv calculate_clustering_accuracy
-Skriv funksjonen `calculate_clustering_accuracy(true_labels, cluster_labels)` som returnerer andelen riktige etter beste omdøping av klyngene. Bruk `contingency_matrix` og `linear_sum_assignment` (importert).
+Skriv `calculate_clustering_accuracy(true_labels, cluster_labels)` som returnerer andelen riktige etter beste omdøping av klyngene.
 ```start
 import numpy as np
 from sklearn.metrics.cluster import contingency_matrix
@@ -1487,28 +1607,160 @@ assert abs(f(np.array([0, 0, 1, 1, 1]), np.array([5, 5, 5, 7, 7])) - 0.8) < 1e-9
 ```
 :::
 
-::: quiz
-Hva returnerer `calculate_clustering_accuracy(np.array([0, 0, 1, 1]), np.array([1, 1, 0, 0]))`?
-- [ ] 0.0, fordi ingen labels er like
-- [ ] 0.5
-- [x] 1.0, fordi klyngene er like etter omdøping
-- [ ] En feil, fordi labelene er forskjellige
-? Funksjonen finner den beste koblingen (klynge 1 = klasse 0, klynge 0 = klasse 1), og da er alle fire riktige.
+## Bilder lagret som rader
+`X.reshape(-1, 8, 8)` gjør hver rad med 64 piksler om til et 8 × 8-bilde (`-1` betyr «regn ut selv»), og `ax.imshow(bilde, cmap="gray")` viser det.
+
+::: oppgave Fra rader til bilder
+Lag `images` med shape `(1797, 8, 8)` og vis `images[0]` med `ax.imshow`, og lagre sidelengden til et kvadratisk bilde med 16 384 piksler (som i prosjektet) i `side`.
+```start
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_digits
+
+X, y = load_digits(return_X_y=True)
+fig, ax = plt.subplots()
+images = ...
+side = ...
+```
+```losning
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_digits
+
+X, y = load_digits(return_X_y=True)
+fig, ax = plt.subplots()
+images = X.reshape(-1, 8, 8)
+ax.imshow(images[0], cmap="gray")
+side = int(np.sqrt(16384))
+```
+```test
+import numpy as np
+assert np.asarray(images).shape == (1797, 8, 8), f"images skal ha shape (1797, 8, 8), fikk {np.asarray(images).shape}. Bruk X.reshape(-1, 8, 8)."
+assert np.array_equal(images[0], X[0].reshape(8, 8)), "images[0] skal være første rad omformet til 8 × 8."
+assert len(ax.images) >= 1, "Vis images[0] med ax.imshow."
+assert side == 128, f"16 384 = 128 · 128, så side skal være 128, fikk {side}."
+```
 :::
 
-::: quiz
-En CSV har 16 384 kolonner med pikselverdier i stokket rekkefølge, og header-raden er `col_<opprinnelig indeks>`. Hvilken linje setter kolonnene i riktig rekkefølge?
-- [ ] `pixels = X[:, np.sort(idx)]`
-- [x] `pixels = X[:, np.argsort(idx)]`
-- [ ] `pixels = X[np.argsort(idx), :]`
-- [ ] `pixels = X.reshape(128, 128)`
-? `np.sort` gir verdiene sortert, ikke posisjonene. `np.argsort(idx)` gir hvilke kolonner som skal stå først, og vi indekserer kolonnene (andre akse).
+## Gjenopprette stokkede kolonner
+Når kolonnenavnene er `col_<opprinnelig indeks>`, gir `order = np.argsort(indekser)` rekkefølgen som setter kolonnene tilbake, og `pixels = df.to_numpy()[:, order]` gjør det.
+
+::: oppgave Sett pikslene på plass
+Hent den opprinnelige indeksen fra hvert kolonnenavn i `df` (`int(c.split("_")[1])`), og lagre de gjenopprettede pikslene som numpy-array i `pixels`.
+```start
+import numpy as np
+import pandas as pd
+from sklearn.datasets import load_digits
+
+X, _ = load_digits(return_X_y=True)
+perm = np.random.default_rng(0).permutation(64)
+df = pd.DataFrame(X[:, perm], columns=[f"col_{p}" for p in perm])
+
+pixels = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+from sklearn.datasets import load_digits
+
+X, _ = load_digits(return_X_y=True)
+perm = np.random.default_rng(0).permutation(64)
+df = pd.DataFrame(X[:, perm], columns=[f"col_{p}" for p in perm])
+
+idx = [int(c.split("_")[1]) for c in df.columns]
+order = np.argsort(idx)
+pixels = df.to_numpy()[:, order]
+```
+```test
+import numpy as np
+assert np.asarray(pixels).shape == (1797, 64), f"pixels skal ha shape (1797, 64), fikk {np.asarray(pixels).shape}. Ordner du kolonnene (andre akse)?"
+assert np.array_equal(pixels, X), "Kolonnene står ikke i riktig rekkefølge. Bruk np.argsort på indeksene (ikke np.sort)."
+```
 :::
 
-::: oppsummering
-- Klyngenøyaktighet: `contingency_matrix` + `linear_sum_assignment(-c)`, så `c[r, k].sum() / n`. Uavhengig av klyngenavn.
-- Bilder som rader: `X.reshape(-1, h, w)` og `imshow`. 64 = 8·8, 16 384 = 128·128.
-- Stokkede kolonner: `order = np.argsort(opprinnelige_indekser)`, så `X[:, order]`. Stokking endrer ikke avstander.
-- Rørledning: (skaler) → PCA → klynging (KMeans/DBSCAN/Spectral) → t-SNE bare for å se → anomalier med rekonstruksjonsfeil.
-- Innlevering: `pd.DataFrame({"ID": …, "cluster": …}).to_csv("submission.csv", index=False)`.
+## Rørledningen: PCA, klynging, t-SNE
+Den typiske flyten er PCA først, så klynging i PCA-rommet, og t-SNE bare til å se på klyngene.
+
+::: oppgave Hele rørledningen
+Reduser sifrene til 30 dimensjoner med `PCA(n_components=30, random_state=0)` (`Z`), klyng med `KMeans(n_clusters=10, n_init=10, random_state=0)` (`km`), og lagre klyngenøyaktigheten i `acc`.
+```start
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics.cluster import contingency_matrix
+from scipy.optimize import linear_sum_assignment
+
+def calculate_clustering_accuracy(true_labels, cluster_labels):
+    c = contingency_matrix(true_labels, cluster_labels)
+    r, k = linear_sum_assignment(-c)
+    return c[r, k].sum() / len(true_labels)
+
+X, y = load_digits(return_X_y=True)
+Z = ...
+km = ...
+acc = ...
+```
+```losning
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics.cluster import contingency_matrix
+from scipy.optimize import linear_sum_assignment
+
+def calculate_clustering_accuracy(true_labels, cluster_labels):
+    c = contingency_matrix(true_labels, cluster_labels)
+    r, k = linear_sum_assignment(-c)
+    return c[r, k].sum() / len(true_labels)
+
+X, y = load_digits(return_X_y=True)
+Z = PCA(n_components=30, random_state=0).fit_transform(X)
+km = KMeans(n_clusters=10, n_init=10, random_state=0).fit_predict(Z)
+acc = calculate_clustering_accuracy(y, km)
+```
+```test
+import numpy as np
+assert np.asarray(Z).shape == (1797, 30), "Z skal ha shape (1797, 30)."
+assert km is not ... and np.asarray(km).shape == (1797,) and len(set(km)) == 10, "km skal være 10 klyngelabels per punkt fra KMeans på Z."
+assert acc is not ... and np.isclose(acc, calculate_clustering_accuracy(y, km)), "acc skal være calculate_clustering_accuracy(y, km)."
+assert acc > 0.6, f"Nøyaktigheten bør være over 0.6, fikk {acc:.3f}. Klynget du på Z?"
+```
+:::
+
+## Lagre en innlevering
+`submission = pd.DataFrame({"ID": ..., "cluster": ...})` og `submission.to_csv("submission.csv", index=False)` lager Kaggle-filen.
+
+::: oppgave Anomalier som egen klynge
+Lag `final_labels` der anomaliene får sin egen klynge `labels.max() + 1` (uten å endre `labels`), og `submission` med kolonnene `ID` (0, 1, 2, …) og `cluster`. Lagre den til `submission.csv` uten indeks.
+```start
+import numpy as np
+import pandas as pd
+
+labels = np.array([0, 2, 1, 1, 0, 2])
+anomalies = np.array([3])
+final_labels = ...
+submission = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+
+labels = np.array([0, 2, 1, 1, 0, 2])
+anomalies = np.array([3])
+final_labels = labels.copy()
+final_labels[anomalies] = labels.max() + 1
+submission = pd.DataFrame({"ID": np.arange(len(labels)), "cluster": final_labels})
+submission.to_csv("submission.csv", index=False)
+```
+```test
+import numpy as np
+import pandas as pd
+assert list(labels) == [0, 2, 1, 1, 0, 2], "labels er endret. Bruk labels.copy() før du endrer."
+assert final_labels is not ... and list(final_labels) == [0, 2, 1, 3, 0, 2], f"Rad 3 skal få klynge 3 (labels.max() + 1), fikk {list(final_labels)}."
+assert isinstance(submission, pd.DataFrame) and list(submission.columns) == ["ID", "cluster"], "submission skal ha kolonnene ID og cluster."
+assert list(submission["ID"]) == list(range(6)) and list(submission["cluster"]) == list(final_labels), "ID skal være 0 til 5 og cluster final_labels."
+lest = pd.read_csv("submission.csv")
+assert list(lest.columns) == ["ID", "cluster"], "Lagre med submission.to_csv('submission.csv', index=False)."
+```
 :::

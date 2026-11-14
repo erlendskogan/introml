@@ -648,7 +648,7 @@
       <section class="hero">
         <div class="kicker">TDT4172 · Kodepensum fra bunnen av</div>
         <h1>Lær all koden i IntroML, én ting om gangen</h1>
-        <p>Et kodekurs i samme stil som W3Schools. Du begynner med <code>print("Hei")</code> og ender med å trene nevrale nettverk, Q-læringsagenter og SHAP-forklaringer. Hver leksjon har en kort forklaring, eksempler du kan endre og kjøre direkte i nettleseren, oppgaver med automatisk sjekk og spørsmål i eksamensstil.</p>
+        <p>Et kodekurs der du lærer ved å skrive kode selv. Du begynner med <code>print("Hei")</code> og ender med å trene nevrale nettverk, Q-læringsagenter og SHAP-forklaringer. Hver del har maks et par setninger forklaring, og resten er oppgaver du løser direkte i nettleseren, med automatisk sjekk.</p>
         <div class="knapperad">
           ${sist ? `<a class="navknapp" href="#${esc(sist.nr)}">Fortsett: ${esc(sist.nr)} ${esc(sist.tittel)} ❯</a>` : (forste ? `<a class="navknapp" href="#${esc(forste.nr)}">Start kurset ❯</a>` : "")}
           ${sist && nesteUferdig && nesteUferdig !== sist ? `<a class="navknapp sekundar" href="#${esc(nesteUferdig.nr)}">Første ufullførte: ${esc(nesteUferdig.nr)}</a>` : ""}
@@ -657,8 +657,8 @@
       <div class="info-grid">
         <div class="info-kort"><b>▶ Kjør koden selv</b>Alle grønne «Kjør»-knapper kjører ekte Python (numpy, pandas, scikit-learn, matplotlib) i nettleseren. Første gang tar det noen sekunder å starte.</div>
         <div class="info-kort"><b>✎ Oppgaver med fasit</b>Skriv koden, trykk «Kjør og sjekk», så får du beskjed om svaret er riktig. Løsningsforslag finnes, men prøv selv først.</div>
-        <div class="info-kort"><b>? Eksamensstil</b>Eksamen 2025 hadde egne spørsmål om kodelesing. Hver leksjon har flervalgsspørsmål i samme stil, og del 13 er ren kodelesingstrening.</div>
-        <div class="info-kort"><b>⚙ PyTorch, SHAP og gymnasium</b>Disse finnes ikke i nettleseren. Slik kode vises med utdataene den gir, og bør kjøres i Jupyter. Grunnideene implementeres også i numpy, så de kan kjøres her.</div>
+        <div class="info-kort"><b>? Eksamensstil</b>Eksamen 2025 hadde egne spørsmål om kodelesing. Del 13 er ren kodelesingstrening med flervalgsspørsmål i samme stil.</div>
+        <div class="info-kort"><b>⚙ PyTorch, SHAP og gymnasium</b>Disse finnes ikke i nettleseren. Syntaksen vises i korte kodeblokker som du kan kjøre i Jupyter, og selve ideene øver du på i numpy-oppgaver her.</div>
       </div>
       <h2 style="font-size:1.35rem;margin:10px 0 12px">Delene i kurset</h2>
       <div class="del-grid">${KURS.map(d => {

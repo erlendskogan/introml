@@ -1,7 +1,7 @@
 # Skriveguide for kodekurset
 
-Kurset er bygget som W3Schools: **slak læringskurve, én ny ting per leksjon, kort forklaring, så et
-eksempel du kan kjøre, så en oppgave du løser selv.** Målgruppen er en student som kanskje aldri har
+Kurset er bygget for å lære ved å kode: **én ny ting om gangen, maks 1–2 setninger forklaring, så
+oppgaver du løser selv.** Se «Stil: nesten bare koding» nederst. Målgruppen er en student som kanskje aldri har
 programmert, og som skal ende opp med å kunne all koden i TDT4172 (prosjekt 1–4 og kodeeksemplene i
 forelesningsnotatene), og svare på kodelesingsspørsmål på eksamen (flervalg, uten hjelpemidler).
 
@@ -160,21 +160,31 @@ print(x[-1])
 :::
 ````
 
-## Pedagogiske regler
-1. **Én ny ting per leksjon.** Bruk bare det som er lært før (eller forklar kort det nye). Rekkefølgen
-   i kurset er pensumrekkefølgen: Python → NumPy → pandas → matplotlib → ML fra bunnen → evaluering →
+## Stil: nesten bare koding
+Studenten skal lære ved å **skrive kode selv**, ikke ved å lese. Forklaringer og eksempler holdes til et minimum.
+
+1. **Maks 1–2 setninger forklaring per del.** En «del» er leksjonens intro og hver `## Underoverskrift`.
+   Setningene viser syntaksen direkte med inline-kode, f.eks. «`np.mean(X, axis=0)` gir gjennomsnittet per kolonne.»
+   Ingen tekstvegger, ingen forklarende tabeller, ingen lange lister.
+2. **Så oppgaver.** 1–4 oppgaver per del, typisk 3–6 per leksjon, fra lett til litt vanskeligere.
+   Oppgaveteksten er 1–2 setninger og sier nøyaktig hvilke variabelnavn/funksjoner som skal lages.
+   Startkoden har imports og data ferdig, så studenten bare skriver det nye. Det de gamle eksemplene
+   viste, skal nå øves i oppgaver: alt pensum (funksjoner, parametere, fallgruver) skal fortsatt dekkes.
+3. **Kjørbare eksempler: helst ingen.** Unntak: maks ett veldig kort eksempel (≤ 4 linjer) per leksjon når
+   syntaksen ikke lar seg vise i en setning. `python feil`-blokker brukes ikke.
+4. **Statiske blokker** (torch, shap, gymnasium, keras) er eneste måten å vise den syntaksen på, så de er lov,
+   men korte (helst ≤ 10 linjer), med `output` bare når den er nødvendig. Øv selve ideen i en numpy-/sklearn-oppgave
+   når det går (f.eks. skriv treningsløkka eller forward-passet i numpy).
+5. **Ikke bruk** `::: quiz` (unntatt i del 13), `::: oppsummering`, eller merknadsboksene
+   `tips`/`husk`/`advarsel`/`hvorfor`/`eksamen`/`prosjekt`. En viktig fallgruve (f.eks. `fit` på testdata)
+   nevnes i forklaringssetningen eller testes i en oppgave.
+6. **Del 13 (eksamenstrening)** beholder quizene. Forklaringslinjene (`?`) er maks 1 setning hver, og teksten
+   mellom quizene er maks 1–2 setninger per del.
+7. Del-ingressen (linjen etter `=== DEL`) er 1 setning.
+8. Leksjonsnummer, id og titler beholdes (fremdriften er lagret per leksjonsnummer).
+9. Rekkefølgen er pensumrekkefølgen: Python → NumPy → pandas → matplotlib → ML fra bunnen → evaluering →
    sklearn → trær/ensembler/Bayes → nevrale nett → uveiledet → RL → XAI → eksamenstrening.
-2. **Kort forklaring først (2–5 setninger), så eksempel.** Ikke lange tekstvegger. Forklar *hva* og
-   *hvorfor*, og knytt det til ML/prosjektene når det passer.
-3. **Typisk leksjon:** intro-tekst → 2–4 kjørbare eksempler med litt tekst mellom → evt. tips/advarsel
-   → 1–2 oppgaver → 1–2 quiz → oppsummering. Større «prosjekt-leksjoner» kan ha flere.
-4. Knytt til prosjektene med `::: prosjekt` (f.eks. «I prosjekt 1 skal du skrive akkurat denne
-   `fit`-metoden»). Knytt til eksamen med `::: eksamen` (eksamen 2025 hadde spørsmål om
-   `scaler.transform(X_test)`, `1/(1+np.exp(-z))` med `np.matmul(X, w)`, `train_test_split` og
-   `random.sample(buffer, k=32)`).
-5. Norsk bokmål med korrekte æ, ø, å. Kode-identifikatorer og fagtermer (fit, predict, feature,
-   epoch, batch …) kan stå på engelsk. Variabelnavn i koden kan gjerne være engelske når de speiler
-   prosjektkoden (`X_train`, `y_pred`, `q_table`).
-6. Ikke gjenta all teorien fra teorikurset (`../kapitler/`) – fokuset er **koden**. Litt teori er greit
-   når koden ellers blir uforståelig.
-7. Alt du skriver om biblioteker skal stemme med versjonene i venv-en. Sjekk ved å kjøre.
+   Bruk bare det som er lært før.
+10. Norsk bokmål med korrekte æ, ø, å. Kode-identifikatorer og fagtermer (fit, predict, feature,
+   epoch, batch …) kan stå på engelsk. Variabelnavn kan speile prosjektkoden (`X_train`, `y_pred`, `q_table`).
+11. Alt du skriver om biblioteker skal stemme med versjonene i venv-en. Sjekk ved å kjøre.

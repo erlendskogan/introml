@@ -1,106 +1,73 @@
 === DEL 3 | pandas | pandas: tabeller med data
-pandas gir NumPy-arrays kolonnenavn. Alle prosjektene starter med `pd.read_csv`, og her lærer du å lese, utforske, rydde og kode om data til du står igjen med `X` og `y` som en modell kan trenes på.
+Her lærer du å lese, utforske, rydde og kode om tabelldata med pandas til du står igjen med `X` og `y` som en modell kan trenes på.
 
 --- LEKSJON 3.1 | series-dataframe | Series og DataFrame
-NumPy-arrays er raske, men kolonnene har ingen navn. **pandas** bygger på NumPy og gir deg tabeller der hver kolonne heter noe (`age`, `sex`, `survived`) og hver rad har en merkelapp, kalt **indeks**. Alle prosjektene i faget starter med `import pandas as pd`.
-
-pandas har to hovedtyper:
-
-- **Series**: én kolonne. Et 1D-array der hvert element har en merkelapp.
-- **DataFrame**: en hel tabell. Hver kolonne er en Series, og alle kolonnene deler samme indeks.
+`import pandas as pd` er standard: en **Series** er én kolonne med merkelapper (indeks), og en **DataFrame** er en tabell der hver kolonne er en Series.
 
 ## Series
+`pd.Series([25, 41], name="age")` får indeksen 0, 1, …, og med `index=["Female", "Male"]` slår du opp med `s["Female"]`. `s.mean()` gir snittet, og `s.values` gir verdiene som numpy-array.
 
-```python
+::: oppgave Din første Series
+Lag Series-en `alder` med verdiene 25, 41, 29, 32 og navnet `"age"`. Lagre gjennomsnittet i `snitt` og verdiene som numpy-array i `alder_np`.
+```start
+import pandas as pd
+
+alder = ...
+snitt = ...
+alder_np = ...
+```
+```losning
 import pandas as pd
 
 alder = pd.Series([25, 41, 29, 32], name="age")
-print(alder)
-print("Gjennomsnitt:", alder.mean())
-print("Som numpy-array:", alder.values)
+snitt = alder.mean()
+alder_np = alder.values
 ```
+```test
+import numbers
+import numpy as np
+import pandas as pd
+assert isinstance(alder, pd.Series), "alder skal være en Series. Bruk pd.Series([...], name='age')."
+assert list(alder) == [25, 41, 29, 32], f"alder skal ha verdiene 25, 41, 29, 32, men har {list(alder)}"
+assert alder.name == "age", f"Series-en skal hete 'age' (name='age'), men heter {alder.name!r}"
+assert isinstance(snitt, numbers.Real) and abs(snitt - 31.75) < 1e-9, "snitt skal være alder.mean() (31.75)."
+assert isinstance(alder_np, np.ndarray), "alder_np skal være et numpy-array. Bruk alder.values eller alder.to_numpy()."
+```
+:::
 
-Venstre kolonne i utskriften er indeksen (0, 1, 2, 3), høyre kolonne er verdiene. Indeksen trenger ikke være tall:
+::: oppgave Egen indeks
+Lag `rate` med verdiene 0.68 og 0.36 og indeksen `["Female", "Male"]`. Slå opp raten for kvinner i `rate` og lagre den i `rate_kvinner`.
+```start
+import pandas as pd
 
-```python
+rate = ...
+rate_kvinner = ...
+```
+```losning
 import pandas as pd
 
 rate = pd.Series([0.68, 0.36], index=["Female", "Male"])
-print(rate)
-print("Kvinner:", rate["Female"])
+rate_kvinner = rate["Female"]
 ```
-
-Akkurat en slik Series får du når du regner ut overlevelsesrate per kjønn i prosjekt 2 (leksjon 3.6).
-
-## DataFrame fra en dict
-Den enkleste måten å lage en tabell for hånd er en dict der nøklene er kolonnenavn og verdiene er like lange lister:
-
-```python
+```test
 import pandas as pd
-
-df = pd.DataFrame({
-    "name": ["Finn", "Runa", "Bjørn", "Liv"],
-    "sex": ["Male", "Female", "Male", "Female"],
-    "age": [25, 32, 29, 43],
-    "survived": [0, 0, 1, 1],
-})
-print(df.shape)          # (rader, kolonner)
-print(list(df.columns))
-df
+assert isinstance(rate, pd.Series), "rate skal være en Series."
+assert rate.index.tolist() == ["Female", "Male"], f"Indeksen skal være ['Female', 'Male'], men er {rate.index.tolist()}. Bruk index=[...]."
+assert list(rate) == [0.68, 0.36], "Verdiene skal være 0.68 og 0.36."
+assert rate_kvinner is not ... and rate_kvinner == 0.68, "rate_kvinner skal være rate['Female']."
 ```
-
-Siste linje, `df`, vises som en tabell, akkurat som i Jupyter. `df.shape` virker som i NumPy: (antall rader, antall kolonner).
-
-## Se tabellen: variabelpanelet og display()
-Under resultatet av hver kjøring ligger **variabelpanelet** («Variabler etter kjøring»). Der står alle variablene koden laget, og klikker du på en DataFrame, vises den som en tabell med kolonnenavn, type per kolonne og indeksen til venstre. Manglende verdier (`NaN`) er markert i **rødt**, og panelet teller hvor mange som mangler. Panelet viser variablene slik de er **til slutt**.
-
-Vil du se en tabell **midt i** koden, for eksempel før og etter en endring, skriver du `display(df)`. Da vises et øyeblikksbilde av tabellen akkurat der i utdataene:
-
-```python
-import pandas as pd
-
-df = pd.DataFrame({"name": ["Finn", "Runa", "Bjørn"], "age": [25, 32, 29]})
-print("Før:")
-display(df)
-df["age"] = df["age"] + 1
-print("Etter at alle er blitt ett år eldre:")
-display(df)
-```
-
-`display` finnes også i Jupyter, så koden virker uendret der. (I en vanlig `.py`-fil må du skrive `from IPython.display import display` først.) Vi bruker `display` gjennom hele kurset til å vise hva en operasjon gjør med tabellen.
-
-## Kolonner oppfører seg som numpy-arrays
-Én kolonne hentes med `df["navn"]`, og resultatet er en Series. Du regner på den med de samme vektoriserte operasjonene som i NumPy:
-
-```python
-import pandas as pd
-
-df = pd.DataFrame({"age": [25, 32, 29, 43], "survived": [0, 0, 1, 1]})
-print(df["age"] + 1)
-print("Snittalder:", df["age"].mean())
-print("Eldst:", df["age"].max())
-print("Andel overlevde:", df["survived"].mean())
-```
-
-::: tips
-Gjennomsnittet av en kolonne med 0 og 1 er andelen enere. `df["survived"].mean()` er derfor overlevelsesraten. Dette trikset kommer du til å bruke hele tiden.
 :::
 
+## DataFrame fra en dict
+`pd.DataFrame({"navn": [...], "alder": [...]})` gjør hver nøkkel til en kolonne. `df.shape` er (rader, kolonner), og `df.columns` gir kolonnenavnene.
+
 ::: oppgave Lag en tabell
-Lag en DataFrame `mannskap` med kolonnene `navn`, `alder` og `overlevde` (i den rekkefølgen) og disse tre radene:
-
-| navn | alder | overlevde |
-|---|---|---|
-| Ivar | 30 | 1 |
-| Sigrid | 22 | 1 |
-| Ulf | 51 | 0 |
-
-Lagre deretter gjennomsnittsalderen i variabelen `snitt_alder` (regn den ut fra tabellen).
+Lag DataFrame-en `mannskap` med kolonnene `navn`, `alder` og `overlevde` (i den rekkefølgen) og radene Ivar 30 1, Sigrid 22 1 og Ulf 51 0. Lagre `mannskap.shape` i `form`.
 ```start
 import pandas as pd
 
 mannskap = ...
-snitt_alder = ...
+form = ...
 ```
 ```losning
 import pandas as pd
@@ -110,132 +77,103 @@ mannskap = pd.DataFrame({
     "alder": [30, 22, 51],
     "overlevde": [1, 1, 0],
 })
-snitt_alder = mannskap["alder"].mean()
+form = mannskap.shape
 ```
 ```test
 import pandas as pd
 assert isinstance(mannskap, pd.DataFrame), "mannskap skal være en DataFrame. Bruk pd.DataFrame({...})."
 assert list(mannskap.columns) == ["navn", "alder", "overlevde"], f"Kolonnene skal være navn, alder, overlevde, men er {list(mannskap.columns)}"
-assert mannskap.shape == (3, 3), f"Tabellen skal ha 3 rader og 3 kolonner, men har shape {mannskap.shape}"
 assert list(mannskap["navn"]) == ["Ivar", "Sigrid", "Ulf"], "Sjekk navnene og rekkefølgen på radene."
 assert list(mannskap["alder"]) == [30, 22, 51], "Sjekk alder-kolonnen."
 assert list(mannskap["overlevde"]) == [1, 1, 0], "Sjekk overlevde-kolonnen."
-assert snitt_alder is not ... and abs(snitt_alder - 103 / 3) < 1e-6, "snitt_alder skal være gjennomsnittet av alder-kolonnen, altså mannskap['alder'].mean()."
+assert form == (3, 3), f"form skal være mannskap.shape, altså (3, 3), men er {form}"
 ```
 :::
 
-::: quiz
-Hva skriver koden ut?
-```kode
+## Se tabellen: display()
+Variabelpanelet under resultatet viser tabellene slik de er til slutt (manglende verdier i rødt), og `display(df)` viser et øyeblikksbilde midt i koden. I en vanlig `.py`-fil må du først skrive `from IPython.display import display`.
+
+::: oppgave Før og etter
+Vis `df` med `display(df)`, øk så alle aldrene med 1 (lagre tilbake i `df["age"]`), og vis `df` igjen.
+```start
 import pandas as pd
-df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [5, 6, 7, 8], "c": [9, 10, 11, 12]})
-print(df.shape)
+df = pd.DataFrame({"name": ["Finn", "Runa", "Bjørn"], "age": [25, 32, 29]})
+
+# display, endre age, display
 ```
-- [ ] `(3, 4)`
-- [x] `(4, 3)`
-- [ ] `(12,)`
-- [ ] `12`
-? Hver nøkkel i dicten blir en kolonne (3 kolonner), og hver liste har 4 elementer (4 rader). `shape` er alltid (rader, kolonner).
+```losning
+import pandas as pd
+df = pd.DataFrame({"name": ["Finn", "Runa", "Bjørn"], "age": [25, 32, 29]})
+
+display(df)
+df["age"] = df["age"] + 1
+display(df)
+```
+```test
+assert list(df["age"]) == [26, 33, 30], f"age skal være [26, 33, 30] etter endringen, men er {list(df['age'])}. Skriv df['age'] = df['age'] + 1."
+```
 :::
 
-::: quiz
-`df` er en DataFrame med en kolonne `age`. Hvilken type har `df["age"]`?
-- [ ] `DataFrame`
-- [x] `Series`
-- [ ] `list`
-- [ ] `numpy.ndarray`
-? Én kolonne hentet med enkle hakeparenteser er en `Series`. Vil du ha et numpy-array, skriver du `df["age"].values` eller `df["age"].to_numpy()`.
-:::
+## Kolonner oppfører seg som numpy-arrays
+`df["age"]` gir kolonnen som en Series, og du regner på den som i NumPy: `df["age"] + 1`, `.mean()`, `.max()`. Snittet av en 0/1-kolonne er andelen enere.
 
-::: oppsummering
-- `import pandas as pd` er standard.
-- **Series** = én kolonne med indeks. **DataFrame** = tabell der hver kolonne er en Series.
-- `pd.DataFrame({"kolonne": [verdier], ...})` lager en tabell fra en dict.
-- `df.shape` er (rader, kolonner), `df.columns` er kolonnenavnene.
-- Kolonner støtter NumPy-regning: `df["age"] + 1`, `.mean()`, `.max()`.
-- Gjennomsnittet av en 0/1-kolonne er andelen enere.
+::: oppgave Regn på kolonner
+Lagre høyeste alder i `eldst`, andelen som overlevde i `andel_overlevde`, og en Series med alle aldrene pluss 10 i `alder_om_10`.
+```start
+import pandas as pd
+df = pd.DataFrame({"age": [25, 32, 29, 43], "survived": [0, 0, 1, 1]})
+
+eldst = ...
+andel_overlevde = ...
+alder_om_10 = ...
+```
+```losning
+import pandas as pd
+df = pd.DataFrame({"age": [25, 32, 29, 43], "survived": [0, 0, 1, 1]})
+
+eldst = df["age"].max()
+andel_overlevde = df["survived"].mean()
+alder_om_10 = df["age"] + 10
+```
+```test
+import numbers
+import pandas as pd
+assert eldst is not ... and eldst == 43, "eldst skal være df['age'].max()."
+assert isinstance(andel_overlevde, numbers.Real) and abs(andel_overlevde - 0.5) < 1e-9, "andel_overlevde skal være df['survived'].mean() (snittet av 0/1 er andelen enere)."
+assert isinstance(alder_om_10, pd.Series), "alder_om_10 skal være en Series: df['age'] + 10."
+assert list(alder_om_10) == [35, 42, 39, 53], f"alder_om_10 skal være [35, 42, 39, 53], men er {list(alder_om_10)}"
+```
 :::
 
 --- LEKSJON 3.2 | lese-data | Lese og utforske data
-I prosjektene skriver du aldri inn data for hånd. Du leser en CSV-fil (kommaseparerte verdier) med `pd.read_csv`. Første steg etterpå er alltid å **se på dataene**: hvor mange rader, hvilke kolonner, hvilke typer, og hva som mangler.
+`df = pd.read_csv("problem2.csv")` leser vikingdataene fra prosjekt 2 (én rad per passasjer, målet er `survived`), og `df.head()` og `df.tail(3)` viser de fem første og de tre siste radene.
 
-Vi bruker vikingdataene fra prosjekt 2 gjennom hele denne delen. Hver rad er en passasjer på et vikingtokt, og målet er å predikere `survived`.
+::: oppgave Første titt
+Les `problem2.csv` inn i `df`, og lagre de fem første radene i `topp` og de tre siste i `bunn`.
+```start
+import pandas as pd
 
-```python
+df = ...
+topp = ...
+bunn = ...
+```
+```losning
 import pandas as pd
 
 df = pd.read_csv("problem2.csv")
-df.head()
+topp = df.head()
+bunn = df.tail(3)
 ```
-
-`head()` viser de fem første radene (`head(10)` viser ti). `tail()` viser de siste.
-
-## Størrelse, kolonner og typer
-
-```python
+```test
 import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-print(df.shape)
-print(df.columns.tolist())
-print(df.dtypes)
-df.tail(3)
+assert isinstance(df, pd.DataFrame) and len(df) == 500, 'df skal være pd.read_csv("problem2.csv") med 500 rader.'
+assert isinstance(topp, pd.DataFrame) and topp.index.tolist() == [0, 1, 2, 3, 4], "topp skal være df.head() (radene 0 til 4)."
+assert isinstance(bunn, pd.DataFrame) and bunn.index.tolist() == [497, 498, 499], "bunn skal være df.tail(3) (radene 497 til 499)."
 ```
-
-`dtypes` sier hvilken type hver kolonne har. `int64` er heltall, `float64` er desimaltall, og tekstkolonner vises som `object` (eller `str` i den nyeste pandas-versjonen). Legg merke til at `age` er `float64` selv om alle aldre er heltall. Det er fordi noen aldre mangler, og «mangler» lagres som `NaN`, som er et flyttall.
-
-## info() og describe()
-`info()` gir en oversikt med antall verdier som **ikke** mangler per kolonne. `describe()` gir statistikk for alle tallkolonnene.
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-df.info()
-```
-
-Det er 500 rader, men `age` har bare 420 «non-null». Altså mangler alderen for 80 passasjerer. Åpner du `df` i variabelpanelet, ser du det samme: antall manglende verdier står per kolonne, og de tomme cellene er røde. Det må vi håndtere før vi trener en modell (leksjon 3.5).
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-df.describe()
-```
-
-Radene er antall (`count`), gjennomsnitt (`mean`), standardavvik (`std`), minimum, kvartiler (`50%` er medianen) og maksimum. Se på `provisions_kg`: snittet er rundt 25, men maks er over 300. Slike forskjeller i skala er grunnen til at vi skalerer features senere (leksjon 7.2).
-
-## Valg i read_csv
-Som standard tolkes første linje i filen som kolonnenavn. Noen ganger er ikke det riktig:
-
-```python
-import pandas as pd
-
-# Vanlig: første linje er kolonnenavn
-print(pd.read_csv("classification.csv", nrows=3))
-
-# header=None: første linje blir en vanlig datarad, kolonnene får nummer 0, 1, 2, ...
-print(pd.read_csv("classification.csv", header=None, nrows=3))
-
-# skiprows=1 hopper over første linje helt
-print(pd.read_csv("classification.csv", skiprows=1, header=None, nrows=3))
-
-# nrows=0 leser bare kolonnenavnene
-print(pd.read_csv("classification.csv", nrows=0).columns.tolist())
-```
-
-`nrows=3` leser bare de tre første radene. Det er nyttig for å kikke på store filer.
-
-::: prosjekt Prosjekt 3, problem 2
-Første linje i `unsupervised_data.csv` var ikke vanlige kolonnenavn, men metadata (den opprinnelige pikselrekkefølgen). Derfor ble filen lest med `pd.read_csv("unsupervised_data.csv", skiprows=1, header=None)`. Senere ble metadataene hentet ut alene med `pd.read_csv("unsupervised_data.csv", nrows=0).columns`.
 :::
 
 ::: oppgave Utforsk problem1.csv
-Les `problem1.csv` (prosjekt 2, problem 1) inn i variabelen `data`. Lagre så:
-
-- `n_rader`: antall rader
-- `n_kolonner`: antall kolonner
-- `kolonner`: kolonnenavnene som en vanlig Python-liste
+Les `problem1.csv` (prosjekt 2, problem 1) inn i `data`. Lagre antall rader i `n_rader`, antall kolonner i `n_kolonner` og kolonnenavnene som en vanlig liste i `kolonner`.
 ```start
 import pandas as pd
 
@@ -261,310 +199,283 @@ assert kolonner == ["x0", "x1", "y", "split"], f"Feil kolonnenavn: {kolonner}"
 ```
 :::
 
-::: quiz
-Du kjører `df.info()` og får blant annet dette:
-```kode
-RangeIndex: 891 entries, 0 to 890
- #   Column  Non-Null Count  Dtype
- 0   Age     714 non-null    float64
- 1   Sex     891 non-null    object
+## Typer
+`df.dtypes` gir typen til hver kolonne: tekst er `object` (eller `str`), og en heltallskolonne med manglende verdier blir `float64` fordi `NaN` er et flyttall.
+
+::: oppgave Typer
+Lagre `df.dtypes` i `typer` og typen til kolonnen `age` i `type_age`. Se på `typer` i variabelpanelet: hvorfor er `age` ikke heltall?
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+typer = ...
+type_age = ...
 ```
-Hvor mange passasjerer mangler alder?
-- [ ] 714
-- [x] 177
-- [ ] 0, siden Age har typen float64
-- [ ] 891
-? Det er 891 rader, og 714 av dem har en alder. 891 − 714 = 177 mangler. `float64` sier ingenting om hvorvidt verdier mangler (manglende verdier lagres som `NaN`, som selv er et flyttall).
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+typer = df.dtypes
+type_age = df["age"].dtype
+```
+```test
+import pandas as pd
+assert isinstance(typer, pd.Series) and len(typer) == 13, "typer skal være df.dtypes (én type per kolonne, 13 kolonner)."
+assert type_age is not ... and str(type_age) == "float64", f"type_age skal være df['age'].dtype (float64), men er {type_age}"
+```
 :::
 
-::: quiz
-Filen `data.csv` har én linje med kolonnenavn og deretter 100 linjer med data, med 3 verdier på hver linje. Hva skriver koden ut?
-```kode
-df = pd.read_csv("data.csv", header=None)
-print(df.shape)
+## info() og describe()
+`df.info()` viser antall verdier som ikke mangler («non-null») per kolonne, og `df.describe()` gir count, mean, std, min, kvartiler (`50%` er medianen) og max for tallkolonnene.
+
+::: oppgave Oversikt
+Kjør `df.info()` og lagre antall passasjerer som mangler alder i `mangler_alder`. Lagre så `df.describe()` i `stats`, og hent medianen til `age` og maksimum av `provisions_kg` fra `stats` (f.eks. `stats["age"]["50%"]`) i `median_alder` og `maks_proviant`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+mangler_alder = ...
+stats = ...
+median_alder = ...
+maks_proviant = ...
 ```
-- [ ] `(100, 3)`
-- [x] `(101, 3)`
-- [ ] `(100, 4)`
-- [ ] `(101, 4)`
-? Med `header=None` tolkes ikke første linje som kolonnenavn, så den blir en vanlig datarad. Da får vi 101 rader. Antall kolonner er fortsatt 3.
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+df.info()
+mangler_alder = 500 - 420
+stats = df.describe()
+median_alder = stats["age"]["50%"]
+maks_proviant = stats["provisions_kg"]["max"]
+```
+```test
+import pandas as pd
+assert mangler_alder == 80, f"mangler_alder skal være antall rader minus non-null i age (500 − 420 = 80), men er {mangler_alder}"
+assert isinstance(stats, pd.DataFrame) and "50%" in stats.index, "stats skal være df.describe()."
+assert median_alder == 29.0, f"median_alder skal være stats['age']['50%'] (29.0), men er {median_alder}"
+assert maks_proviant is not ... and abs(maks_proviant - 320.4) < 1e-9, f"maks_proviant skal være stats['provisions_kg']['max'], men er {maks_proviant}"
+```
 :::
 
-::: oppsummering
-- `pd.read_csv("fil.csv")` leser en CSV-fil til en DataFrame.
-- `head()`, `tail()`, `shape`, `columns`, `dtypes` gir et første overblikk.
-- `info()` viser antall ikke-manglende verdier per kolonne. `describe()` gir statistikk for tallkolonnene.
-- `header=None`: første linje er data. `skiprows=1`: hopp over første linje. `nrows=n`: les bare n rader.
-- En heltallskolonne med manglende verdier blir `float64`, fordi `NaN` er et flyttall.
+## Valg i read_csv
+`header=None` gjør første linje til en vanlig datarad (kolonnene får nummer 0, 1, …), og `skiprows=1` hopper over den helt. `nrows=3` leser bare tre rader, og `nrows=0` leser bare kolonnenavnene.
+
+::: oppgave header, skiprows og nrows
+Les `classification.csv` på fire måter: `uten_header` med `header=None`, `uten_forste` som hopper over første linje og ikke har noen header, `tre` med bare tre rader, og lagre kolonnenavnene som liste i `navn` uten å lese noen rader.
+```start
+import pandas as pd
+
+uten_header = ...
+uten_forste = ...
+tre = ...
+navn = ...
+```
+```losning
+import pandas as pd
+
+uten_header = pd.read_csv("classification.csv", header=None)
+uten_forste = pd.read_csv("classification.csv", skiprows=1, header=None)
+tre = pd.read_csv("classification.csv", nrows=3)
+navn = pd.read_csv("classification.csv", nrows=0).columns.tolist()
+```
+```test
+import pandas as pd
+assert isinstance(uten_header, pd.DataFrame) and uten_header.shape == (1001, 4), "uten_header skal ha 1001 rader: med header=None blir kolonnenavnene en vanlig datarad."
+assert uten_header.iloc[0, 0] == "x0", "Første rad i uten_header skal være de gamle kolonnenavnene."
+assert isinstance(uten_forste, pd.DataFrame) and uten_forste.shape == (1000, 4), "uten_forste skal ha 1000 rader. Bruk skiprows=1 og header=None."
+assert list(uten_forste.columns) == [0, 1, 2, 3], "uten_forste skal ha kolonnene 0, 1, 2, 3. Husk header=None."
+assert isinstance(tre, pd.DataFrame) and tre.shape == (3, 4) and list(tre.columns) == ["x0", "x1", "y", "split"], "tre skal være de tre første radene med vanlige kolonnenavn (nrows=3)."
+assert navn == ["x0", "x1", "y", "split"], f"navn skal være kolonnenavnene som liste, men er {navn}. Bruk nrows=0 og .columns.tolist()."
+```
 :::
 
 --- LEKSJON 3.3 | velge | Velge kolonner og rader (loc og iloc)
-Før du kan trene en modell, må du plukke ut riktige kolonner (features og target) og noen ganger bestemte rader. Det er tre verktøy: hakeparenteser for kolonner, `iloc` for posisjoner og `loc` for merkelapper.
+Hakeparenteser velger kolonner, `iloc` velger etter posisjon og `loc` etter merkelapp.
 
 ## Én kolonne eller flere: Series eller DataFrame
-Dette er en av de vanligste kildene til feil:
+`df["age"]` gir en 1D Series, mens `df[["age"]]` og `df[["age", "sex"]]` gir en 2D DataFrame, og scikit-learn vil ha `X` som 2D og `y` som 1D. `df.age` virker også, men bare for navn uten mellomrom og ikke når du lager nye kolonner.
 
-```python
+::: oppgave X og y
+Lag `X` med kolonnene `x0` og `x1`, `y` med kolonnen `y`, og `X_en` med bare `x0`, men fortsatt som 2D-tabell.
+```start
 import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-a = df["age"]             # én hakeparentes: Series
-b = df[["age"]]           # liste med ett navn: DataFrame
-c = df[["age", "sex"]]    # liste med to navn: DataFrame
-print(type(a).__name__, a.shape)
-print(type(b).__name__, b.shape)
-print(type(c).__name__, c.shape)
-```
-
-`df["age"]` er 1D med shape `(500,)`. `df[["age"]]` er 2D med shape `(500, 1)`. I variabelpanelet står `a` som en Series og `b` som en DataFrame med 500×1. Det betyr noe fordi scikit-learn krever at `X` er 2D (rader × features), mens `y` skal være 1D. Derfor ser prosjektkoden slik ut:
-
-```python
-import pandas as pd
-
 data = pd.read_csv("classification.csv")
-X = data[["x0", "x1"]]   # 2D: features
-y = data["y"]            # 1D: target
-print(X.shape, y.shape)
+
+X = ...
+y = ...
+X_en = ...
 ```
+```losning
+import pandas as pd
+data = pd.read_csv("classification.csv")
 
-::: husk
-Har du bare én feature, må du fortsatt bruke doble hakeparenteser: `X = df[["Net_Activity"]]`. Med `df["Net_Activity"]` klager scikit-learn over at den forventer et 2D-array.
+X = data[["x0", "x1"]]
+y = data["y"]
+X_en = data[["x0"]]
+```
+```test
+import pandas as pd
+assert isinstance(X, pd.DataFrame) and list(X.columns) == ["x0", "x1"], "X skal være data[['x0', 'x1']]."
+assert isinstance(y, pd.Series) and y.shape == (1000,), "y skal være en 1D Series: data['y'] med én hakeparentes."
+assert isinstance(X_en, pd.DataFrame) and X_en.shape == (1000, 1), f"X_en skal være 2D med shape (1000, 1). Bruk doble hakeparenteser: data[['x0']]."
+```
 :::
-
-Du kan også skrive `df.age` i stedet for `df["age"]` (forelesningsnotatene skriver for eksempel `df.Pclass`). Det virker bare for kolonnenavn uten mellomrom, og ikke når du lager nye kolonner, så hakeparenteser er tryggest.
 
 ## iloc: velg etter posisjon
-`iloc` virker som indeksering i NumPy: `df.iloc[rader, kolonner]` med heltallsposisjoner. Slutten i en slice er **ikke** med, akkurat som i Python ellers.
+`df.iloc[rader, kolonner]` bruker heltallsposisjoner som i NumPy, og slutten i en slice er ikke med.
 
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-print(df.iloc[0])           # første rad, som en Series
-print(df.iloc[0, 1])        # rad 0, kolonne 1 (name)
-df.iloc[:3, 1:4]            # rad 0-2, kolonne 1-3
-```
-
-## loc: velg etter merkelapp
-`loc` bruker indeksens merkelapper og kolonnenavn: `df.loc[rader, kolonner]`. Her er slutten i en slice **med**.
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-print(df.loc[0, "name"])
-df.loc[0:2, ["name", "age"]]   # rad 0, 1 OG 2
-```
-
-| | `iloc` | `loc` |
-|---|---|---|
-| Velger etter | posisjon (0, 1, 2, ...) | merkelapp i indeksen og kolonnenavn |
-| `[0:2]` gir | 2 rader (0 og 1) | 3 rader (0, 1 og 2) |
-| Kolonner | `df.iloc[:, 2]` | `df.loc[:, "age"]` |
-
-Se forskjellen i slicing med egne øyne:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")[["name", "age", "role"]]
-print("df.iloc[0:2]: posisjon 0 og 1")
-display(df.iloc[0:2])
-print("df.loc[0:2]: merkelapp 0, 1 og 2")
-display(df.loc[0:2])
-```
-
-## Når indeksen ikke lenger er 0, 1, 2, ...
-Så lenge indeksen er 0, 1, 2, ... gir `loc` og `iloc` samme rad. Etter at du har valgt ut noen rader, beholder radene sine gamle merkelapper:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-utvalg = df.iloc[10:15]
-display(utvalg[["name", "age"]])   # se indeksen til venstre: 10, 11, ...
-print(utvalg.index.tolist())
-print(utvalg.iloc[0]["name"])   # første rad i utvalget
-print(utvalg.loc[10]["name"])   # raden med merkelapp 10: samme rad
-```
-
-Det finnes ingen rad med merkelapp 0 i utvalget, så dette krasjer:
-
-```python feil
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-utvalg = df.iloc[10:15]
-utvalg.loc[0]
-```
-
-`KeyError: 0` betyr at merkelappen 0 ikke finnes. Dette skjer ofte etter at du har delt data i train og test (neste leksjon). Bruk `iloc` når du mener «den første raden».
-
-::: prosjekt Prosjekt 3
-`row = data.iloc[0, 1:]` henter første rad og alle kolonner unntatt den første (ID-kolonnen). Raden ble så gjort om til et bilde med `reshape(128, 128)`. `features.iloc[:, 2]` henter kolonne nummer 2 for å tegne et histogram.
-:::
-
-::: oppgave Plukk ut data
-`df` er vikingdataene. Lag:
-
-- `forste_navn`: navnet (`name`) til passasjeren i første rad, som en streng
-- `tre_kolonner`: en DataFrame med kolonnene `name`, `age` og `survived` (alle rader)
-- `rad_5_til_9`: radene med posisjon 5, 6, 7, 8 og 9 (alle kolonner)
+::: oppgave Plukk ut med iloc
+Lagre navnet (`name`) i første rad i `forste_navn`, radene med posisjon 5 til og med 9 i `rad_5_til_9`, første rad uten første kolonne i `uten_id` og hele kolonne nummer 2 i `kolonne_2`.
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
 
 forste_navn = ...
-tre_kolonner = ...
 rad_5_til_9 = ...
+uten_id = ...
+kolonne_2 = ...
 ```
 ```losning
 import pandas as pd
 df = pd.read_csv("problem2.csv")
 
 forste_navn = df.iloc[0]["name"]
-tre_kolonner = df[["name", "age", "survived"]]
 rad_5_til_9 = df.iloc[5:10]
+uten_id = df.iloc[0, 1:]
+kolonne_2 = df.iloc[:, 2]
 ```
 ```test
 import pandas as pd
 assert forste_navn == "Finn Ulfsson", f"forste_navn skal være navnet i første rad, men er {forste_navn!r}"
-assert isinstance(tre_kolonner, pd.DataFrame), "tre_kolonner skal være en DataFrame. Husk doble hakeparenteser: df[[...]]."
-assert list(tre_kolonner.columns) == ["name", "age", "survived"], f"tre_kolonner har kolonnene {list(tre_kolonner.columns)}"
-assert len(tre_kolonner) == 500, "tre_kolonner skal ha alle 500 radene."
 assert isinstance(rad_5_til_9, pd.DataFrame), "rad_5_til_9 skal være en DataFrame."
 assert rad_5_til_9.index.tolist() == [5, 6, 7, 8, 9], f"rad_5_til_9 skal ha radene 5 til 9, men har {rad_5_til_9.index.tolist()}. Husk at slutten ikke er med i iloc."
+assert isinstance(uten_id, pd.Series) and len(uten_id) == 12 and uten_id.index[0] == "name", "uten_id skal være df.iloc[0, 1:]: første rad, alle kolonner fra og med posisjon 1."
+assert isinstance(kolonne_2, pd.Series) and kolonne_2.name == "sex" and len(kolonne_2) == 500, "kolonne_2 skal være df.iloc[:, 2] (kolonnen sex, alle rader)."
 ```
 :::
 
-::: quiz
-Hva skriver koden ut?
-```kode
-df = pd.DataFrame({"x": [10, 20, 30, 40, 50]})
-a = df.loc[1:3]
-b = df.iloc[1:3]
-print(len(a), len(b))
+## loc: velg etter merkelapp
+`df.loc[rader, kolonner]` bruker merkelapper og kolonnenavn, og her er slutten i en slice med: `df.loc[0:2]` gir tre rader.
+
+::: oppgave Plukk ut med loc
+Lagre `df.loc[1:3]` i `med_loc` og `df.iloc[1:3]` i `med_iloc` og sammenlign dem i variabelpanelet. Lag så `utsnitt` med radene med merkelapp 0, 1 og 2 og kolonnene `name` og `age`, med `loc`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+med_loc = ...
+med_iloc = ...
+utsnitt = ...
 ```
-- [ ] `2 2`
-- [x] `3 2`
-- [ ] `3 3`
-- [ ] `2 3`
-? `loc` tar med slutten (merkelappene 1, 2 og 3), mens `iloc` følger vanlig Python-slicing og stopper før posisjon 3 (posisjonene 1 og 2).
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+med_loc = df.loc[1:3]
+med_iloc = df.iloc[1:3]
+utsnitt = df.loc[0:2, ["name", "age"]]
+```
+```test
+import pandas as pd
+assert isinstance(med_loc, pd.DataFrame) and med_loc.index.tolist() == [1, 2, 3], "med_loc skal være df.loc[1:3] (merkelappene 1, 2 og 3)."
+assert isinstance(med_iloc, pd.DataFrame) and med_iloc.index.tolist() == [1, 2], "med_iloc skal være df.iloc[1:3] (posisjonene 1 og 2)."
+assert isinstance(utsnitt, pd.DataFrame), "utsnitt skal være en DataFrame: df.loc[0:2, ['name', 'age']]."
+assert list(utsnitt.columns) == ["name", "age"], f"utsnitt skal ha kolonnene name og age, men har {list(utsnitt.columns)}"
+assert utsnitt.index.tolist() == [0, 1, 2], f"utsnitt skal ha radene 0, 1 og 2, men har {utsnitt.index.tolist()}. Med loc er slutten med."
+```
 :::
 
-::: quiz
-Du skal trene en modell med én feature, `Net_Activity`. Hvilken linje gir en `X` som scikit-learn godtar i `model.fit(X, y)`?
-- [ ] `X = df["Net_Activity"]`
-- [x] `X = df[["Net_Activity"]]`
-- [ ] `X = df.Net_Activity`
-- [ ] `X = df.loc["Net_Activity"]`
-? `X` må være 2D med shape (rader, features). Doble hakeparenteser gir en DataFrame med shape `(n, 1)`. De to første feilalternativene gir en 1D Series, og `df.loc["Net_Activity"]` leter etter en **rad** med den merkelappen.
-:::
+## Når indeksen ikke lenger er 0, 1, 2, …
+Et utvalg beholder de gamle merkelappene, så `utvalg.loc[0]` gir `KeyError` hvis rad 0 ikke er med. Bruk `utvalg.iloc[0]` når du mener «første rad».
 
-::: oppsummering
-- `df["a"]` gir en **Series** (1D). `df[["a", "b"]]` gir en **DataFrame** (2D).
-- `X` til scikit-learn skal være 2D (`df[["x0", "x1"]]`), `y` skal være 1D (`df["y"]`).
-- `iloc[rader, kolonner]` bruker posisjoner. Slutten i en slice er ikke med.
-- `loc[rader, kolonner]` bruker merkelapper og kolonnenavn. Slutten er med.
-- Etter utvalg beholder radene gamle merkelapper, så `loc[0]` kan gi `KeyError`.
+::: oppgave Rett KeyError-en
+Startkoden krasjer med `KeyError: 0`. Lagre merkelappene til `utvalg` som liste i `merkelapper`, og rett linjen slik at `forste_navn` blir navnet i første rad av `utvalg`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+utvalg = df.iloc[10:15]
+
+merkelapper = ...
+forste_navn = utvalg.loc[0, "name"]
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+utvalg = df.iloc[10:15]
+
+merkelapper = utvalg.index.tolist()
+forste_navn = utvalg.iloc[0]["name"]
+```
+```test
+assert merkelapper == [10, 11, 12, 13, 14], f"merkelapper skal være utvalg.index.tolist(), altså [10, ..., 14], men er {merkelapper}"
+assert forste_navn == "Ingrid Bjørnsdóttir", f"forste_navn skal være navnet i første rad av utvalg (rad 10 i df), men er {forste_navn!r}. Bruk iloc[0] eller loc[10]."
+```
 :::
 
 --- LEKSJON 3.4 | filtrering | Filtrering av rader
-Svært ofte vil du bare ha radene som oppfyller en betingelse: passasjerer over 40, bare kvinner, eller bare treningsdataene. Det gjøres med **boolsk indeksering**, akkurat som med NumPy-arrays i del 2.
+`df["age"] > 40` gir en boolsk Series (en maske), og `df[maske]` beholder radene der masken er `True`, mens `NaN` alltid gir `False`.
 
-```python
+::: oppgave Over 40
+Lag masken `maske` for alder over 40, tell antall `True` i `antall_over_40`, og lagre radene i `eldre`.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-maske = df["age"] > 40
-print(maske.head())
-print("Antall over 40:", maske.sum())
-eldre = df[maske]
-print(eldre.shape)
-eldre.head()
+
+maske = ...
+antall_over_40 = ...
+eldre = ...
 ```
-
-`df["age"] > 40` gir en Series med `True`/`False` for hver rad. `df[maske]` beholder bare radene der masken er `True`. Rader der alderen mangler (`NaN`) gir `False`.
-
-Med et lite utsnitt er det lett å se hvilke rader som forsvinner. Legg merke til rad 7, der alderen mangler (rød):
-
-```python
+```losning
 import pandas as pd
+df = pd.read_csv("problem2.csv")
 
-liten = pd.read_csv("problem2.csv")[["name", "sex", "age"]].head(8)
-print("Før filtrering:")
-display(liten)
-print("liten[liten['age'] > 30]:")
-display(liten[liten["age"] > 30])
+maske = df["age"] > 40
+antall_over_40 = maske.sum()
+eldre = df[maske]
 ```
-
-Radene som er igjen, beholder merkelappene sine (1, 3, 5, ...), og rad 7 er borte fordi `NaN > 30` er `False`.
+```test
+import pandas as pd
+assert isinstance(maske, pd.Series) and maske.dtype == bool and len(maske) == 500, "maske skal være df['age'] > 40 (True/False for hver av de 500 radene)."
+assert antall_over_40 == 58, f"antall_over_40 skal være maske.sum() (58), men er {antall_over_40}"
+assert isinstance(eldre, pd.DataFrame) and len(eldre) == 58 and (eldre["age"] > 40).all(), "eldre skal være df[maske]."
+```
+:::
 
 ## Train og test fra split-kolonnen
-I prosjekt 1, 2 og 3 ligger trenings- og testdata i samme fil, med en kolonne `split`. Dette mønsteret står i alle prosjektene:
+`train = data[data["split"] == "train"]` er mønsteret i prosjektene, og radene beholder sine gamle merkelapper. Legg til `.copy()` hvis du skal endre utvalget etterpå.
 
-```python
+::: oppgave Train og test
+Del `data` i `train` og `test` (som kopier) etter `split`-kolonnen, og lagre den første merkelappen i `test` i `forste_test`.
+```start
 import pandas as pd
-
 data = pd.read_csv("classification.csv")
-train = data[data["split"] == "train"]
-test = data[data["split"] == "test"]
-print(train.shape, test.shape)
-print("Første merkelapper i test:", test.index[:5].tolist())
-display(test.head(3))
-```
 
-Legg merke til at `test` beholder sine opprinnelige merkelapper. Første rad i `test` har ikke merkelapp 0, og `split`-kolonnen er bare `test`. Åpne `train` og `test` i variabelpanelet for å se begge delene.
+train = ...
+test = ...
+forste_test = ...
+```
+```losning
+import pandas as pd
+data = pd.read_csv("classification.csv")
+
+train = data[data["split"] == "train"].copy()
+test = data[data["split"] == "test"].copy()
+forste_test = test.index[0]
+```
+```test
+import pandas as pd
+assert isinstance(train, pd.DataFrame) and len(train) == 500 and (train["split"] == "train").all(), "train skal være radene der split er 'train' (500 rader)."
+assert isinstance(test, pd.DataFrame) and len(test) == 500 and (test["split"] == "test").all(), "test skal være radene der split er 'test' (500 rader)."
+assert forste_test == 500, f"forste_test skal være test.index[0]. Filtrering beholder merkelappene, så den er 500, ikke {forste_test}."
+```
+:::
 
 ## Flere betingelser: &, | og ~
-Betingelser kombineres med `&` (og), `|` (eller) og `~` (ikke). **Hver betingelse må stå i parentes.**
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-menn_over_40 = df[(df["sex"] == "Male") & (df["age"] > 40)]
-jarl_eller_hird = df[(df["role"] == "Jarl") | (df["role"] == "Hirdman")]
-ikke_thrall = df[~(df["role"] == "Thrall")]
-print(len(menn_over_40), len(jarl_eller_hird), len(ikke_thrall))
-print("Menn over 40:")
-display(menn_over_40[["name", "sex", "age"]].head())
-print("Jarler eller hirdmenn:")
-display(jarl_eller_hird[["name", "role"]].head())
-```
-
-Uten parenteser går det galt, fordi `&` regnes ut før `==` og `>`. Python prøver da å regne ut `40 & df["sex"]`:
-
-```python feil
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-df[df["age"] > 40 & df["sex"] == "Male"]
-```
-
-::: advarsel
-Python-ordene `and` og `or` virker ikke på hele kolonner. `df[(df["age"] > 40) and (df["sex"] == "Male")]` gir `ValueError: The truth value of a Series is ambiguous`. Bruk `&` og `|`.
-:::
-
-## isin og loc med maske
-Når en kolonne skal være én av flere verdier, er `isin` kortere enn mange `|`. Du kan også bruke en maske i `loc` for å velge rader og kolonner samtidig:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-krigere = df[df["role"].isin(["Jarl", "Hirdman"])]
-print(len(krigere))
-print("Overlevelsesrate for krigere:", krigere["survived"].mean())
-df.loc[df["age"] > 55, ["name", "age", "role"]]
-```
-
-::: tips
-Skal du endre kolonner i `train` etterpå, så lag en kopi: `train = data[data["split"] == "train"].copy()`. Da er `train` garantert en selvstendig tabell, og eldre pandas-versjoner slutter å gi `SettingWithCopyWarning`.
-:::
+Kombiner med `&` (og), `|` (eller) og `~` (ikke), med parentes rundt hver betingelse: `df[(df["sex"] == "Male") & (df["age"] > 40)]`. Python-ordene `and` og `or` gir `ValueError` på kolonner.
 
 ::: oppgave Unge kvinner
-Lag `unge_kvinner`, som inneholder radene der `sex` er `"Female"` og `age` er under 25. Lagre så overlevelsesraten deres (andelen med `survived == 1`) i `rate_unge_kvinner`.
+Lag `unge_kvinner` med radene der `sex` er `"Female"` og `age` er under 25, og lagre overlevelsesraten deres i `rate_unge_kvinner`.
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
@@ -580,6 +491,7 @@ unge_kvinner = df[(df["sex"] == "Female") & (df["age"] < 25)]
 rate_unge_kvinner = unge_kvinner["survived"].mean()
 ```
 ```test
+import numbers
 import pandas as pd
 _df = pd.read_csv("problem2.csv")
 _fasit = _df[(_df["sex"] == "Female") & (_df["age"] < 25)]
@@ -587,141 +499,147 @@ assert isinstance(unge_kvinner, pd.DataFrame), "unge_kvinner skal være en DataF
 assert len(unge_kvinner) == len(_fasit), f"unge_kvinner skal ha {len(_fasit)} rader, men har {len(unge_kvinner)}. Husk parenteser rundt hver betingelse og &."
 assert (unge_kvinner["sex"] == "Female").all(), "Det er menn i unge_kvinner."
 assert (unge_kvinner["age"] < 25).all(), "Noen i unge_kvinner er 25 år eller eldre."
-assert rate_unge_kvinner is not ... and abs(rate_unge_kvinner - _fasit["survived"].mean()) < 1e-9, "rate_unge_kvinner skal være gjennomsnittet av survived i unge_kvinner."
+assert isinstance(rate_unge_kvinner, numbers.Real) and abs(rate_unge_kvinner - _fasit["survived"].mean()) < 1e-9, "rate_unge_kvinner skal være gjennomsnittet av survived i unge_kvinner."
 ```
 :::
 
-::: quiz
-Hvilken linje velger mennene som er eldre enn 40?
-- [ ] `df[df["sex"] == "Male" and df["age"] > 40]`
-- [x] `df[(df["sex"] == "Male") & (df["age"] > 40)]`
-- [ ] `df[df["sex"] == "Male" & df["age"] > 40]`
-- [ ] `df[(df["sex"] == "Male") | (df["age"] > 40)]`
-? Betingelser på kolonner kombineres med `&`, og hver betingelse må ha parenteser. `and` gir `ValueError`, uten parenteser regnes `&` ut først og gir feil, og `|` betyr «eller».
-:::
+::: oppgave Eller og ikke
+Linjen for `jarl_eller_hird` mangler parenteser og krasjer. Rett den, og lag `ikke_thrall` med alle som ikke har rollen `"Thrall"` ved hjelp av `~`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
 
-::: quiz
-Hva skriver koden ut?
-```kode
-df = pd.DataFrame({"y": [0, 1, 1, 0, 1],
-                   "split": ["train", "test", "train", "train", "test"]})
-train = df[df["split"] == "train"]
-print(train.index.tolist(), train["y"].sum())
+jarl_eller_hird = df[df["role"] == "Jarl" | df["role"] == "Hirdman"]
+ikke_thrall = ...
 ```
-- [ ] `[0, 1, 2] 1`
-- [x] `[0, 2, 3] 1`
-- [ ] `[0, 2, 3] 2`
-- [ ] `[0, 1, 2] 2`
-? Filtrering beholder de opprinnelige merkelappene, så train har indeksene 0, 2 og 3. y-verdiene der er 0, 1 og 0, som summerer til 1.
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+jarl_eller_hird = df[(df["role"] == "Jarl") | (df["role"] == "Hirdman")]
+ikke_thrall = df[~(df["role"] == "Thrall")]
+```
+```test
+import pandas as pd
+assert isinstance(jarl_eller_hird, pd.DataFrame) and len(jarl_eller_hird) == 138, "jarl_eller_hird skal ha 138 rader: (df['role'] == 'Jarl') | (df['role'] == 'Hirdman')."
+assert set(jarl_eller_hird["role"]) == {"Jarl", "Hirdman"}, "jarl_eller_hird skal bare inneholde Jarl og Hirdman."
+assert isinstance(ikke_thrall, pd.DataFrame) and len(ikke_thrall) == 391, "ikke_thrall skal ha 391 rader: df[~(df['role'] == 'Thrall')]."
+assert "Thrall" not in set(ikke_thrall["role"]), "Det er fortsatt treller i ikke_thrall."
+```
 :::
 
-::: oppsummering
-- `df[betingelse]` beholder radene der betingelsen er `True`.
-- `train = data[data["split"] == "train"]` er standardmønsteret i prosjektene.
-- Kombiner med `&`, `|` og `~`, og sett **parenteser rundt hver betingelse**. Ikke bruk `and`/`or`.
-- `df["kol"].isin([...])` sjekker om verdien er en av flere.
-- `df.loc[maske, ["a", "b"]]` velger rader og kolonner samtidig.
-- Filtrerte rader beholder sine gamle merkelapper. Bruk `.copy()` hvis du skal endre utvalget.
+## isin og loc med maske
+`df["role"].isin(["Jarl", "Hirdman"])` sjekker om verdien er én av flere, og `df.loc[maske, ["name", "age"]]` velger rader og kolonner samtidig.
+
+::: oppgave Krigere og de eldste
+Lag `krigere` (rollen er `"Jarl"` eller `"Hirdman"`) med `isin`, og lagre overlevelsesraten deres i `rate_krigere`. Lag så `eldste` med kolonnene `name`, `age` og `role` for alle over 55 år, med én `loc`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+krigere = ...
+rate_krigere = ...
+eldste = ...
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+krigere = df[df["role"].isin(["Jarl", "Hirdman"])]
+rate_krigere = krigere["survived"].mean()
+eldste = df.loc[df["age"] > 55, ["name", "age", "role"]]
+```
+```test
+import numbers
+import pandas as pd
+assert isinstance(krigere, pd.DataFrame) and len(krigere) == 138, "krigere skal være df[df['role'].isin(['Jarl', 'Hirdman'])] (138 rader)."
+assert isinstance(rate_krigere, numbers.Real) and abs(rate_krigere - 109 / 138) < 1e-9, "rate_krigere skal være krigere['survived'].mean()."
+assert isinstance(eldste, pd.DataFrame) and list(eldste.columns) == ["name", "age", "role"], "eldste skal ha kolonnene name, age og role."
+assert len(eldste) == 4 and (eldste["age"] > 55).all(), f"eldste skal ha de 4 radene med age > 55, men har {len(eldste)}."
+```
 :::
 
 --- LEKSJON 3.5 | manglende | Manglende verdier
-Ekte data har hull. pandas markerer manglende verdier som `NaN` (Not a Number). De fleste modeller i scikit-learn krasjer hvis `X` inneholder `NaN`, så hullene må fjernes eller fylles før trening. Forelesningsnotatene nevner begge veier: `dropna()` og å fylle inn verdier.
+Manglende verdier er `NaN`, og de fleste modeller krasjer på dem. `df.isna().sum()` teller dem per kolonne, og `df.isna().mean()` gir andelen.
 
-## Finn hullene
-
-```python
+::: oppgave Finn hullene
+Lagre antall manglende verdier per kolonne i `mangler` og andelen per kolonne i `andel_mangler`.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-print(df.isna().sum())
+
+mangler = ...
+andel_mangler = ...
 ```
-
-`df.isna()` gir en tabell med `True` der en verdi mangler. `.sum()` teller `True` per kolonne. `df.isna().mean()` gir andelen som mangler.
-
-## dropna: fjern rader
-`dropna()` fjerner alle rader der **minst én** verdi mangler. Med `subset` ser den bare på bestemte kolonner:
-
-```python
+```losning
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-print("Før:", df.shape)
-print("dropna():", df.dropna().shape)
-print("dropna(subset=['age']):", df.dropna(subset=["age"]).shape)
+
+mangler = df.isna().sum()
+andel_mangler = df.isna().mean()
 ```
-
-Med vanlig `dropna()` mister vi 359 av 500 rader, nesten bare fordi `armor` mangler ofte. Det er sjelden lurt å kaste så mye data. `dropna(subset=["age"])` fjerner bare de 80 radene uten alder.
-
-Tallene blir lettere å forstå når du ser tabellen. Her er de åtte første radene med tre kolonner. De røde cellene er `NaN`:
-
-```python
+```test
 import pandas as pd
-
-df = pd.read_csv("problem2.csv")[["name", "age", "armor"]].head(8)
-print("Før:")
-display(df)
-print("df.dropna(): alle rader med minst én NaN er borte")
-display(df.dropna())
-print('df.dropna(subset=["age"]): bare raden uten alder er borte')
-display(df.dropna(subset=["age"]))
+assert isinstance(mangler, pd.Series) and mangler["age"] == 80 and mangler["armor"] == 324, "mangler skal være df.isna().sum() (age: 80, armor: 324)."
+assert isinstance(andel_mangler, pd.Series) and abs(andel_mangler["armor"] - 0.648) < 1e-9, "andel_mangler skal være df.isna().mean() (armor: 0.648)."
 ```
-
-`dropna()` tar med seg fem av åtte rader, selv om alderen bare mangler i én av dem. Se også på indeksen: radene som er igjen, beholder merkelappene sine.
-
-## fillna: fyll inn verdier
-Et alternativ er å fylle hullene. For tall er medianen et vanlig valg, fordi den ikke påvirkes mye av ekstreme verdier. For tekst kan du bruke en egen kategori:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-print("Før fillna (rad 61 mangler klan, rad 62 mangler alder):")
-display(df.loc[58:63, ["name", "age", "clan_origin"]])
-
-median_alder = df["age"].median()
-print("Medianalder:", median_alder)
-df["age"] = df["age"].fillna(median_alder)
-df["clan_origin"] = df["clan_origin"].fillna("Ukjent")
-print("Etter fillna:")
-display(df.loc[58:63, ["name", "age", "clan_origin"]])
-print(df[["age", "clan_origin"]].isna().sum())
-```
-
-De røde cellene før er fylt etterpå: rad 62 har fått medianen 29.0, og rad 61 har fått klanen `Ukjent`.
-
-Den vanligste verdien (typetallet) får du med `df["clan_origin"].mode()[0]`. Det er et annet vanlig valg for tekstkolonner.
-
-::: advarsel
-`fillna` og `dropna` endrer ikke tabellen, de **returnerer** en ny. Skriv derfor alltid `df["age"] = df["age"].fillna(...)` eller `df = df.dropna()`. Linjen `df["age"].fillna(29, inplace=True)` virker ikke i nyere pandas, og `df["age"].fillna(29)` alene gjør ingenting med `df`.
 :::
 
-## Manglende kan bety noe
-Studer `armor`. I selve CSV-filen står det ofte teksten `None` (ingen rustning), og noen ganger står feltet tomt (ukjent). pandas tolker begge deler som `NaN`! Du kan be pandas om bare å tolke tomme felt som manglende:
+## dropna: fjern rader
+`df.dropna()` fjerner alle rader med minst én `NaN`, mens `df.dropna(subset=["age"])` bare ser på `age`.
 
-```python
+::: oppgave dropna
+Lagre `df.dropna()` i `alle_hele` og radene som har alder i `med_alder`. Sammenlign antall rader: hvor mye data kaster vanlig `dropna()`?
+```start
 import pandas as pd
+df = pd.read_csv("problem2.csv")
 
-vanlig = pd.read_csv("problem2.csv")
-raa = pd.read_csv("problem2.csv", keep_default_na=False, na_values=[""])
-print("Vanlig innlesing:", vanlig["armor"].isna().sum(), "mangler")
-print(raa["armor"].value_counts(dropna=False))
-display(pd.DataFrame({"vanlig": vanlig["armor"].head(6), "raa": raa["armor"].head(6)}))
+alle_hele = ...
+med_alder = ...
 ```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
 
-(`value_counts` teller hvor mange ganger hver verdi forekommer. Mer om den i neste leksjon.) I tabellen til slutt er fire av seks celler røde i `vanlig`, mens bare rad 3 er tom i `raa`. Uansett innlesing er det et poeng her: at rustning «mangler» sier noe om passasjeren. Da er det bedre å la det være en egen kategori enn å kaste radene: `df["armor"] = df["armor"].fillna("None")`.
+alle_hele = df.dropna()
+med_alder = df.dropna(subset=["age"])
+```
+```test
+import pandas as pd
+assert isinstance(alle_hele, pd.DataFrame) and len(alle_hele) == 141, f"alle_hele skal være df.dropna() (141 rader)."
+assert isinstance(med_alder, pd.DataFrame) and len(med_alder) == 420, "med_alder skal være df.dropna(subset=['age']) (420 rader)."
+```
+:::
 
-::: hvorfor Hvorfor ikke bare fylle med snittet av hele datasettet?
-For utforsking er `df["age"].fillna(df["age"].median())` helt greit. Når du skal **evaluere** en modell, bør medianen regnes ut fra treningsdataene alene, ellers lekker informasjon fra testdataene inn i treningen. I leksjon 7.4 gjør vi dette riktig med `SimpleImputer`.
+## fillna: fyll inn verdier
+`df["age"] = df["age"].fillna(df["age"].median())` fyller hullene, og resultatet må lagres fordi `fillna` (og `dropna`) returnerer en ny tabell. For tekst passer en egen kategori som `"Ukjent"` eller den vanligste verdien, `df["clan_origin"].mode()[0]`.
+
+::: oppgave Lagre resultatet
+Startkoden endrer ikke `df`. Rett den slik at manglende `age` faktisk fylles med medianen, og fyll manglende `clan_origin` med den vanligste verdien.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+df["age"].fillna(df["age"].median())
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+df["age"] = df["age"].fillna(df["age"].median())
+df["clan_origin"] = df["clan_origin"].fillna(df["clan_origin"].mode()[0])
+```
+```test
+assert len(df) == 500, "df skal fortsatt ha 500 rader. Fyll inn, ikke fjern."
+assert df["age"].isna().sum() == 0, "age mangler fortsatt verdier. Lagre resultatet: df['age'] = df['age'].fillna(...)."
+assert (df["age"] == 29.0).sum() == 98, "Manglende age skal fylles med medianen (29.0)."
+assert df["clan_origin"].isna().sum() == 0, "clan_origin mangler fortsatt verdier."
+assert (df["clan_origin"] == "Nidaros").sum() == 293, "Manglende clan_origin skal fylles med den vanligste verdien, df['clan_origin'].mode()[0]."
+```
 :::
 
 ::: oppgave Rydd vikingdataene
-Lag `df_ren` fra `df` slik at:
-
-- manglende `age` fylles med medianen av `age`
-- manglende `clan_origin` fylles med `"Ukjent"`
-- manglende `armor` fylles med `"None"`
-
-`df_ren` skal fortsatt ha alle 500 radene og ingen manglende verdier.
+Lag `df_ren` fra `df` der manglende `age` fylles med medianen, manglende `clan_origin` med `"Ukjent"` og manglende `armor` med `"None"`. `df_ren` skal ha alle 500 radene og ingen `NaN`.
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
@@ -743,131 +661,114 @@ df_ren["armor"] = df_ren["armor"].fillna("None")
 assert len(df_ren) == 500, f"df_ren skal ha 500 rader, men har {len(df_ren)}. Ikke bruk dropna her."
 _mangler = df_ren.isna().sum()
 assert _mangler.sum() == 0, f"Det mangler fortsatt verdier: {_mangler[_mangler > 0].to_dict()}"
-import pandas as pd
-_orig = pd.read_csv("problem2.csv")
-assert (df_ren["age"] == 29.0).sum() == 80 + (_orig["age"] == 29.0).sum(), "Manglende age skal fylles med medianen (29.0)."
+assert (df_ren["age"] == 29.0).sum() == 98, "Manglende age skal fylles med medianen (29.0)."
 assert (df_ren["clan_origin"] == "Ukjent").sum() == 12, 'Manglende clan_origin skal fylles med "Ukjent".'
 assert (df_ren["armor"] == "None").sum() == 324, 'Manglende armor skal fylles med "None".'
 ```
 :::
 
-::: quiz
-Hva skriver koden ut?
-```kode
-import numpy as np
+## Manglende kan bety noe
+I `armor` står det ofte teksten `None` (ingen rustning), som pandas leser som `NaN`. Med `pd.read_csv("problem2.csv", keep_default_na=False, na_values=[""])` blir bare tomme felt `NaN`.
+
+::: oppgave None er ikke tomt
+Les filen på nytt inn i `raa` slik at bare tomme felt blir `NaN`. Lagre antall rader der `armor` er teksten `"None"` i `n_none` og antall `NaN` i `armor` i `n_tomme`.
+```start
 import pandas as pd
-df = pd.DataFrame({"a": [1, np.nan, 3, 4],
-                   "b": [np.nan, 2, 3, np.nan],
-                   "c": [1, 2, 3, 4]})
-print(len(df.dropna()), len(df.dropna(subset=["a"])))
+
+raa = ...
+n_none = ...
+n_tomme = ...
 ```
-- [x] `1 3`
-- [ ] `2 3`
-- [ ] `3 1`
-- [ ] `1 1`
-? `dropna()` fjerner alle rader med minst én `NaN`, og bare rad 2 er komplett. `dropna(subset=["a"])` ser bare på kolonne `a`, der bare rad 1 mangler, så 3 rader blir igjen.
+```losning
+import pandas as pd
+
+raa = pd.read_csv("problem2.csv", keep_default_na=False, na_values=[""])
+n_none = (raa["armor"] == "None").sum()
+n_tomme = raa["armor"].isna().sum()
+```
+```test
+import pandas as pd
+assert isinstance(raa, pd.DataFrame) and len(raa) == 500, 'raa skal være pd.read_csv("problem2.csv", keep_default_na=False, na_values=[""]).'
+assert n_none == 210, f"n_none skal være (raa['armor'] == 'None').sum() (210), men er {n_none}. Har du med keep_default_na=False?"
+assert n_tomme == 114, f"n_tomme skal være raa['armor'].isna().sum() (114), men er {n_tomme}. Har du med na_values=['']?"
+```
 :::
 
-::: quiz
-`df["age"]` har manglende verdier. Du kjører linjen under. Hvor mange verdier mangler i `df["age"]` etterpå?
-```kode
-df["age"].fillna(df["age"].median())
-```
-- [ ] 0, fordi alle er fylt med medianen
-- [x] Like mange som før, fordi resultatet ikke lagres
-- [ ] 0, fordi radene med manglende alder fjernes
-- [ ] Koden krasjer fordi medianen ikke kan regnes ut med `NaN`
-? `fillna` returnerer en ny Series og endrer ikke `df`. Du må skrive `df["age"] = df["age"].fillna(...)`. `median()` hopper for øvrig over `NaN` automatisk.
-:::
+## Medianen fra treningsdata
+Når du skal evaluere en modell, regner du medianen ut fra `train` alene og bruker den på både `train` og `test`, ellers lekker informasjon fra testdataene inn i treningen.
 
-::: oppsummering
-- `df.isna().sum()` teller manglende verdier per kolonne.
-- `df.dropna()` fjerner rader med minst én `NaN`. `dropna(subset=["age"])` ser bare på `age`.
-- `df["age"] = df["age"].fillna(df["age"].median())` fyller inn medianen. Husk å **lagre resultatet**.
-- Tekstkolonner kan fylles med en egen kategori (`"Ukjent"`) eller den vanligste verdien (`mode()[0]`).
-- At en verdi mangler kan i seg selv være informasjon.
+::: oppgave Ingen lekkasje
+Lagre medianalderen i `train` i `median_train`, og fyll manglende `age` i både `train` og `test` med den.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+train = df.iloc[:250].copy()
+test = df.iloc[250:].copy()
+
+median_train = ...
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+train = df.iloc[:250].copy()
+test = df.iloc[250:].copy()
+
+median_train = train["age"].median()
+train["age"] = train["age"].fillna(median_train)
+test["age"] = test["age"].fillna(median_train)
+```
+```test
+import pandas as pd
+assert median_train == 29.0, f"median_train skal være train['age'].median() (29.0), men er {median_train}"
+assert train["age"].isna().sum() == 0, "train['age'] mangler fortsatt verdier."
+assert test["age"].isna().sum() == 0, "test['age'] mangler fortsatt verdier."
+_hull = pd.read_csv("problem2.csv").iloc[250:]["age"].isna()
+assert (test.loc[_hull[_hull].index, "age"] == 29.0).all(), "Hullene i test skal fylles med medianen fra train (29.0), ikke medianen fra test (30.0)."
+```
 :::
 
 --- LEKSJON 3.6 | gruppere | Telle og gruppere
-Før du trener en modell, bør du vite hvordan klassene fordeler seg og hvilke features som henger sammen med target. Prosjekt 2 spør nettopp om dette: «Er det features som alene predikerer overlevelse bedre enn tilfeldig gjetting?»
+`df["survived"].value_counts()` teller hver verdi, og med `normalize=True` får du andeler, der den største andelen er accuracyen til en modell som alltid gjetter den vanligste klassen (baseline).
 
-## value_counts: tell verdier
-
-```python
+::: oppgave Klassefordeling
+Lagre antallet per verdi av `survived` i `antall`, andelene i `andeler`, og den største andelen i `baseline`.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-print(df["survived"].value_counts())
-print(df["survived"].value_counts(normalize=True))
-display(df["role"].value_counts())
+
+antall = ...
+andeler = ...
+baseline = ...
 ```
-
-`normalize=True` gir andeler i stedet for antall. 55,6 % døde, så en «modell» som alltid gjetter 0 får 55,6 % accuracy. Det er grunnlinjen (baseline) en ekte modell må slå. Andelene er også sannsynlighetene $P(C)$ du trenger i Naive Bayes.
-
-## Overlevelsesrate per gruppe
-Med filtrering fra forrige leksjon kan du regne ut raten for hver gruppe:
-
-```python
+```losning
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-rate_female = df[df["sex"] == "Female"]["survived"].mean()
-rate_male = df[df["sex"] == "Male"]["survived"].mean()
-print(f"Female survival rate: {rate_female:.1%}")
-print(f"Male survival rate: {rate_male:.1%}")
+
+antall = df["survived"].value_counts()
+andeler = df["survived"].value_counts(normalize=True)
+baseline = andeler.max()
 ```
-
-`groupby` gjør det samme for alle grupper på én gang. Den deler radene i grupper etter `sex`, velger kolonnen `survived` og tar gjennomsnittet i hver gruppe:
-
-```python
+```test
+import numbers
 import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-rate = df.groupby("sex")["survived"].mean()
-print(rate)
-print("Kvinner:", rate["Female"])
+assert isinstance(antall, pd.Series) and antall[0] == 278 and antall[1] == 222, "antall skal være df['survived'].value_counts()."
+assert isinstance(andeler, pd.Series) and abs(andeler[0] - 0.556) < 1e-9, "andeler skal være value_counts(normalize=True)."
+assert isinstance(baseline, numbers.Real) and abs(baseline - 0.556) < 1e-9, f"baseline skal være den største andelen (0.556), men er {baseline}"
 ```
-
-Resultatet er en Series med gruppene som indeks. Åpne `rate` i variabelpanelet: 500 rader er blitt til to, én per kjønn. Vil du ha flere tall per gruppe, bruker du `agg`:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-df.groupby("role")["survived"].agg(["mean", "count"])
-```
-
-Rollen sier mye: nesten alle jarler overlever, mens bare rundt 14 % av trellene (Thrall) gjør det. Både `sex` og `role` predikerer altså langt bedre enn tilfeldig gjetting.
-
-## crosstab: krysstabell
-`pd.crosstab` teller kombinasjoner av to kolonner. Med `normalize="index"` summerer hver **rad** til 1, og du får betingede sannsynligheter:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-print("Antall:")
-display(pd.crosstab(df["sex"], df["survived"]))
-print('normalize="index": hver rad summerer til 1')
-display(pd.crosstab(df["sex"], df["survived"], normalize="index"))
-```
-
-Den andre tabellen er $P(\text{survived} \mid \text{sex})$: 67,6 % av kvinnene overlevde. Snur du rekkefølgen, `pd.crosstab(df["survived"], df["sex"], normalize="index")`, får du $P(\text{sex} \mid \text{survived})$. Det er nettopp sannsynlighetene Naive Bayes bruker (leksjon 8.7). Forelesningsnotatene bruker den samme funksjonen: `pd.crosstab(df.Pclass, df.Sex, normalize="index")`.
-
-::: prosjekt Prosjekt 2, problem 2
-Analysecellen skal ende med `print(f"Female survival rate: {rate_female:.1%}")` og tilsvarende for menn. `:.1%` gjør 0.676 om til `67.6%`.
 :::
 
+## groupby: rate per gruppe
+`df.groupby("sex")["survived"].mean()` gir overlevelsesraten per gruppe som en Series med gruppene som indeks, og `.agg(["mean", "count"])` gir flere tall per gruppe.
+
 ::: oppgave Overlevelse per kjønn
-Regn ut overlevelsesraten for kvinner og menn og lagre dem i `rate_female` og `rate_male` (tall mellom 0 og 1).
+Lagre overlevelsesraten for kvinner og menn i `rate_female` og `rate_male`, og lag teksten `tekst = f"Female survival rate: {rate_female:.1%}"` (`:.1%` gjør 0.676 om til `67.6%`).
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
 
 rate_female = ...
 rate_male = ...
-print(f"Female survival rate: {rate_female:.1%}")
-print(f"Male survival rate: {rate_male:.1%}")
+tekst = ...
 ```
 ```losning
 import pandas as pd
@@ -876,17 +777,18 @@ df = pd.read_csv("problem2.csv")
 rate = df.groupby("sex")["survived"].mean()
 rate_female = rate["Female"]
 rate_male = rate["Male"]
-print(f"Female survival rate: {rate_female:.1%}")
-print(f"Male survival rate: {rate_male:.1%}")
+tekst = f"Female survival rate: {rate_female:.1%}"
 ```
 ```test
-assert abs(rate_female - 92 / 136) < 1e-9, f"rate_female skal være andelen kvinner som overlevde (ca. 0.676), men er {rate_female}"
-assert abs(rate_male - 130 / 364) < 1e-9, f"rate_male skal være andelen menn som overlevde (ca. 0.357), men er {rate_male}"
+import numbers
+assert isinstance(rate_female, numbers.Real) and abs(rate_female - 92 / 136) < 1e-9, f"rate_female skal være andelen kvinner som overlevde (ca. 0.676), men er {rate_female}"
+assert isinstance(rate_male, numbers.Real) and abs(rate_male - 130 / 364) < 1e-9, f"rate_male skal være andelen menn som overlevde (ca. 0.357), men er {rate_male}"
+assert tekst == "Female survival rate: 67.6%", f"tekst skal være 'Female survival rate: 67.6%', men er {tekst!r}"
 ```
 :::
 
 ::: oppgave Overlevelse per skip
-Bruk `groupby` til å lage `rate_per_skip`, en Series med overlevelsesraten for hvert skip (`ship`). Lagre så raten for skipet `"Sjøulven"` i `p_sjoulven`.
+Lag `rate_per_skip` med overlevelsesraten for hvert skip (`ship`) med `groupby`, og lagre raten for `"Sjøulven"` i `p_sjoulven`.
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
@@ -902,117 +804,167 @@ rate_per_skip = df.groupby("ship")["survived"].mean()
 p_sjoulven = rate_per_skip["Sjøulven"]
 ```
 ```test
+import numbers
 import pandas as pd
 assert isinstance(rate_per_skip, pd.Series), "rate_per_skip skal være en Series: df.groupby('ship')['survived'].mean()"
 assert len(rate_per_skip) == 5, f"Det er 5 skip, men rate_per_skip har {len(rate_per_skip)} elementer."
-assert abs(p_sjoulven - 10 / 67) < 1e-9, f"p_sjoulven skal være overlevelsesraten på Sjøulven (ca. 0.149), men er {p_sjoulven}"
+assert isinstance(p_sjoulven, numbers.Real) and abs(p_sjoulven - 10 / 67) < 1e-9, f"p_sjoulven skal være overlevelsesraten på Sjøulven (ca. 0.149), men er {p_sjoulven}"
 ```
 :::
 
-::: quiz
-Hva skriver koden ut?
-```kode
-df = pd.DataFrame({"klasse": [1, 1, 1, 2, 2, 2, 2],
-                   "kjonn": ["m", "m", "f", "m", "f", "f", "f"]})
-p = pd.crosstab(df["klasse"], df["kjonn"], normalize="index")
-print(p.loc[2, "m"])
+::: oppgave Flere tall per rolle
+Lag `per_rolle` med både `mean` og `count` av `survived` per `role` med `agg`, og hent antall jarler fra tabellen i `antall_jarler`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+per_rolle = ...
+antall_jarler = ...
 ```
-- [x] `0.25`
-- [ ] `0.3333333333333333`
-- [ ] `0.14285714285714285`
-- [ ] `1`
-? `normalize="index"` gjør at hver rad (klasse) summerer til 1. Klasse 2 har fire personer, og én av dem er m, så svaret er 1/4. 1/3 er `normalize="columns"` (én av tre m-er er i klasse 2), 1/7 er `normalize="all"`, og 1 er det rå antallet.
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+per_rolle = df.groupby("role")["survived"].agg(["mean", "count"])
+antall_jarler = per_rolle.loc["Jarl", "count"]
+```
+```test
+import pandas as pd
+assert isinstance(per_rolle, pd.DataFrame) and list(per_rolle.columns) == ["mean", "count"], "per_rolle skal være df.groupby('role')['survived'].agg(['mean', 'count'])."
+assert sorted(per_rolle.index) == ["Hirdman", "Jarl", "Karl", "Thrall"], "per_rolle skal ha én rad per rolle."
+assert antall_jarler == 28, f"antall_jarler skal være per_rolle.loc['Jarl', 'count'] (28), men er {antall_jarler}"
+```
 :::
 
-::: quiz
-`df["survived"].value_counts(normalize=True)` gir `0: 0.556` og `1: 0.444`. Hvilken accuracy får en modell som alltid predikerer 0?
-- [ ] 0.444
-- [ ] 0.500
-- [x] 0.556
-- [ ] 1.000
-? Modellen har rett for alle som faktisk har `survived == 0`, altså 55,6 % av radene. En nyttig modell må slå denne grunnlinjen.
-:::
+## crosstab: krysstabell
+`pd.crosstab(df["sex"], df["survived"])` teller kombinasjoner, og med `normalize="index"` summerer hver rad til 1, så du får $P(\text{survived} \mid \text{sex})$.
 
-::: oppsummering
-- `value_counts()` teller verdier, `value_counts(normalize=True)` gir andeler (klassefordeling, baseline, $P(C)$).
-- `df.groupby("sex")["survived"].mean()` gir overlevelsesrate per gruppe.
-- `.agg(["mean", "count"])` gir flere tall per gruppe.
-- `pd.crosstab(a, b)` teller kombinasjoner. `normalize="index"` gjør at hver rad summerer til 1, som gir $P(b \mid a)$.
+::: oppgave Betingede sannsynligheter
+Lag `tab` med antall per kombinasjon av `sex` og `survived`, og `p` med `normalize="index"`. Hent $P(\text{survived}=1 \mid \text{Female})$ fra `p` i `p_kvinne`, og regn ut $P(\text{Male} \mid \text{survived}=1)$ med en ny crosstab i `p_mann_gitt_overlevd`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+tab = ...
+p = ...
+p_kvinne = ...
+p_mann_gitt_overlevd = ...
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+tab = pd.crosstab(df["sex"], df["survived"])
+p = pd.crosstab(df["sex"], df["survived"], normalize="index")
+p_kvinne = p.loc["Female", 1]
+p_mann_gitt_overlevd = pd.crosstab(df["survived"], df["sex"], normalize="index").loc[1, "Male"]
+```
+```test
+import numbers
+import pandas as pd
+assert isinstance(tab, pd.DataFrame) and tab.loc["Female", 1] == 92, "tab skal være pd.crosstab(df['sex'], df['survived']) (antall)."
+assert isinstance(p, pd.DataFrame) and abs(p.loc["Male"].sum() - 1) < 1e-9, "p skal ha normalize='index', så hver rad summerer til 1."
+assert isinstance(p_kvinne, numbers.Real) and abs(p_kvinne - 92 / 136) < 1e-9, f"p_kvinne skal være p.loc['Female', 1] (ca. 0.676), men er {p_kvinne}"
+assert isinstance(p_mann_gitt_overlevd, numbers.Real) and abs(p_mann_gitt_overlevd - 130 / 222) < 1e-9, f"p_mann_gitt_overlevd skal være ca. 0.586. Snu rekkefølgen: pd.crosstab(df['survived'], df['sex'], normalize='index')."
+```
 :::
 
 --- LEKSJON 3.7 | endre | Endre data
-Data kommer sjelden i formen en modell trenger. I denne leksjonen lærer du de vanligste operasjonene: lage nye kolonner, fjerne og gi nytt navn til kolonner, kode om verdier, endre typer og sortere.
+En ny kolonne lager du ved å tilordne til et nytt navn: `df["family_size"] = df["family_aboard"] + 1`.
 
-## Nye kolonner
-Du lager en ny kolonne ved å tilordne til et nytt navn. Regningen er vektorisert, som i NumPy:
-
-```python
+::: oppgave Feature engineering
+Lag kolonnene `family_size` (`family_aboard + 1`), `erfaren` (`True` når `prior_voyages` er minst 3) og `kg_per_person` (`provisions_kg` delt på `family_size`) i `df`.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-print("Før: kolonnene vi regner ut fra")
-display(df[["family_aboard", "prior_voyages", "provisions_kg"]].head())
+
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
 df["family_size"] = df["family_aboard"] + 1
 df["erfaren"] = df["prior_voyages"] >= 3
 df["kg_per_person"] = df["provisions_kg"] / df["family_size"]
-print("Etter: tre nye kolonner")
-df[["family_aboard", "family_size", "erfaren", "kg_per_person"]].head()
 ```
-
-Å lage nye features fra de gamle kalles **feature engineering**. Du gjorde det samme for hånd i prosjekt 1 (leksjon 5.8).
+```test
+import numpy as np
+for _k in ["family_size", "erfaren", "kg_per_person"]:
+    assert _k in df.columns, f"Lag kolonnen {_k} i df."
+assert (df["family_size"] == df["family_aboard"] + 1).all(), "family_size skal være family_aboard + 1."
+assert df["erfaren"].sum() == 147 and set(df["erfaren"]) <= {True, False}, "erfaren skal være df['prior_voyages'] >= 3 (147 er erfarne)."
+assert np.allclose(df["kg_per_person"], df["provisions_kg"] / (df["family_aboard"] + 1)), "kg_per_person skal være provisions_kg / family_size."
+```
+:::
 
 ## drop og rename
-`drop(columns=...)` fjerner kolonner, og `rename(columns={gammelt: nytt})` gir nye navn. Begge returnerer en ny tabell, så resultatet må lagres:
+`df.drop(columns=["name"])` fjerner kolonner og `df.rename(columns={"sex": "kjonn"})` gir nye navn, og begge returnerer en ny tabell som må lagres.
 
-```python
+::: oppgave drop og rename
+Lag `df2` fra `df` uten kolonnene `passenger_id` og `name`, og der `sex` heter `kjonn` og `survived` heter `overlevde`.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-print("Før:")
-display(df.head(3))
-df = df.drop(columns=["passenger_id", "name"])
-df = df.rename(columns={"sex": "kjonn", "survived": "overlevde"})
-print("Etter drop og rename:")
-display(df.head(3))
-print(df.columns.tolist())
+
+df2 = ...
 ```
-
-Navn og ID-er er typiske kolonner å fjerne: de er unike per person og hjelper ikke modellen med å generalisere.
-
-## map: kode om verdier med en dict
-`map` slår opp hver verdi i en dict. Det er den enkleste måten å gjøre tekst om til tall:
-
-```python
+```losning
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-display(df[["name", "sex"]].head())
+
+df2 = df.drop(columns=["passenger_id", "name"])
+df2 = df2.rename(columns={"sex": "kjonn", "survived": "overlevde"})
+```
+```test
+import pandas as pd
+assert isinstance(df2, pd.DataFrame) and len(df2) == 500, "df2 skal være en DataFrame med 500 rader."
+assert "passenger_id" not in df2.columns and "name" not in df2.columns, "Fjern passenger_id og name med drop(columns=[...])."
+assert "kjonn" in df2.columns and "overlevde" in df2.columns, "Gi nye navn med rename(columns={'sex': 'kjonn', 'survived': 'overlevde'})."
+assert "sex" not in df2.columns and "survived" not in df2.columns, "De gamle navnene sex og survived skal være borte."
+assert df2.shape[1] == 11, f"df2 skal ha 11 kolonner, men har {df2.shape[1]}."
+```
+:::
+
+## map: kode om med en dict
+`df["sex"].map({"Male": 1, "Female": 0})` slår opp hver verdi i dicten, og verdier som ikke finnes i dicten blir `NaN`.
+
+::: oppgave Rett map-feilen
+Startkoden gjør hele `sex` til `NaN`. Rett den slik at `"Male"` blir 1 og `"Female"` blir 0, og sjekk med `df["sex"].isna().sum()`.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+df["sex"] = df["sex"].map({"male": 1, "female": 0})
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
 df["sex"] = df["sex"].map({"Male": 1, "Female": 0})
-display(df[["name", "sex"]].head())
-print(df["sex"].value_counts())
-print("Mangler etter map:", df["sex"].isna().sum())
 ```
-
-::: advarsel
-Verdier som ikke finnes i dicten blir `NaN`. I disse dataene står det `"Male"` med stor forbokstav. Skriver du `{"male": 1, "female": 0}`, blir hele kolonnen `NaN`. Sjekk alltid med `isna().sum()` etter en `map`.
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")[["name", "sex"]].head(6)
-df["riktig"] = df["sex"].map({"Male": 1, "Female": 0})
-df["feil"] = df["sex"].map({"male": 1, "female": 0})   # små forbokstaver finnes ikke
-display(df)
-print(df.isna().sum())
+```test
+assert df["sex"].isna().sum() == 0, 'sex har NaN etter omkodingen. Nøklene må stemme nøyaktig med dataene: "Male" og "Female" med stor forbokstav.'
+assert sorted(df["sex"].unique().tolist()) == [0, 1], "sex skal bare inneholde 0 og 1."
+assert df["sex"].sum() == 364, "Male skal bli 1 og Female 0 (det er 364 menn)."
 ```
-Hele `feil`-kolonnen er rød.
 :::
 
 ## apply: bruk en egen funksjon
-`apply` kaller en funksjon på hver verdi i en Series. Det er nyttig når regelen er for komplisert for en dict:
+`df["age"].apply(funksjon)` kaller funksjonen på hver verdi, og `lambda n: n.split()[-1]` er en kort funksjon på én linje.
 
-```python
+::: oppgave Aldersgruppe og etternavn
+Fullfør `aldersgruppe` (under 20 gir `"ung"`, under 40 gir `"voksen"`, ellers `"eldre"`) og lag kolonnen `gruppe` med `apply`. Lag også kolonnen `etternavn` med det siste ordet i `name`.
+```start
 import pandas as pd
+df = pd.read_csv("problem2.csv")
+df["age"] = df["age"].fillna(df["age"].median())
 
+def aldersgruppe(alder):
+    ...
+
+```
+```losning
+import pandas as pd
 df = pd.read_csv("problem2.csv")
 df["age"] = df["age"].fillna(df["age"].median())
 
@@ -1025,195 +977,141 @@ def aldersgruppe(alder):
 
 df["gruppe"] = df["age"].apply(aldersgruppe)
 df["etternavn"] = df["name"].apply(lambda n: n.split()[-1])
-df[["name", "age", "gruppe", "etternavn"]].head()
 ```
+```test
+assert aldersgruppe(15) == "ung" and aldersgruppe(20) == "voksen" and aldersgruppe(39) == "voksen" and aldersgruppe(40) == "eldre", "aldersgruppe gir feil svar. Under 20: ung, under 40: voksen, ellers eldre."
+assert "gruppe" in df.columns, "Lag kolonnen gruppe med df['age'].apply(aldersgruppe)."
+assert df["gruppe"].tolist() == [aldersgruppe(a) for a in df["age"]], "gruppe skal være aldersgruppe brukt på hver alder."
+assert "etternavn" in df.columns, "Lag kolonnen etternavn."
+assert df.loc[0, "etternavn"] == "Ulfsson" and df.loc[1, "etternavn"] == "Bjørnsson", "etternavn skal være siste ord i name: n.split()[-1]."
+```
+:::
 
 ## astype: endre type
-`y` i `classification.csv` er lagret som `0.0` og `1.0`. Med `astype` gjør du kolonnen om til heltall. Det samme virker for `True`/`False`:
+`data["y"].astype(int)` gjør `0.0` og `1.0` om til heltall, og det virker også på `True`/`False`.
 
-```python
+::: oppgave Til heltall
+Gjør `data["y"]` om til heltall (lagre tilbake i kolonnen), og lag `positiv` som er 1 der `x0 > 0` og 0 ellers.
+```start
 import pandas as pd
-
 data = pd.read_csv("classification.csv")
-print(data["y"].dtype, data["y"].head(3).tolist())
-data["y"] = data["y"].astype(int)
-print(data["y"].dtype, data["y"].head(3).tolist())
-print((data["x0"] > 0).astype(int).head(3).tolist())
-```
 
-Typen til hver kolonne står også under kolonnenavnet når du åpner `data` i variabelpanelet.
+positiv = ...
+```
+```losning
+import pandas as pd
+data = pd.read_csv("classification.csv")
+
+data["y"] = data["y"].astype(int)
+positiv = (data["x0"] > 0).astype(int)
+```
+```test
+import pandas as pd
+assert pd.api.types.is_integer_dtype(data["y"]), f"data['y'] skal være heltall, men har typen {data['y'].dtype}. Bruk data['y'] = data['y'].astype(int)."
+assert set(data["y"]) == {0, 1}, "data['y'] skal fortsatt være 0 og 1."
+assert isinstance(positiv, pd.Series) and pd.api.types.is_integer_dtype(positiv), "positiv skal være (data['x0'] > 0).astype(int)."
+assert (positiv == (data["x0"] > 0)).all(), "positiv skal være 1 der x0 > 0 og 0 ellers."
+```
+:::
 
 ## sort_values og reset_index
-`sort_values` sorterer radene etter en kolonne. Radene beholder merkelappene sine. `reset_index(drop=True)` gir en ny indeks 0, 1, 2, ...:
+`df.sort_values("kol", ascending=False)` returnerer en sortert kopi som beholder de gamle merkelappene, og `reset_index(drop=True)` gir ny indeks 0, 1, 2, …. Uten `drop=True` blir den gamle indeksen en kolonne, og `reset_index(names="ID")` kaller den `ID`.
 
-```python
+::: oppgave Sorter og nummerer
+Lagre de tre radene med mest `provisions_kg` i `topp3`, gi `test` ny indeks 0, 1, 2, … uten å beholde den gamle, og lag `med_id` der indeksen til `df` er blitt en kolonne `ID`.
+```start
 import pandas as pd
-
+df = pd.read_csv("problem2.csv")
 data = pd.read_csv("classification.csv")
 test = data[data["split"] == "test"]
-print(test.index[:3].tolist())
-display(test.head(3))
-test = test.reset_index(drop=True)
-print(test.index[:3].tolist())
-display(test.head(3))
 
-df = pd.read_csv("problem2.csv")
-df.sort_values("provisions_kg", ascending=False)[["name", "provisions_kg"]].head(3)
+topp3 = ...
+med_id = ...
 ```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+data = pd.read_csv("classification.csv")
+test = data[data["split"] == "test"]
 
-Etter `sort_values` står de største verdiene øverst, men merkelappene til venstre er de gamle radnumrene.
+topp3 = df.sort_values("provisions_kg", ascending=False).head(3)
+test = test.reset_index(drop=True)
+med_id = df.reset_index(names="ID")
+```
+```test
+import pandas as pd
+assert isinstance(topp3, pd.DataFrame) and topp3.index.tolist() == [201, 91, 172], "topp3 skal være df.sort_values('provisions_kg', ascending=False).head(3) (radene 201, 91 og 172)."
+assert test.index[0] == 0 and len(test) == 500, "test skal ha ny indeks fra 0. Husk test = test.reset_index(drop=True)."
+assert "index" not in test.columns, "Med drop=True blir ikke den gamle indeksen en kolonne."
+assert isinstance(med_id, pd.DataFrame) and med_id.columns[0] == "ID", "med_id skal være df.reset_index(names='ID')."
+assert med_id["ID"].tolist() == list(range(500)), "ID-kolonnen skal være 0, 1, ..., 499."
+```
+:::
 
-Uten `drop=True` blir den gamle indeksen en ny kolonne. I prosjekt 3 ble dette brukt med vilje: `data.reset_index(names="ID")` gjør radnummeret om til en kolonne kalt `ID`, som trengs i Kaggle-innleveringen.
+--- LEKSJON 3.8 | kategoriske | Kategoriske data: map og get_dummies
+Binære kategorier som `sex` kodes med `map` til 0/1, ordinale kategorier med en naturlig rekkefølge med `map` i riktig rekkefølge, og nominelle kategorier uten rekkefølge (`ship`, `destination`) med one-hot.
 
-::: oppgave Gjør klar kolonnene
-Lag `df2` fra vikingdataene slik at:
+## Ordinal: map med egen rekkefølge
+Rollene har rangen Thrall < Karl < Hirdman < Jarl, så `{"Thrall": 0, "Karl": 1, "Hirdman": 2, "Jarl": 3}` gir én feature der større tall betyr høyere rang.
 
-1. kolonnene `passenger_id` og `name` er fjernet
-2. `sex` er kodet om til tall: `"Male"` blir 1 og `"Female"` blir 0
-3. det finnes en ny kolonne `family_size` som er `family_aboard + 1`
+::: oppgave Rang
+Lag kolonnen `role_rang` med dicten over, og lagre overlevelsesraten per rang i `rate_per_rang`. Ser du at raten øker med rangen?
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
 
-df2 = ...
+rate_per_rang = ...
 ```
 ```losning
 import pandas as pd
 df = pd.read_csv("problem2.csv")
 
-df2 = df.drop(columns=["passenger_id", "name"])
-df2["sex"] = df2["sex"].map({"Male": 1, "Female": 0})
-df2["family_size"] = df2["family_aboard"] + 1
+rang = {"Thrall": 0, "Karl": 1, "Hirdman": 2, "Jarl": 3}
+df["role_rang"] = df["role"].map(rang)
+rate_per_rang = df.groupby("role_rang")["survived"].mean()
 ```
 ```test
 import pandas as pd
-assert isinstance(df2, pd.DataFrame), "df2 skal være en DataFrame."
-assert "passenger_id" not in df2.columns and "name" not in df2.columns, "Fjern passenger_id og name med df.drop(columns=[...])."
-assert len(df2) == 500, "df2 skal fortsatt ha 500 rader."
-assert df2["sex"].isna().sum() == 0, 'sex har NaN etter omkodingen. Bruker du nøyaktig "Male" og "Female" som nøkler?'
-assert sorted(df2["sex"].unique().tolist()) == [0, 1], "sex skal bare inneholde 0 og 1."
-assert df2["sex"].sum() == 364, "Male skal bli 1 og Female 0 (det er 364 menn)."
-assert "family_size" in df2.columns, "Lag kolonnen family_size."
-assert (df2["family_size"] == df["family_aboard"] + 1).all(), "family_size skal være family_aboard + 1."
+assert "role_rang" in df.columns and df["role_rang"].isna().sum() == 0, "Lag role_rang med df['role'].map({...}) uten NaN."
+assert (df.loc[df["role"] == "Jarl", "role_rang"] == 3).all() and (df.loc[df["role"] == "Thrall", "role_rang"] == 0).all(), "Thrall skal bli 0 og Jarl 3."
+assert isinstance(rate_per_rang, pd.Series) and rate_per_rang.index.tolist() == [0, 1, 2, 3], "rate_per_rang skal være df.groupby('role_rang')['survived'].mean()."
+assert rate_per_rang.is_monotonic_increasing, "Raten skal øke med rangen. Sjekk rekkefølgen i dicten."
 ```
 :::
 
-::: quiz
-Hva skriver koden ut?
-```kode
-s = pd.Series(["Male", "Female", "male"])
-print(s.map({"Male": 1, "Female": 0}).tolist())
-```
-- [ ] `[1, 0, 1]`
-- [x] `[1.0, 0.0, nan]`
-- [ ] `[1, 0]`
-- [ ] `KeyError: 'male'`
-? `map` gir `NaN` for verdier som ikke finnes i dicten (`"male"` med liten forbokstav). Fordi `NaN` er et flyttall, blir hele resultatet flyttall.
-:::
+## One-hot med get_dummies
+`pd.get_dummies(df, columns=["ship"], dtype=int)` lager én 0/1-kolonne per kategori (`ship_Bison`, …) og lar de andre kolonnene stå urørt. Uten `dtype=int` blir det `True`/`False`.
 
-::: quiz
-Hva skriver koden ut?
-```kode
-df = pd.DataFrame({"a": [3, 1, 2]})
-df.sort_values("a")
-print(df["a"].tolist())
-```
-- [x] `[3, 1, 2]`
-- [ ] `[1, 2, 3]`
-- [ ] `[3, 2, 1]`
-- [ ] `None`
-? `sort_values` returnerer en ny, sortert tabell, men resultatet lagres ikke. `df` er uendret. Skriv `df = df.sort_values("a")` for å beholde sorteringen.
-:::
-
-::: oppsummering
-- Ny kolonne: `df["ny"] = df["a"] + 1` (vektorisert).
-- `df.drop(columns=[...])` og `df.rename(columns={gammelt: nytt})` returnerer en ny tabell. Lagre resultatet.
-- `df["sex"].map({"Male": 1, "Female": 0})`: verdier som ikke finnes i dicten blir `NaN`.
-- `apply(funksjon)` bruker en egen funksjon på hver verdi.
-- `astype(int)` endrer type. `sort_values("kol")` sorterer. `reset_index(drop=True)` gir ny indeks 0, 1, 2, ...
-:::
-
---- LEKSJON 3.8 | kategoriske | Kategoriske data: map og get_dummies
-Modeller regner med tall, så tekstkolonner som `sex`, `role` og `ship` må kodes om. Hvordan du gjør det avhenger av hva slags kategori det er:
-
-| Type | Eksempel | Koding |
-|---|---|---|
-| Binær (to verdier) | `sex` | `map` til 0 og 1 |
-| Ordinal (har en naturlig rekkefølge) | `role`: Thrall < Karl < Hirdman < Jarl | `map` til 0, 1, 2, 3 i riktig rekkefølge |
-| Nominell (ingen rekkefølge) | `ship`, `destination` | one-hot med `pd.get_dummies` |
-
-## Ordinal: map med egen rekkefølge
-
-```python
+::: oppgave One-hot på skip
+Lag `oh` fra `df[["ship", "survived"]]` der `ship` er one-hot-kodet med 0/1.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-rang = {"Thrall": 0, "Karl": 1, "Hirdman": 2, "Jarl": 3}
-df["role_rang"] = df["role"].map(rang)
-df.groupby("role_rang")["survived"].mean()
+
+oh = ...
 ```
-
-Overlevelsesraten øker jevnt med rangen, så å kode rollen som ett tall med riktig rekkefølge gir mening.
-
-## Nominell: one-hot med get_dummies
-Skipene har ingen rekkefølge. Gir du dem tallene 0 til 4, later modellen som om skip 4 er «mer» enn skip 1. **One-hot-koding** lager i stedet én kolonne per kategori, med 1 der raden har den kategorien og 0 ellers:
-
-```python
+```losning
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
-print("Før: én tekstkolonne")
-display(df[["ship", "survived"]].head())
+
 oh = pd.get_dummies(df[["ship", "survived"]], columns=["ship"], dtype=int)
-print("Etter: én 0/1-kolonne per skip")
-oh.head()
 ```
-
-Sammenlign radene: rad 0 hadde skipet `Bison`, og etter kodingen har den 1 i `ship_Bison` og 0 i de andre skipskolonnene. `columns=[...]` sier hvilke kolonner som skal kodes. Andre kolonner blir stående urørt. Uten `dtype=int` får du `True`/`False`, som modellene også godtar.
-
-## drop_first
-De fem skipskolonnene summerer alltid til 1. Den siste kolonnen er derfor overflødig: er alle de andre 0, vet vi hvilket skip det er. `drop_first=True` fjerner den første kategorien:
-
-```python
+```test
 import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-oh = pd.get_dummies(df[["ship"]], columns=["ship"], drop_first=True, dtype=int)
-print(oh.columns.tolist())
-oh.head()
-```
-
-Raden der alle fire er 0, er `Bison`. Overflødige kolonner kan gi problemer for lineære modeller uten regularisering (vektene blir ikke entydige). Beslutningstrær bryr seg ikke.
-
-## Hele tabellen på én gang
-Du kan kode mange kolonner samtidig. Rader med `NaN` får 0 i alle kolonnene for den featuren, med mindre du gir `dummy_na=True`:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("problem2.csv")
-df = df.drop(columns=["passenger_id", "name"])
-df_oh = pd.get_dummies(df, columns=["sex", "role", "ship", "destination", "clan_origin", "armor"], dtype=int)
-print(df.shape, "->", df_oh.shape)
-print(df_oh.columns.tolist())
-```
-
-Åpne `df` og `df_oh` i variabelpanelet og sammenlign: `df` har røde `NaN`-celler i `age`, `clan_origin` og `armor`. I `df_oh` er bare `age` rød, fordi `get_dummies` gjør manglende kategorier om til bare nuller.
-
-::: advarsel
-Kjører du `get_dummies` hver for seg på train og test, kan du få **forskjellige kolonner**: mangler et skip i testdataene, mangler også kolonnen. Kjør `get_dummies` på hele tabellen før du deler den, eller bruk `OneHotEncoder` fra scikit-learn (leksjon 7.3).
-```python
-import pandas as pd
-
-train = pd.DataFrame({"ship": ["Bison", "Drakvinge", "Sjøulven"]})
-test = pd.DataFrame({"ship": ["Bison", "Bison"]})
-print(pd.get_dummies(train).columns.tolist())
-print(pd.get_dummies(test).columns.tolist())
+assert isinstance(oh, pd.DataFrame), "oh skal være en DataFrame fra pd.get_dummies."
+assert oh.shape == (500, 6), f"oh skal ha shape (500, 6): survived + 5 skip. Du har {oh.shape}."
+assert "survived" in oh.columns and "ship" not in oh.columns, "ship skal erstattes av 0/1-kolonner, og survived skal stå urørt."
+_skip = [c for c in oh.columns if c.startswith("ship_")]
+assert (oh[_skip].sum(axis=1) == 1).all(), "Hver rad skal ha nøyaktig én 1 blant ship_-kolonnene."
+assert pd.api.types.is_integer_dtype(oh["ship_Bison"]), "Bruk dtype=int for å få 0/1 i stedet for True/False."
 ```
 :::
 
-::: oppgave One-hot på vikingdataene
-Lag `df_oh` fra kolonnene `sex`, `role`, `ship` og `survived` med `pd.get_dummies`. Kod `sex`, `role` og `ship` med `drop_first=True` og `dtype=int`. `survived` skal stå urørt.
+## drop_first og dummy_na
+`drop_first=True` fjerner den første (overflødige) kategorien per feature, og `dummy_na=True` gir en egen kolonne for `NaN`, som ellers bare får nuller.
+
+::: oppgave One-hot med drop_first
+Lag `df_oh` fra `utvalg` der `sex`, `role` og `ship` er kodet med `drop_first=True` og `dtype=int`, og `survived` står urørt.
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
@@ -1238,138 +1136,222 @@ assert "sex_Female" not in df_oh.columns and "role_Hirdman" not in df_oh.columns
 ```
 :::
 
-::: quiz
-Et datasett har `sex` (2 verdier), `role` (4 verdier), `ship` (5 verdier) og den numeriske featuren `age`. Hvor mange kolonner gir dette?
-```kode
-X = pd.get_dummies(df[["sex", "role", "ship", "age"]],
-                   columns=["sex", "role", "ship"], drop_first=True)
-print(X.shape[1])
+::: oppgave Manglende som egen kategori
+Lag `armor_oh` fra `df[["armor"]]` der `armor` er one-hot-kodet med 0/1 og en egen kolonne for manglende verdier.
+```start
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+armor_oh = ...
 ```
-- [ ] 4
-- [x] 9
-- [ ] 10
-- [ ] 12
-? Med `drop_first=True` blir hver kategori til (antall verdier − 1) kolonner: 1 + 3 + 4 = 8, pluss `age` som står urørt, gir 9. Uten `drop_first` ville det blitt 2 + 4 + 5 + 1 = 12.
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
+armor_oh = pd.get_dummies(df[["armor"]], columns=["armor"], dummy_na=True, dtype=int)
+```
+```test
+import pandas as pd
+assert isinstance(armor_oh, pd.DataFrame), "armor_oh skal være en DataFrame fra pd.get_dummies."
+assert "armor_nan" in armor_oh.columns, "Det mangler en kolonne for NaN. Bruk dummy_na=True."
+assert armor_oh.shape == (500, 4), f"armor_oh skal ha 4 kolonner (3 rustninger + nan), men har shape {armor_oh.shape}."
+assert armor_oh["armor_nan"].sum() == 324, "armor_nan skal være 1 for de 324 radene uten armor."
+```
 :::
 
-::: quiz
-`destination` har verdiene Lindisfarne, Normandy, Iceland, Miklagard og Vinland, uten noen naturlig rekkefølge. Hvilken koding passer best for en logistisk regresjonsmodell?
-- [ ] `map` til 0, 1, 2, 3, 4, slik at featuren tar én kolonne
-- [x] One-hot-koding med `pd.get_dummies`
-- [ ] La teksten stå, scikit-learn koder den automatisk
-- [ ] Fjerne kolonnen, fordi tekst ikke kan brukes
-? Med tallene 0 til 4 får modellen én vekt og tolker Vinland som «fire ganger» Normandy. One-hot gir hver destinasjon sin egen vekt. scikit-learn gir feil hvis du sender inn tekst direkte.
-:::
+## Samme kolonner i train og test
+Kjører du `get_dummies` på train og test hver for seg, får de ulike kolonner hvis en kategori mangler i den ene, så kod hele tabellen før du deler den.
 
-::: oppsummering
-- Binære kategorier: `map` til 0/1. Ordinale kategorier: `map` til tall i **riktig rekkefølge**.
-- Nominelle kategorier: one-hot med `pd.get_dummies(df, columns=[...])`.
-- `drop_first=True` fjerner én overflødig kolonne per feature. `dtype=int` gir 0/1 i stedet for `True`/`False`.
-- Antall kolonner etter one-hot: summen av antall kategorier (minus én per feature med `drop_first`).
-- Kjør `get_dummies` før train/test-split, ellers kan kolonnene bli ulike.
+::: oppgave Kod før du deler
+Test-radene mangler skipet `Drakvinge`. One-hot-kod `ship` i hele `df` (med `dtype=int`) i `oh`, og del så `oh` i `train_oh` og `test_oh` etter `split`.
+```start
+import pandas as pd
+df = pd.DataFrame({
+    "ship": ["Bison", "Drakvinge", "Sjøulven", "Bison", "Sjøulven"],
+    "split": ["train", "train", "train", "test", "test"],
+})
+
+oh = ...
+train_oh = ...
+test_oh = ...
+```
+```losning
+import pandas as pd
+df = pd.DataFrame({
+    "ship": ["Bison", "Drakvinge", "Sjøulven", "Bison", "Sjøulven"],
+    "split": ["train", "train", "train", "test", "test"],
+})
+
+oh = pd.get_dummies(df, columns=["ship"], dtype=int)
+train_oh = oh[oh["split"] == "train"]
+test_oh = oh[oh["split"] == "test"]
+```
+```test
+import pandas as pd
+assert isinstance(oh, pd.DataFrame) and "ship_Drakvinge" in oh.columns, "oh skal være pd.get_dummies(df, columns=['ship'], dtype=int)."
+assert isinstance(train_oh, pd.DataFrame) and len(train_oh) == 3, "train_oh skal være de 3 train-radene i oh."
+assert isinstance(test_oh, pd.DataFrame) and len(test_oh) == 2, "test_oh skal være de 2 test-radene i oh."
+assert list(train_oh.columns) == list(test_oh.columns), "train_oh og test_oh skal ha de samme kolonnene. Kod hele df før du deler."
+assert "ship_Drakvinge" in test_oh.columns, "test_oh skal også ha kolonnen ship_Drakvinge (med bare nuller)."
+```
 :::
 
 --- LEKSJON 3.9 | til-numpy | Fra pandas til X og y, og lagre CSV
-Siste steg før trening er å dele tabellen i features `X` og target `y`. Etter trening skal du kanskje lagre prediksjonene til en fil, slik du gjorde for Kaggle i prosjekt 3.
+`X = df.drop(columns="survived")` og `y = df["survived"]` deler tabellen i features (2D) og target (1D).
 
-## X og y
-
-```python
+::: oppgave X og y
+Lagre navnet på target-kolonnen i `target = "survived"`, og lag `X` (alle andre kolonner) og `y` med den.
+```start
 import pandas as pd
-
 df = pd.read_csv("problem2.csv")
+
+target = ...
+X = ...
+y = ...
+```
+```losning
+import pandas as pd
+df = pd.read_csv("problem2.csv")
+
 target = "survived"
 X = df.drop(columns=target)
 y = df[target]
-print(X.shape, y.shape)
 ```
-
-`X` er alle kolonnene unntatt target (2D), og `y` er target-kolonnen (1D). Åpne `X` og `y` i variabelpanelet: `X` er hele tabellen uten `survived`, og `y` er en Series med bare 0 og 1. Prosjekt 2 starter treningscellen med akkurat `target = 'survived'`.
+```test
+import pandas as pd
+assert target == "survived", "target skal være 'survived'."
+assert isinstance(X, pd.DataFrame) and X.shape == (500, 12) and "survived" not in X.columns, "X skal være df.drop(columns=target) med shape (500, 12)."
+assert isinstance(y, pd.Series) and y.shape == (500,), "y skal være df[target], en 1D Series."
+```
+:::
 
 ## Til numpy: .values og .to_numpy()
-scikit-learn godtar DataFrames direkte, men din egen kode fra prosjekt 1 og PyTorch i prosjekt 3 vil ha numpy-arrays. `.values` og `.to_numpy()` gjør det samme:
+`.values` og `.to_numpy()` gjør en tabell om til et numpy-array, og `to_numpy(dtype=np.float32)` gir 32-bits flyttall til PyTorch. Er det tekst igjen i tabellen, får arrayet `dtype object`, og modellene krasjer.
 
-```python
+::: oppgave numpy-arrays
+Lag `X_train` (kolonnene `x0` og `x1`) og `y_train` (kolonnen `y`) som numpy-arrays fra `train`, og `X_train32` som `X_train` med `dtype=np.float32`.
+```start
+import numpy as np
 import pandas as pd
-
 data = pd.read_csv("classification.csv")
 train = data[data["split"] == "train"]
+
+X_train = ...
+y_train = ...
+X_train32 = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+data = pd.read_csv("classification.csv")
+train = data[data["split"] == "train"]
+
 X_train = train[["x0", "x1"]].values
 y_train = train["y"].to_numpy()
-print(type(X_train).__name__, X_train.shape, X_train.dtype)
-print(type(y_train).__name__, y_train.shape)
-print("DataFrame: med kolonnenavn og indeks")
-display(train[["x0", "x1"]].head(3))
-print("numpy-array: de samme tallene, uten navn")
-display(X_train[:3])
+X_train32 = train[["x0", "x1"]].to_numpy(dtype=np.float32)
 ```
+```test
+import numpy as np
+assert isinstance(X_train, np.ndarray) and X_train.shape == (500, 2), "X_train skal være train[['x0', 'x1']].values med shape (500, 2)."
+assert isinstance(y_train, np.ndarray) and y_train.shape == (500,), "y_train skal være train['y'].to_numpy() med shape (500,)."
+assert isinstance(X_train32, np.ndarray) and X_train32.dtype == np.float32 and X_train32.shape == (500, 2), "X_train32 skal lages med .to_numpy(dtype=np.float32)."
+```
+:::
 
-::: advarsel
-Inneholder tabellen tekstkolonner, får arrayet typen `object`, og modellene krasjer. Kod alle tekstkolonner om (leksjon 3.8) og fjern kolonner som `split` og `name` før du lager `X`. Med `to_numpy(dtype=np.float32)` får du flyttall med 32 bit, som PyTorch bruker.
+::: oppgave Fjern teksten
+Startkoden gir en `X` med `dtype object` fordi `split` er med. Rett den slik at `X` bare inneholder `x0` og `x1`.
+```start
+import pandas as pd
+data = pd.read_csv("classification.csv")
+
+X = data.drop(columns="y").values
+```
+```losning
+import pandas as pd
+data = pd.read_csv("classification.csv")
+
+X = data[["x0", "x1"]].values
+```
+```test
+import numpy as np
+assert isinstance(X, np.ndarray), "X skal være et numpy-array."
+assert X.dtype != object, "X har fortsatt dtype object. Er split-kolonnen med?"
+assert X.shape == (1000, 2), f"X skal ha shape (1000, 2) (bare x0 og x1), men har {X.shape}"
+```
 :::
 
 ## pd.concat: slå sammen tabeller
-`pd.concat` setter tabeller under hverandre (rader) eller ved siden av hverandre (`axis=1`, kolonner):
+`pd.concat([a, b])` setter tabeller under hverandre, og `pd.concat([a, b], axis=1)` setter dem ved siden av hverandre, matchet på indeksen.
 
-```python
+::: oppgave Under og ved siden av
+Sett `train` og `test` sammen igjen under hverandre i `alle`. Sett så `df[["age", "survived"]]` og `dummies` ved siden av hverandre i `sammen`.
+```start
 import pandas as pd
-
 data = pd.read_csv("classification.csv")
 train = data[data["split"] == "train"]
 test = data[data["split"] == "test"]
-alle = pd.concat([train, test])
-print(len(train), "+", len(test), "=", len(alle))
-
 df = pd.read_csv("problem2.csv")
 dummies = pd.get_dummies(df["ship"], dtype=int)
-display(df[["age", "survived"]].head(3))
-display(dummies.head(3))
+
+alle = ...
+sammen = ...
+```
+```losning
+import pandas as pd
+data = pd.read_csv("classification.csv")
+train = data[data["split"] == "train"]
+test = data[data["split"] == "test"]
+df = pd.read_csv("problem2.csv")
+dummies = pd.get_dummies(df["ship"], dtype=int)
+
+alle = pd.concat([train, test])
 sammen = pd.concat([df[["age", "survived"]], dummies], axis=1)
-print("Ved siden av hverandre:")
-sammen.head(3)
 ```
-
-Med `axis=1` blir radene matchet på indeksen, så begge tabellene må ha samme merkelapper.
-
-## Lagre til CSV
-`to_csv` skriver en DataFrame til fil. Kaggle-innleveringen i prosjekt 3 skulle ha nøyaktig kolonnene `ID` og `cluster`:
-
-```python
-import numpy as np
+```test
 import pandas as pd
-
-labels = np.array([2, 0, 1, 1, 0])
-submission = pd.DataFrame({"ID": np.arange(len(labels)), "cluster": labels})
-submission.to_csv("submission.csv", index=False)
-with open("submission.csv") as f:   # åpne filen og skriv ut teksten i den
-    print(f.read())
+assert isinstance(alle, pd.DataFrame) and alle.shape == (1000, 4), "alle skal være pd.concat([train, test]) med shape (1000, 4)."
+assert isinstance(sammen, pd.DataFrame) and sammen.shape == (500, 7), f"sammen skal ha shape (500, 7). Bruk axis=1 for å sette ved siden av hverandre."
+assert list(sammen.columns[:2]) == ["age", "survived"], "age og survived skal stå først i sammen."
 ```
-
-Glemmer du `index=False`, skrives indeksen som en ekstra kolonne uten navn:
-
-```python
-import pandas as pd
-
-submission = pd.DataFrame({"ID": [0, 1, 2], "cluster": [2, 0, 1]})
-submission.to_csv("feil.csv")
-with open("feil.csv") as f:
-    print(f.read())
-print(pd.read_csv("feil.csv").columns.tolist())
-```
-
-::: prosjekt Prosjekt 3, problem 2
-Slutten av løsningen var `submission = pd.DataFrame({"ID": data["ID"], "cluster": final_labels})` og `submission.to_csv("submission.csv", index=False)`.
 :::
 
+## Lagre til CSV
+`df.to_csv("submission.csv", index=False)` lagrer tabellen, og uten `index=False` blir indeksen en ekstra, navnløs kolonne.
+
+::: oppgave Kaggle-innlevering
+Lag `submission` med kolonnene `ID` (0, 1, 2, …) og `cluster` (`labels`), og lagre den til `submission.csv` uten indeks.
+```start
+import numpy as np
+import pandas as pd
+labels = np.array([2, 0, 1, 1, 0])
+
+submission = ...
+```
+```losning
+import numpy as np
+import pandas as pd
+labels = np.array([2, 0, 1, 1, 0])
+
+submission = pd.DataFrame({"ID": np.arange(len(labels)), "cluster": labels})
+submission.to_csv("submission.csv", index=False)
+```
+```test
+import os
+import pandas as pd
+assert isinstance(submission, pd.DataFrame) and list(submission.columns) == ["ID", "cluster"], "submission skal ha kolonnene ID og cluster."
+assert os.path.exists("submission.csv"), "Lagre filen med submission.to_csv('submission.csv', index=False)."
+_fil = pd.read_csv("submission.csv")
+os.remove("submission.csv")
+assert list(_fil.columns) == ["ID", "cluster"], f"Filen har kolonnene {list(_fil.columns)}. Husk index=False."
+assert _fil["ID"].tolist() == [0, 1, 2, 3, 4] and _fil["cluster"].tolist() == [2, 0, 1, 1, 0], "Sjekk verdiene i ID og cluster."
+```
+:::
+
+## Hele veien
+Nå kan du hele kjeden fra rådata til modellklare arrays: `drop`, `fillna`, `get_dummies` og `to_numpy`.
+
 ::: oppgave Fra rådata til X og y
-Gjør vikingdataene klare for en modell. Lag numpy-arrays `X` og `y` slik:
-
-1. Fjern `passenger_id` og `name`.
-2. Fyll manglende `age` med medianen, manglende `clan_origin` med `"Ukjent"` og manglende `armor` med `"None"`.
-3. One-hot-kod `sex`, `role`, `ship`, `destination`, `clan_origin` og `armor` med `drop_first=True` og `dtype=int`.
-4. `y` er `survived` som numpy-array. `X` er alle de andre kolonnene som numpy-array.
-
-`X` skal få shape `(500, 22)`.
+Fjern `passenger_id` og `name`, fyll `age` med medianen, `clan_origin` med `"Ukjent"` og `armor` med `"None"`, og one-hot-kod `sex`, `role`, `ship`, `destination`, `clan_origin` og `armor` med `drop_first=True` og `dtype=int`. Lag så numpy-arrays `y` (`survived`) og `X` (resten), der `X` får shape `(500, 22)`.
 ```start
 import pandas as pd
 df = pd.read_csv("problem2.csv")
@@ -1401,36 +1383,4 @@ assert not np.isnan(X.astype(float)).any(), "X inneholder NaN. Fyll inn age, cla
 assert X.shape[1] == 22, f"X skal ha 22 kolonner (4 numeriske + 18 one-hot), men har {X.shape[1]}. Husk drop_first=True og å fjerne survived."
 assert set(np.unique(y)) == {0, 1}, "y skal være survived (0 og 1)."
 ```
-:::
-
-::: quiz
-Kaggle krever en fil med nøyaktig kolonnene `ID` og `cluster`. Hva er galt med denne koden?
-```kode
-submission = pd.DataFrame({"ID": ids, "cluster": labels})
-submission.to_csv("submission.csv")
-```
-- [ ] Ingenting, filen får kolonnene ID og cluster
-- [x] Indeksen skrives som en ekstra, navnløs første kolonne
-- [ ] Kolonnene skrives i alfabetisk rekkefølge
-- [ ] `to_csv` skriver ikke kolonnenavn uten `header=True`
-? Som standard skriver `to_csv` med indeksen. Leser du filen inn igjen, får du en kolonne `Unnamed: 0`. Bruk `index=False`.
-:::
-
-::: quiz
-`data` har 1000 rader og kolonnene `x0`, `x1`, `y` og `split`. Hva er shape til `X`?
-```kode
-X = data.drop(columns="y").values
-```
-- [ ] `(1000, 2)`
-- [x] `(1000, 3)`
-- [ ] `(1000, 4)`
-- [ ] `(1000,)`
-? Bare `y` fjernes, så `x0`, `x1` og `split` blir igjen. Siden `split` er tekst, får arrayet typen `object`, og en modell vil krasje. Velg heller `data[["x0", "x1"]].values`.
-:::
-
-::: oppsummering
-- `X = df.drop(columns=target)` og `y = df[target]`.
-- `.values` og `.to_numpy()` gjør en DataFrame om til et numpy-array. Sjekk at det ikke er tekst igjen (`dtype object`).
-- `pd.concat([a, b])` setter under hverandre, `pd.concat([a, b], axis=1)` ved siden av hverandre.
-- `df.to_csv("submission.csv", index=False)` lagrer uten den ekstra indekskolonnen.
 :::
